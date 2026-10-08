@@ -191,10 +191,10 @@ internal object PaperPortfolio {
 	var setupDone by mutableStateOf(false)
 		private set
 	/**
-	 * When each held stock was first bought (US Eastern epoch day) - "This week" measures from the buy when it was
-	 * this week, not from a week start the account didn't hold it at.
+	 * When each held stock was first bought (epoch millis) - "This week" measures from the buy when it was this week,
+	 * not from a week start the account didn't hold it at.
 	 */
-	var pickedDays by mutableStateOf<Map<String, Long>>(emptyMap())
+	var pickedAt by mutableStateOf<Map<String, Long>>(emptyMap())
 		private set
 	/**
 	 * A read of this account has landed. Until it has, nothing about the portfolio is known - least of all that it
@@ -403,6 +403,7 @@ internal object PaperPortfolio {
 		hasHydrated = false
 		cash = 0.0
 		positions = emptyList()
+		pickedAt = emptyMap()
 		realized = emptyList()
 		trades = emptyList()
 		openOrders = emptyList()
@@ -525,7 +526,7 @@ internal object PaperPortfolio {
 			portfolioName = portfolio.name ?: ""
 			strategy = strategyFromId(portfolio.strategy)
 			positions = mappedPositions
-			pickedDays = portfolio.positions.groupBy { it.ticker }.mapValues { (_, ps) -> ps.minOf { epochDayOf(it.addedAt) } }
+			pickedAt = portfolio.positions.groupBy { it.ticker }.mapValues { (_, ps) -> ps.minOf { epochMillisOf(it.addedAt) } }
 			trades = mappedTrades
 			openOrders = mappedOrders
 			realized = mappedRealized
@@ -614,6 +615,9 @@ internal object PaperPortfolio {
 
 	private fun dayLabelOf(iso: String): String =
 		runCatching { Instant.parse(iso).atZone(marketZone).toLocalDate().format(DateTimeFormatter.ofPattern("MMM d", Locale.US)) }.getOrDefault("")
+
+	private fun epochMillisOf(iso: String): Long =
+		runCatching { Instant.parse(iso).toEpochMilli() }.getOrDefault(0L)
 
 	private fun epochDayOf(iso: String): Long =
 		runCatching { Instant.parse(iso).atZone(marketZone).toLocalDate().toEpochDay() }.getOrDefault(0L)
@@ -844,6 +848,8 @@ internal object PaperPortfolio {
 			positions = positions.map { if (it === held) grown else it }
 			persist()
 		} else {
+			// Its buy moment until the server's own reaches the next read.
+			if (spec.symbol !in pickedAt) pickedAt = pickedAt + (spec.symbol to System.currentTimeMillis())
 			val priceText = usd(price)
 			val day = today()
 			val fresh = Position(

@@ -3,7 +3,8 @@
 <plist version="1.0">
 <!--
   Personal-team build: APNs and Sign in with Apple omitted.
-  Re-add once enrolled in the paid Apple Developer Program.
+  Re-add once enrolled in the paid Apple Developer Program: aps-environment turns on the
+  already-built push (Core/PushRegistration.swift, with GoogleService-Info.plist in StakDemo/).
 -->
 <dict>
 </dict>

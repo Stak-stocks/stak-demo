@@ -43,7 +43,7 @@ describe("web push registration", () => {
 		expect(res.status).toBe(200);
 		const insert = pgQueryMock.mock.calls.find((c) => /insert into push_devices/.test(String(c[0])))!;
 		// No priceThreshold sent: null, so an existing row keeps its own (a new one gets 3).
-		expect(insert[1]).toEqual([endpoint, "u1", "web", "America/Chicago", true, false, JSON.stringify(keys), null]);
+		expect(insert[1]).toEqual([endpoint, "u1", "web", "America/Chicago", true, false, JSON.stringify(keys), null, 3]);
 	});
 
 	it("rejects a web subscription without keys or a non-https endpoint", async () => {

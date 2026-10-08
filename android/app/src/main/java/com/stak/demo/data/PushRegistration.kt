@@ -35,6 +35,10 @@ object PushRegistration {
 		}
 	}
 
+	/** The upload in flight - the next waits for it. */
+	@Volatile
+	private var lastUpload: kotlinx.coroutines.Job? = null
+
 	/**
 	 * Sends this install's token and current settings to the backend. Called at start-up,
 	 * after sign-in, when a notification setting changes, and when FCM issues a new token.
@@ -43,7 +47,11 @@ object PushRegistration {
 	fun sync(knownToken: String? = null) {
 		if (Session.demoAccount || Session.token == null) return
 		val repo = repository ?: return
-		scope.launch {
+		// The settings as they are now, and in order: each upload waits for the one before it, so two quick changes
+		// (a threshold tapped twice) reach the server in the order they were made.
+		val previous = lastUpload
+		lastUpload = scope.launch {
+			previous?.join()
 			val token = knownToken ?: runCatching { FirebaseMessaging.getInstance().token.await() }.getOrNull() ?: return@launch
 			runCatching {
 				repo.putPushDevice(

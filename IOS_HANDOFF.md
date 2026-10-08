@@ -73,9 +73,11 @@ Use the native iOS behavior wherever an iPhone user expects it. Everything else 
   is offered. Supabase supports Apple as a provider (needs the Apple Developer setup + the provider enabled in the
   Supabase dashboard — a user task).
 - **Face ID / Touch ID** for Android's biometric lock (`ui/onboarding/BiometricGate.kt`), via LocalAuthentication.
-- **Push via APNs** for Android's FCM push (`StakMessagingService.kt`, `data/PushRegistration.kt`,
-  `PUT api/me/push-device`). Check how the backend sends push (`backend/src/services/pushService.ts`) — APNs may
-  need backend work; flag it rather than guess.
+- **Push** for Android's FCM push (`StakMessagingService.kt`, `data/PushRegistration.kt`,
+  `PUT api/me/push-device`): built, dormant (`Core/PushRegistration.swift`). The backend sends through FCM, so the
+  app hands its APNs token to FirebaseMessaging and uploads Firebase's token. It turns on with no code change once
+  `GoogleService-Info.plist` is in `StakDemo/` (gitignored), the APNs `.p8` key is in the Firebase console, and the
+  entitlements (aps-environment) are restored on the paid developer account.
 - **Haptics** on the moments Android gives feedback (saves, swipes, a completed buy).
 - **System share sheet**, **safe areas / Dynamic Island**, the **keyboard** pushing content up, **pull-to-refresh**
   only where Android has refresh, and the iOS **Dynamic Type**-safe layout where it doesn't fight the Figma sizes.
@@ -112,7 +114,7 @@ Rough order:
    graph + updates (`ui/mystak/`), Inbox (`ui/inbox/`), Profile/settings (`ui/profile/`).
 3. **Paper trading** on the server (`ui/simulate/`, `api/sandbox/*`).
 4. **STAK AI** (`ui/ai/`), entry points on Home/News headers, articles, stocks and the Daily Brief.
-5. **Push (APNs), biometric lock, engagement log** (`data/StakEvents.kt` → `POST api/swipe/event`).
+5. **Push (FCM -> APNs; built, dormant until configured), biometric lock, engagement log** (`data/StakEvents.kt` → `POST api/swipe/event`).
 6. **Polish + parity audit** against Android screen by screen; then TestFlight (needs the user's Apple Developer
    account).
 

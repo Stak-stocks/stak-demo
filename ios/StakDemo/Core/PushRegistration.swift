@@ -21,6 +21,8 @@ import FirebaseMessaging
 enum PushRegistration {
     /// True once Firebase has been started (GoogleService-Info.plist is in the app).
     private(set) static var configured = false
+    /// The upload in flight: each waits for the one before it, so two quick setting changes reach the server in order.
+    private static var lastUpload: Task<Void, Never>? = nil
 
     /// Starts Firebase when the app carries its config. Called once, at launch.
     static func configure(delegate: MessagingDelegate) {
@@ -35,9 +37,16 @@ enum PushRegistration {
     static func sync() {
         guard configured, !StakStore.demoAccount, Session.shared.token != nil else { return }
         UIApplication.shared.registerForRemoteNotifications()
-        guard let token = storedToken() else { return }
-        let request = request(token: token)
-        Task.detached(priority: .background) { await upload(request) }
+        guard let token = storedToken() else {
+            // None kept (a sign-out deleted it, or it came before Firebase did): ask Firebase - it issues a fresh one
+            // once the APNs token is in, as Android's sync() does.
+            Messaging.messaging().token { token, _ in
+                guard let token, !token.isEmpty else { return }
+                Task { @MainActor in fcmTokenReceived(token) }
+            }
+            return
+        }
+        enqueue(request(token: token))
     }
 
     /// AppDelegate: iOS delivered (or refreshed) its APNs token - Firebase needs it to issue its own.
@@ -48,23 +57,25 @@ enum PushRegistration {
 
     /// Firebase issued (or rotated) this install's token: kept, and sent with the settings.
     static func fcmTokenReceived(_ token: String) {
-        StakStore.set(token, for: "push.token")
+        UserDefaults.standard.set(token, forKey: tokenKey)
         guard !StakStore.demoAccount, Session.shared.token != nil else { return }
-        let request = request(token: token)
-        Task.detached(priority: .background) { await upload(request) }
+        enqueue(request(token: token))
     }
 
     /// Sign-out: the token is deleted, so the backend's next send to it fails and the row is dropped - the next
-    /// account on this phone never gets the last one's alerts. A new token is issued at the next sign-in.
+    /// account on this phone never gets the last one's alerts. A new token is issued at the next sign-in's sync().
     static func forget() {
-        StakStore.set("", for: "push.token")
+        UserDefaults.standard.removeObject(forKey: tokenKey)
         guard configured else { return }
         Messaging.messaging().deleteToken { _ in }
-        UIApplication.shared.unregisterForRemoteNotifications()
     }
 
+    /// The install's Firebase token - one per phone, not per account (a token that arrives while signed out is the
+    /// one the next sign-in sends). A new key: the APNs token the app kept before can never be sent by mistake.
+    private static let tokenKey = "push.fcmToken"
+
     private static func storedToken() -> String? {
-        let t = StakStore.string("push.token") ?? ""; return t.isEmpty ? nil : t
+        let t = UserDefaults.standard.string(forKey: tokenKey) ?? ""; return t.isEmpty ? nil : t
     }
 
     private static func request(token: String) -> PushDeviceRequest {
@@ -78,7 +89,11 @@ enum PushRegistration {
         )
     }
 
-    nonisolated private static func upload(_ request: PushDeviceRequest) async {
-        _ = try? await StockRepository.shared.putPushDevice(request)
+    private static func enqueue(_ request: PushDeviceRequest) {
+        let previous = lastUpload
+        lastUpload = Task {
+            await previous?.value
+            _ = try? await StockRepository.shared.putPushDevice(request)
+        }
     }
 }

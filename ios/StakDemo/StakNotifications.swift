@@ -115,7 +115,7 @@ final class StakNotifications: ObservableObject {
 			out.append(Item(
 				id: "move:\(day):\(ticker):\(up ? "up" : "down")",
 				title: "\(ticker) is \(up ? "up" : "down") \(String(format: "%.1f", abs(pct)))% \(session)",
-				body: (name.map { "\($0), one of your saved stocks, " } ?? "One of your saved stocks ") + "moved more than \(threshold)%.",
+				body: (name.map { "\($0), one of your saved stocks, " } ?? "One of your saved stocks ") + "moved \(threshold)% or more.",
 				time: session == "today" ? "Today" : when.prefix(1).uppercased() + when.dropFirst()
 			))
 		}

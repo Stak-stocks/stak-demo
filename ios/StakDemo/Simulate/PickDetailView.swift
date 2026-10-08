@@ -88,10 +88,10 @@ struct PickDetailView: View {
 	/// A real pick's own price history per range (the stock page's /chart), so switching pills doesn't re-fetch.
 	@State private var charts: [String: PickChart] = [:]
 	@ObservedObject private var portfolio = PaperPortfolio.shared
-	/// The stock's closes over the last week, and SPY's move over it - "This week" and "vs the market" for a real
+	/// The stock's bars over the last week and SPY's, by moment - "This week" and "vs the market" for a real
 	/// pick (web's pick page); nil until read, or when a chart didn't come back.
-	@State private var weekCloses: [(day: Int, close: Double)]? = nil
-	@State private var spyCloses: [(day: Int, close: Double)]? = nil
+	@State private var weekCloses: [(at: Date, close: Double)]? = nil
+	@State private var spyCloses: [(at: Date, close: Double)]? = nil
 	/// Live prices: a held pick re-prices from them as they land.
 	@ObservedObject private var quotes = LiveQuotes.shared
 	@Environment(\.scenePhase) private var scenePhase
@@ -344,8 +344,8 @@ struct PickDetailView: View {
 			guard !portfolio.demo else { return }
 			async let stock = try? StockRepository.shared.getChart(symbol, range: "1w")
 			async let market = try? StockRepository.shared.getChart("SPY", range: "1w")
-			func dated(_ chart: ChartResponse?) -> [(day: Int, close: Double)] {
-				(chart?.prices ?? []).filter { $0.close > 0 }.map { (PaperPortfolio.epochDay($0.ts), $0.close) }
+			func dated(_ chart: ChartResponse?) -> [(at: Date, close: Double)] {
+				(chart?.prices ?? []).compactMap { p in p.close > 0 ? MyStakHoldings.parse(p.ts).map { ($0, p.close) } : nil }
 			}
 			let closes = dated(await stock)
 			let spy = dated(await market)
@@ -372,16 +372,16 @@ struct PickDetailView: View {
 		var gainText = "—", gainColor = Sim.muted, versusText = "—", versusColor = Sim.muted
 		if let closes = weekCloses, let first = closes.first, let last = closes.last, first.close > 0 {
 			// Bought during this week: measured from the buy (its cost per share), not from a week start the account
-			// didn't hold it at - SPY from the same day, so "vs the market" compares like with like.
-			let picked = portfolio.pickedDays[symbol] ?? 0
+			// didn't hold it at - SPY from the same moment, so "vs the market" compares like with like.
+			let picked = portfolio.pickedAt[symbol] ?? .distantPast
 			let costPerShare = PaperPortfolio.amount(pick.priceThen)
-			let boughtThisWeek = picked > first.day && costPerShare > 0
+			let boughtThisWeek = picked > first.at && costPerShare > 0
 			let base = boughtThisWeek ? costPerShare : first.close
 			let gain = (price - base) * shares
 			gainText = PaperPortfolio.signedMoney(gain)
 			gainColor = gain > -0.005 ? Sim.green : Sim.red
 			if let spy = spyCloses, let spyLast = spy.last {
-				let spyBase = boughtThisWeek ? (spy.last(where: { $0.day <= picked }) ?? spy[0]).close : spy[0].close
+				let spyBase = boughtThisWeek ? (spy.last(where: { $0.at <= picked }) ?? spy[0]).close : spy[0].close
 				if spyBase > 0 {
 					let versus = (last.close - base) / base * 100 - (spyLast.close - spyBase) / spyBase * 100
 					versusText = abs(versus) < 0.05 ? "Even" : PaperPortfolio.signedPct(versus)

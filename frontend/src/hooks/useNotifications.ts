@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DAILY_SWIPE_LIMIT } from "@stak/shared";
 import { getDeviceState, getProfile, putDeviceState, type DeviceState } from "@/lib/api";
@@ -6,6 +6,7 @@ import { getLastCloseRef, getTodayKey } from "@/lib/utils";
 import { sessionDay } from "@/components/discover/discoverTheme";
 import { buildNotifications, unreadIds, type NotificationItem } from "@/lib/notifications";
 import { readNotificationPrefs } from "@/lib/notificationPrefs";
+import { syncWebPushPrefsOnLoad } from "@/lib/webPush";
 import { useMyStakData } from "@/hooks/useMyStakData";
 import { useAuth } from "@/context/AuthContext";
 
@@ -39,6 +40,8 @@ export function useNotifications() {
 
 	const firstName = appUser?.displayName?.split(" ")[0] ?? undefined;
 	const prefs = readNotificationPrefs(account?.preferences);
+	// The bell is on every page: the first account read re-sends this browser's push settings once.
+	useEffect(() => { if (account) syncWebPushPrefsOnLoad(prefs); }, [account, prefs]);
 	const swipeState = account?.dailySwipeState;
 	const usedToday = swipeState?.date === getTodayKey() ? swipeState.count : 0;
 

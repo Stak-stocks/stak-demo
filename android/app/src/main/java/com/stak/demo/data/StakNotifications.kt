@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
  * A real account's inbox is built from its own data (device check, 2026-09-16).
  * It used to be a fixed pair - "Welcome to STAK" and "Save a stock to start your
  * STAK", both stamped "Just now" forever, the second still shown with four stocks
- * saved. Now: a big move on a saved stock (over 3%, the threshold the settings page
+ * saved. Now: a big move on a saved stock (the threshold the settings page sets, 3% by default,
  * promises, only while "Price moves on your picks" is on), today's deck while cards
  * are left ("Daily deck"), the save prompt only while nothing is saved, and the
  * welcome for the account's first week, dated from when the account was created.
@@ -124,7 +124,7 @@ object StakNotifications {
 				id = "move:$day:$ticker:${if (up) "up" else "down"}",
 				title = "$ticker is ${if (up) "up" else "down"} ${String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(pct))}% $session",
 				body = (name?.let { "$it, one of your saved stocks, " } ?: "One of your saved stocks ") +
-					"moved more than ${UserProfile.priceThreshold}%.",
+					"moved ${UserProfile.priceThreshold}% or more.",
 				time = if (session == "today") "Today" else session.removePrefix("at ").replaceFirstChar { it.uppercase() },
 			)
 		}

@@ -212,7 +212,7 @@ private fun NotificationSettingsScreen(onBack: () -> Unit) {
 			}
 		}
 		// Each switch is sent to the backend, which does the sending while STAK is closed.
-		PermissionCard("Price moves on your picks", "A nudge when a saved or bought stock moves more than ${UserProfile.priceThreshold}%.", UserProfile.priceAlerts) { UserProfile.priceAlerts = !UserProfile.priceAlerts; if (UserProfile.priceAlerts) turnedOn(); Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
+		PermissionCard("Price moves on your picks", "A nudge when a saved or bought stock moves ${UserProfile.priceThreshold}% or more.", UserProfile.priceAlerts) { UserProfile.priceAlerts = !UserProfile.priceAlerts; if (UserProfile.priceAlerts) turnedOn(); Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
 		// Price threshold (FigJam Profile board, 2026-09-14): how big a move earns the nudge.
 		Column(
 			verticalArrangement = Arrangement.spacedBy((10 * u).dp),
@@ -221,7 +221,7 @@ private fun NotificationSettingsScreen(onBack: () -> Unit) {
 			Text("Price threshold", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp), color = Color.White)
 			Text("Only moves at least this big get a nudge.", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = com.stak.demo.ui.onboarding.Auth.SubtitleGray)
 			Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp)) {
-				listOf(1, 3, 5, 10).forEach { pct ->
+				UserProfile.PRICE_THRESHOLDS.forEach { pct ->
 					SettingsChip(label = "$pct%", selected = UserProfile.priceThreshold == pct) { UserProfile.priceThreshold = pct; Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
 				}
 			}

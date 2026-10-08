@@ -70,8 +70,8 @@ export function buildNotifications(input: BuildInput): NotificationItem[] {
 			id: `move:${marketDay}:${m.ticker}:${up ? "up" : "down"}`,
 			title: `${m.ticker} is ${up ? "up" : "down"} ${pct}% ${phrase.title}`,
 			body: m.name
-				? `${m.name}, one of your saved stocks, moved more than ${threshold}%.`
-				: `One of your saved stocks moved more than ${threshold}%.`,
+				? `${m.name}, one of your saved stocks, moved ${threshold}% or more.`
+				: `One of your saved stocks moved ${threshold}% or more.`,
 			time: phrase.time,
 		});
 	}

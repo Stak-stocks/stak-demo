@@ -80,7 +80,7 @@ final class Session: ObservableObject {
 			p.priceAlerts = prefs["priceAlerts"] as? Bool ?? true
 			p.dailyDeck = prefs["dailyDeck"] as? Bool ?? true
 			p.marketNews = prefs["marketNews"] as? Bool ?? false
-			p.priceThreshold = prefs["priceThreshold"] as? Int ?? 3
+			p.priceThreshold = prefs["priceThreshold"] as? Int ?? UserProfile.defaultPriceThreshold
 			// Only Dark and Match system exist (the Light build of 2026-09-08 was withdrawn): a
 			// value that build stored reads as Dark, so the Appearance page always shows a choice.
 			p.appearance = (prefs["appearance"] as? String) == "system" ? "system" : "dark"

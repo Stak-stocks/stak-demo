@@ -81,9 +81,9 @@ final class PaperPortfolio: ObservableObject {
 	private var lastChange: Task<Void, Never>? = nil
 	/// Company names already read - the ledger carries only tickers, and a name doesn't change.
 	private var names: [String: String] = [:]
-	/// When each held stock was first bought (US Eastern epoch day) - "This week" measures from the buy when it was
-	/// this week, not from a week start the account didn't hold it at.
-	@Published private(set) var pickedDays: [String: Int] = [:]
+	/// When each held stock was first bought - "This week" measures from the buy when it was this week, not from a
+	/// week start the account didn't hold it at.
+	@Published private(set) var pickedAt: [String: Date] = [:]
 
 	private let repo = StockRepository.shared
 
@@ -172,6 +172,7 @@ final class PaperPortfolio: ObservableObject {
 		hasHydrated = false
 		cash = 0
 		positions = []
+		pickedAt = [:]
 		realized = []
 		trades = []
 		openOrders = []
@@ -271,8 +272,8 @@ final class PaperPortfolio: ObservableObject {
 		let strategyText = PaperPortfolio.strategyLabel(portfolio.strategy)
 		if strategy != strategyText { strategy = strategyText }
 		if positions != mappedPositions { positions = mappedPositions }
-		let days = Dictionary(portfolio.positions.map { ($0.ticker, PaperPortfolio.epochDay($0.addedAt)) }, uniquingKeysWith: { min($0, $1) })
-		if pickedDays != days { pickedDays = days }
+		let picked = Dictionary(portfolio.positions.compactMap { p in MyStakHoldings.parse(p.addedAt).map { (p.ticker, $0) } }, uniquingKeysWith: { min($0, $1) })
+		if pickedAt != picked { pickedAt = picked }
 		if trades != mappedTrades { trades = mappedTrades }
 		if openOrders != mappedOrders { openOrders = mappedOrders }
 		if realized != mappedRealized { realized = mappedRealized }
@@ -461,6 +462,8 @@ final class PaperPortfolio: ObservableObject {
 				row: SimPick(badge: spec.badge, ticker: spec.symbol, sub: "Picked \(day) · just bought", amount: "+$0.00", pct: "+0.0%", up: true)
 			)
 			positions.insert(fresh, at: 0)
+			// Its buy moment until the server's own reaches the next read.
+			if pickedAt[spec.symbol] == nil { pickedAt[spec.symbol] = Date() }
 		}
 		persist()
 		if !demo {

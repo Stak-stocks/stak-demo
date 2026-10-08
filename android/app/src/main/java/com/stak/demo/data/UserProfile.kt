@@ -36,7 +36,11 @@ object UserProfile {
 	var dailyDeck by mutableStateOf(true)
 	var marketNews by mutableStateOf(false)
 	/** Price-alert threshold in percent (FigJam Profile board, 2026-09-14: "Price threshold"); the authored copy's 3 by default. */
-	var priceThreshold by mutableStateOf(3)
+	var priceThreshold by mutableStateOf(DEFAULT_PRICE_THRESHOLD)
+
+	/** The thresholds offered, and the default - mirror shared/src/notificationConfig.ts (the server accepts only these). */
+	val PRICE_THRESHOLDS = listOf(1, 3, 5, 10)
+	const val DEFAULT_PRICE_THRESHOLD = 3
 	var appearance by mutableStateOf("dark")
 	/** Demo: the authored link toggle. Real account: whether it signs in with Google. */
 	var linkedGoogle by mutableStateOf(false)

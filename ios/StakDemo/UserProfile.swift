@@ -31,7 +31,10 @@ final class UserProfile: ObservableObject {
 	@Published var dailyDeck: Bool = true
 	@Published var marketNews: Bool = false
 	/// Price-alert threshold in percent (FigJam Profile board, 2026-09-14: "Price threshold"); the authored copy's 3 by default.
-	@Published var priceThreshold: Int = 3
+	@Published var priceThreshold: Int = UserProfile.defaultPriceThreshold
+	/// The thresholds offered, and the default - mirror shared/src/notificationConfig.ts (the server accepts only these).
+	static let priceThresholds = [1, 3, 5, 10]
+	static let defaultPriceThreshold = 3
 	@Published var appearance: String = "dark"
 	@Published var linkedGoogle: Bool = false
 	@Published var linkedApple: Bool = false

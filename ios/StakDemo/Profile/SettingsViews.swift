@@ -180,7 +180,7 @@ private struct NotificationSettingsView: View {
 				.padding(16 * u)
 				.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
 			}
-			PermissionCard(title: "Price moves on your picks", description: "A nudge when a saved or bought stock moves more than \(profile.priceThreshold)%.", isOn: binding(\.priceAlerts))
+			PermissionCard(title: "Price moves on your picks", description: "A nudge when a saved or bought stock moves \(profile.priceThreshold)% or more.", isOn: binding(\.priceAlerts))
 			// Price threshold (FigJam Profile board, 2026-09-14): how big a move earns the nudge.
 			VStack(alignment: .leading, spacing: 10 * u) {
 				Text("Price threshold")
@@ -190,7 +190,7 @@ private struct NotificationSettingsView: View {
 					.font(StakFont.geist(11 * u))
 					.foregroundStyle(Auth.subtitleGray)
 				HStack(spacing: 8 * u) {
-					ForEach([1, 3, 5, 10], id: \.self) { pct in
+					ForEach(UserProfile.priceThresholds, id: \.self) { pct in
 						SettingsChip(label: "\(pct)%", selected: profile.priceThreshold == pct) { profile.priceThreshold = pct; Session.shared.saveProfile(); PushRegistration.sync() }
 					}
 				}

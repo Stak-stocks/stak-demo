@@ -120,10 +120,15 @@ internal object PortfolioHistory {
 		return (if (last.epochDay == today) points.dropLast(1) else points) + Point(today, value)
 	}
 
-	/** [symbol]'s closes over the last week by US Eastern epoch day (oldest first), or null when the chart didn't come back. */
+	/**
+	 * [symbol]'s bars over the last week as (epoch millis, close), oldest first - every one, as iOS and web read them,
+	 * so the week starts from its first bar - or null when the chart didn't come back.
+	 */
 	suspend fun weekCloses(symbol: String): List<Pair<Long, Double>>? {
 		val repo = repository ?: return null
-		return closesFor(repo, symbol, "1w")?.toSortedMap()?.map { (day, close) -> day to close }?.takeIf { it.size >= 2 }
+		val prices = runCatching { repo.getChart(symbol, "1w").prices }.getOrNull() ?: return null
+		return prices.mapNotNull { p -> if (p.close <= 0.0) null else runCatching { Instant.parse(p.ts).toEpochMilli() }.getOrNull()?.let { it to p.close } }
+			.sortedBy { it.first }.takeIf { it.size >= 2 }
 	}
 
 	/** [points]' values as the 0..1 fractions RangeChart draws. */

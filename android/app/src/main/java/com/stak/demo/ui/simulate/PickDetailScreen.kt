@@ -147,7 +147,7 @@ fun PickDetailScreen(
 	// Pinned for the page's life: once Confirm sell removes the position,
 	// the Position-closed sheet must still show THIS pick, not the fallback.
 	val p = remember(symbol, refreshTick) { pickSpec(symbol) }
-	// The stock's week of closes and SPY's move over it - "This week" and "vs the market" for a real pick (web's
+	// The stock's week of bars and SPY's, by moment - "This week" and "vs the market" for a real pick (web's
 	// pick page; both were fixed at "+$0.00" / "Even").
 	var weekCloses by remember(symbol) { mutableStateOf<List<Pair<Long, Double>>?>(null) }
 	var spyCloses by remember(symbol) { mutableStateOf<List<Pair<Long, Double>>?>(null) }
@@ -318,8 +318,8 @@ fun PickDetailScreen(
 							val closes = weekCloses
 							if (closes != null && closes.first().second > 0.0) {
 								// Bought during this week: measured from the buy (its cost per share), not from a week start the
-								// account didn't hold it at - SPY from the same day, so "vs the market" compares like with like.
-								val picked = PaperPortfolio.pickedDays[symbol] ?: 0L
+								// account didn't hold it at - SPY from the same moment, so "vs the market" compares like with like.
+								val picked = PaperPortfolio.pickedAt[symbol] ?: 0L
 								val costPerShare = p.priceThen.removePrefix("$").replace(",", "").toDoubleOrNull() ?: 0.0
 								val boughtThisWeek = picked > closes.first().first && costPerShare > 0.0
 								val base = if (boughtThisWeek) costPerShare else closes.first().second
