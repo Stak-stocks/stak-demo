@@ -108,7 +108,9 @@ struct ProfileView: View {
 										.frame(width: 64 * u, height: 64 * u)
 										.clipShape(Circle())
 								} else {
-									Text(profile.greetingName.prefix(1).uppercased())
+									// The account's own name only - greetingName is "there" for a nameless account, which read "T"
+									// (android shows no initial then).
+									Text(profile.demoAccount ? String(profile.greetingName.prefix(1)) : String(profile.displayName.trimmingCharacters(in: .whitespaces).prefix(1)).uppercased())
 										.font(StakFont.sora(22 * u, .semiBold))
 										.foregroundStyle(Color(argb: 0xFF9EADC7))
 								}

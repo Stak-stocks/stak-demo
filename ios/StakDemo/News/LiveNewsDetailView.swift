@@ -393,7 +393,8 @@ private struct LiveStockCard: View {
 	var body: some View {
 		let u = figmaUnit
 		let price = quote.map { $0.price > 0 ? "$" + String(format: "%.2f", $0.price) : "--" } ?? "--"
-		let pct = quote.map { ($0.changePercent >= 0 ? "+" : "") + String(format: "%.2f", $0.changePercent) + "% today" } ?? ""
+		// Before the open or at a weekend the move is the last session's: "on Friday", not "today".
+		let pct = quote.map { StakClock.sessionChange(($0.changePercent >= 0 ? "+" : "") + String(format: "%.2f", $0.changePercent) + "% today") } ?? ""
 		let up = (quote?.changePercent ?? 0) >= 0
 		VStack(alignment: .leading, spacing: 13 * u) {
 			HStack(spacing: 12 * u) {

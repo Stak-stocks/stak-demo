@@ -68,8 +68,18 @@ class DiscoverViewModel @Inject constructor(
      * (GET /api/brands/:id/quick-look), or the profile's cultural-context
      * sections when generation isn't available.
      */
+    /** Quick looks being read: a "Learn more" tap during the prefetch shares that request (iOS's in-flight map). */
+    private val quickLookInFlight = mutableMapOf<String, kotlinx.coroutines.Deferred<QuickLookData>>()
+
     suspend fun fetchQuickLook(brandId: String): QuickLookData {
         quickLookCache[brandId]?.let { return it }
+        quickLookInFlight[brandId]?.let { return it.await() }
+        val request = viewModelScope.async { readQuickLook(brandId) }
+        quickLookInFlight[brandId] = request
+        return try { request.await() } finally { quickLookInFlight.remove(brandId) }
+    }
+
+    private suspend fun readQuickLook(brandId: String): QuickLookData {
         val structured = runCatching {
             repository.getBrandQuickLook(brandId).quickLook?.takeIf { !it.in10Seconds.isNullOrBlank() }
         }.getOrNull()
@@ -148,6 +158,7 @@ class DiscoverViewModel @Inject constructor(
                         )
                     }
                     _deck.value = cards.filter { it.brandId !in swipedIds }
+                    if (resetSessionOnLoad) { DeckSession.load(); resetSessionOnLoad = false }
                     prefetchTips(cards)
                     prefetchQuickLooks(cards)
                 }.onFailure {
@@ -279,6 +290,8 @@ class DiscoverViewModel @Inject constructor(
     private var quoteJob: Job? = null
     /** The deck day ([todayKey]) the deck on screen was loaded for. */
     private var loadedDay: String? = null
+    /** A rollover reload: DeckSession resets with the new deck, not before it. */
+    private var resetSessionOnLoad = false
     /** [StakClock.lastCloseRef] when the deck was last priced - a changed one means the prices predate a session boundary. */
     private var quotedRef: String? = null
     /** Out-of-hours attempts to price cards whose quote never came back; capped so one bad symbol can't poll all night. */
@@ -292,7 +305,9 @@ class DiscoverViewModel @Inject constructor(
     fun onVisibleTick(visible: List<String>) {
         if (_loading.value) return
         if (loadedDay != null && loadedDay != todayKey()) {
-            DeckSession.load()
+            // The day's run resets only once the new cards are in (iOS's rule) - resetting first showed the previous
+            // day's swiped cards again for a moment, swipeable.
+            resetSessionOnLoad = true
             fetchDeck()
             return
         }

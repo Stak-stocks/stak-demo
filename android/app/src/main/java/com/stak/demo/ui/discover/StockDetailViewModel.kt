@@ -401,10 +401,13 @@ class StockDetailViewModel @Inject constructor(
      * visible and the market is open. Only the figures a quote carries move; the rest
      * of the page stays as it was.
      */
+    /** The price refresh in flight - a slow one isn't stacked on by the next 15s tick (iOS's quoteTask). */
+    private var quoteJob: Job? = null
+
     fun refreshQuote(symbol: String, range: String) {
         if (StakClock.lastCloseRef() != "today") return
-        if (_liveDetail.value == null || fetchJob?.isActive == true) return
-        viewModelScope.launch {
+        if (_liveDetail.value == null || fetchJob?.isActive == true || quoteJob?.isActive == true) return
+        quoteJob = viewModelScope.launch {
             val quote = runCatching { repository.getStock(symbol) }.getOrNull()?.quote ?: return@launch
             val price = quote.price?.takeIf { it > 0 } ?: return@launch
             quote.prevClose?.takeIf { it > 0 }?.let { prevClose = it }

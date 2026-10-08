@@ -242,8 +242,8 @@ struct MainTabsView: View {
 							onOpenMyStak: { endFirstRun(); switchTab(.myStak) },
 							onOpenDeck: { endFirstRun(); switchTab(.discover) },
 							// The board-only sections: a stock opens its detail.
-							onOpenStock: { symbol in pushInstant(.stockDetail(fromMyStak: false, symbol: symbol)) },
-							onOpenSavedStock: { symbol in pushInstant(.stockDetail(fromMyStak: true, symbol: symbol)) },
+							onOpenStock: { symbol in pushInstant(.stockDetail(fromMyStak: MyStakHoldings.shared.tickers.contains(symbol), symbol: symbol)) },
+							onOpenSavedStock: { symbol in pushInstant(.stockDetail(fromMyStak: MyStakHoldings.shared.tickers.contains(symbol), symbol: symbol)) },
 							onOpenAi: { push(.stakAi(context: nil, question: nil, conversationId: nil)) },
 							homeVM: homeVM,
 							newsVM: newsVM
@@ -359,6 +359,8 @@ struct MainTabsView: View {
 				// Only the top of the pushed stack owns a live hero player.
 				isTop: isTop
 			)
+		// The layout follows whether the stock is saved, decided as it opens (android) - not where it was opened from:
+		// Home's Trending strip can open a saved stock, and a collection or update a stock no longer held.
 		case .stockDetail(let fromMyStak, let symbol):
 			StockDetailView(
 				// The My STAK entry's authored Back -> Collection is Instant
@@ -391,7 +393,7 @@ struct MainTabsView: View {
 				// card -> the saved Stock Detail of ITS ticker, Instant
 				// (Codex parity audit, 2026-09-04).
 				onBack: { pop(.instant) },
-				onOpenStock: { ticker in pushInstant(.stockDetail(fromMyStak: true, symbol: ticker)) },
+				onOpenStock: { ticker in pushInstant(.stockDetail(fromMyStak: MyStakHoldings.shared.tickers.contains(ticker), symbol: ticker)) },
 				// Codex audit (2026-09-04): Add stock -> the Discover deck,
 				// Instant - swiping the deck is the app's only add path, so
 				// the tile hops there like the open state's tab-bar SWAPs.
@@ -465,7 +467,7 @@ struct MainTabsView: View {
 		case .updates:
 			UpdatesView(
 				onBack: { pop(.instant) },
-				onOpenStock: { ticker in pushInstant(.stockDetail(fromMyStak: true, symbol: ticker)) },
+				onOpenStock: { ticker in pushInstant(.stockDetail(fromMyStak: MyStakHoldings.shared.tickers.contains(ticker), symbol: ticker)) },
 				myStakVM: myStakVM,
 				isTop: isTop
 			)

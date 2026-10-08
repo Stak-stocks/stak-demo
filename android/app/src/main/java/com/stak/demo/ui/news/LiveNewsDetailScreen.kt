@@ -523,7 +523,8 @@ private fun LiveDivider() {
 @Composable
 private fun LiveStockCard(ticker: String, saved: Boolean, quote: BatchQuote?, u: Float) {
     val price = if (quote != null && quote.price > 0) "$${"%.2f".format(quote.price)}" else "--"
-    val pct = if (quote != null) "${if (quote.changePercent >= 0) "+" else ""}${"%.2f".format(quote.changePercent)}% today" else ""
+    // Before the open or at a weekend the move is the last session's: "on Friday", not "today".
+    val pct = if (quote != null) com.stak.demo.data.StakClock.sessionChange("${if (quote.changePercent >= 0) "+" else ""}${"%.2f".format(quote.changePercent)}% today") else ""
     val isUp = (quote?.changePercent ?: 0.0) >= 0
     Column(
         verticalArrangement = Arrangement.spacedBy((13 * u).dp),

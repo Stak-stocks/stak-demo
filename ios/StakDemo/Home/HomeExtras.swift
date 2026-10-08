@@ -65,7 +65,8 @@ struct TrendingStrip: View {
 									Text("$" + String(format: "%.2f", s.price))
 										.font(StakFont.geist(12 * u))
 										.foregroundStyle(Color.white)
-									Text(formatChange(s.changePercent))
+									// Before the open or at a weekend the move is the last session's: "on Friday", not "today".
+									Text(StakClock.sessionChange(formatChange(s.changePercent)))
 										.font(StakFont.geist(11 * u, .medium))
 										.foregroundStyle(s.changePercent >= 0 ? green : red)
 								}
