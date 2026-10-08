@@ -524,7 +524,7 @@ private fun ScoreHero() {
 			} else {
 				val points = rememberPortfolioHistory(range)
 				if (points != null && points.size >= 2) {
-					RangeChart(series = PortfolioHistory.fractions(points), tint = Sim.Teal, modifier = chartModifier)
+					RangeChart(series = PortfolioHistory.fractions(PortfolioHistory.endingToday(points, PaperPortfolio.portfolioValue)), tint = Sim.Teal, modifier = chartModifier)
 				} else {
 					Box(contentAlignment = Alignment.Center, modifier = chartModifier) {
 						Text(
@@ -575,10 +575,12 @@ private fun ScoreHero() {
  */
 @Composable
 private fun rememberPortfolioHistory(range: String): List<PortfolioHistory.Point>? {
-	// The ledger's identity: its size and its newest trade - the count alone stops moving once
-	// /trades' 100-row page is full.
+	// The ledger's identity: its size, its newest trade and what's held now (the replay starts
+	// from today's shares, which a read can change with no trade logged) - the count alone
+	// stops moving once /trades' page is full.
 	val newest = PaperPortfolio.trades.firstOrNull()
-	val ledgerKey = "${PaperPortfolio.trades.size}-${newest?.side}-${newest?.symbol}-${newest?.amount}-${newest?.epochDay}"
+	val held = PaperPortfolio.heldShares.toSortedMap().entries.joinToString(",") { "${it.key}:${it.value}" }
+	val ledgerKey = "${PaperPortfolio.trades.size}-${newest?.side}-${newest?.symbol}-${newest?.amount}-${newest?.epochDay}-$held"
 	var cache by remember { mutableStateOf<Map<String, List<PortfolioHistory.Point>>>(emptyMap()) }
 	var cachedForLedger by remember { mutableStateOf("") }
 	if (cachedForLedger != ledgerKey) {
@@ -587,7 +589,7 @@ private fun rememberPortfolioHistory(range: String): List<PortfolioHistory.Point
 	}
 	LaunchedEffect(range, ledgerKey) {
 		if (cache[range] == null) {
-			val built = PortfolioHistory.build(PaperPortfolio.trades, PaperPortfolio.paperStart, range)
+			val built = PortfolioHistory.build(PaperPortfolio.trades, PaperPortfolio.uninvested, PaperPortfolio.heldShares, range)
 			if (built != null) cache = cache + (range to built)
 		}
 	}

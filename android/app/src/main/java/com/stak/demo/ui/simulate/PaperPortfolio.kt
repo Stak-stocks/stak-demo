@@ -755,6 +755,13 @@ internal object PaperPortfolio {
 
 	val pickCount: Int get() = positions.size
 
+	/** Today's shares by symbol - where the history chart's backward replay starts. */
+	val heldShares: Map<String, Double>
+		get() = positions.groupBy { it.spec.symbol }.mapValues { (_, ps) -> ps.sumOf { it.spec.shares.toDoubleOrNull() ?: 0.0 } }
+
+	/** Cash plus the open limit orders' reserved stakes - the account's money that isn't in shares. */
+	val uninvested: Double get() = cash + openOrders.sumOf { it.amount }
+
 	fun holds(symbol: String): Boolean = positions.any { it.spec.symbol == symbol }
 
 	/** The tapped pick's numbers, re-priced off today's quote for a real account (Position.liveSpec) - the demo's authored spec unchanged. */

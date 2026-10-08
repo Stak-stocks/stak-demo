@@ -115,6 +115,14 @@ final class PaperPortfolio: ObservableObject {
 
 	var pickCount: Int { positions.count }
 
+	/// Today's shares by symbol - where the history chart's backward replay starts.
+	var heldShares: [String: Double] {
+		Dictionary(positions.map { ($0.spec.symbol, Double($0.spec.shares) ?? 0) }, uniquingKeysWith: +)
+	}
+
+	/// Cash plus the open limit orders' reserved stakes - the account's money that isn't in shares.
+	var uninvested: Double { cash + openOrders.reduce(0) { $0 + $1.amount } }
+
 	func holds(_ symbol: String) -> Bool { positions.contains { $0.spec.symbol == symbol } }
 
 	/// The pick's numbers, re-priced off today's quote for a real account - the demo's authored spec unchanged.

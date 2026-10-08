@@ -375,17 +375,18 @@ private struct ScoreHero: View {
 			// range's line under the next one.
 			let forRange = range
 			guard history[forRange] == nil else { return }
-			let built = await PortfolioHistory.build(portfolio.trades, paperStart: portfolio.paperStart, range: forRange)
+			let built = await PortfolioHistory.build(portfolio.trades, cash: portfolio.uninvested, holdings: portfolio.heldShares, range: forRange)
 			guard !Task.isCancelled, let built else { return }
 			history[forRange] = built
 		}
 	}
 
-	/// The ledger's identity: its size and its newest trade - the count alone stops moving once /trades' 100-row page
-	/// is full.
+	/// The ledger's identity: its size, its newest trade and what's held now (the replay starts from today's shares,
+	/// which a read can change with no trade logged) - the count alone stops moving once /trades' page is full.
 	private var ledgerKey: String {
 		let t = portfolio.trades.first
-		return "\(portfolio.trades.count)-\(t?.side ?? "")-\(t?.symbol ?? "")-\(t?.amount ?? 0)-\(t?.epochDay ?? 0)"
+		let held = portfolio.heldShares.sorted { $0.key < $1.key }.map { "\($0.key):\($0.value)" }.joined(separator: ",")
+		return "\(portfolio.trades.count)-\(t?.side ?? "")-\(t?.symbol ?? "")-\(t?.amount ?? 0)-\(t?.epochDay ?? 0)-\(held)"
 	}
 
 	/// The demo keeps its authored line - it has no live price behind its numbers. A real account's line is its own
@@ -395,7 +396,7 @@ private struct ScoreHero: View {
 		if portfolio.demo {
 			RangeLineChart(range: range, tint: Sim.teal, authored: "SimChartLine", width: 343 * u, height: 73.56 * u)
 		} else if let points = history[range], points.count >= 2 {
-			SeriesLine(series: PortfolioHistory.fractions(points), tint: Sim.teal)
+			SeriesLine(series: PortfolioHistory.fractions(PortfolioHistory.endingToday(points, value: portfolio.portfolioValue)), tint: Sim.teal)
 				.accessibilityHidden(true)
 		} else {
 			Text("No history yet")
