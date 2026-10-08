@@ -111,6 +111,8 @@ export interface UserDoc {
 	// matching Android's quiz. Kept here since old accounts may still carry them.
 	preferences?: { interests?: string[]; familiarity?: string; onboardingSwipes?: string[]; theme?: "light" | "dark" };
 	onboardingCompleted?: boolean;
+	/** True until the account confirms 18+, U.S. and the current Terms / Privacy ("Before we get started"). */
+	needsEligibility?: boolean;
 	stakBrandIds: string[];
 	stakSavedAt?: Record<string, StakSaveEntry>;
 	passedBrands: PassedEntry[];

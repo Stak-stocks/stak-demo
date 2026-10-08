@@ -51,10 +51,12 @@ export function AuthSecondary({ label, onClick }: { label: string; onClick: () =
 }
 
 /** Android's AuthInput: a 14u-radius field with the placeholder as its only label; an error draws a red ring and a caption. */
-export function AuthInput({ value, onChange, placeholder, type = "text", error, trailing, inputMode, maxLength, autoComplete, autoFocus, onEnter }: {
+export function AuthInput({ value, onChange, placeholder, label, type = "text", error, trailing, inputMode, maxLength, autoComplete, autoFocus, onEnter }: {
 	value: string;
 	onChange: (v: string) => void;
 	placeholder: string;
+	/** The field's spoken name when the placeholder isn't one (a date's "MM/DD/YYYY" is "Date of birth"). */
+	label?: string;
 	type?: string;
 	error?: string | null;
 	trailing?: ReactNode;
@@ -75,7 +77,7 @@ export function AuthInput({ value, onChange, placeholder, type = "text", error, 
 					onChange={(e) => onChange(e.target.value)}
 					onKeyDown={(e) => { if (e.key === "Enter" && onEnter) onEnter(); }}
 					placeholder={placeholder}
-					aria-label={placeholder}
+					aria-label={label ?? placeholder}
 					aria-invalid={!!error}
 					aria-describedby={error ? errorId : undefined}
 					inputMode={inputMode}

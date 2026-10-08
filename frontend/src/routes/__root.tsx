@@ -20,6 +20,7 @@ import { useSwipeLimit } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
 import { JOIN_WAITLIST, WEB_GOOGLE_SIGN_IN_KEY, WEB_SIGNUP_OPEN, isBrandNewAccount } from "@/lib/earlyAccess";
 import { useFirstRunPending } from "@/lib/firstRun";
+import { EligibilityGate, EligibilityRefused } from "@/components/onboarding/EligibilityGate";
 
 export const Route = createRootRoute({
 	component: Root,
@@ -32,7 +33,12 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 function Root() {
 	const { appUser, loading, logout } = useAuth();
 	const isLoggedIn = !!appUser;
-	const { account, accountLoading, saveToStak } = useAccount();
+	const { account, accountLoading, saveToStak, refreshAccount } = useAccount();
+	const queryClient = useQueryClient();
+	const [eligibilityRefused, setEligibilityRefused] = useState(false);
+	// Confirmed in this tab: the gate stays down even before the account's next read says so (until a sign-out).
+	const [eligibilityConfirmed, setEligibilityConfirmed] = useState(false);
+	useEffect(() => { if (!appUser) setEligibilityConfirmed(false); }, [appUser]);
 	const { reset: resetOnboarding } = useOnboarding();
 	const { hasReachedLimit: stakLimitReached, increment: incrementStakSwipe } = useSwipeLimit(appUser?.uid ?? "guest", !!appUser);
 	const location = useLocation();
@@ -41,7 +47,9 @@ function Root() {
 	// -> quiz -> Permissions -> Profile), so every onboarding route needs a session. They render without nav chrome.
 	const isOnboardingRoute = location.pathname === "/onboarding" || location.pathname.startsWith("/onboarding/");
 	const needsAuthForOnboardingStep = isOnboardingRoute;
-	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password"].includes(location.pathname) || isOnboardingRoute;
+	// The Terms and Privacy pages open for anyone, signed in or not - the gate below links to them.
+	const isLegalPage = location.pathname === "/terms" || location.pathname === "/privacy";
+	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password"].includes(location.pathname) || isOnboardingRoute || isLegalPage;
 	const [searchOpen, setSearchOpen] = useState(false);
 	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -71,7 +79,6 @@ function Root() {
 	}, [location.pathname]);
 
 	// Prefetch earnings calendar as soon as account loads so modal opens instantly
-	const queryClient = useQueryClient();
 	const stakTickers = useStakTickers();
 	useEffect(() => {
 		if (!appUser || stakTickers.length === 0) return;
@@ -223,6 +230,33 @@ function Root() {
 			<div className="flex items-center justify-center h-full bg-background">
 				<div className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
 			</div>
+		);
+	}
+	// Refused (under 18): the account is gone and this browser signed out - the answer stays up until OK.
+	if (eligibilityRefused) {
+		return <EligibilityRefused onDone={() => { setEligibilityRefused(false); navigate(WEB_SIGNUP_OPEN ? { to: "/signup" } : { to: "/welcome" }); }} />;
+	}
+	// "Before we get started" (18+, U.S., Terms / Privacy) over everything until the account confirms - new and
+	// existing accounts alike (as the apps); an account with no row yet hasn't confirmed either. The server refuses a
+	// new account's other requests until then too.
+	if (isLoggedIn && !accountLoading && !turningAway && !isLegalPage && !eligibilityConfirmed && (account === null || account.needsEligibility === true)) {
+		return (
+			<EligibilityGate
+				onConfirmed={() => {
+					// The server has it: the gate goes now, not when the account is next read.
+					setEligibilityConfirmed(true);
+					void refreshAccount().catch(() => {});
+				}}
+				onRefused={() => {
+					setEligibilityRefused(true);
+					// As Delete account: the session and everything this tab kept of the account go.
+					void logout().catch(() => {}).finally(() => {
+						queryClient.clear();
+						try { sessionStorage.clear(); } catch { /* best-effort */ }
+					});
+				}}
+				onSignOut={() => { void logout().catch(() => {}); }}
+			/>
 		);
 	}
 	if (isLoggedIn && !isAuthPage && onboardingCheckApplies && account?.onboardingCompleted !== true) {

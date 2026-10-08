@@ -52,13 +52,13 @@ describe("authMiddleware", () => {
 		});
 		// auth_identity_map lookup
 		pgQueryMock.mockResolvedValueOnce({ rows: [{ firebase_uid: "user-123" }] });
-		// onboarding_completed lookup
-		pgQueryMock.mockResolvedValueOnce({ rows: [{ onboarding_completed: false }] });
+		// onboarding_completed + eligibility lookup
+		pgQueryMock.mockResolvedValueOnce({ rows: [{ onboarding_completed: false, eligible: true }] });
 
 		const { authMiddleware } = await import("../authMiddleware.js");
 		await authMiddleware(req as any, res as any, next as NextFunction);
 
-		expect((req as any).user).toEqual({ uid: "user-123", email: "test@example.com", onboardingCompleted: false });
+		expect((req as any).user).toEqual({ uid: "user-123", email: "test@example.com", onboardingCompleted: false, eligible: true });
 		expect(next).toHaveBeenCalledTimes(1);
 		expect(res.status).not.toHaveBeenCalled();
 	});
@@ -75,15 +75,43 @@ describe("authMiddleware", () => {
 		pgQueryMock.mockResolvedValueOnce({ rows: [] });
 		// insert into auth_identity_map → no-op result
 		pgQueryMock.mockResolvedValueOnce({ rows: [] });
-		// onboarding_completed lookup
-		pgQueryMock.mockResolvedValueOnce({ rows: [{ onboarding_completed: false }] });
+		// onboarding_completed + eligibility lookup: a brand-new account hasn't confirmed yet
+		pgQueryMock.mockResolvedValueOnce({ rows: [{ onboarding_completed: false, eligible: false }] });
+		// It may still read its own account (which tells the app to ask).
+		Object.assign(req, { method: "GET", baseUrl: "/api/me", path: "/" });
 
 		const { authMiddleware } = await import("../authMiddleware.js");
 		await authMiddleware(req as any, res as any, next as NextFunction);
 
-		expect((req as any).user).toEqual({ uid: "new-supabase-uuid", email: "new@example.com", onboardingCompleted: false });
+		expect((req as any).user).toEqual({ uid: "new-supabase-uuid", email: "new@example.com", onboardingCompleted: false, eligible: false });
 		expect(next).toHaveBeenCalledTimes(1);
 		expect(res.status).not.toHaveBeenCalled();
+	});
+
+	it("refuses an unconfirmed new account anything but reading its account, confirming and leaving", async () => {
+		req.headers.authorization = "Bearer unconfirmed-token";
+		fetchMock.mockResolvedValueOnce({
+			ok: true,
+			json: async () => ({ id: "supabase-new", email: "kid@example.com", app_metadata: {} }),
+		});
+		pgQueryMock.mockResolvedValueOnce({ rows: [{ firebase_uid: "uid-new" }] });
+		pgQueryMock.mockResolvedValueOnce({ rows: [{ onboarding_completed: false, eligible: false }] });
+		Object.assign(req, { method: "POST", baseUrl: "/api/swipe", path: "/" });
+
+		const { authMiddleware } = await import("../authMiddleware.js");
+		await authMiddleware(req as any, res as any, next as NextFunction);
+
+		expect(res.status).toHaveBeenCalledWith(403);
+		expect(next).not.toHaveBeenCalled();
+
+		// Not remembered while unconfirmed: the next request reads the account again (a confirmation on another
+		// instance takes effect at once).
+		fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ id: "supabase-new", email: "kid@example.com", app_metadata: {} }) });
+		pgQueryMock.mockResolvedValueOnce({ rows: [{ firebase_uid: "uid-new" }] });
+		pgQueryMock.mockResolvedValueOnce({ rows: [{ onboarding_completed: false, eligible: true }] });
+		const next2 = vi.fn();
+		await authMiddleware(req as any, res as any, next2 as NextFunction);
+		expect(next2).toHaveBeenCalledTimes(1);
 	});
 
 	it("returns 401 when Supabase token verification fails", async () => {

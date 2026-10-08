@@ -125,6 +125,12 @@ export interface AndroidTaste {
 	picks: string[];
 }
 
+/** "Before we get started": the date of birth (checked by the server, never stored), U.S. residence and the Terms /
+ *  Privacy. 403 = not eligible (the account is gone); 400 = the date or a box. */
+export function confirmEligibility(data: { dob: string; inUS: true; acceptTerms: true }) {
+	return apiRequest<{ ok: boolean }>("/api/me/eligibility", { method: "POST", body: JSON.stringify(data) });
+}
+
 export function updateProfile(data: { displayName?: string; phone?: string; preferences?: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean; taste?: AndroidTaste }) {
 	return apiRequest("/api/me", {
 		method: "PUT",

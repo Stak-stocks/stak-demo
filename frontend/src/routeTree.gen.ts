@@ -10,10 +10,12 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as StakAiRouteImport } from './routes/stak-ai'
 import { Route as SimulateRouteImport } from './routes/simulate'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as NotificationsRouteImport } from './routes/notifications'
@@ -54,6 +56,11 @@ const WelcomeRoute = WelcomeRouteImport.update({
   path: '/welcome',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StakAiRoute = StakAiRouteImport.update({
   id: '/stak-ai',
   path: '/stak-ai',
@@ -72,6 +79,11 @@ const SignupRoute = SignupRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlaygroundRoute = PlaygroundRouteImport.update({
@@ -255,10 +267,12 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/playground': typeof PlaygroundRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/simulate': typeof SimulateRoute
   '/stak-ai': typeof StakAiRoute
+  '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/feed/article': typeof FeedArticleRoute
   '/feed/daily-brief': typeof FeedDailyBriefRoute
@@ -296,10 +310,12 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/playground': typeof PlaygroundRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/simulate': typeof SimulateRoute
   '/stak-ai': typeof StakAiRoute
+  '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/feed/article': typeof FeedArticleRoute
   '/feed/daily-brief': typeof FeedDailyBriefRoute
@@ -338,10 +354,12 @@ export interface FileRoutesById {
   '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/playground': typeof PlaygroundRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/simulate': typeof SimulateRoute
   '/stak-ai': typeof StakAiRoute
+  '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/feed_/article': typeof FeedArticleRoute
   '/feed_/daily-brief': typeof FeedDailyBriefRoute
@@ -381,10 +399,12 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/onboarding'
     | '/playground'
+    | '/privacy'
     | '/profile'
     | '/signup'
     | '/simulate'
     | '/stak-ai'
+    | '/terms'
     | '/welcome'
     | '/feed/article'
     | '/feed/daily-brief'
@@ -422,10 +442,12 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/onboarding'
     | '/playground'
+    | '/privacy'
     | '/profile'
     | '/signup'
     | '/simulate'
     | '/stak-ai'
+    | '/terms'
     | '/welcome'
     | '/feed/article'
     | '/feed/daily-brief'
@@ -463,10 +485,12 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/onboarding'
     | '/playground'
+    | '/privacy'
     | '/profile'
     | '/signup'
     | '/simulate'
     | '/stak-ai'
+    | '/terms'
     | '/welcome'
     | '/feed_/article'
     | '/feed_/daily-brief'
@@ -505,10 +529,12 @@ export interface RootRouteChildren {
   NotificationsRoute: typeof NotificationsRoute
   OnboardingRoute: typeof OnboardingRoute
   PlaygroundRoute: typeof PlaygroundRoute
+  PrivacyRoute: typeof PrivacyRoute
   ProfileRoute: typeof ProfileRoute
   SignupRoute: typeof SignupRoute
   SimulateRoute: typeof SimulateRoute
   StakAiRoute: typeof StakAiRoute
+  TermsRoute: typeof TermsRoute
   WelcomeRoute: typeof WelcomeRoute
   FeedArticleRoute: typeof FeedArticleRoute
   FeedDailyBriefRoute: typeof FeedDailyBriefRoute
@@ -546,6 +572,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WelcomeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/stak-ai': {
       id: '/stak-ai'
       path: '/stak-ai'
@@ -572,6 +605,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/playground': {
@@ -825,10 +865,12 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsRoute: NotificationsRoute,
   OnboardingRoute: OnboardingRoute,
   PlaygroundRoute: PlaygroundRoute,
+  PrivacyRoute: PrivacyRoute,
   ProfileRoute: ProfileRoute,
   SignupRoute: SignupRoute,
   SimulateRoute: SimulateRoute,
   StakAiRoute: StakAiRoute,
+  TermsRoute: TermsRoute,
   WelcomeRoute: WelcomeRoute,
   FeedArticleRoute: FeedArticleRoute,
   FeedDailyBriefRoute: FeedDailyBriefRoute,

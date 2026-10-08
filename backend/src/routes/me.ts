@@ -2,7 +2,8 @@ import { getVapidPublicKey } from "../services/pushService.js";
 import { Router } from "express";
 import { authMiddleware, forgetVerifiedToken, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
-import { DAILY_SWIPE_LIMIT, NEW_ACCOUNT_WINDOW_MS, STAK_CAPACITY, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, isPriceThreshold, DEFAULT_PRICE_THRESHOLD, type StakStockTagConfig } from "@stak/shared";
+import { DAILY_SWIPE_LIMIT, NEW_ACCOUNT_WINDOW_MS, STAK_CAPACITY, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, isPriceThreshold, DEFAULT_PRICE_THRESHOLD, MIN_AGE, TERMS_VERSION, PRIVACY_VERSION, ELIGIBILITY_BLOCK_DAYS, ageOn, latestUsDate, type StakStockTagConfig } from "@stak/shared";
+import { createHash } from "node:crypto";
 import { brands } from "@stak/shared/brands";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 import { planOf } from "../lib/entitlements.js";
@@ -68,11 +69,12 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		const result = await pgQuery<{
 			uid: string; email: string | null; display_name: string | null; phone: string | null;
 			preferences: Record<string, unknown> | null; onboarding_completed: boolean;
-			created_at: string; updated_at: string | null; plan: string | null;
+			created_at: string; updated_at: string | null; plan: string | null; confirmed: boolean;
 		}>(
-			`select uid, email, display_name, phone, preferences, onboarding_completed, created_at, updated_at, plan
+			`select uid, email, display_name, phone, preferences, onboarding_completed, created_at, updated_at, plan,
+			        (age_confirmed and country_confirmed and terms_version = $2 and privacy_version = $3) as confirmed
 			from users where uid = $1`,
-			[uid],
+			[uid, TERMS_VERSION, PRIVACY_VERSION],
 		);
 
 		if (result.rows.length === 0) {
@@ -83,6 +85,7 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 				createdAt: new Date().toISOString(),
 				taste: null,
 				plan: "free",
+				needsEligibility: true,
 			};
 			res.json(defaultProfile);
 			return;
@@ -101,6 +104,8 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			updatedAt: row.updated_at,
 			taste: tasteOf(row.preferences),
 			plan: planOf(row.plan),
+			// The apps show "Before we get started" while this is true - every account, including those from before it.
+			needsEligibility: !row.confirmed,
 		});
 	} catch (error) {
 		console.error("Error fetching profile:", error);
@@ -810,6 +815,60 @@ async function deleteAccount(uid: string, supabaseUid: string, token: string | u
 }
 
 const bearer = (req: AuthenticatedRequest) => req.headers.authorization?.replace(/^Bearer\s+/i, "") || undefined;
+
+/** A refused sign-up's email, kept only as this hash (lower-cased, trimmed). */
+const emailHash = (email: string) => createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
+
+// POST /api/me/eligibility { dob: "YYYY-MM-DD", inUS: true, acceptTerms: true } - the beta's 18+ / U.S. confirmation
+// (Terms §2) and the Terms / Privacy acceptance. The age is worked out here, not trusted from the app, and the date
+// of birth is never stored: only that it was confirmed, and when. Under 18 (or an email refused in the last 30 days),
+// the account is deleted on the spot - it never gets going - and its email is kept as a hash so it can't simply
+// try again.
+meRouter.post("/eligibility", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { dob, inUS, acceptTerms } = (req.body ?? {}) as { dob?: unknown; inUS?: unknown; acceptTerms?: unknown };
+		const age = typeof dob === "string" ? ageOn(dob, latestUsDate()) : null;
+		if (age === null) {
+			res.status(400).json({ error: "invalid_dob" });
+			return;
+		}
+		if (inUS !== true || acceptTerms !== true) {
+			res.status(400).json({ error: "confirmation_required" });
+			return;
+		}
+		const email = req.user!.email ?? "";
+		const blocked = email
+			? (await pgQuery(`select 1 from signup_blocks where email_hash = $1 and blocked_until > now()`, [emailHash(email)])).rows.length > 0
+			: false;
+		if (age < MIN_AGE || blocked) {
+			if (email && !blocked) {
+				await pgQuery(
+					`insert into signup_blocks (email_hash, blocked_until) values ($1, now() + make_interval(days => $2))
+					on conflict (email_hash) do update set blocked_until = excluded.blocked_until`,
+					[emailHash(email), ELIGIBILITY_BLOCK_DAYS],
+				);
+			}
+			await deleteAccount(uid, await supabaseIdOf(uid), bearer(req));
+			res.status(403).json({ error: "not_eligible" });
+			return;
+		}
+		await ensureUserRow(uid, req.user!.email);
+		await pgQuery(
+			`update users set age_confirmed = true, age_confirmed_at = now(), country_confirmed = true,
+				terms_version = $2, terms_accepted_at = now(), privacy_version = $3, privacy_accepted_at = now()
+			where uid = $1`,
+			[uid, TERMS_VERSION, PRIVACY_VERSION],
+		);
+		// The token's cached "not yet" must not outlive the confirmation.
+		const token = bearer(req);
+		if (token) forgetVerifiedToken(token);
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error confirming eligibility:", error);
+		res.status(500).json({ error: "Failed to confirm" });
+	}
+});
 
 // POST /api/me/turned-away — early access: the web signs a brand-new Google account back out (Supabase made the
 // account before STAK could say no), then calls this so nothing of it stays behind. Only the caller's own account, and
