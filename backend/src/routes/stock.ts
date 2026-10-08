@@ -38,7 +38,7 @@ import { cacheDelete, cacheGet, cacheSet } from "../lib/cache.js";
 import { pgQuery } from "../lib/postgres.js";
 import { sendPush } from "../services/pushService.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
-import { marketSessionBucket, getEasternDateKey, getPeerTickers, formatMarketCap, calcPercentChange, STAK_CAPACITY } from "@stak/shared";
+import { marketSessionBucket, getEasternDateKey, getPeerTickers, formatMarketCap, calcPercentChange, STAK_CAPACITY, DEFAULT_PRICE_THRESHOLD } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 
 
@@ -673,11 +673,11 @@ stockRouter.get("/warm-saved", async (req, res) => {
 //
 // Sends the push notifications the app's settings promise, so they arrive with the app
 // closed. Called by Cloud Scheduler every 15 minutes with x-warm-secret.
-// - Price moves: while the market is open, a saved stock moving 3% or more today, once
-//   per user, stock, direction and day, to devices with price alerts on.
+// - Price moves: while the market is open, a saved stock moving at least the device's own price
+//   threshold (1/3/5/10%, default 3) today, once per device, stock, direction and day, to devices
+//   with price alerts on.
 // - Daily deck: once per device per day, in the 9am hour where the phone is (the deck
 //   day starts at 9am local, as in the app), to devices with the daily deck on.
-const PUSH_MOVE_THRESHOLD_PCT = 3;
 /** Most companies to look at again in one run, and how long that look may take. */
 const UPDATE_SLOT2_MAX = 10;
 const PUSH_UPDATE_BUDGET_MS = 90 * 1000;
@@ -715,8 +715,8 @@ stockRouter.get("/push-run", async (req, res) => {
 			}
 		}
 
-		const devices = await pgQuery<{ token: string; uid: string; timezone: string; price_alerts: boolean; daily_deck: boolean }>(
-			`select token, uid, timezone, price_alerts, daily_deck from push_devices`,
+		const devices = await pgQuery<{ token: string; uid: string; timezone: string; price_alerts: boolean; daily_deck: boolean; price_threshold: number | null }>(
+			`select token, uid, timezone, price_alerts, daily_deck, price_threshold from push_devices`,
 		);
 		if (devices.rows.length === 0) { res.json({ ok: true, moves, decks, failed }); return; }
 
@@ -727,6 +727,7 @@ stockRouter.get("/push-run", async (req, res) => {
 				`select uid, brand_id from stak_brands where uid = any($1)`, [alertUids],
 			);
 			const tickerById = new Map(brands.map((b) => [b.id, b.ticker.toUpperCase()]));
+			const nameByTicker = new Map(brands.map((b) => [b.ticker.toUpperCase(), b.name]));
 			const byUser = new Map<string, string[]>();
 			for (const r of saved.rows) {
 				const t = tickerById.get(r.brand_id);
@@ -749,21 +750,30 @@ stockRouter.get("/push-run", async (req, res) => {
 					bigMoves.set(ticker, q.dp);
 				}
 			});
+			// Each user's alerting devices, grouped once (not filtered again per user).
+			const devicesByUser = new Map<string, typeof devices.rows>();
+			for (const d of devices.rows) if (d.price_alerts) devicesByUser.set(d.uid, [...(devicesByUser.get(d.uid) ?? []), d]);
 			for (const [uid, held] of byUser) {
-				const tokens = devices.rows.filter((d) => d.uid === uid && d.price_alerts).map((d) => d.token);
+				const userDevices = devicesByUser.get(uid) ?? [];
 				for (const ticker of held) {
 					const p = pct.get(ticker);
-					if (p === undefined || Math.abs(p) < PUSH_MOVE_THRESHOLD_PCT) continue;
+					if (p === undefined) continue;
 					const dir = p >= 0 ? "up" : "down";
-					const key = `push:move:${uid}:${today}:${ticker}:${dir}`;
-					if (await cacheGet<boolean>(key)) continue;
-					await cacheSet(key, true, PUSH_DEDUPE_TTL_MS);
-					const name = brands.find((b) => b.ticker.toUpperCase() === ticker)?.name;
-					for (const token of tokens) {
+					const name = nameByTicker.get(ticker);
+					// Told under the old per-account key earlier today (before the per-device thresholds shipped): not again.
+					if (await cacheGet<boolean>(`push:move:${uid}:${today}:${ticker}:${dir}`)) continue;
+					// Each device at its own threshold, told once per stock, direction and day - a phone set to 1% hears a
+					// move another set to 5% doesn't.
+					for (const d of userDevices) {
+						const threshold = d.price_threshold ?? DEFAULT_PRICE_THRESHOLD;
+						if (Math.abs(p) < threshold) continue;
+						const key = `push:move:${d.token}:${today}:${ticker}:${dir}`;
+						if (await cacheGet<boolean>(key)) continue;
+						await cacheSet(key, true, PUSH_DEDUPE_TTL_MS);
 						const r = await sendPush(
-							token,
+							d.token,
 							`${ticker} is ${dir} ${Math.abs(p).toFixed(1)}% today`,
-							`${name ? `${name}, one of your saved stocks,` : "One of your saved stocks"} moved more than ${PUSH_MOVE_THRESHOLD_PCT}%.`,
+							`${name ? `${name}, one of your saved stocks,` : "One of your saved stocks"} moved ${threshold}% or more.`,
 							{ kind: "move", ticker },
 						);
 						if (r === "sent") moves++; else if (r === "failed") failed++;

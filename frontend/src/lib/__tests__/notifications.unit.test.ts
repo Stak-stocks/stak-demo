@@ -22,7 +22,7 @@ describe("buildNotifications", () => {
 		});
 		expect(items.map((i) => i.id)).toEqual(["move:2026-09-26:TSLA:down", "move:2026-09-26:AAPL:up"]);
 		expect(items[0]!.title).toBe("TSLA is down 7.1% today");
-		expect(items[0]!.body).toBe("Tesla, one of your saved stocks, moved more than 3%.");
+		expect(items[0]!.body).toBe("Tesla, one of your saved stocks, moved 3% or more.");
 	});
 
 	it("words the session like Android after the close", () => {

@@ -89,6 +89,8 @@ export function putPushDevice(body: {
 	timezone: string;
 	priceAlerts: boolean;
 	dailyDeck: boolean;
+	/** The "Price threshold" setting (1 / 3 / 5 / 10%) - the server alerts this browser at it. */
+	priceThreshold: number;
 }) {
 	return apiRequest<{ ok: boolean }>("/api/me/push-device", { method: "PUT", body: JSON.stringify(body) });
 }

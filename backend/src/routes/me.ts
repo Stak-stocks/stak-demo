@@ -2,7 +2,7 @@ import { getVapidPublicKey } from "../services/pushService.js";
 import { Router } from "express";
 import { authMiddleware, forgetVerifiedToken, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
-import { DAILY_SWIPE_LIMIT, NEW_ACCOUNT_WINDOW_MS, STAK_CAPACITY, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "@stak/shared";
+import { DAILY_SWIPE_LIMIT, NEW_ACCOUNT_WINDOW_MS, STAK_CAPACITY, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, PRICE_THRESHOLDS, DEFAULT_PRICE_THRESHOLD, type StakStockTagConfig } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 import { planOf } from "../lib/entitlements.js";
@@ -587,14 +587,17 @@ meRouter.delete("/search-history/:query", authMiddleware, async (req: Authentica
 });
 
 // PUT /api/me/push-device — register (or update) this install for push notifications.
-// Body: { token, platform?, timezone?, priceAlerts?, dailyDeck? }. The alert switches are
-// the app's per-phone notification settings, so they live on the device row.
+// Body: { token, platform?, timezone?, priceAlerts?, dailyDeck?, priceThreshold? }. The alert switches and
+// the price threshold (1/3/5/10%) are the app's per-phone notification settings, so they live on the device row.
 meRouter.put("/push-device", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const { token, platform, timezone, priceAlerts, dailyDeck, webKeys } = req.body as {
+		const { token, platform, timezone, priceAlerts, dailyDeck, webKeys, priceThreshold } = req.body as {
 			token?: unknown; platform?: unknown; timezone?: unknown; priceAlerts?: unknown; dailyDeck?: unknown; webKeys?: unknown;
+			priceThreshold?: unknown;
 		};
+		// One of the four the apps offer; anything else (an older app that doesn't send it) keeps the row's own.
+		const threshold = typeof priceThreshold === "number" && (PRICE_THRESHOLDS as readonly number[]).includes(priceThreshold) ? priceThreshold : null;
 		if (typeof token !== "string" || token.length < 20 || token.length > 4096) {
 			res.status(400).json({ error: "token is required" });
 			return;
@@ -613,14 +616,16 @@ meRouter.put("/push-device", authMiddleware, async (req: AuthenticatedRequest, r
 		}
 		await ensureUserRow(uid, req.user!.email);
 		// The token is the install; if it was registered to another account on this phone,
-		// it now belongs to whoever is signed in.
+		// it now belongs to whoever is signed in - and doesn't keep that account's threshold.
 		await pgQuery(
-			`insert into push_devices (token, uid, platform, timezone, price_alerts, daily_deck, web_keys, updated_at)
-			values ($1, $2, $3, $4, $5, $6, $7, now())
+			`insert into push_devices (token, uid, platform, timezone, price_alerts, daily_deck, web_keys, price_threshold, updated_at)
+			values ($1, $2, $3, $4, $5, $6, $7, coalesce($8, $9), now())
 			on conflict (token) do update set uid = excluded.uid, platform = excluded.platform, timezone = excluded.timezone,
-				price_alerts = excluded.price_alerts, daily_deck = excluded.daily_deck, web_keys = excluded.web_keys, updated_at = now()`,
+				price_alerts = excluded.price_alerts, daily_deck = excluded.daily_deck, web_keys = excluded.web_keys,
+				price_threshold = coalesce($8, case when push_devices.uid = excluded.uid then push_devices.price_threshold else $9 end),
+				updated_at = now()`,
 			[token, uid, isWeb ? "web" : platform === "ios" ? "ios" : "android", zone, priceAlerts !== false, dailyDeck !== false,
-				isWeb ? JSON.stringify({ p256dh: keys!.p256dh, auth: keys!.auth }) : null],
+				isWeb ? JSON.stringify({ p256dh: keys!.p256dh, auth: keys!.auth }) : null, threshold, DEFAULT_PRICE_THRESHOLD],
 		);
 		res.json({ ok: true });
 	} catch (error) {

@@ -2,13 +2,12 @@
 // subscribes the browser and tells the backend where to send. The backend keeps a subscription as a
 // push_devices row (platform "web", token = the subscription's endpoint URL), next to Android's.
 import { deletePushDevice, getWebPushKey, putPushDevice } from "@/lib/api";
+import type { NotificationPrefs } from "@/lib/notificationPrefs";
 
 export type EnableResult = "enabled" | "denied" | "unsupported" | "unavailable" | "failed";
 
-export interface PushPrefs {
-	priceAlerts: boolean;
-	dailyDeck: boolean;
-}
+/** The notification settings a browser's push registration carries. */
+export type PushPrefs = Pick<NotificationPrefs, "priceAlerts" | "dailyDeck" | "priceThreshold">;
 
 export function webPushSupported(): boolean {
 	return typeof window !== "undefined"
@@ -46,6 +45,7 @@ async function register(sub: PushSubscription, prefs: PushPrefs): Promise<void> 
 		timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 		priceAlerts: prefs.priceAlerts,
 		dailyDeck: prefs.dailyDeck,
+		priceThreshold: prefs.priceThreshold,
 	});
 }
 
@@ -76,6 +76,17 @@ export async function enableWebPush(prefs: PushPrefs): Promise<EnableResult> {
 export async function syncWebPushPrefs(prefs: PushPrefs): Promise<void> {
 	const sub = await currentSubscription();
 	if (sub) await register(sub, prefs);
+}
+
+let loadSynced = false;
+/**
+ * Once per page load, after the account is read: this browser's registration catches up with the account's settings
+ * (changed in another browser, or saved before the server kept the threshold) - the apps do the same at launch.
+ */
+export function syncWebPushPrefsOnLoad(prefs: PushPrefs): void {
+	if (loadSynced || !webPushSupported()) return;
+	loadSynced = true;
+	void syncWebPushPrefs(prefs).catch(() => {});
 }
 
 /** Unsubscribes this browser and tells the backend to stop sending to it. Safe to call when not subscribed. */

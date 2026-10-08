@@ -1,6 +1,8 @@
 // Web notification preferences - stored in the account's `preferences.web_notifications` (PUT /api/me
 // keeps every other key). Android keeps its own copy on the phone; these are the web's.
 
+import { DEFAULT_PRICE_THRESHOLD, PRICE_THRESHOLDS } from "@stak/shared";
+
 export interface NotificationPrefs {
 	priceAlerts: boolean;
 	dailyDeck: boolean;
@@ -9,13 +11,13 @@ export interface NotificationPrefs {
 	priceThreshold: number;
 }
 
-export const PRICE_THRESHOLDS = [1, 3, 5, 10] as const;
+export { PRICE_THRESHOLDS };
 
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
 	priceAlerts: true,
 	dailyDeck: true,
 	marketNews: false,
-	priceThreshold: 3,
+	priceThreshold: DEFAULT_PRICE_THRESHOLD,
 };
 
 export function readNotificationPrefs(preferences: unknown): NotificationPrefs {
