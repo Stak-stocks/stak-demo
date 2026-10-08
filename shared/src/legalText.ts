@@ -1,8 +1,10 @@
 // The published Terms of Service and Privacy Policy: the founders' documents (STAK_Terms_of_Service and
 // STAK_Privacy_Policy, October 7, 2026) with the October 8 corrections that bring them in line with the app (the
 // eligibility confirmation at sign-up, web and iOS push, Google sign-in, the Gemini models, in-app account deletion,
-// notification settings and time zone, hosting) - in use pending the lawyer's review. Changing either means bumping TERMS_VERSION /
-// PRIVACY_VERSION in shared/src/eligibility.ts, which asks every account to accept again.
+// notification settings and time zone, hosting) - in use pending the lawyer's review. Changing either means bumping
+// TERMS_VERSION / PRIVACY_VERSION in shared/src/eligibility.ts, which asks every account to accept again. The web
+// renders these as pages (/terms, /privacy); the apps read them from GET /api/legal/:doc and show them in a sheet - one
+// text everywhere.
 
 /** A paragraph, or a bulleted list. */
 export type LegalBlock = string | { list: string[] };

@@ -98,6 +98,10 @@ interface StockApiService {
     @PUT("api/me")
     suspend fun putMe(@Body body: MePutRequest): MeResponse
 
+    /** The Terms of Service ("terms") or Privacy Policy ("privacy") - public. */
+    @GET("api/legal/{doc}")
+    suspend fun getLegal(@Path("doc") doc: String): LegalDocResponse
+
     /** "Before we get started": 400 = not all three boxes. */
     @POST("api/me/eligibility")
     suspend fun confirmEligibility(@Body body: EligibilityRequest): OkResponse

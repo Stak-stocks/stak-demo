@@ -9,7 +9,8 @@ struct EligibilityView: View {
 	@State private var accepted = false
 	@State private var busy = false
 	@State private var error: String? = nil
-	@Environment(\.openURL) private var openURL
+	/// The document open in the sheet, or nil.
+	@State private var reading: LegalDocKind? = nil
 
 	private var ready: Bool { adult && inUS && accepted && !busy }
 
@@ -41,10 +42,11 @@ struct EligibilityView: View {
 						check(adult, "I confirm that I am 18 years of age or older.", u: u) { adult.toggle(); error = nil }
 						check(inUS, "I confirm that I currently reside in the United States.", u: u) { inUS.toggle(); error = nil }
 						check(accepted, "I agree to the Terms of Service and Privacy Policy.", u: u) { accepted.toggle(); error = nil }
-						// The documents on their own row (as Android): a link inside the toggling label would only tick the box.
+						// The documents on their own row (as Android; a link inside the toggling label would only tick the box), each
+						// in a sheet whose "I agree" - once read to the end - ticks the agreement.
 						HStack(spacing: 16 * u) {
-							link("Terms of Service", u: u) { openURL(EligibilityGate.termsURL) }
-							link("Privacy Policy", u: u) { openURL(EligibilityGate.privacyURL) }
+							link("Terms of Service", u: u) { reading = .terms }
+							link("Privacy Policy", u: u) { reading = .privacy }
 						}
 						.padding(.leading, 30 * u)
 					}
@@ -70,6 +72,9 @@ struct EligibilityView: View {
 		.background(StakColors.bg.ignoresSafeArea())
 		// The gate is the whole screen: VoiceOver can't wander into the app beneath it.
 		.accessibilityAddTraits(.isModal)
+		.sheet(item: $reading) { kind in
+			LegalSheetView(kind: kind, onAgree: { accepted = true; error = nil })
+		}
 	}
 
 	private func submit() {

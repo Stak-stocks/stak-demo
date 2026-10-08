@@ -76,6 +76,8 @@ final class StockApiService {
     func getMe() async throws -> MeResponse { try await net.get("api/me") }
     func putMe(_ body: MePutRequest) async throws -> MeResponse { try await net.put("api/me", body: body) }
     func deleteMe() async throws -> OkResponse { try await net.delete("api/me") }
+    /// The Terms of Service ("terms") or Privacy Policy ("privacy") - public.
+    func getLegal(_ doc: String) async throws -> LegalDocResponse { try await net.get("api/legal/\(doc)") }
     /// "Before we get started": 400 = not all three boxes.
     func confirmEligibility(_ body: EligibilityRequest) async throws -> OkResponse { try await net.post("api/me/eligibility", body: body) }
     func getTaste() async throws -> TasteResponse { try await net.get("api/me/taste") }

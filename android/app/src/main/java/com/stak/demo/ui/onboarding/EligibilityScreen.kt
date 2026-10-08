@@ -39,7 +39,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -63,16 +62,18 @@ import kotlinx.coroutines.launch
 internal fun EligibilityScreen(onSignOut: () -> Unit) {
 	val u = figmaUnit()
 	val scope = rememberCoroutineScope()
-	val uriHandler = LocalUriHandler.current
 	val context = LocalContext.current
+	// The document open in the sheet (LegalDocs.TERMS / PRIVACY), or null.
+	var reading by rememberSaveable { mutableStateOf<String?>(null) }
 	var adult by rememberSaveable { mutableStateOf(false) }
 	var inUS by rememberSaveable { mutableStateOf(false) }
 	var accepted by rememberSaveable { mutableStateOf(false) }
 	var busy by remember { mutableStateOf(false) }
 	var error by remember { mutableStateOf<String?>(null) }
 	val ready = adult && inUS && accepted && !busy
-	// Back leaves the app (Sign out is on the screen): the account can't be used until this is answered.
-	BackHandler(enabled = true) { (context as? android.app.Activity)?.moveTaskToBack(true) }
+	// Back leaves the app (Sign out is on the screen): the account can't be used until this is answered. (With a document
+	// open, the sheet's own Back closes it.)
+	BackHandler(enabled = reading == null) { (context as? android.app.Activity)?.moveTaskToBack(true) }
 
 	Box(
 		modifier = Modifier
@@ -107,10 +108,11 @@ internal fun EligibilityScreen(onSignOut: () -> Unit) {
 				EligibilityCheck(adult, "I confirm that I am 18 years of age or older.") { adult = !adult; error = null }
 				EligibilityCheck(inUS, "I confirm that I currently reside in the United States.") { inUS = !inUS; error = null }
 				EligibilityCheck(accepted, "I agree to the Terms of Service and Privacy Policy.") { accepted = !accepted; error = null }
-				// The documents on their own row: a link inside the toggling label would only tick the box.
+				// The documents on their own row (a link inside the toggling label would only tick the box), each in a sheet
+				// whose "I agree" - once read to the end - ticks the agreement.
 				Row(horizontalArrangement = Arrangement.spacedBy((16 * u).dp), modifier = Modifier.padding(start = (30 * u).dp)) {
-					LegalLink("Terms of Service") { uriHandler.openUri(Eligibility.TERMS_URL) }
-					LegalLink("Privacy Policy") { uriHandler.openUri(Eligibility.PRIVACY_URL) }
+					LegalLink("Terms of Service") { reading = com.stak.demo.data.LegalDocs.TERMS }
+					LegalLink("Privacy Policy") { reading = com.stak.demo.data.LegalDocs.PRIVACY }
 				}
 			}
 			Column(verticalArrangement = Arrangement.spacedBy((12 * u).dp), modifier = Modifier.padding(bottom = (26 * u).dp)) {
@@ -130,6 +132,13 @@ internal fun EligibilityScreen(onSignOut: () -> Unit) {
 					}
 				}
 			}
+		}
+		reading?.let { doc ->
+			com.stak.demo.ui.components.LegalSheet(
+				doc = doc,
+				onClose = { reading = null },
+				onAgree = { accepted = true; error = null; reading = null },
+			)
 		}
 	}
 }

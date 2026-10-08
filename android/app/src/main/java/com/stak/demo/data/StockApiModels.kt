@@ -199,6 +199,20 @@ data class MeResponse(
     val needsEligibility: Boolean = false,
 )
 
+/** GET /api/legal/:doc - the Terms or Privacy Policy for the in-app sheet (LegalDocs). */
+data class LegalDocResponse(
+    val title: String = "",
+    val effective: String = "",
+    val notice: String = "",
+    val version: String = "",
+    val sections: List<LegalSectionDto> = emptyList(),
+)
+
+data class LegalSectionDto(val heading: String = "", val sub: String? = null, val blocks: List<LegalBlockDto> = emptyList())
+
+/** A paragraph ([text]) or a bulleted list ([list]). */
+data class LegalBlockDto(val text: String? = null, val list: List<String>? = null)
+
 /** POST /api/me/eligibility - "Before we get started": all three boxes. */
 data class EligibilityRequest(val ageConfirmed: Boolean = true, val inUS: Boolean = true, val acceptTerms: Boolean = true)
 

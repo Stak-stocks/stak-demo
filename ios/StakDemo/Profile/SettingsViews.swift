@@ -335,6 +335,8 @@ private struct LinkedRow: View {
 
 private struct HelpSupportView: View {
 	let onBack: () -> Void
+	/// The document open in the sheet, or nil.
+	@State private var reading: LegalDocKind? = nil
 
 	var body: some View {
 		let u = figmaUnit
@@ -357,13 +359,15 @@ private struct HelpSupportView: View {
 					let body = "What happened:\n\nWhere in the app:\n\nApp version \(version)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
 					if let url = URL(string: "mailto:support@thestak.org?subject=STAK%20problem%20report&body=\(body)") { UIApplication.shared.open(url) }
 				}
-				SettingsLinkRow(label: "Terms of service") { if let url = URL(string: termsURL) { UIApplication.shared.open(url) } }
-				SettingsLinkRow(label: "Privacy policy") { if let url = URL(string: privacyURL) { UIApplication.shared.open(url) } }
+				// In the app's own sheet, not the browser (the web shows the same text at /terms and /privacy).
+				SettingsLinkRow(label: "Terms of service") { reading = .terms }
+				SettingsLinkRow(label: "Privacy policy") { reading = .privacy }
 				SettingsLinkRow(label: "Version", value: version, chevron: false, action: nil)
 			}
 			.padding(.vertical, 4 * u)
 			.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
 		}
+		.sheet(item: $reading) { kind in LegalSheetView(kind: kind) }
 	}
 }
 
@@ -476,8 +480,6 @@ struct RiskStyleSheet: View {
 }
 
 /// Where the legal pages live - the landing site's routes.
-private let termsURL = "https://thestak.org/terms"
-private let privacyURL = "https://thestak.org/privacy"
 
 /// A small selectable chip - the notification threshold, the portfolio setup's balances. Mirrors android SettingsChip.
 struct SettingsChip: View {

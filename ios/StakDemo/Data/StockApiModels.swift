@@ -88,6 +88,20 @@ struct MeResponse: Decodable {
     /// The account hasn't confirmed 18+, U.S. and the current Terms / Privacy yet (EligibilityGate).
     var needsEligibility: Bool = false
 }
+/// GET /api/legal/:doc - the Terms or Privacy Policy for the in-app sheet (LegalDocs).
+struct LegalDocResponse: Decodable {
+    var title = ""; var effective = ""; var notice = ""; var version = ""
+    var sections: [LegalSection] = []
+    struct LegalSection: Decodable {
+        var heading = ""; var sub: String? = nil
+        var blocks: [LegalBlock] = []
+    }
+    /// A paragraph (`text`) or a bulleted list (`list`).
+    struct LegalBlock: Decodable {
+        var text: String? = nil; var list: [String]? = nil
+    }
+}
+
 /// POST /api/me/eligibility - "Before we get started": all three boxes.
 struct EligibilityRequest: Encodable {
     var ageConfirmed = true

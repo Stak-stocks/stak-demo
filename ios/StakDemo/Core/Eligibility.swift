@@ -8,8 +8,6 @@ import Foundation
 @MainActor
 final class EligibilityGate: ObservableObject {
 	static let shared = EligibilityGate()
-	static let termsURL = URL(string: "https://thestak.org/terms")!
-	static let privacyURL = URL(string: "https://thestak.org/privacy")!
 
 	/// The signed-in account hasn't confirmed: the gate is up.
 	@Published private(set) var required = false

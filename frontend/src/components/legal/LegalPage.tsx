@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { DISC } from "@/components/discover/discoverTheme";
-import type { LegalDoc } from "@/lib/legalText";
+import type { LegalDoc } from "@stak/shared";
 
 /**
  * A Terms / Privacy page: the founders' document as readable text, open to anyone (the eligibility gate links here).

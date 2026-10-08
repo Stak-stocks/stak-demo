@@ -17,9 +17,6 @@ import kotlinx.coroutines.withContext
  * components/onboarding/EligibilityGate.tsx and iOS Core/Eligibility.swift.
  */
 object Eligibility {
-	const val TERMS_URL = "https://thestak.org/terms"
-	const val PRIVACY_URL = "https://thestak.org/privacy"
-
 	private var repository: StockRepository? = null
 	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 	/** The session last asked about - a rotation or a second launch path doesn't ask again for the same one. */

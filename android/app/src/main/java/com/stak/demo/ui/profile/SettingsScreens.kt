@@ -300,6 +300,9 @@ private fun HelpSupportScreen(onBack: () -> Unit) {
 	val u = figmaUnit()
 	val context = LocalContext.current
 	val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "1.0" }
+	// The document open in the sheet (LegalDocs.TERMS / PRIVACY), or null.
+	var reading by rememberSaveable { mutableStateOf<String?>(null) }
+	Box(modifier = Modifier.fillMaxSize()) {
 	SettingsPage(title = "Help & support", onBack = onBack) {
 		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
 			FaqRow("Is this real money?", "No. In Simulate you practice with pretend money, starting with what you’d really invest. Nothing is bought or sold for real.")
@@ -324,11 +327,14 @@ private fun HelpSupportScreen(onBack: () -> Unit) {
 					.putExtra(Intent.EXTRA_TEXT, "What happened:\n\nWhere in the app:\n\nApp version $version")
 				runCatching { context.startActivity(intent) }
 			}
-			SettingsLinkRow(label = "Terms of service") { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TERMS_URL))) } }
-			SettingsLinkRow(label = "Privacy policy") { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_URL))) } }
+			// In the app's own sheet, not the browser (the web shows the same text at /terms and /privacy).
+			SettingsLinkRow(label = "Terms of service") { reading = com.stak.demo.data.LegalDocs.TERMS }
+			SettingsLinkRow(label = "Privacy policy") { reading = com.stak.demo.data.LegalDocs.PRIVACY }
 			// A value row - nothing to open behind it (product audit, 2026-09-05).
 			SettingsLinkRow(label = "Version", value = version, chevron = false, onClick = null)
 		}
+	}
+	reading?.let { doc -> com.stak.demo.ui.components.LegalSheet(doc = doc, onClose = { reading = null }) }
 	}
 }
 
@@ -356,8 +362,6 @@ private fun FaqRow(question: String, answer: String) {
 }
 
 /** Where the legal pages live - the landing site's routes. */
-private const val TERMS_URL = "https://thestak.org/terms"
-private const val PRIVACY_URL = "https://thestak.org/privacy"
 
 /** A small selectable chip - the notification threshold, the portfolio setup's balances. */
 @Composable
