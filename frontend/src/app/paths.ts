@@ -13,6 +13,11 @@ export const DESKTOP_APP_PREFIXES = [
 	"/notifications",
 	"/splash",
 	"/check-email",
+	"/login",
+	"/signup",
+	"/forgot-password",
+	"/reset-password",
+	"/onboarding",
 ] as const;
 
 export function isDesktopAppPath(pathname: string): boolean {

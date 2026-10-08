@@ -1,0 +1,66 @@
+/** Figma assets for 01 · Onboarding (frames 2:5710 to 2:6271). Hash names = Figma export hashes. */
+const base = "/app-assets";
+
+export const OB = {
+	logoIcon: `${base}/37d44.svg`,
+	/** The "STAK" wordmark export differs per frame; each step uses its own. */
+	logoText: {
+		picks: `${base}/3b140.svg`,
+		goal: `${base}/73bfc.svg`,
+		taste: `${base}/020c6.svg`,
+		profile: `${base}/bd5e6.svg`,
+	},
+	back: `${base}/f0c2a.svg`,
+	hero: {
+		v67: `${base}/14170.svg`,
+		v56: `${base}/25239.svg`,
+		v68: `${base}/c14a9.svg`,
+		v57: `${base}/60304.svg`,
+		v58: `${base}/bf4d0.svg`,
+		v60: `${base}/8cf29.svg`,
+		v61: `${base}/f712c.svg`,
+		v64: `${base}/03185.svg`,
+		v65: `${base}/4ac55.svg`,
+		v66: `${base}/d62f9.svg`,
+		v62: `${base}/f06c2.svg`,
+		v63: `${base}/6fc2c.svg`,
+		shadow: `${base}/9510e.svg`,
+		amazon: `${base}/6c6ff.png`,
+		google: `${base}/b9547.png`,
+		shopify: `${base}/be209.png`,
+		twitch: `${base}/f4100.png`,
+		nvidia: `${base}/180a0.png`,
+		apple: `${base}/be26b.png`,
+	},
+	brands: {
+		apple: `${base}/13ec2.png`,
+		tesla: `${base}/b839d.png`,
+		nike: `${base}/b2e41.svg`,
+		spotify: `${base}/964a9.svg`,
+		netflix: `${base}/248fe.png`,
+		amazon: `${base}/252c6.svg`,
+		disney: `${base}/6540f.png`,
+		microsoft: `${base}/93799.png`,
+		nvidia: `${base}/9d07f.png`,
+		playstation: `${base}/d54f7.png`,
+		coinbase: `${base}/logo-coinbase.svg`,
+		uber: `${base}/logo-uber.svg`,
+	},
+	swipe: {
+		googl: { box: `${base}/32531.svg`, shadow: `${base}/fc2e5.svg`, coin: `${base}/b9547.png`, bookmark: `${base}/c6a11.svg` },
+		aapl: { box: `${base}/28cc5.svg`, shadow: `${base}/83640.svg`, coin: `${base}/be26b.png`, bookmark: `${base}/08838.svg` },
+		nvda: { box: `${base}/3e4b8.svg`, shadow: `${base}/4b6ac.svg`, coin: `${base}/180a0.png`, bookmark: `${base}/7253a.svg` },
+	},
+	goal: {
+		learn: `${base}/e5cba.svg`,
+		grow: `${base}/0a233.svg`,
+		first: `${base}/21c64.svg`,
+		explore: `${base}/bca40.svg`,
+	},
+	risk: {
+		buy: `${base}/9054d.svg`,
+		hold: `${base}/ba8d1.svg`,
+		step: `${base}/5570b.svg`,
+		sell: `${base}/51017.svg`,
+	},
+} as const;

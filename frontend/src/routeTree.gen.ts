@@ -13,6 +13,7 @@ import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as SplashRouteImport } from './routes/splash'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as CheckEmailRouteImport } from './routes/check-email'
@@ -23,12 +24,14 @@ import { Route as AppNewsRouteImport } from './routes/_app.news'
 import { Route as AppHomeRouteImport } from './routes/_app.home'
 import { Route as AppDiscoverRouteImport } from './routes/_app.discover'
 import { Route as AppSimulateIndexRouteImport } from './routes/_app.simulate.index'
+import { Route as AppMyStakIndexRouteImport } from './routes/_app.my-stak.index'
 import { Route as AppStocksSymbolRouteImport } from './routes/_app.stocks.$symbol'
 import { Route as AppSimulatePortfolioRouteImport } from './routes/_app.simulate.portfolio'
 import { Route as AppSimulateLeaderboardRouteImport } from './routes/_app.simulate.leaderboard'
 import { Route as AppProfileTasteRiskRouteImport } from './routes/_app.profile_.taste-risk'
 import { Route as AppProfileEditRouteImport } from './routes/_app.profile_.edit'
 import { Route as AppNewsIdRouteImport } from './routes/_app.news_.$id'
+import { Route as AppMyStakCollectionRouteImport } from './routes/_app.my-stak.$collection'
 import { Route as AppDiscoverEndRouteImport } from './routes/_app.discover_.end'
 import { Route as AppSimulatePicksSymbolRouteImport } from './routes/_app.simulate.picks.$symbol'
 
@@ -50,6 +53,11 @@ const SignupRoute = SignupRouteImport.update({
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -101,6 +109,11 @@ const AppSimulateIndexRoute = AppSimulateIndexRouteImport.update({
   path: '/simulate/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppMyStakIndexRoute = AppMyStakIndexRouteImport.update({
+  id: '/my-stak/',
+  path: '/my-stak/',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppStocksSymbolRoute = AppStocksSymbolRouteImport.update({
   id: '/stocks/$symbol',
   path: '/stocks/$symbol',
@@ -131,6 +144,11 @@ const AppNewsIdRoute = AppNewsIdRouteImport.update({
   path: '/news/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppMyStakCollectionRoute = AppMyStakCollectionRouteImport.update({
+  id: '/my-stak/$collection',
+  path: '/my-stak/$collection',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDiscoverEndRoute = AppDiscoverEndRouteImport.update({
   id: '/discover_/end',
   path: '/discover/end',
@@ -147,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/check-email': typeof CheckEmailRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/splash': typeof SplashRoute
@@ -156,12 +175,14 @@ export interface FileRoutesByFullPath {
   '/news': typeof AppNewsRoute
   '/profile': typeof AppProfileRoute
   '/discover/end': typeof AppDiscoverEndRoute
+  '/my-stak/$collection': typeof AppMyStakCollectionRoute
   '/news/$id': typeof AppNewsIdRoute
   '/profile/edit': typeof AppProfileEditRoute
   '/profile/taste-risk': typeof AppProfileTasteRiskRoute
   '/simulate/leaderboard': typeof AppSimulateLeaderboardRoute
   '/simulate/portfolio': typeof AppSimulatePortfolioRoute
   '/stocks/$symbol': typeof AppStocksSymbolRoute
+  '/my-stak/': typeof AppMyStakIndexRoute
   '/simulate/': typeof AppSimulateIndexRoute
   '/simulate/picks/$symbol': typeof AppSimulatePicksSymbolRoute
 }
@@ -170,6 +191,7 @@ export interface FileRoutesByTo {
   '/check-email': typeof CheckEmailRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/splash': typeof SplashRoute
@@ -179,12 +201,14 @@ export interface FileRoutesByTo {
   '/news': typeof AppNewsRoute
   '/profile': typeof AppProfileRoute
   '/discover/end': typeof AppDiscoverEndRoute
+  '/my-stak/$collection': typeof AppMyStakCollectionRoute
   '/news/$id': typeof AppNewsIdRoute
   '/profile/edit': typeof AppProfileEditRoute
   '/profile/taste-risk': typeof AppProfileTasteRiskRoute
   '/simulate/leaderboard': typeof AppSimulateLeaderboardRoute
   '/simulate/portfolio': typeof AppSimulatePortfolioRoute
   '/stocks/$symbol': typeof AppStocksSymbolRoute
+  '/my-stak': typeof AppMyStakIndexRoute
   '/simulate': typeof AppSimulateIndexRoute
   '/simulate/picks/$symbol': typeof AppSimulatePicksSymbolRoute
 }
@@ -195,6 +219,7 @@ export interface FileRoutesById {
   '/check-email': typeof CheckEmailRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/splash': typeof SplashRoute
@@ -204,12 +229,14 @@ export interface FileRoutesById {
   '/_app/news': typeof AppNewsRoute
   '/_app/profile': typeof AppProfileRoute
   '/_app/discover_/end': typeof AppDiscoverEndRoute
+  '/_app/my-stak/$collection': typeof AppMyStakCollectionRoute
   '/_app/news_/$id': typeof AppNewsIdRoute
   '/_app/profile_/edit': typeof AppProfileEditRoute
   '/_app/profile_/taste-risk': typeof AppProfileTasteRiskRoute
   '/_app/simulate/leaderboard': typeof AppSimulateLeaderboardRoute
   '/_app/simulate/portfolio': typeof AppSimulatePortfolioRoute
   '/_app/stocks/$symbol': typeof AppStocksSymbolRoute
+  '/_app/my-stak/': typeof AppMyStakIndexRoute
   '/_app/simulate/': typeof AppSimulateIndexRoute
   '/_app/simulate/picks/$symbol': typeof AppSimulatePicksSymbolRoute
 }
@@ -220,6 +247,7 @@ export interface FileRouteTypes {
     | '/check-email'
     | '/forgot-password'
     | '/login'
+    | '/onboarding'
     | '/reset-password'
     | '/signup'
     | '/splash'
@@ -229,12 +257,14 @@ export interface FileRouteTypes {
     | '/news'
     | '/profile'
     | '/discover/end'
+    | '/my-stak/$collection'
     | '/news/$id'
     | '/profile/edit'
     | '/profile/taste-risk'
     | '/simulate/leaderboard'
     | '/simulate/portfolio'
     | '/stocks/$symbol'
+    | '/my-stak/'
     | '/simulate/'
     | '/simulate/picks/$symbol'
   fileRoutesByTo: FileRoutesByTo
@@ -243,6 +273,7 @@ export interface FileRouteTypes {
     | '/check-email'
     | '/forgot-password'
     | '/login'
+    | '/onboarding'
     | '/reset-password'
     | '/signup'
     | '/splash'
@@ -252,12 +283,14 @@ export interface FileRouteTypes {
     | '/news'
     | '/profile'
     | '/discover/end'
+    | '/my-stak/$collection'
     | '/news/$id'
     | '/profile/edit'
     | '/profile/taste-risk'
     | '/simulate/leaderboard'
     | '/simulate/portfolio'
     | '/stocks/$symbol'
+    | '/my-stak'
     | '/simulate'
     | '/simulate/picks/$symbol'
   id:
@@ -267,6 +300,7 @@ export interface FileRouteTypes {
     | '/check-email'
     | '/forgot-password'
     | '/login'
+    | '/onboarding'
     | '/reset-password'
     | '/signup'
     | '/splash'
@@ -276,12 +310,14 @@ export interface FileRouteTypes {
     | '/_app/news'
     | '/_app/profile'
     | '/_app/discover_/end'
+    | '/_app/my-stak/$collection'
     | '/_app/news_/$id'
     | '/_app/profile_/edit'
     | '/_app/profile_/taste-risk'
     | '/_app/simulate/leaderboard'
     | '/_app/simulate/portfolio'
     | '/_app/stocks/$symbol'
+    | '/_app/my-stak/'
     | '/_app/simulate/'
     | '/_app/simulate/picks/$symbol'
   fileRoutesById: FileRoutesById
@@ -292,6 +328,7 @@ export interface RootRouteChildren {
   CheckEmailRoute: typeof CheckEmailRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
+  OnboardingRoute: typeof OnboardingRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
   SplashRoute: typeof SplashRoute
@@ -326,6 +363,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -398,6 +442,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSimulateIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/my-stak/': {
+      id: '/_app/my-stak/'
+      path: '/my-stak'
+      fullPath: '/my-stak/'
+      preLoaderRoute: typeof AppMyStakIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/stocks/$symbol': {
       id: '/_app/stocks/$symbol'
       path: '/stocks/$symbol'
@@ -440,6 +491,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppNewsIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/my-stak/$collection': {
+      id: '/_app/my-stak/$collection'
+      path: '/my-stak/$collection'
+      fullPath: '/my-stak/$collection'
+      preLoaderRoute: typeof AppMyStakCollectionRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/discover_/end': {
       id: '/_app/discover_/end'
       path: '/discover/end'
@@ -463,12 +521,14 @@ interface AppRouteChildren {
   AppNewsRoute: typeof AppNewsRoute
   AppProfileRoute: typeof AppProfileRoute
   AppDiscoverEndRoute: typeof AppDiscoverEndRoute
+  AppMyStakCollectionRoute: typeof AppMyStakCollectionRoute
   AppNewsIdRoute: typeof AppNewsIdRoute
   AppProfileEditRoute: typeof AppProfileEditRoute
   AppProfileTasteRiskRoute: typeof AppProfileTasteRiskRoute
   AppSimulateLeaderboardRoute: typeof AppSimulateLeaderboardRoute
   AppSimulatePortfolioRoute: typeof AppSimulatePortfolioRoute
   AppStocksSymbolRoute: typeof AppStocksSymbolRoute
+  AppMyStakIndexRoute: typeof AppMyStakIndexRoute
   AppSimulateIndexRoute: typeof AppSimulateIndexRoute
   AppSimulatePicksSymbolRoute: typeof AppSimulatePicksSymbolRoute
 }
@@ -479,12 +539,14 @@ const AppRouteChildren: AppRouteChildren = {
   AppNewsRoute: AppNewsRoute,
   AppProfileRoute: AppProfileRoute,
   AppDiscoverEndRoute: AppDiscoverEndRoute,
+  AppMyStakCollectionRoute: AppMyStakCollectionRoute,
   AppNewsIdRoute: AppNewsIdRoute,
   AppProfileEditRoute: AppProfileEditRoute,
   AppProfileTasteRiskRoute: AppProfileTasteRiskRoute,
   AppSimulateLeaderboardRoute: AppSimulateLeaderboardRoute,
   AppSimulatePortfolioRoute: AppSimulatePortfolioRoute,
   AppStocksSymbolRoute: AppStocksSymbolRoute,
+  AppMyStakIndexRoute: AppMyStakIndexRoute,
   AppSimulateIndexRoute: AppSimulateIndexRoute,
   AppSimulatePicksSymbolRoute: AppSimulatePicksSymbolRoute,
 }
@@ -497,6 +559,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckEmailRoute: CheckEmailRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
+  OnboardingRoute: OnboardingRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
   SplashRoute: SplashRoute,

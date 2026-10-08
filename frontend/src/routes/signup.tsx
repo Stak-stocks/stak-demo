@@ -1,17 +1,18 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useAuth } from "../context/AuthContext";
-import { useState, useEffect } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-
+import { AU } from "@/app/auth/assets";
+import { AuthHeading, AuthInput, AuthLayout, FootRow, OrDivider, PrimaryButton, ShowToggle, SocialButton } from "@/app/auth/ui";
 import { getProfile } from "@/lib/api";
-import { StakLogo } from "@/components/StakLogo";
+import { useAuth } from "../context/AuthContext";
 
 export const Route = createFileRoute("/signup")({
 	component: SignUpPage,
 });
 
+/** Figma 2:5619 "Desktop · Sign up": visuals from the frame, auth logic from the previous signup page. */
 function SignUpPage() {
-	const { user, loading, onboardingCompleted, signUpWithEmail, sendVerificationEmail, signInWithGoogle, logout } = useAuth();
+	const { user, loading, signUpWithEmail, sendVerificationEmail, signInWithGoogle, logout } = useAuth();
 	const navigate = useNavigate();
 	const [signingUp, setSigningUp] = useState(false);
 	const [email, setEmail] = useState("");
@@ -21,19 +22,14 @@ function SignUpPage() {
 
 	useEffect(() => {
 		if (!loading && user) {
-			// Email/password users who haven't verified yet → go to verify screen
-			const isPasswordProvider = user.providerData[0]?.providerId === "password";
-			if (isPasswordProvider && !user.emailVerified) {
-				navigate({ to: "/verify-email" });
-				return;
-			}
-			user.getIdToken(true)
+			user
+				.getIdToken(true)
 				.then(() => getProfile())
 				.then(() => user.getIdToken(true))
 				.then(() => user.getIdTokenResult())
 				.then((result) => {
 					const done = result.claims.onboardingCompleted === true;
-					navigate({ to: done ? "/" : "/onboarding" });
+					navigate({ to: done ? "/home" : "/onboarding" });
 				})
 				.catch(() => {
 					logout().catch(() => {});
@@ -55,9 +51,10 @@ function SignUpPage() {
 		setSigningUp(true);
 		try {
 			await signUpWithEmail(email, password);
+			// The verification email still goes out; the user continues to onboarding without a verify screen.
 			await sendVerificationEmail();
-			// Don't navigate here — let the useEffect handle it once auth state
-			// updates with the new unverified user (prevents stale-user race condition)
+			// Don't navigate here: the effect above handles it once auth state
+			// updates with the new user (prevents a stale-user race)
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "";
 			if (message.includes("email-already-in-use")) {
@@ -87,7 +84,9 @@ function SignUpPage() {
 							toast.success("Welcome back!");
 							return;
 						}
-					} catch { /* fall through to new user */ }
+					} catch {
+						/* fall through to new user */
+					}
 				}
 				toast.success("Welcome to STAK!");
 			} else {
@@ -102,136 +101,58 @@ function SignUpPage() {
 		}
 	}
 
-	if (loading) {
-		return (
-			<div className="flex items-center justify-center min-h-screen bg-[#0f1629]">
-				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-			</div>
-		);
-	}
-
 	return (
-		<div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0f1629] px-6 overflow-hidden">
-			{/* Logo — top left */}
-			<Link to="/welcome" className="absolute top-5 left-6 flex items-center gap-2 hover:opacity-80 transition-opacity z-10">
-				<StakLogo size={28} />
-				<span className="text-foreground text-base font-bold tracking-wider">STAK</span>
-			</Link>
-
-			<div className="relative z-10 w-full max-w-sm space-y-6 text-center">
-				{/* Heading */}
-				<div>
-					<h1 className="text-[26px] font-extrabold text-foreground">Create Account</h1>
-					<p className="dark:text-slate-400 text-slate-500 mt-1">Start building your stak</p>
-				</div>
-
-				{/* Form */}
-				<form onSubmit={handleEmailSignUp} className="space-y-4 text-left">
-					<div>
-						<label htmlFor="email" className="block text-sm dark:text-slate-400 text-slate-500 mb-1.5">Email</label>
-						<input
-							id="email"
-							type="email"
-							placeholder="Email"
-							value={email}
-							onChange={(e) => setEmail(e.target.value)}
-							className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
-						/>
-					</div>
-
-					<div>
-						<label htmlFor="password" className="block text-sm dark:text-slate-400 text-slate-500 mb-1.5">Password</label>
-						<div className="relative">
-							<input
-								id="password"
-								type={showPassword ? "text" : "password"}
-								placeholder="At least 6 characters"
-								value={password}
-								onChange={(e) => setPassword(e.target.value)}
-								className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors pr-12"
-							/>
-							<button
-								type="button"
-								onClick={() => setShowPassword(!showPassword)}
-								className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:dark:text-slate-300 text-slate-600"
-							>
-								{showPassword ? (
-									<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-										<path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-									</svg>
-								) : (
-									<svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-										<path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-										<path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-									</svg>
-								)}
-							</button>
+		<AuthLayout formTop={242}>
+			<form onSubmit={handleEmailSignUp} className="flex w-full flex-col items-start gap-[30px]">
+				<div className="flex w-full flex-col items-start gap-[14px]">
+					<div className="flex w-full flex-col items-start gap-[51px]">
+						<AuthHeading title="Create your account" subtitle="Enter your details below to continue" />
+						<div className="flex w-full flex-col items-start gap-[14px]">
+							<SocialButton icon={AU.google} onClick={handleGoogleSignIn} disabled={signingUp}>
+								Continue with Google
+							</SocialButton>
+							<SocialButton icon={AU.apple} onClick={() => toast.info("Apple sign-in is not available yet")} disabled={signingUp}>
+								Continue with Apple
+							</SocialButton>
 						</div>
 					</div>
-
-					<div>
-						<label htmlFor="confirmPassword" className="block text-sm dark:text-slate-400 text-slate-500 mb-1.5">Confirm Password</label>
-						<input
-							id="confirmPassword"
-							type={showPassword ? "text" : "password"}
-							placeholder="Confirm password"
-							value={confirmPassword}
-							onChange={(e) => setConfirmPassword(e.target.value)}
-							className="w-full px-4 py-3 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground placeholder-slate-500 focus:outline-none focus:border-orange-500 transition-colors"
-						/>
-					</div>
-
-					{/* Sign Up Button */}
-					<button
-						type="submit"
-						disabled={signingUp || !email || !password || !confirmPassword}
-						className="w-full py-3.5 rounded-xl font-semibold text-foreground bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
-					>
-						{signingUp ? (
-							<div className="flex items-center justify-center gap-2">
-								<div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-								Creating account...
-							</div>
-						) : (
-							"Sign Up"
-						)}
-					</button>
-				</form>
-
-				{/* Divider */}
-				<div className="flex items-center gap-3">
-					<div className="flex-1 h-px bg-slate-700" />
-					<span className="text-sm text-slate-500">or continue with</span>
-					<div className="flex-1 h-px bg-slate-700" />
+					<OrDivider />
 				</div>
-
-				{/* Social Buttons */}
-				<div className="space-y-3">
-					<button
-						type="button"
-						onClick={handleGoogleSignIn}
-						disabled={signingUp}
-						className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-[#1a2332] border border-slate-700 border-slate-200 text-foreground font-medium hover:bg-[#1f2b3d] transition-all active:scale-[0.98] disabled:opacity-50"
-					>
-						<svg className="w-5 h-5" viewBox="0 0 24 24">
-							<path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
-							<path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-							<path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-							<path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-						</svg>
-						Sign up with Google
-					</button>
-
+				<div className="flex w-full flex-col items-start gap-[14px]">
+					<AuthInput
+						type="email"
+						name="email"
+						autoComplete="email"
+						placeholder="Email address"
+						value={email}
+						onChange={(e) => setEmail(e.target.value)}
+					/>
+					<AuthInput
+						type={showPassword ? "text" : "password"}
+						name="password"
+						autoComplete="new-password"
+						placeholder="Password"
+						value={password}
+						onChange={(e) => setPassword(e.target.value)}
+						right={<ShowToggle shown={showPassword} onToggle={() => setShowPassword((v) => !v)} />}
+					/>
+					<AuthInput
+						type={showPassword ? "text" : "password"}
+						name="confirmPassword"
+						autoComplete="new-password"
+						placeholder="Confirm Password"
+						value={confirmPassword}
+						onChange={(e) => setConfirmPassword(e.target.value)}
+					/>
 				</div>
-
-				{/* Sign In Link */}
-				<p className="dark:text-slate-400 text-slate-500 text-sm pt-2">
-					Already have an account?{" "}
-					<Link to="/login" className="text-blue-400 hover:text-blue-300 font-medium">
-						Sign in
-					</Link>
-				</p>
+				<PrimaryButton type="submit" disabled={signingUp || !email || !password || !confirmPassword}>
+					{signingUp ? "Creating account..." : "Create account"}
+				</PrimaryButton>
+			</form>
+			<div className="flex flex-col items-center justify-center gap-[14px] whitespace-nowrap">
+				<FootRow text="Already have an account?" linkLabel="Sign in" to="/login" />
+				<p className="font-geist text-[10px] leading-[13px] text-[#819abb]">By continuing you agree to the Terms and Privacy Policy.</p>
 			</div>
-		</div>
+		</AuthLayout>
 	);
 }
