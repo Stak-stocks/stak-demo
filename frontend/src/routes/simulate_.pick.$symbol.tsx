@@ -83,9 +83,16 @@ function PickPage() {
 	// "This week" and "vs the market": this stock's last-week move, in dollars on the held shares and against SPY.
 	const weekCloses = (week.data?.prices ?? []).filter((p) => p.close > 0);
 	const spyCloses = (spy.data?.prices ?? []).filter((p) => p.close > 0);
-	const weekGain = weekCloses.length >= 2 ? (pick.price - weekCloses[0]!.close) * pick.shares : null;
-	const stockWeekPct = weekCloses.length >= 2 ? ((weekCloses[weekCloses.length - 1]!.close - weekCloses[0]!.close) / weekCloses[0]!.close) * 100 : null;
-	const spyWeekPct = spyCloses.length >= 2 ? ((spyCloses[spyCloses.length - 1]!.close - spyCloses[0]!.close) / spyCloses[0]!.close) * 100 : null;
+	// Bought during this week: measured from the buy (its cost per share), not from a week start the account didn't
+	// hold it at - SPY from the same moment, so "vs the market" compares like with like (as the apps).
+	const boughtThisWeek = weekCloses.length >= 2 && pick.addedAt > Date.parse(weekCloses[0]!.ts) && pick.costPerShare > 0;
+	const weekBase = weekCloses.length >= 2 ? (boughtThisWeek ? pick.costPerShare : weekCloses[0]!.close) : null;
+	const spyBase = spyCloses.length >= 2
+		? (boughtThisWeek ? ([...spyCloses].reverse().find((p) => Date.parse(p.ts) <= pick.addedAt) ?? spyCloses[0]!).close : spyCloses[0]!.close)
+		: null;
+	const weekGain = weekBase !== null ? (pick.price - weekBase) * pick.shares : null;
+	const stockWeekPct = weekBase ? ((weekCloses[weekCloses.length - 1]!.close - weekBase) / weekBase) * 100 : null;
+	const spyWeekPct = spyBase ? ((spyCloses[spyCloses.length - 1]!.close - spyBase) / spyBase) * 100 : null;
 	const versus = stockWeekPct === null || spyWeekPct === null ? null : stockWeekPct - spyWeekPct;
 
 	const sellSheet = showSell && (

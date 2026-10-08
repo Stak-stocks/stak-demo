@@ -149,14 +149,14 @@ fun PickDetailScreen(
 	val p = remember(symbol, refreshTick) { pickSpec(symbol) }
 	// The stock's week of closes and SPY's move over it - "This week" and "vs the market" for a real pick (web's
 	// pick page; both were fixed at "+$0.00" / "Even").
-	var weekCloses by remember(symbol) { mutableStateOf<List<Double>?>(null) }
-	var spyWeekPct by remember(symbol) { mutableStateOf<Double?>(null) }
+	var weekCloses by remember(symbol) { mutableStateOf<List<Pair<Long, Double>>?>(null) }
+	var spyCloses by remember(symbol) { mutableStateOf<List<Pair<Long, Double>>?>(null) }
 	LaunchedEffect(symbol, PaperPortfolio.demo) {
 		if (PaperPortfolio.demo) return@LaunchedEffect
 		val stock = async { PortfolioHistory.weekCloses(symbol) }
 		val spy = async { PortfolioHistory.weekCloses("SPY") }
 		weekCloses = stock.await()
-		spyWeekPct = spy.await()?.let { (it.last() - it.first()) / it.first() * 100.0 }
+		spyCloses = spy.await()
 	}
 	// "+$24.00" -> "+$24" in the 48 box and ".00" in its own 16/20 box (1:4654).
 	val gainWhole = p.gain.substringBefore('.')
@@ -316,14 +316,23 @@ fun PickDetailScreen(
 						if (!PaperPortfolio.demo) {
 							weekText = "—"; weekColor = Sim.Muted; vsText = "—"; vsColor = Sim.Muted
 							val closes = weekCloses
-							if (closes != null && closes.first() > 0.0) {
+							if (closes != null && closes.first().second > 0.0) {
+								// Bought during this week: measured from the buy (its cost per share), not from a week start the
+								// account didn't hold it at - SPY from the same day, so "vs the market" compares like with like.
+								val picked = PaperPortfolio.pickedDays[symbol] ?: 0L
+								val costPerShare = p.priceThen.removePrefix("$").replace(",", "").toDoubleOrNull() ?: 0.0
+								val boughtThisWeek = picked > closes.first().first && costPerShare > 0.0
+								val base = if (boughtThisWeek) costPerShare else closes.first().second
 								val price = p.priceNow.removePrefix("$").replace(",", "").toDoubleOrNull() ?: 0.0
-								val gain = (price - closes.first()) * (p.shares.toDoubleOrNull() ?: 0.0)
+								val gain = (price - base) * (p.shares.toDoubleOrNull() ?: 0.0)
 								weekText = PaperPortfolio.signedUsd(gain); weekColor = if (gain > -0.005) Sim.Green else Sim.Red
-								spyWeekPct?.let { spy ->
-									val versus = (closes.last() - closes.first()) / closes.first() * 100.0 - spy
-									vsText = if (kotlin.math.abs(versus) < 0.05) "Even" else PaperPortfolio.signedPct(versus)
-									vsColor = if (versus > -0.05) Sim.Green else Sim.Red
+								spyCloses?.let { spy ->
+									val spyBase = if (boughtThisWeek) (spy.lastOrNull { it.first <= picked } ?: spy.first()).second else spy.first().second
+									if (spyBase > 0.0) {
+										val versus = (closes.last().second - base) / base * 100.0 - (spy.last().second - spyBase) / spyBase * 100.0
+										vsText = if (kotlin.math.abs(versus) < 0.05) "Even" else PaperPortfolio.signedPct(versus)
+										vsColor = if (versus > -0.05) Sim.Green else Sim.Red
+									}
 								}
 							}
 						}

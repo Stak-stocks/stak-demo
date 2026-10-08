@@ -237,6 +237,8 @@ struct StakPricePatchRequest: Encodable { let price: Double }
 struct PushDeviceRequest: Encodable {
     let token: String; let platform: String; let timezone: String
     let priceAlerts: Bool; let dailyDeck: Bool
+    /// The "Price threshold" setting (1 / 3 / 5 / 10%) - the server alerts this phone at it.
+    let priceThreshold: Int
 }
 struct OkResponse: Decodable { var ok: Bool = false }
 

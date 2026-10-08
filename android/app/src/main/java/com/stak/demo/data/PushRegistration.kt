@@ -53,6 +53,7 @@ object PushRegistration {
 						timezone = java.util.TimeZone.getDefault().id,
 						priceAlerts = UserProfile.notificationsOn && UserProfile.priceAlerts,
 						dailyDeck = UserProfile.notificationsOn && UserProfile.dailyDeck,
+						priceThreshold = UserProfile.priceThreshold,
 					),
 				)
 			}

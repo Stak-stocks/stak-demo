@@ -50,7 +50,8 @@ enum PushRegistration {
             platform: "ios",
             timezone: TimeZone.current.identifier,
             priceAlerts: UserProfile.shared.notificationsOn && UserProfile.shared.priceAlerts,
-            dailyDeck: UserProfile.shared.notificationsOn && UserProfile.shared.dailyDeck
+            dailyDeck: UserProfile.shared.notificationsOn && UserProfile.shared.dailyDeck,
+            priceThreshold: UserProfile.shared.priceThreshold
         ))
     }
 }

@@ -32,7 +32,7 @@ function NotificationSettingsPage() {
 		setBrowserBusy(true);
 		try {
 			if (!on) { await disableWebPush(); setBrowserOn(false); return; }
-			const result = await enableWebPush({ priceAlerts: prefs.priceAlerts, dailyDeck: prefs.dailyDeck });
+			const result = await enableWebPush({ priceAlerts: prefs.priceAlerts, dailyDeck: prefs.dailyDeck, priceThreshold: prefs.priceThreshold });
 			setBrowserOn(result === "enabled");
 			if (result === "denied") toast.error("Notifications are blocked for STAK in this browser. Allow them in the site settings first.");
 			else if (result === "unavailable") toast.error("Browser notifications aren't available right now. Try again later.");
@@ -50,7 +50,7 @@ function NotificationSettingsPage() {
 		try {
 			// The whole preferences object goes back so no other key (Android's saved stocks, taste) is lost.
 			await updateProfile({ preferences: { ...(account?.preferences ?? {}), web_notifications: next } });
-			await syncWebPushPrefs({ priceAlerts: next.priceAlerts, dailyDeck: next.dailyDeck }).catch(() => {});
+			await syncWebPushPrefs({ priceAlerts: next.priceAlerts, dailyDeck: next.dailyDeck, priceThreshold: next.priceThreshold }).catch(() => {});
 		} catch {
 			setPrefs(previous);
 			toast.error("Couldn't save that. Try again.");

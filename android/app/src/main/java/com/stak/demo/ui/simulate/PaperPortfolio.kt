@@ -191,6 +191,12 @@ internal object PaperPortfolio {
 	var setupDone by mutableStateOf(false)
 		private set
 	/**
+	 * When each held stock was first bought (US Eastern epoch day) - "This week" measures from the buy when it was
+	 * this week, not from a week start the account didn't hold it at.
+	 */
+	var pickedDays by mutableStateOf<Map<String, Long>>(emptyMap())
+		private set
+	/**
 	 * A read of this account has landed. Until it has, nothing about the portfolio is known - least of all that it
 	 * needs setting up: a failed first read once showed the setup card to a funded portfolio, and submitting it
 	 * erases the account's positions and trades on the server.
@@ -519,6 +525,7 @@ internal object PaperPortfolio {
 			portfolioName = portfolio.name ?: ""
 			strategy = strategyFromId(portfolio.strategy)
 			positions = mappedPositions
+			pickedDays = portfolio.positions.groupBy { it.ticker }.mapValues { (_, ps) -> ps.minOf { epochDayOf(it.addedAt) } }
 			trades = mappedTrades
 			openOrders = mappedOrders
 			realized = mappedRealized

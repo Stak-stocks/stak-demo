@@ -8,6 +8,7 @@ export type EnableResult = "enabled" | "denied" | "unsupported" | "unavailable" 
 export interface PushPrefs {
 	priceAlerts: boolean;
 	dailyDeck: boolean;
+	priceThreshold: number;
 }
 
 export function webPushSupported(): boolean {
@@ -46,6 +47,7 @@ async function register(sub: PushSubscription, prefs: PushPrefs): Promise<void> 
 		timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 		priceAlerts: prefs.priceAlerts,
 		dailyDeck: prefs.dailyDeck,
+		priceThreshold: prefs.priceThreshold,
 	});
 }
 

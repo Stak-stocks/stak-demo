@@ -113,6 +113,8 @@ data class PushDeviceRequest(
     val timezone: String,
     val priceAlerts: Boolean,
     val dailyDeck: Boolean,
+    /** The "Price threshold" setting (1 / 3 / 5 / 10%) - the server alerts this phone at it. */
+    val priceThreshold: Int,
 )
 data class OkResponse(val ok: Boolean = false)
 
