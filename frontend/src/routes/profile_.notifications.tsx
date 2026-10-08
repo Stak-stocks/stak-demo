@@ -65,7 +65,7 @@ function NotificationSettingsPage() {
 			)}
 			<PermissionCard
 				title="Price moves on your picks"
-				sub={`A nudge when a saved or bought stock moves ${prefs.priceThreshold}% or more.`}
+				sub={`A nudge when a saved stock moves ${prefs.priceThreshold}% or more.`}
 				checked={prefs.priceAlerts}
 				onChange={(v) => change({ ...prefs, priceAlerts: v })}
 			/>

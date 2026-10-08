@@ -212,7 +212,7 @@ private fun NotificationSettingsScreen(onBack: () -> Unit) {
 			}
 		}
 		// Each switch is sent to the backend, which does the sending while STAK is closed.
-		PermissionCard("Price moves on your picks", "A nudge when a saved or bought stock moves ${UserProfile.priceThreshold}% or more.", UserProfile.priceAlerts) { UserProfile.priceAlerts = !UserProfile.priceAlerts; if (UserProfile.priceAlerts) turnedOn(); Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
+		PermissionCard("Price moves on your picks", "A nudge when a saved stock moves ${UserProfile.priceThreshold}% or more.", UserProfile.priceAlerts) { UserProfile.priceAlerts = !UserProfile.priceAlerts; if (UserProfile.priceAlerts) turnedOn(); Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
 		// Price threshold (FigJam Profile board, 2026-09-14): how big a move earns the nudge.
 		Column(
 			verticalArrangement = Arrangement.spacedBy((10 * u).dp),

@@ -180,7 +180,7 @@ private struct NotificationSettingsView: View {
 				.padding(16 * u)
 				.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
 			}
-			PermissionCard(title: "Price moves on your picks", description: "A nudge when a saved or bought stock moves \(profile.priceThreshold)% or more.", isOn: binding(\.priceAlerts))
+			PermissionCard(title: "Price moves on your picks", description: "A nudge when a saved stock moves \(profile.priceThreshold)% or more.", isOn: binding(\.priceAlerts))
 			// Price threshold (FigJam Profile board, 2026-09-14): how big a move earns the nudge.
 			VStack(alignment: .leading, spacing: 10 * u) {
 				Text("Price threshold")

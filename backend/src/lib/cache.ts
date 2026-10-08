@@ -105,6 +105,25 @@ export async function cacheSet(key: string, data: unknown, ttlMs: number): Promi
 	memSet(key, data, Date.now() + ttlMs);
 }
 
+/**
+ * Store a value only if the key isn't already set, in one step: true when this call set it. Two callers racing for
+ * the same key (a send-once mark) can't both win, as they could with a cacheGet then a cacheSet.
+ */
+export async function cacheSetIfAbsent(key: string, data: unknown, ttlMs: number): Promise<boolean> {
+	if (redis) {
+		try {
+			return (await redis.set(PREFIX + key, JSON.stringify(data), "PX", Math.ceil(ttlMs), "NX")) === "OK";
+		} catch {
+			// Redis error — fall through to memory
+		}
+	}
+
+	const entry = mem.get(key);
+	if (entry && entry.expiresAt > Date.now()) return false;
+	memSet(key, data, Date.now() + ttlMs);
+	return true;
+}
+
 export async function cacheDelete(key: string): Promise<void> {
 	if (redis) {
 		try {

@@ -34,7 +34,7 @@ async function warmRiskWatch(ticker: string, companyName: string): Promise<void>
 	});
 }
 import { getEdgarEarningsEps } from "../services/edgarService.js";
-import { cacheDelete, cacheGet, cacheSet } from "../lib/cache.js";
+import { cacheDelete, cacheGet, cacheSet, cacheSetIfAbsent } from "../lib/cache.js";
 import { pgQuery } from "../lib/postgres.js";
 import { sendPush } from "../services/pushService.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
@@ -753,33 +753,32 @@ stockRouter.get("/push-run", async (req, res) => {
 			// Each user's alerting devices, grouped once (not filtered again per user).
 			const devicesByUser = new Map<string, typeof devices.rows>();
 			for (const d of devices.rows) if (d.price_alerts) devicesByUser.set(d.uid, [...(devicesByUser.get(d.uid) ?? []), d]);
+			// Each device at its own threshold - a phone set to 1% hears a move another set to 5% doesn't.
+			const sends: { uid: string; token: string; ticker: string; dir: "up" | "down"; pct: number; threshold: number }[] = [];
 			for (const [uid, held] of byUser) {
-				const userDevices = devicesByUser.get(uid) ?? [];
 				for (const ticker of held) {
 					const p = pct.get(ticker);
 					if (p === undefined) continue;
-					const dir = p >= 0 ? "up" : "down";
-					const name = nameByTicker.get(ticker);
-					// Told under the old per-account key earlier today (before the per-device thresholds shipped): not again.
-					if (await cacheGet<boolean>(`push:move:${uid}:${today}:${ticker}:${dir}`)) continue;
-					// Each device at its own threshold, told once per stock, direction and day - a phone set to 1% hears a
-					// move another set to 5% doesn't.
-					for (const d of userDevices) {
+					for (const d of devicesByUser.get(uid) ?? []) {
 						const threshold = d.price_threshold ?? DEFAULT_PRICE_THRESHOLD;
-						if (Math.abs(p) < threshold) continue;
-						const key = `push:move:${d.token}:${today}:${ticker}:${dir}`;
-						if (await cacheGet<boolean>(key)) continue;
-						await cacheSet(key, true, PUSH_DEDUPE_TTL_MS);
-						const r = await sendPush(
-							d.token,
-							`${ticker} is ${dir} ${Math.abs(p).toFixed(1)}% today`,
-							`${name ? `${name}, one of your saved stocks,` : "One of your saved stocks"} moved ${threshold}% or more.`,
-							{ kind: "move", ticker },
-						);
-						if (r === "sent") moves++; else if (r === "failed") failed++;
+						if (Math.abs(p) >= threshold) sends.push({ uid, token: d.token, ticker, dir: p >= 0 ? "up" : "down", pct: p, threshold });
 					}
 				}
 			}
+			await mapWithLimit(sends, 8, async (s) => {
+				// Told under the old per-account key earlier today (before the per-device thresholds shipped): not again.
+				if (await cacheGet<boolean>(`push:move:${s.uid}:${today}:${s.ticker}:${s.dir}`)) return;
+				// Once per device, stock, direction and day - claimed in one step, so an overlapping run can't send it too.
+				if (!(await cacheSetIfAbsent(`push:move:${s.token}:${today}:${s.ticker}:${s.dir}`, true, PUSH_DEDUPE_TTL_MS))) return;
+				const name = nameByTicker.get(s.ticker);
+				const r = await sendPush(
+					s.token,
+					`${s.ticker} is ${s.dir} ${Math.abs(s.pct).toFixed(1)}% today`,
+					`${name ? `${name}, one of your saved stocks,` : "One of your saved stocks"} moved ${s.threshold}% or more.`,
+					{ kind: "move", ticker: s.ticker },
+				);
+				if (r === "sent") moves++; else if (r === "failed") failed++;
+			});
 		}
 
 		// ── Daily deck ──
@@ -790,8 +789,7 @@ stockRouter.get("/push-run", async (req, res) => {
 			if (get("hour") !== "09") continue;
 			const localDay = `${get("year")}-${get("month")}-${get("day")}`;
 			const key = `push:deck:${d.token}:${localDay}`;
-			if (await cacheGet<boolean>(key)) continue;
-			await cacheSet(key, true, PUSH_DEDUPE_TTL_MS);
+			if (!(await cacheSetIfAbsent(key, true, PUSH_DEDUPE_TTL_MS))) continue;
 			const r = await sendPush(d.token, "Your deck is ready", "Fresh cards, tuned to your taste. Swipe when you have a minute.", { kind: "deck" });
 			if (r === "sent") decks++; else if (r === "failed") failed++;
 		}
