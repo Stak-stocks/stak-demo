@@ -1,11 +1,6 @@
-import { toast } from "sonner";
+import { INVITE_TEXT, shareText } from "@/lib/share";
 
-const INVITE_TEXT = "Join me on STAK — swipe stocks you actually understand and practice with paper money. https://thestak.org";
-
-/** Share the invite where the browser can, otherwise copy it. Dismissing the share sheet isn't an error. */
-export async function shareInvite() {
-	try {
-		if (navigator.share) await navigator.share({ title: "Invite a friend", text: INVITE_TEXT });
-		else { await navigator.clipboard.writeText(INVITE_TEXT); toast.success("Invite copied"); }
-	} catch { /* cancelled */ }
+/** Share the invite where the browser can, otherwise copy it. */
+export function shareInvite() {
+	return shareText(INVITE_TEXT, "Invite a friend", "Invite copied");
 }

@@ -51,6 +51,10 @@ private val ChipInk = Color(0xFF7FD4E8)
 /** The hub row that opens the share sheet instead of a settings page. */
 private const val INVITE = "invite"
 
+/** The invite line the share sheet carries (FigJam: Your profile -> Invite a friend) - also what Simulate's share
+ *  buttons send when there are no real numbers to share. */
+internal const val STAK_INVITE_TEXT = "Join me on STAK — swipe stocks you actually understand and practice with paper money. https://thestak.org"
+
 /**
  * 05 · Profile — "Profile · hub" (CHINEDU 171:995), reached from the
  * Home nav circle (prototype: Push Right 300ms). Avatar block, the
@@ -281,7 +285,7 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 								if (kind == INVITE) {
 									// The system share sheet with the invite line (FigJam: Your profile -> Invite a friend).
 									val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
-										.putExtra(android.content.Intent.EXTRA_TEXT, "Join me on STAK \u2014 swipe stocks you actually understand and practice with paper money. https://thestak.org")
+										.putExtra(android.content.Intent.EXTRA_TEXT, STAK_INVITE_TEXT)
 									runCatching { context.startActivity(android.content.Intent.createChooser(send, "Invite a friend")) }
 								} else {
 									onOpenSetting(kind)

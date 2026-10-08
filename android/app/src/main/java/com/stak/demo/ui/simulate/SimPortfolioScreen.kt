@@ -87,6 +87,7 @@ fun SimPortfolioScreen(
 	// (Position.liveValue / liveRow) - the demo's authored numbers carry no live
 	// price, so there is nothing to refresh for it.
 	val scope = androidx.compose.runtime.rememberCoroutineScope()
+	val context = androidx.compose.ui.platform.LocalContext.current
 	val heldSymbols = PaperPortfolio.positions.map { it.spec.symbol }.distinct()
 	if (!PaperPortfolio.demo) {
 		com.stak.demo.ui.components.RefreshWhileVisible(key = heldSymbols, intervalMs = com.stak.demo.ui.components.LIVE_PRICE_INTERVAL_MS, tickOnResume = true) {
@@ -114,9 +115,21 @@ fun SimPortfolioScreen(
 				Spacer(modifier = Modifier.weight(1f))
 				Box(
 					contentAlignment = Alignment.Center,
-					modifier = Modifier.size((40 * u).dp).background(Sim.CardBg, CircleShape),
+					modifier = Modifier
+						.size((40 * u).dp)
+						.clip(CircleShape)
+						.background(Sim.CardBg)
+						.clickable(
+							interactionSource = remember { MutableInteractionSource() },
+							indication = com.stak.demo.ui.theme.PressDim,
+							role = androidx.compose.ui.semantics.Role.Button,
+						) {
+							val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+								.putExtra(android.content.Intent.EXTRA_TEXT, PaperPortfolio.portfolioShareText)
+							runCatching { context.startActivity(android.content.Intent.createChooser(send, "Share portfolio")) }
+						},
 				) {
-					Image(painterResource(R.drawable.ic_news_share), null, modifier = Modifier.size((18 * u).dp)) // 1:4517 icon/share is 18 (exact-design audit 2026-09-04)
+					Image(painterResource(R.drawable.ic_news_share), "Share", modifier = Modifier.size((18 * u).dp)) // 1:4517 icon/share is 18 (exact-design audit 2026-09-04)
 				}
 			}
 			Column(

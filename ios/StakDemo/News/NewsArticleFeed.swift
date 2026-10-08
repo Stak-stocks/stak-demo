@@ -86,7 +86,7 @@ enum NewsArticleFeed {
 			// Tesla, not Apple) - each story passes its own oEmbed-verified
 			// official video; the empty-image default is the no-media slot.
 			media: media,
-			shareText: "\(headline) - read it on STAK: https://stak.app/news/\(id)",
+			shareText: "\(headline) - read it on STAK: https://thestak.org",
 			gist: gist,
 			pullQuote: pullQuote,
 			explainer: explainer,
@@ -117,7 +117,7 @@ enum NewsArticleFeed {
 				"The real verdict comes on July 30, when Apple reports fiscal third-quarter results. Wall Street is penciling in revenue of around 108 billion dollars, but the number everyone will hunt for is any early read on how the new lineup, and its price tags, are actually selling.",
 			],
 			media: NewsMedia.demo(),
-			shareText: "Apple climbs 5% on foldable iPhone push - read it on STAK: https://stak.app/news/apple-foldable-iphone-push",
+			shareText: "Apple climbs 5% on foldable iPhone push - read it on STAK: https://thestak.org",
 			gist: [
 				"Apple rose about 5% on plans for its widest iPhone lineup yet.",
 				"It raised foldable orders to 10 million units, a show of confidence.",

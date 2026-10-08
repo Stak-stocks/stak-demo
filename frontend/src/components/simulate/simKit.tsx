@@ -70,6 +70,21 @@ export function CenterLink({ label, onClick }: { label: string; onClick: () => v
 	);
 }
 
+/** The header's round share button (pick and portfolio pages), Android's 40u card circle with the 18u share icon. */
+export function ShareCircle({ onClick }: { onClick: () => void }) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			aria-label="Share"
+			className={`flex items-center justify-center rounded-full ${PRESS}`}
+			style={{ width: cu(40), height: cu(40), background: DISC.sheet, ...focusRing }}
+		>
+			<img src="/app/ic_news_share.png" alt="" style={{ width: cu(18), height: cu(18) }} draggable={false} />
+		</button>
+	);
+}
+
 /** Android's RangeChart: one plain 2u teal line, no fill, no axes, no tooltip. */
 export function RangeChart({ values, width = 343, height = 73.56, color = DISC.teal }: { values: number[]; width?: number; height?: number; color?: string }) {
 	const fractions = chartFractions(values);

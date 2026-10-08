@@ -147,6 +147,7 @@ fun PickDetailScreen(
 	// Pinned for the page's life: once Confirm sell removes the position,
 	// the Position-closed sheet must still show THIS pick, not the fallback.
 	val p = remember(symbol, refreshTick) { pickSpec(symbol) }
+	val context = androidx.compose.ui.platform.LocalContext.current
 	// The stock's week of bars and SPY's, by moment - "This week" and "vs the market" for a real pick (web's
 	// pick page; both were fixed at "+$0.00" / "Even").
 	var weekCloses by remember(symbol) { mutableStateOf<List<Pair<Long, Double>>?>(null) }
@@ -183,9 +184,21 @@ fun PickDetailScreen(
 				Spacer(modifier = Modifier.weight(1f))
 				Box(
 					contentAlignment = Alignment.Center,
-					modifier = Modifier.size((40 * u).dp).background(Sim.CardBg, CircleShape),
+					modifier = Modifier
+						.size((40 * u).dp)
+						.clip(CircleShape)
+						.background(Sim.CardBg)
+						.clickable(
+							interactionSource = remember { MutableInteractionSource() },
+							indication = com.stak.demo.ui.theme.PressDim,
+							role = androidx.compose.ui.semantics.Role.Button,
+						) {
+							val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+								.putExtra(android.content.Intent.EXTRA_TEXT, PaperPortfolio.pickShareText(p))
+							runCatching { context.startActivity(android.content.Intent.createChooser(send, "Share pick")) }
+						},
 				) {
-					Image(painterResource(R.drawable.ic_news_share), null, modifier = Modifier.size((18 * u).dp)) // 1:4652 icon/share is 18 (exact-design audit 2026-09-04)
+					Image(painterResource(R.drawable.ic_news_share), "Share", modifier = Modifier.size((18 * u).dp)) // 1:4652 icon/share is 18 (exact-design audit 2026-09-04)
 				}
 			}
 			Column(

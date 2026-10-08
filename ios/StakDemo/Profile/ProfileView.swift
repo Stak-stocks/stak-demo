@@ -24,8 +24,9 @@ private let tasteChips = [
 	TasteChip(label: "Consumer Brands", width: 125)
 ]
 
-/// The invite line the share sheet carries (FigJam: Your profile -> Invite a friend).
-private let inviteText = "Join me on STAK \u{2014} swipe stocks you actually understand and practice with paper money. https://thestak.org"
+/// The invite line the share sheet carries (FigJam: Your profile -> Invite a friend) - also what Simulate's share
+/// buttons send when there are no real numbers to share.
+let inviteText = "Join me on STAK \u{2014} swipe stocks you actually understand and practice with paper money. https://thestak.org"
 
 /// 05 · Profile — "Profile · hub" (CHINEDU 171:995), reached from the
 /// Home nav circle (prototype: Push Right 300ms). Avatar block, the

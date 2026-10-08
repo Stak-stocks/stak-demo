@@ -332,6 +332,27 @@ internal object PaperPortfolio {
 	val weekGainText: String get() = if (demo) WEEK_GAIN else signedWhole(allTimeGain)
 	val weekPctText: String get() = if (demo) WEEK_PCT else signedPct(allTimeGain / paperStart * 100)
 
+	// The share buttons' lines (pick page, portfolio page): the return in percent, never the dollars. The demo's
+	// authored numbers aren't anyone's, and an empty portfolio has nothing to tell - both share the invite.
+	/** A pick's line - "just picked" while its gain still reads 0.0%. */
+	fun pickShareText(spec: PickSpec): String = when {
+		demo -> com.stak.demo.ui.profile.STAK_INVITE_TEXT
+		spec.gainPct == "0.0%" -> "I just picked ${spec.symbol} on STAK. $SHARE_TAIL"
+		else -> "I'm paper trading ${spec.symbol} on STAK - ${if (spec.up) "up" else "down"} ${spec.gainPct} since I picked it. $SHARE_TAIL"
+	}
+
+	/** The portfolio's line - its all-time return. */
+	val portfolioShareText: String
+		get() {
+			if (demo || (positions.isEmpty() && realized.isEmpty())) return com.stak.demo.ui.profile.STAK_INVITE_TEXT
+			val pct = allTimeGain / paperStart * 100
+			val shown = String.format(Locale.US, "%.1f", kotlin.math.abs(pct))
+			val move = if (shown == "0.0") "even" else "${if (pct > 0) "up" else "down"} $shown%"
+			return "My STAK paper portfolio is $move so far. $SHARE_TAIL"
+		}
+
+	private const val SHARE_TAIL = "Practice investing with paper money: https://thestak.org"
+
 	/** "12 picks" is authored for the demo (its rows list six); a new account counts its own. */
 	val pickCountLabel: Int get() = if (demo) 12 + (positions.size - SEED_ROWS.size) else positions.size
 

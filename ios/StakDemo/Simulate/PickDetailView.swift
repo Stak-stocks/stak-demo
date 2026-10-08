@@ -172,15 +172,17 @@ struct PickDetailView: View {
 						.foregroundStyle(Color.white)
 						.accessibilityAddTraits(.isHeader)
 					Spacer()
-					ZStack {
-						Circle().fill(Sim.cardBg)
-						Image("IcNewsShare")
-							.resizable()
-							.frame(width: 18 * u, height: 18 * u) // 1:4652 icon/share is 18 (exact-design audit 2026-09-04)
+					ShareLink(item: portfolio.pickShareText(pick)) {
+						ZStack {
+							Circle().fill(Sim.cardBg)
+							Image("IcNewsShare")
+								.resizable()
+								.frame(width: 18 * u, height: 18 * u) // 1:4652 icon/share is 18 (exact-design audit 2026-09-04)
+						}
+						.frame(width: 40 * u, height: 40 * u)
 					}
-					.frame(width: 40 * u, height: 40 * u)
-					// Drawn, not wired - Android's carries no action either.
-					.accessibilityHidden(true)
+					.buttonStyle(.pressDim)
+					.accessibilityLabel("Share")
 				}
 				.padding(.horizontal, 18 * u)
 				.padding(.vertical, 8 * u)

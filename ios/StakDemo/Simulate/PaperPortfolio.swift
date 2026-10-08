@@ -104,6 +104,26 @@ final class PaperPortfolio: ObservableObject {
 	var gainPeriodLabel: String { demo ? "this week" : "all time" }
 	var weekPctText: String { demo ? PaperPortfolio.weekPct : PaperPortfolio.signedPct(allTimeGain / paperStart * 100) }
 
+	// The share buttons' lines (pick page, portfolio page): the return in percent, never the dollars. The demo's
+	// authored numbers aren't anyone's, and an empty portfolio has nothing to tell - both share the invite.
+	/// A pick's line - "just picked" while its gain still reads 0.0%.
+	func pickShareText(_ spec: PickSpec) -> String {
+		if demo { return inviteText }
+		if spec.gainPct == "0.0%" { return "I just picked \(spec.symbol) on STAK. \(PaperPortfolio.shareTail)" }
+		return "I'm paper trading \(spec.symbol) on STAK - \(spec.up ? "up" : "down") \(spec.gainPct) since I picked it. \(PaperPortfolio.shareTail)"
+	}
+
+	/// The portfolio's line - its all-time return.
+	var portfolioShareText: String {
+		if demo || (positions.isEmpty && realized.isEmpty) { return inviteText }
+		let pct = allTimeGain / paperStart * 100
+		let shown = String(format: "%.1f", abs(pct))
+		let move = shown == "0.0" ? "even" : "\(pct > 0 ? "up" : "down") \(shown)%"
+		return "My STAK paper portfolio is \(move) so far. \(PaperPortfolio.shareTail)"
+	}
+
+	private static let shareTail = "Practice investing with paper money: https://thestak.org"
+
 	/// "12 picks" is authored for the demo (its rows list six); a real account counts its own.
 	var pickCountLabel: Int { demo ? 12 + (positions.count - PaperPortfolio.seedRows.count) : positions.count }
 	/// "1 pick" / "12 picks".
