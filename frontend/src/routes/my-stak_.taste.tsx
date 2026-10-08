@@ -29,7 +29,7 @@ function TasteCardShell({ title, children }: { title: string; children: ReactNod
 }
 
 const STRENGTH_CHIP: Record<Strength, { bg: string; ink: string }> = {
-	strong: { bg: DISC.blue, ink: "#fff" },
+	strong: { bg: DISC.blue, ink: DISC.pageBg }, // navy on teal: white was 2.4:1
 	moderate: { bg: "#3A465E", ink: DISC.body },
 	emerging: { bg: DISC.divider, ink: DISC.body },
 };

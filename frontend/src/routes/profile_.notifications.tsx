@@ -73,7 +73,7 @@ function NotificationSettingsPage() {
 			<div style={{ display: "flex", flexDirection: "column", gap: cu(10), ...sheetCard(14), padding: cu(16) }}>
 				<span style={{ font: f(500, 14), color: "#fff" }}>Price threshold</span>
 				<span style={{ font: f(400, 11), color: "#ACAFB1" }}>Only moves at least this big get a nudge.</span>
-				<div className="flex" style={{ gap: cu(8) }} role="radiogroup" aria-label="Price threshold">
+				<div className="flex" style={{ gap: cu(8) }} role="group" aria-label="Price threshold">
 					{PRICE_THRESHOLDS.map((pct) => (
 						<SettingsChip key={pct} label={`${pct}%`} selected={prefs.priceThreshold === pct} onClick={() => change({ ...prefs, priceThreshold: pct })} />
 					))}

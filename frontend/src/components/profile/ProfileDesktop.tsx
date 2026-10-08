@@ -10,7 +10,7 @@ function Stat({ label, value, color = "#fff" }: { label: string; value: string; 
 	return (
 		<div className="flex min-w-0 flex-col gap-1 rounded-[12px] p-3" style={{ background: DESK.panelRaised, border: `1px solid ${DESK.border}` }}>
 			<span className="text-[12px]" style={{ color: DESK.muted }}>{label}</span>
-			<span className="truncate font-heading text-[16px] font-semibold tabular-nums" style={{ color }} title={value}>{value}</span>
+			<span className="break-words font-heading text-[16px] font-semibold tabular-nums" style={{ color }}>{value}</span>
 		</div>
 	);
 }

@@ -25,7 +25,7 @@ function Stat({ label, value, sub, subColor }: { label: string; value: string; s
 	return (
 		<div className="flex min-w-0 flex-col gap-1">
 			<span className="text-[12px]" style={{ color: DESK.muted }}>{label}</span>
-			<span className="truncate font-heading text-[20px] font-semibold tabular-nums text-white">{value}</span>
+			<span className="break-words font-heading text-[20px] font-semibold tabular-nums text-white">{value}</span>
 			{sub && <span className="text-[12.5px] font-medium tabular-nums" style={{ color: subColor ?? DESK.body }}>{sub}</span>}
 		</div>
 	);
@@ -53,8 +53,8 @@ function RowMore({ ticker, onPick, onStock }: { ticker: string; onPick: () => vo
 			</button>
 			{open && (
 				<div ref={menu} className="absolute right-0 top-[32px] z-20 w-[170px] rounded-[10px] p-1 shadow-[0_12px_30px_rgba(0,0,0,0.45)]" style={{ background: DESK.panelRaised, border: `1px solid ${DESK.border}` }}>
-					<button type="button" onClick={() => { setOpen(false); onPick(); }} className="block w-full rounded-[6px] px-3 py-2 text-left text-[12.5px] text-white hover:bg-white/[0.06]">Practice details</button>
-					<button type="button" onClick={() => { setOpen(false); onStock(); }} className="block w-full rounded-[6px] px-3 py-2 text-left text-[12.5px] text-white hover:bg-white/[0.06]">Stock page</button>
+					<button type="button" onClick={() => { setOpen(false); onPick(); }} className={`block w-full rounded-[6px] px-3 py-2 text-left text-[12.5px] text-white hover:bg-white/[0.06] ${deskFocus}`}>Practice details</button>
+					<button type="button" onClick={() => { setOpen(false); onStock(); }} className={`block w-full rounded-[6px] px-3 py-2 text-left text-[12.5px] text-white hover:bg-white/[0.06] ${deskFocus}`}>Stock page</button>
 				</div>
 			)}
 		</div>
@@ -219,7 +219,7 @@ export function SimulateDesktop({ initialSymbol }: { initialSymbol?: string }) {
 														<span className="block text-[13px] font-medium">{signedUsd(p.gain)}</span>
 														<span className="block text-[11.5px]">{signedPctLabel(p.gainPct)}</span>
 													</td>
-													<td className="pr-3">{line.length >= 2 ? <Sparkline values={line} color={changeColor(p.dayChange)} fill={false} className="h-[22px] w-full" /> : <span className="text-[12px]" style={{ color: DESK.muted }}>—</span>}</td>
+													<td className="pr-3">{line.length >= 2 ? <Sparkline values={line} color={changeColor(p.dayChange)} fill={false} className="h-[22px] w-full" /> : <span className="text-[12px]" style={{ color: DESK.muted }}>—</span>}<span className="sr-only">{p.dayChange === null ? "No move today" : `${signedPctLabel(p.dayChange)} today`}</span></td>
 													<td>
 														<div className="flex items-center justify-end gap-1">
 															<button type="button" onClick={() => trade(p.ticker, "buy")} aria-label={`Buy ${p.ticker}`} className={`rounded-[7px] px-[10px] py-[4px] text-[12px] font-semibold ${deskFocus}`} style={{ background: DESK.cyanSoft, color: DESK.cyan }}>Buy</button>
