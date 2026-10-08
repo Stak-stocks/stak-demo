@@ -4,14 +4,14 @@ import { useRef, useState } from "react";
 import { getStockChart, type ChartRange } from "@/lib/api";
 import { allPreMarket } from "@/lib/chartSeries";
 import { usePaperPortfolio, type Pick } from "@/hooks/usePaperPortfolio";
-import { isUp, monthDay, signedUsd, signedPct, stakeLabel, usd } from "@/lib/simFormat";
+import { isUp, monthDay, rangeLine, signedPct, signedUsd, usd, versusWords } from "@/lib/simFormat";
 import { SellFlow } from "@/components/simulate/SellFlow";
 import { PickDesktop } from "@/components/simulate/desktop/PickDesktop";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useMyStakData } from "@/hooks/useMyStakData";
 import { Badge, ChartNote, DarkCta, EmptyStateCard, Kicker, RangeChart, RangeChips, SIM, SheetSecondary, ShareCircle, tealShadow } from "@/components/simulate/simKit";
 import { Sparkle } from "@/components/mystak/TasteCard";
-import { DISC, cu } from "@/components/discover/discoverTheme";
+import { DISC, cu, sessionWord } from "@/components/discover/discoverTheme";
 import { BackCircle, PhonePage, f, sheetCard } from "@/components/phone/phone";
 import { pickShareText, shareText } from "@/lib/share";
 
@@ -76,10 +76,29 @@ function PickPage() {
 	}
 
 	const up = isUp(pick.gain);
-	const [wholeGain, centsGain = "00"] = signedUsd(pick.gain).split(".");
+	// The stock's price now (user, 2026-10-08: the price, not the gain - that has its own tile).
+	const [wholePrice, centsPrice = "00"] = usd(pick.price).split(".");
 	const closes = (chart?.prices ?? []).filter((p) => p.close > 0);
 	const flatToday = range === "1d" && allPreMarket(closes);
 	const values = closes.map((p) => p.close);
+	// The price's change over the selected range: today's move from the quote for 1D, otherwise from the range's first
+	// close to the live price (as the apps).
+	const move = (() => {
+		if (!(pick.price > 0)) return null;
+		let change: number, pct: number;
+		if (range === "1d") {
+			if (pick.dayChange === null) return null;
+			change = pick.price - pick.price / (1 + pick.dayChange / 100);
+			pct = pick.dayChange;
+		} else {
+			const first = values[0];
+			if (!first || first <= 0) return null;
+			change = pick.price - first;
+			pct = (change / first) * 100;
+		}
+		const moveUp = isUp(change);
+		return { up: moveUp, text: rangeLine(signedUsd(change), pct, moveUp, range, sessionWord()) };
+	})();
 
 	// "This week" and "vs the market": this stock's last-week move, in dollars on the held shares and against SPY.
 	const weekCloses = (week.data?.prices ?? []).filter((p) => p.close > 0);
@@ -139,11 +158,11 @@ function PickPage() {
 						<span style={{ font: f(400, 12, 16), color: DISC.muted }}>Picked {monthDay(pick.addedAt)} at {usd(pick.costPerShare)}</span>
 					</div>
 					<div className="flex items-end" style={{ paddingTop: cu(11), minHeight: cu(59) }}>
-						<span style={{ font: f(600, 38, 48, "heading"), color: up ? "#fff" : DISC.red }}>{wholeGain}</span>
-						<span style={{ paddingLeft: cu(7), paddingBottom: cu(6), font: f(600, 16, 20, "heading"), color: DISC.muted }}>.{centsGain}</span>
+						<span style={{ font: f(600, 38, 48, "heading"), color: "#fff" }}>{wholePrice}</span>
+						<span style={{ paddingLeft: cu(7), paddingBottom: cu(6), font: f(600, 16, 20, "heading"), color: DISC.muted }}>.{centsPrice}</span>
 					</div>
-					<p style={{ paddingTop: cu(11), font: f(300, 12, 16), color: DISC.muted }}>
-						That is {up ? "up" : "down"} {Math.abs(pick.gainPct).toFixed(1)}% on a {stakeLabel(pick.stake)} paper stake
+					<p style={{ paddingTop: cu(11), font: f(500, 12, 16), color: move === null ? DISC.muted : move.up ? DISC.green : DISC.red }}>
+						{move?.text ?? "—"}
 					</p>
 					<div className="flex justify-center" style={{ paddingTop: cu(11), marginLeft: cu(-14.5), marginRight: cu(-14.5) }}>
 						{flatToday ? <ChartNote>Not much movement yet today</ChartNote>
@@ -157,11 +176,12 @@ function PickPage() {
 					<div className="flex" style={{ gap: cu(10) }}>
 						{/* Muted until read; an "Even" reads green (the apps' thresholds). */}
 						<StatBox label="This week" value={weekGain === null ? "—" : signedUsd(weekGain)} color={weekGain === null ? DISC.muted : isUp(weekGain) ? DISC.green : DISC.red} />
-						<StatBox label="vs the market" value={versus === null ? "—" : Math.abs(versus) < 0.05 ? "Even" : signedPct(versus)} color={versus === null ? DISC.muted : versus > -0.05 ? DISC.green : DISC.red} />
+						<StatBox label="vs S&P 500 this week" value={versus === null ? "—" : versusWords(versus)} color={versus === null ? DISC.muted : versus > -0.05 ? DISC.green : DISC.red} />
 					</div>
 					<div className="flex" style={{ gap: cu(10) }}>
 						<StatBox label="Price then" value={usd(pick.costPerShare)} />
-						<StatBox label="Price now" value={usd(pick.price)} />
+						{/* The price is the hero's figure now; this cell carries what the stake has made. */}
+						<StatBox label="Your gain" value={`${signedUsd(pick.gain)} (${signedPct(pick.gainPct)})`} color={up ? DISC.green : DISC.red} />
 					</div>
 				</div>
 

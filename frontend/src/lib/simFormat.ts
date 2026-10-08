@@ -17,6 +17,18 @@ export const signedPct = (pct: number) => `${Math.round(pct * 10) < 0 ? "-" : "+
 /** A gain counts as up unless it is down by at least half a cent (the apps' rule). */
 export const isUp = (gain: number) => gain > -0.005;
 
+const RANGE_WORDS: Record<string, string> = { "1d": "today", "1w": "this week", "1m": "past month", "3m": "past 3 months", ytd: "this year", "1y": "past year" };
+/** What a range pill covers, as the change line under a chart says it ("past 3 months"). */
+export const rangeWord = (range: string) => RANGE_WORDS[range.toLowerCase()] ?? "";
+/**
+ * The change line under a chart for the selected range: "▲ +$12.30 (+3.8%) past 3 months" (as the apps). [session] is
+ * 1D's word - sessionWord(): the last session's "on Friday" before the open and at weekends.
+ */
+export const rangeLine = (money: string, pct: number, up: boolean, range: string, session = "today") =>
+	`${up ? "▲" : "▼"} ${money} (${signedPct(pct)}) ${range.toLowerCase() === "1d" ? session : rangeWord(range)}`;
+/** "vs S&P 500": how far the stock's move was ahead of or behind SPY's, in words ("3.6% behind"). */
+export const versusWords = (versus: number) => (Math.abs(versus) < 0.05 ? "Even" : `${Math.abs(versus).toFixed(1)}% ${versus > 0 ? "ahead" : "behind"}`);
+
 /** Cost-basis label: whole dollars read "$25", anything else "$25.50". */
 export const stakeLabel = (n: number) => (Math.abs(n - Math.round(n)) < 1e-9 ? wholeUsd(n) : usd(n));
 

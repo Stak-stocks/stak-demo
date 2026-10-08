@@ -1,7 +1,7 @@
 import { ArrowRight, ChevronRight, History, Plus, Sparkles } from "lucide-react";
 import type { ChartRange, SandboxTrade, StockChartPoint } from "@/lib/api";
 import type { Pick } from "@/hooks/usePaperPortfolio";
-import { isUp, monthDayYear, sharesLabel, signedPct, signedUsd, usd } from "@/lib/simFormat";
+import { isUp, monthDayYear, sharesLabel, signedUsd, usd, versusWords } from "@/lib/simFormat";
 import type { BrandSummary } from "@stak/shared";
 import { BrandLogo } from "@/components/BrandLogo";
 import { DESK, DeskButton, Panel, PanelHeader, SkeletonBar, changeColor, deskFocus, deskPageBg, signedPctLabel } from "@/components/desktop/deskKit";
@@ -97,7 +97,7 @@ export function PickDesktop({ pick, brand, held, range, onRange, prices, chartLo
 
 						<div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
 							<Tile label="This week" value={weekGain === null ? "—" : signedUsd(weekGain)} color={weekGain === null ? DESK.muted : changeColor(weekGain)} />
-							<Tile label="vs the market (SPY)" value={versus === null ? "—" : Math.abs(versus) < 0.05 ? "Even" : signedPct(versus)} color={versus === null ? DESK.muted : changeColor(versus)} />
+							<Tile label="vs S&P 500 this week" value={versus === null ? "—" : versusWords(versus)} color={versus === null ? DESK.muted : changeColor(versus)} />
 							<Tile label="Shares" value={sharesLabel(pick.shares)} />
 							<Tile label="Price then" value={usd(pick.costPerShare)} />
 							<Tile label="Price now" value={usd(pick.price)} />

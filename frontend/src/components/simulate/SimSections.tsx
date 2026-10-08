@@ -6,11 +6,11 @@ import { useFigmaUnit } from "@/components/discover/useFigmaUnit";
 import type { ChartRange } from "@/lib/api";
 import type { PaperPortfolio, Pick } from "@/hooks/usePaperPortfolio";
 import { bucketColor, buckets, simInsight } from "@/lib/simBuckets";
-import { isUp, signedPct, signedUsd, signedWhole, usd, wholeUsd } from "@/lib/simFormat";
+import { isUp, rangeLine, signedPct, signedUsd, signedWhole, usd, wholeUsd } from "@/lib/simFormat";
 import { usePortfolioHistory } from "@/hooks/usePaperPortfolio";
 import { heldCountLabel } from "@/components/mystak/CollectionChip";
 import { Sparkle } from "@/components/mystak/TasteCard";
-import { DISC, cu } from "@/components/discover/discoverTheme";
+import { DISC, cu, sessionWord } from "@/components/discover/discoverTheme";
 import { PRESS, SettingsChip, f, focusRing, sheetCard } from "@/components/phone/phone";
 import { Badge, ChartNote, DarkCta, Kicker, RangeChart, RangeChips, SIM, gradientBorder, tealShadow } from "./simKit";
 
@@ -86,6 +86,11 @@ export function ScoreHero({ paper, range, onRange }: { paper: PaperPortfolio; ra
 	const [whole, cents = "00"] = usd(paper.portfolioValue).split(".");
 	const gain = paper.allTimeGain;
 	const up = isUp(gain);
+	// The line under the value follows the pills: the change from the range's first value to today's. Until the range is
+	// read it shows the all-time change (as the apps).
+	const first = values && values.length >= 2 ? values[0]! : 0;
+	const rangeChange = first > 0 ? paper.portfolioValue - first : null;
+	const lineUp = rangeChange === null ? up : Math.round(rangeChange) >= 0;
 	const pad = { padding: `0 ${cu(20)}` };
 	return (
 		<section style={{ display: "flex", flexDirection: "column", gap: cu(11), ...sheetCard(18), padding: `${cu(20)} 0` }} aria-label="Portfolio value">
@@ -101,8 +106,10 @@ export function ScoreHero({ paper, range, onRange }: { paper: PaperPortfolio; ra
 				<span style={{ font: f(400, 12, 16), color: DISC.muted }}>Cash available</span>
 				<span style={{ font: f(500, 12, 16), color: DISC.ink }}>{usd(paper.cash)}</span>
 			</div>
-			<p style={{ ...pad, font: f(500, 12, 16), color: up ? DISC.green : DISC.red }}>
-				{up ? "▲" : "▼"} {signedWhole(gain)} ({signedPct(paper.paperStart > 0 ? (gain / paper.paperStart) * 100 : 0)}) all time
+			<p style={{ ...pad, font: f(500, 12, 16), color: lineUp ? DISC.green : DISC.red }}>
+				{rangeChange !== null
+					? rangeLine(signedWhole(rangeChange), (rangeChange / first) * 100, lineUp, range, sessionWord())
+					: <>{up ? "▲" : "▼"} {signedWhole(gain)} ({signedPct(paper.paperStart > 0 ? (gain / paper.paperStart) * 100 : 0)}) all time</>}
 			</p>
 			<div className="flex justify-center">
 				{values && values.length >= 2 ? <RangeChart values={values} /> : <ChartNote>{loading ? "" : "No history yet"}</ChartNote>}
