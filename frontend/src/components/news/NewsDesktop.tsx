@@ -164,7 +164,7 @@ export function NewsDesktop() {
 							</div>
 							<label ref={searchRef} className="relative w-full max-w-[300px]">
 								<Search className="pointer-events-none absolute left-3 top-1/2 h-[15px] w-[15px] -translate-y-1/2" style={{ color: DESK.muted }} aria-hidden="true" />
-								<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search news" aria-label="Search news" className={`h-[38px] w-full rounded-[10px] pl-9 pr-3 text-[13px] text-white outline-none placeholder:text-[#819ABB] ${deskFocus}`} style={{ background: DESK.panel, border: `1px solid ${DESK.border}` }} />
+								<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search news" aria-label="Search news" className={`h-[38px] w-full rounded-[10px] pl-9 pr-3 text-[13px] text-white outline-none placeholder:text-[#819ABB] ${deskFocus}`} style={{ background: DESK.panel, border: "1px solid #64789A" }} />
 							</label>
 						</header>
 
