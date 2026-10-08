@@ -146,6 +146,15 @@ fun PickDetailScreen(
 	// Pinned for the page's life: once Confirm sell removes the position,
 	// the Position-closed sheet must still show THIS pick, not the fallback.
 	val p = remember(symbol, refreshTick) { pickSpec(symbol) }
+	// The stock's week of closes and SPY's move over it - "This week" and "vs the market" for a real pick (web's
+	// pick page; both were fixed at "+$0.00" / "Even").
+	var weekCloses by remember(symbol) { mutableStateOf<List<Double>?>(null) }
+	var spyWeekPct by remember(symbol) { mutableStateOf<Double?>(null) }
+	LaunchedEffect(symbol, PaperPortfolio.demo) {
+		if (PaperPortfolio.demo) return@LaunchedEffect
+		weekCloses = PortfolioHistory.weekCloses(symbol)
+		spyWeekPct = PortfolioHistory.weekCloses("SPY")?.let { (it.last() - it.first()) / it.first() * 100.0 }
+	}
 	// "+$24.00" -> "+$24" in the 48 box and ".00" in its own 16/20 box (1:4654).
 	val gainWhole = p.gain.substringBefore('.')
 	// "" when a gain carries no cents, ".00" otherwise - never an index crash.
@@ -298,10 +307,25 @@ fun PickDetailScreen(
 				// Stats (1:4673): two 61-tall rows, 10 apart, 170-wide cells.
 				Column(verticalArrangement = Arrangement.spacedBy((10 * u).dp)) {
 					Row(horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
-						// The authored "+$3.80" for every seeded pick (the demo table
-						// carries no weekly move); a fresh order starts at "+$0.00".
-						StatBox("This week", p.weekGain, Sim.Green, Modifier.weight(1f))
-						StatBox("vs the market", p.vsMarket, if (p.ahead) Sim.Green else Sim.Red, Modifier.weight(1f))
+						// The demo's authored figures; a real pick's own week ("—", muted, until read).
+						var weekText = p.weekGain; var weekColor = Sim.Green
+						var vsText = p.vsMarket; var vsColor = if (p.ahead) Sim.Green else Sim.Red
+						if (!PaperPortfolio.demo) {
+							weekText = "—"; weekColor = Sim.Muted; vsText = "—"; vsColor = Sim.Muted
+							val closes = weekCloses
+							if (closes != null && closes.first() > 0.0) {
+								val price = p.priceNow.removePrefix("$").replace(",", "").toDoubleOrNull() ?: 0.0
+								val gain = (price - closes.first()) * (p.shares.toDoubleOrNull() ?: 0.0)
+								weekText = PaperPortfolio.signedUsd(gain); weekColor = if (gain > -0.005) Sim.Green else Sim.Red
+								spyWeekPct?.let { spy ->
+									val versus = (closes.last() - closes.first()) / closes.first() * 100.0 - spy
+									vsText = if (kotlin.math.abs(versus) < 0.05) "Even" else PaperPortfolio.signedPct(versus)
+									vsColor = if (versus > -0.05) Sim.Green else Sim.Red
+								}
+							}
+						}
+						StatBox("This week", weekText, weekColor, Modifier.weight(1f))
+						StatBox("vs the market", vsText, vsColor, Modifier.weight(1f))
 					}
 					Row(horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
 						// 1:4684 / 1:4687 (exact-design audit 2026-09-04): the prices are plain white, not #f2f6fc.

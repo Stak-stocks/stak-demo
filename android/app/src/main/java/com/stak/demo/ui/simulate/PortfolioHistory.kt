@@ -101,6 +101,13 @@ internal object PortfolioHistory {
 		return (if (last.epochDay == today) points.dropLast(1) else points) + Point(today, value)
 	}
 
+	/** [symbol]'s closes over the last week (oldest first), or null when the chart didn't come back. */
+	suspend fun weekCloses(symbol: String): List<Double>? {
+		val repo = repository ?: return null
+		val closes = runCatching { repo.getChart(symbol, "1w").prices }.getOrNull()?.map { it.close }?.filter { it > 0.0 }
+		return closes?.takeIf { it.size >= 2 }
+	}
+
 	/** [points]' values as the 0..1 fractions RangeChart draws. */
 	fun fractions(points: List<Point>): List<Float> = chartFractions(points.map { it.value })
 }

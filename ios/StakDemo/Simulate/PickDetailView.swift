@@ -88,6 +88,10 @@ struct PickDetailView: View {
 	/// A real pick's own price history per range (the stock page's /chart), so switching pills doesn't re-fetch.
 	@State private var charts: [String: PickChart] = [:]
 	@ObservedObject private var portfolio = PaperPortfolio.shared
+	/// The stock's closes over the last week, and SPY's move over it - "This week" and "vs the market" for a real
+	/// pick (web's pick page); nil until read, or when a chart didn't come back.
+	@State private var weekCloses: [Double]? = nil
+	@State private var spyWeekPct: Double? = nil
 	/// Live prices: a held pick re-prices from them as they land.
 	@ObservedObject private var quotes = LiveQuotes.shared
 	@Environment(\.scenePhase) private var scenePhase
@@ -235,10 +239,11 @@ struct PickDetailView: View {
 						// Stats (1:4673): two 61-tall rows, 10 apart, 170-wide cells.
 						VStack(alignment: .leading, spacing: 10 * u) {
 							HStack(spacing: 10 * u) {
-								// Review (2026-09-04): the pick's week move - the authored
-								// +$3.80 for the seeded picks, +$0.00 for a fresh buy.
-								StatBox(label: "This week", value: pick.weekGain, valueColor: Sim.green)
-								StatBox(label: "vs the market", value: pick.vsMarket, valueColor: pick.ahead ? Sim.green : Sim.red)
+								// The demo's authored figures; a real pick's own week - the dollars on the held shares since the
+								// week's first close, and its move against SPY's (both were fixed at "+$0.00" / "Even").
+								let week = weekStats(pick)
+								StatBox(label: "This week", value: week.gain, valueColor: week.gainColor)
+								StatBox(label: "vs the market", value: week.versus, valueColor: week.versusColor)
 							}
 							HStack(spacing: 10 * u) {
 								// 1:4684 / 1:4687 (exact-design audit 2026-09-04): the prices are plain white, not #f2f6fc.
@@ -326,6 +331,16 @@ struct PickDetailView: View {
 				do { try await Task.sleep(nanoseconds: livePriceInterval) } catch { return }
 			}
 		}
+		.task(id: "\(symbol):week:\(portfolio.demo)") {
+			guard !portfolio.demo else { return }
+			async let stock = try? StockRepository.shared.getChart(symbol, range: "1w")
+			async let market = try? StockRepository.shared.getChart("SPY", range: "1w")
+			let closes = (await stock)?.prices.map(\.close).filter { $0 > 0 } ?? []
+			let spy = (await market)?.prices.map(\.close).filter { $0 > 0 } ?? []
+			guard !Task.isCancelled else { return }
+			weekCloses = closes.count >= 2 ? closes : nil
+			if spy.count >= 2, let first = spy.first, let last = spy.last { spyWeekPct = (last - first) / first * 100 }
+		}
 		.task(id: "\(symbol):\(range):\(portfolio.demo)") {
 			// The range this task was started for - read again after the wait, a quick pill switch would file this
 			// range's line under the next one.
@@ -334,6 +349,26 @@ struct PickDetailView: View {
 			guard let state = await PickChart.load(symbol, range: forRange), !Task.isCancelled else { return }
 			charts[forRange] = state
 		}
+	}
+
+	/// "This week" and "vs the market" as shown: the demo's authored values, a real pick's from its week of closes
+	/// ("—", muted, until they're read).
+	private func weekStats(_ pick: PickSpec) -> (gain: String, gainColor: Color, versus: String, versusColor: Color) {
+		if portfolio.demo { return (pick.weekGain, Sim.green, pick.vsMarket, pick.ahead ? Sim.green : Sim.red) }
+		let price = PaperPortfolio.amount(pick.priceNow)
+		let shares = Double(pick.shares) ?? 0
+		var gainText = "—", gainColor = Sim.muted, versusText = "—", versusColor = Sim.muted
+		if let closes = weekCloses, let first = closes.first, let last = closes.last, first > 0 {
+			let gain = (price - first) * shares
+			gainText = PaperPortfolio.signedMoney(gain)
+			gainColor = gain > -0.005 ? Sim.green : Sim.red
+			if let spy = spyWeekPct {
+				let versus = (last - first) / first * 100 - spy
+				versusText = abs(versus) < 0.05 ? "Even" : PaperPortfolio.signedPct(versus)
+				versusColor = versus > -0.05 ? Sim.green : Sim.red
+			}
+		}
+		return (gainText, gainColor, versusText, versusColor)
 	}
 
 	/// The demo keeps its authored line - it has no live price behind its numbers. A real pick draws its own stock's
