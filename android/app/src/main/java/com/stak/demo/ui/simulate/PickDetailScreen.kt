@@ -137,6 +137,12 @@ fun PickDetailScreen(
 			if (!showSell) scope.launch { com.stak.demo.data.LiveQuotes.refresh(listOf(symbol)); refreshTick++ }
 		}
 	}
+	// A real account opening a stock it doesn't hold (a stale link, or the position just sold elsewhere) - never
+	// the demo's authored numbers in its place (web's "Not in your portfolio").
+	if (!PaperPortfolio.demo && !showSell && PaperPortfolio.pickSpec(symbol) == null) {
+		NotHeldPage(symbol = symbol, loading = PaperPortfolio.loading, onBack = onBack)
+		return
+	}
 	// Pinned for the page's life: once Confirm sell removes the position,
 	// the Position-closed sheet must still show THIS pick, not the fallback.
 	val p = remember(symbol, refreshTick) { pickSpec(symbol) }
@@ -438,5 +444,41 @@ private fun StatBox(label: String, value: String, valueColor: Color, modifier: M
 			maxLines = 1,
 			overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
 		)
+	}
+}
+
+/** A stock a real account doesn't hold - a spinner while the portfolio is still being read. */
+@Composable
+private fun NotHeldPage(symbol: String, loading: Boolean, onBack: () -> Unit) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg).statusBarsPadding()) {
+		Row(
+			verticalAlignment = Alignment.CenterVertically,
+			modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp).padding(top = (10 * u).dp),
+		) {
+			AuthBackCircle(onClick = onBack)
+			Spacer(modifier = Modifier.weight(1f))
+			Text(symbol, style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (16 * u).sp), color = Color.White)
+			Spacer(modifier = Modifier.weight(1f))
+			Spacer(modifier = Modifier.size((40 * u).dp))
+		}
+		if (loading) {
+			Box(modifier = Modifier.fillMaxWidth().padding(top = (40 * u).dp), contentAlignment = Alignment.Center) {
+				androidx.compose.material3.CircularProgressIndicator(color = Sim.Teal, modifier = Modifier.size((24 * u).dp))
+			}
+		} else {
+			Column(
+				verticalArrangement = Arrangement.spacedBy((6 * u).dp),
+				modifier = Modifier
+					.padding(horizontal = (20 * u).dp)
+					.padding(top = (16 * u).dp)
+					.fillMaxWidth()
+					.background(com.stak.demo.ui.onboarding.Auth.InputBg, androidx.compose.foundation.shape.RoundedCornerShape((14 * u).dp))
+					.padding((16 * u).dp),
+			) {
+				Text("Not in your portfolio", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp), color = StakColors.TextPrimary)
+				Text("You don’t hold $symbol right now. Buy it from Saved staks on Simulate.", style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp), color = Sim.Muted)
+			}
+		}
 	}
 }

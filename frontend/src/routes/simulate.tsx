@@ -135,7 +135,8 @@ function SimulatePage() {
 				)}
 
 				{paper.picks.length > 0 && <InsightCard tickers={newest.map((p) => p.ticker)} />}
-				{best && worst && <PickDuo best={best} worst={worst} onOpen={openPick} />}
+				{/* A tie (two fresh buys, no quotes yet) has no best or worst - it would name one stock both ways. */}
+				{best && worst && best.gain !== worst.gain && <PickDuo best={best} worst={worst} onOpen={openPick} />}
 				<HowItWorks />
 
 				<SectionHeader>Your portfolio</SectionHeader>

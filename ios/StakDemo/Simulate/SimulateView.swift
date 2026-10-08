@@ -128,9 +128,11 @@ struct SimulateView: View {
 						// Best / worst come from the ledger (largest and smallest dollar gain, live for a real account);
 						// with fewer than two positions there's nothing to compare.
 						let gains = Dictionary(portfolio.positions.map { ($0.id, $0.gainDollars) }, uniquingKeysWith: { a, _ in a })
+						// A tie (two fresh buys, no quotes yet) has no best or worst - it would name one stock both ways.
 						if portfolio.positions.count >= 2,
 						   let best = portfolio.positions.max(by: { (gains[$0.id] ?? 0) < (gains[$1.id] ?? 0) }),
-						   let worst = portfolio.positions.min(by: { (gains[$0.id] ?? 0) < (gains[$1.id] ?? 0) }) {
+						   let worst = portfolio.positions.min(by: { (gains[$0.id] ?? 0) < (gains[$1.id] ?? 0) }),
+						   (gains[best.id] ?? 0) != (gains[worst.id] ?? 0) {
 							let bestRow = best.liveRow
 							let worstRow = worst.liveRow
 							HStack(spacing: 10 * u) {

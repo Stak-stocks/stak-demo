@@ -270,7 +270,8 @@ internal fun SimulateScreen(
 				val positions = PaperPortfolio.positions
 				val best = positions.maxByOrNull { it.gainDollars }
 				val worst = positions.minByOrNull { it.gainDollars }
-				if (positions.size >= 2 && best != null && worst != null) {
+				// A tie (two fresh buys, no quotes yet) has no best or worst - it would name one stock both ways.
+				if (positions.size >= 2 && best != null && worst != null && best.gainDollars != worst.gainDollars) {
 					val bestRow = best.liveRow
 					val worstRow = worst.liveRow
 					Row(horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {

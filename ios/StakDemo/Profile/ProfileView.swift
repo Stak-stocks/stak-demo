@@ -193,9 +193,9 @@ struct ProfileView: View {
 						if ready {
 							// The % with the dollars: starts range from $500 to $10,000, and only a % compares across them.
 							let pct = portfolio.paperStart > 0 ? portfolio.allTimeGain / portfolio.paperStart * 100 : 0
-							Text("\(portfolio.allTimeGain >= 0 ? "▲" : "▼") \(PaperPortfolio.signedMoney(portfolio.allTimeGain)) (\(PaperPortfolio.signedPct(pct))) all time on \(PaperPortfolio.wholeDollars(portfolio.paperStart)) paper")
+							Text("\(portfolio.allTimeGain > -0.005 ? "▲" : "▼") \(PaperPortfolio.signedMoney(portfolio.allTimeGain)) (\(PaperPortfolio.signedPct(pct))) all time on \(PaperPortfolio.wholeDollars(portfolio.paperStart)) paper")
 								.font(StakFont.geist(12 * u, .medium))
-								.foregroundStyle(portfolio.allTimeGain >= 0 ? StakColors.positive : Color(argb: 0xFFE5484D))
+								.foregroundStyle(portfolio.allTimeGain > -0.005 ? StakColors.positive : Color(argb: 0xFFE5484D))
 						} else {
 							Text("Set up your practice portfolio in Simulate to start.")
 								.font(StakFont.geist(12 * u))

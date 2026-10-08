@@ -95,11 +95,61 @@ struct PickDetailView: View {
 	/// The ledger's live spec (a bought pick, or an authored one topped up) - authored fallback for anything not held.
 	private var pick: PickSpec { selling ?? PickSpecs.pick(symbol) }
 
+	/// A real account opening a stock it doesn't hold (a stale link, or the position just sold elsewhere) - never
+	/// the demo's authored numbers in its place (web's "Not in your portfolio").
+	private var notHeld: Bool { !portfolio.demo && selling == nil && portfolio.pickSpec(symbol) == nil }
+
 	var body: some View {
+		if notHeld {
+			notHeldPage
+		} else {
+			detail
+		}
+	}
+
+	private var notHeldPage: some View {
+		let u = figmaUnit
+		return VStack(alignment: .leading, spacing: 0) {
+			HStack {
+				AuthBackCircle(action: onBack)
+				Spacer()
+				Text(symbol)
+					.font(StakFont.sora(16 * u, .semiBold))
+					.foregroundStyle(Color.white)
+					.accessibilityAddTraits(.isHeader)
+				Spacer()
+				Color.clear.frame(width: 40 * u, height: 40 * u)
+			}
+			.padding(.horizontal, 20 * u)
+			.padding(.top, 10 * u)
+			if portfolio.loading {
+				ProgressView().tint(Sim.teal).frame(maxWidth: .infinity).padding(.top, 40 * u)
+			} else {
+				VStack(alignment: .leading, spacing: 6 * u) {
+					Text("Not in your portfolio")
+						.font(StakFont.geist(14 * u, .medium))
+						.foregroundStyle(StakColors.textPrimary)
+					Text("You don’t hold \(symbol) right now. Buy it from Saved staks on Simulate.")
+						.font(StakFont.geist(12 * u))
+						.foregroundStyle(Sim.muted)
+				}
+				.frame(maxWidth: .infinity, alignment: .leading)
+				.padding(16 * u)
+				.background(Auth.inputBg, in: RoundedRectangle(cornerRadius: 14 * u))
+				.padding(.horizontal, 20 * u)
+				.padding(.top, 16 * u)
+			}
+			Spacer(minLength: 0)
+		}
+		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+		.background(StakColors.bg.ignoresSafeArea())
+	}
+
+	private var detail: some View {
 		let u = figmaUnit
 		// Worked out once per render - it re-prices off the live quote.
 		let pick = pick
-		ZStack {
+		return ZStack {
 			VStack(spacing: 0) {
 				HStack {
 					AuthBackCircle(action: onBack)

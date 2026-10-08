@@ -75,9 +75,9 @@ export function PortfolioSetupCard({ onSubmit }: { onSubmit: (balance: number, n
 
 export function SetupLine({ paper }: { paper: PaperPortfolio }) {
 	const label = SANDBOX_STRATEGIES.find((s) => s.id === paper.strategy)?.label;
-	// Older tier-based portfolios have no name or strategy to show.
-	if (!paper.name || !label) return null;
-	return <p style={{ font: f(400, 11, 14), color: DISC.muted }}>{paper.name} · {label} · started with {wholeUsd(paper.paperStart)}</p>;
+	// A portfolio from before setup existed has no name or strategy: just what it started with (as the apps).
+	const parts = [paper.name, label].filter((p): p is string => !!p);
+	return <p style={{ font: f(400, 11, 14), color: DISC.muted }}>{[...parts, `started with ${wholeUsd(paper.paperStart)}`].join(" · ")}</p>;
 }
 
 // ── Score hero ───────────────────────────────────────────────────────────────────────────────────

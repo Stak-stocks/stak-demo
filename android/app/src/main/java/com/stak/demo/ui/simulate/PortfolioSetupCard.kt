@@ -143,8 +143,10 @@ internal fun PortfolioSetupCard() {
 @Composable
 internal fun PortfolioSetupLine() {
 	val u = figmaUnit()
+	// A portfolio from before setup existed has no name or strategy: just what it started with.
+	val parts = listOf(PaperPortfolio.portfolioName, PaperPortfolio.strategy).filter { it.isNotEmpty() }
 	Text(
-		"${PaperPortfolio.portfolioName} · ${PaperPortfolio.strategy} · started with ${PaperPortfolio.wholeUsd(PaperPortfolio.paperStart)}",
+		(parts + "started with ${PaperPortfolio.wholeUsd(PaperPortfolio.paperStart)}").joinToString(" · "),
 		style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 		color = Sim.Muted,
 		modifier = Modifier.fillMaxWidth(),

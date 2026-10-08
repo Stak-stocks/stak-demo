@@ -71,7 +71,7 @@ internal data class Position(val spec: PickSpec, val row: SimPick) {
 		val quote = liveQuote ?: return row
 		val gain = quote.first * sharesCount - costBasis
 		val pct = if (costBasis > 0.0) gain / costBasis * 100.0 else 0.0
-		return row.copy(amount = PaperPortfolio.signedUsd(gain), pct = String.format(Locale.US, "%+.1f%%", pct), up = gain >= 0.0)
+		return row.copy(amount = PaperPortfolio.signedUsd(gain), pct = String.format(Locale.US, "%+.1f%%", pct), up = gain > -0.005)
 	}
 
 	/** [spec], re-priced off today's quote for a real position - Price now, the gain (dollars and percent), up/down and position value; the demo's authored spec unchanged. */
@@ -83,7 +83,7 @@ internal data class Position(val spec: PickSpec, val row: SimPick) {
 			priceNow = PaperPortfolio.usd(quote.first),
 			gain = PaperPortfolio.signedUsd(gain),
 			gainPct = String.format(Locale.US, "%.1f%%", pct),
-			up = gain >= 0.0,
+			up = gain > -0.005,
 			stakeValue = PaperPortfolio.usd(quote.first * sharesCount),
 		)
 	}
@@ -158,17 +158,13 @@ internal object PaperPortfolio {
 	/** The paper stake everyone starts on ("on $10,000 paper", 1:3898). */
 	const val PAPER_START = 10000.0
 
-	/** What the XP tiers used to grant (shared/src/tierConfig.ts SANDBOX_BUDGETS) - only a portfolio from before
-	 *  the one money system (2026-10-07) can be missing its start. */
-	private val TIER_BUDGETS = mapOf(1 to 1000.0, 2 to 3000.0, 3 to 5000.0, 4 to 10000.0, 5 to 25000.0)
-
 	/**
-	 * What the account started with - the gains are measured from it (web usePaperPortfolio). Every portfolio has
-	 * its start since the one-money-system migration; one from before it started on its tier's grant. Reading
-	 * $10,000 for those made a $3,000 tier-2 portfolio show -$7,000.
+	 * What the account started with - the gains are measured from it (web usePaperPortfolio). Every set-up portfolio
+	 * has its start since the one-money-system migration; assuming $10,000 once made a $3,000 one show -$7,000. Not
+	 * set up yet: the amount a first trade would start it on (never an XP-tier figure - those are retired).
 	 */
 	private fun startingCash(portfolio: com.stak.demo.data.SandboxPortfolioResponse): Double =
-		portfolio.start ?: portfolio.tier?.let { TIER_BUDGETS[it] } ?: DEFAULT_SETUP_BALANCE
+		if (portfolio.initialized) portfolio.start ?: DEFAULT_SETUP_BALANCE else DEFAULT_SETUP_BALANCE
 	/** What an account that trades before setting up is called (Codex review, PR #167 mirror). */
 	const val DEFAULT_PORTFOLIO_NAME = "My first portfolio"
 	const val DEFAULT_STRATEGY = "Balanced"
@@ -186,6 +182,13 @@ internal object PaperPortfolio {
 	var strategy by mutableStateOf("")
 		private set
 	var setupDone by mutableStateOf(false)
+		private set
+	/**
+	 * A read of this account has landed. Until it has, nothing about the portfolio is known - least of all that it
+	 * needs setting up: a failed first read once showed the setup card to a funded portfolio, and submitting it
+	 * erases the account's positions and trades on the server.
+	 */
+	var hasHydrated by mutableStateOf(false)
 		private set
 
 	/**
@@ -250,7 +253,7 @@ internal object PaperPortfolio {
 	}
 
 	/** The setup card shows until a real account has set up (server-confirmed or the local default from ensureSetup()). */
-	val needsSetup: Boolean get() = !demo && !setupDone
+	val needsSetup: Boolean get() = !demo && hasHydrated && !setupDone
 
 	/**
 	 * An order placed before the setup card was used records the default setup with it
@@ -260,7 +263,9 @@ internal object PaperPortfolio {
 	 * placeLimit() await both in the same coroutine, so the setup always lands first).
 	 */
 	private fun ensureSetup(): Boolean {
-		if (demo || setupDone) return false
+		// Only for an account the server has said is new - never on a guess before its first read (a setup erases).
+		if (demo || !hasHydrated || setupDone) return false
+		paperStart = DEFAULT_SETUP_BALANCE
 		portfolioName = DEFAULT_PORTFOLIO_NAME
 		strategy = DEFAULT_STRATEGY
 		setupDone = true
@@ -307,7 +312,7 @@ internal object PaperPortfolio {
 		private set
 
 	/** The hero's gain line: the demo's authored week, a real account's gain since it started (labelled all time). */
-	val weekUp: Boolean get() = if (demo) true else allTimeGain >= 0
+	val weekUp: Boolean get() = if (demo) true else allTimeGain > -0.005
 	/** "this week" for the demo's authored figure; a real account's line is its gain since it started. */
 	val gainPeriodLabel: String get() = if (demo) "this week" else "all time"
 	val weekGainText: String get() = if (demo) WEEK_GAIN else signedWhole(allTimeGain)
@@ -357,6 +362,7 @@ internal object PaperPortfolio {
 			portfolioName = "Hamza’s paper"
 			strategy = "Balanced"
 			setupDone = true
+			hasHydrated = true
 			openOrders = emptyList()
 			trades = seedTrades()
 			cash = SEED_CASH
@@ -381,6 +387,7 @@ internal object PaperPortfolio {
 		portfolioName = ""
 		strategy = ""
 		setupDone = false
+		hasHydrated = false
 		cash = 0.0
 		positions = emptyList()
 		realized = emptyList()
@@ -451,11 +458,14 @@ internal object PaperPortfolio {
 			// The ledger only changes when a trade lands, and /portfolio says whether one did
 			// (its newest trade's id) - so a poll that finds it unchanged skips the up-to-100-row pull.
 			val unchanged = portfolio.tradeCursor != null && portfolio.tradeCursor == serverTradeCursor
-			val tradesResp = if (unchanged) null else repo.getSandboxTrades(100)
+			// 500 like web: a ledger cut short drops the oldest buys the realized gains and the chart are replayed from.
+			val tradesResp = if (unchanged) null else repo.getSandboxTrades(500)
 			portfolio to tradesResp
 		}.getOrNull()
+		// A failed read leaves the last known state. Before any has landed, the page keeps loading (the poll retries)
+		// rather than settle on an empty account that looks like it needs setting up.
 		if (fetched == null) {
-			if (myGeneration == hydrateGeneration.get()) withContext(Dispatchers.Main) { loading = false }
+			if (myGeneration == hydrateGeneration.get() && hasHydrated) withContext(Dispatchers.Main) { loading = false }
 			return
 		}
 		val (portfolio, tradesResp) = fetched
@@ -495,6 +505,7 @@ internal object PaperPortfolio {
 			serverTrades = mappedTrades
 			serverTradeCursor = portfolio.tradeCursor
 			setupDone = portfolio.initialized
+			hasHydrated = true
 			cash = resolvedCash
 			paperStart = startingCash(portfolio)
 			portfolioName = portfolio.name ?: ""
@@ -528,7 +539,7 @@ internal object PaperPortfolio {
 			priceThen = usd(p.costBasis),
 			gain = signedUsd(gain),
 			gainPct = String.format(Locale.US, "%.1f%%", gainPctAbs),
-			up = gain >= 0.0,
+			up = gain > -0.005,
 			shares = String.format(Locale.US, "%.4f", p.shares),
 			stakeValue = usd(currentValue),
 			vsMarket = "Even",
@@ -539,10 +550,10 @@ internal object PaperPortfolio {
 		)
 		val row = SimPick(
 			badge = badge, ticker = p.ticker,
-			sub = "Picked $pickedDay · ${if (gain >= 0.0) "up" else "down"} ${String.format(Locale.US, "%.0f", gainPctAbs)}% since",
+			sub = "Picked $pickedDay · ${if (gain > -0.005) "up" else "down"} ${String.format(Locale.US, "%.0f", gainPctAbs)}% since",
 			amount = signedUsd(gain),
-			pct = String.format(Locale.US, "%+.1f%%", if (gain >= 0.0) gainPctAbs else -gainPctAbs),
-			up = gain >= 0.0,
+			pct = String.format(Locale.US, "%+.1f%%", if (gain > -0.005) gainPctAbs else -gainPctAbs),
+			up = gain > -0.005,
 		)
 		return Position(spec, row)
 	}
@@ -575,7 +586,7 @@ internal object PaperPortfolio {
 				val basis = costBasisPerShare[t.symbol] ?: t.price
 				val gain = (t.price - basis) * t.shares
 				sharesHeld[t.symbol] = (sharesHeld[t.symbol] ?: 0.0) - t.shares
-				out.add(Realized(badge = t.badge, ticker = t.symbol, sub = "Sold ${t.day} · ${if (gain >= 0.0) "profit banked" else "loss realized"}", amount = signedUsd(gain), up = gain >= 0.0))
+				out.add(Realized(badge = t.badge, ticker = t.symbol, sub = "Sold ${t.day} · ${if (gain > -0.005) "profit banked" else "loss realized"}", amount = signedUsd(gain), up = gain > -0.005))
 			}
 		}
 		return out.reversed()
@@ -721,9 +732,14 @@ internal object PaperPortfolio {
 		}
 	}
 
-	fun signedWhole(amount: Double): String = (if (amount < 0) "-$" else "+$") + String.format(Locale.US, "%,.0f", kotlin.math.abs(amount))
-	fun signedUsd(amount: Double): String = (if (amount < 0) "-" else "+") + usd(kotlin.math.abs(amount))
-	fun signedPct(pct: Double): String = String.format(Locale.US, "%+.1f%%", pct)
+	// The sign is the shown figure's: a gain that rounds to nothing reads "+$0", never a red "-$0" (cost rounding
+	// leaves a first buy a fraction of a cent down).
+	fun signedWhole(amount: Double): String = (if (Math.round(amount) < 0) "-$" else "+$") + String.format(Locale.US, "%,.0f", kotlin.math.abs(amount))
+	fun signedUsd(amount: Double): String = (if (Math.round(amount * 100) < 0) "-" else "+") + usd(kotlin.math.abs(amount))
+	fun signedPct(pct: Double): String {
+		val shown = Math.round(pct * 10) / 10.0
+		return String.format(Locale.US, "%+.1f%%", if (shown == 0.0) 0.0 else shown)
+	}
 	fun wholeUsd(amount: Double): String = "$" + String.format(Locale.US, "%,.0f", amount)
 
 	/**
@@ -874,7 +890,10 @@ internal object PaperPortfolio {
 			realized = listOf(Realized(badge = held.spec.badge, ticker = symbol, sub = sub, amount = signedUsd(gain * p), up = banked)) + realized
 		}
 		persist()
-		if (!demo) send({ repository?.sandboxSell(symbol, p) })
+		// A sale the phone treats as the whole position (99.9% and up) goes to the server as the whole of it - otherwise
+		// it keeps a sliver, and the row the phone just removed comes back on the next read.
+		val serverPortion = if (p >= 0.999) 1.0 else p
+		if (!demo) send({ repository?.sandboxSell(symbol, serverPortion) })
 		return true
 	}
 }

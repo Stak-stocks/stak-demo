@@ -40,6 +40,10 @@ final class PaperPortfolio: ObservableObject {
 	@Published private(set) var portfolioName = ""
 	@Published private(set) var strategy = ""
 	@Published private(set) var setupDone = false
+	/// A read of this account has landed. Until it has, nothing about the portfolio is known - least of all that it
+	/// needs setting up: a failed first read once showed the setup card to a funded portfolio, and submitting it
+	/// erases the account's positions and trades on the server.
+	@Published private(set) var hasHydrated = false
 	/// True until a real account's first read of its ledger lands - Simulate holds the hero back meanwhile, so a
 	/// returning account never flashes the setup card and "$10,000 paper" first. Later reads (the 15s poll, the re-read
 	/// after a trade) don't set it: the hero stays put while they run.
@@ -85,13 +89,13 @@ final class PaperPortfolio: ObservableObject {
 	// MARK: - Reads
 
 	/// The setup card shows until a real account has set up (server-confirmed or the local default from ensureSetup).
-	var needsSetup: Bool { !demo && !setupDone }
+	var needsSetup: Bool { !demo && hasHydrated && !setupDone }
 
 	/// All-time gain = today's value over the paper start (the demo's authored $240 falls out of its $10,240).
 	var allTimeGain: Double { portfolioValue - paperStart }
 
 	/// The hero's gain line: the demo's authored week, a real account's gain since it started (labelled all time).
-	var weekUp: Bool { demo ? true : allTimeGain >= 0 }
+	var weekUp: Bool { demo ? true : allTimeGain > -0.005 }
 	var weekGainText: String { demo ? PaperPortfolio.weekGain : PaperPortfolio.signedWhole(allTimeGain) }
 	/// "this week" for the demo's authored figure; a real account's line is its gain since it started.
 	var gainPeriodLabel: String { demo ? "this week" : "all time" }
@@ -133,6 +137,7 @@ final class PaperPortfolio: ObservableObject {
 			portfolioName = "Hamza\u{2019}s paper"
 			strategy = "Balanced"
 			setupDone = true
+			hasHydrated = true
 			openOrders = []
 			trades = PaperPortfolio.seedTrades()
 			cash = PaperPortfolio.seedCash
@@ -153,6 +158,7 @@ final class PaperPortfolio: ObservableObject {
 		portfolioName = ""
 		strategy = ""
 		setupDone = false
+		hasHydrated = false
 		cash = 0
 		positions = []
 		realized = []
@@ -196,8 +202,10 @@ final class PaperPortfolio: ObservableObject {
 		guard !demo else { return }
 		hydrateGeneration += 1
 		let generation = hydrateGeneration
+		// A failed read leaves the last known state. Before any has landed, the page keeps loading (the poll retries)
+		// rather than settle on an empty account that looks like it needs setting up.
 		guard let portfolio = try? await repo.getSandboxPortfolio() else {
-			if generation == hydrateGeneration { loading = false }
+			if generation == hydrateGeneration && hasHydrated { loading = false }
 			return
 		}
 		// The ledger only changes when a trade lands, and /portfolio says whether one did (its newest trade's id) - a
@@ -205,8 +213,9 @@ final class PaperPortfolio: ObservableObject {
 		let unchanged = portfolio.tradeCursor != nil && portfolio.tradeCursor == serverTradeCursor
 		var mappedTrades = serverTrades
 		if !unchanged {
-			guard let res = try? await repo.getSandboxTrades(limit: 100) else {
-				if generation == hydrateGeneration { loading = false }
+			// 500 like web: a ledger cut short drops the oldest buys the realized gains and the chart are replayed from.
+			guard let res = try? await repo.getSandboxTrades(limit: 500) else {
+				if generation == hydrateGeneration && hasHydrated { loading = false }
 				return
 			}
 			mappedTrades = res.trades.map { t in
@@ -242,6 +251,7 @@ final class PaperPortfolio: ObservableObject {
 		serverTradeCursor = portfolio.tradeCursor
 		// Only what changed is published - every assignment redraws each Simulate page on the stack.
 		if setupDone != portfolio.initialized { setupDone = portfolio.initialized }
+		if !hasHydrated { hasHydrated = true }
 		if cash != resolvedCash { cash = resolvedCash }
 		let start = PaperPortfolio.startingCash(portfolio)
 		if paperStart != start { paperStart = start }
@@ -286,7 +296,7 @@ final class PaperPortfolio: ObservableObject {
 		let spec = PickSpec(
 			symbol: p.ticker, badge: badge, company: name,
 			priceNow: money(price), pickedLine: "Picked \(picked) at \(money(p.costBasis))", priceThen: money(p.costBasis),
-			gain: signedMoney(gain), gainPct: String(format: "%.1f%%", pctAbs), up: gain >= 0,
+			gain: signedMoney(gain), gainPct: String(format: "%.1f%%", pctAbs), up: gain > -0.005,
 			shares: shares(p.shares), stakeValue: money(value),
 			vsMarket: "Even", ahead: true,
 			dayChange: moveText(dayPct),
@@ -294,8 +304,8 @@ final class PaperPortfolio: ObservableObject {
 		)
 		let row = SimPick(
 			badge: badge, ticker: p.ticker,
-			sub: "Picked \(picked) · \(gain >= 0 ? "up" : "down") \(String(format: "%.0f", pctAbs))% since",
-			amount: signedMoney(gain), pct: String(format: "%+.1f%%", gain >= 0 ? pctAbs : -pctAbs), up: gain >= 0
+			sub: "Picked \(picked) · \(gain > -0.005 ? "up" : "down") \(String(format: "%.0f", pctAbs))% since",
+			amount: signedMoney(gain), pct: String(format: "%+.1f%%", gain > -0.005 ? pctAbs : -pctAbs), up: gain > -0.005
 		)
 		return Position(spec: spec, row: row)
 	}
@@ -320,8 +330,8 @@ final class PaperPortfolio: ObservableObject {
 				sharesHeld[t.symbol] = (sharesHeld[t.symbol] ?? 0) - t.shares
 				out.append(Realized(
 					badge: t.badge, ticker: t.symbol,
-					sub: "Sold \(t.day) · \(gain >= 0 ? "profit banked" : "loss realized")",
-					amount: signedMoney(gain), up: gain >= 0
+					sub: "Sold \(t.day) · \(gain > -0.005 ? "profit banked" : "loss realized")",
+					amount: signedMoney(gain), up: gain > -0.005
 				))
 			}
 		}
@@ -358,7 +368,9 @@ final class PaperPortfolio: ObservableObject {
 	/// An order placed before the setup card was used records the default setup with it: the card never hides on an
 	/// account that reads as unset. For a real account the server is told first, in the same task as the change.
 	private func ensureSetup() -> Bool {
-		guard !demo, !setupDone else { return false }
+		// Only for an account the server has said is new - never on a guess before its first read (a setup erases).
+		guard !demo, hasHydrated, !setupDone else { return false }
+		paperStart = defaultSetupBalance
 		portfolioName = PaperPortfolio.defaultPortfolioName
 		strategy = PaperPortfolio.defaultStrategy
 		setupDone = true
@@ -488,7 +500,7 @@ final class PaperPortfolio: ObservableObject {
 		let live = held.liveSpec
 		let value = held.liveValue
 		let gain = held.gainDollars
-		let banked = gain >= 0
+		let banked = gain > -0.005
 		let sub = "Sold \(PaperPortfolio.today()) · \(banked ? "profit banked" : "loss realized")"
 		recordTrade(side: "SELL", symbol: symbol, badge: held.spec.badge, amount: value * p, shares: (Double(held.spec.shares) ?? 0) * p, price: PaperPortfolio.amount(live.priceNow))
 		if p >= 0.999 {
@@ -510,7 +522,10 @@ final class PaperPortfolio: ObservableObject {
 			realized.insert(Realized(badge: held.spec.badge, ticker: symbol, sub: sub, amount: PaperPortfolio.signedMoney(gain * p), up: banked), at: 0)
 		}
 		persist()
-		if !demo { send { _ = try await self.repo.sandboxSell(ticker: symbol, portion: p) } }
+		// A sale the phone treats as the whole position (99.9% and up) goes to the server as the whole of it - otherwise
+		// it keeps a sliver, and the row the phone just removed comes back on the next read.
+		let serverPortion = p >= 0.999 ? 1 : p
+		if !demo { send { _ = try await self.repo.sandboxSell(ticker: symbol, portion: serverPortion) } }
 		return true
 	}
 
@@ -620,7 +635,7 @@ final class PaperPortfolio: ObservableObject {
 			var out = row
 			out.amount = PaperPortfolio.signedMoney(gain)
 			out.pct = String(format: "%+.1f%%", costBasis > 0 ? gain / costBasis * 100 : 0)
-			out.up = gain >= 0
+			out.up = gain > -0.005
 			return out
 		}
 
@@ -632,7 +647,7 @@ final class PaperPortfolio: ObservableObject {
 			out.priceNow = PaperPortfolio.money(q.price)
 			out.gain = PaperPortfolio.signedMoney(gain)
 			out.gainPct = String(format: "%.1f%%", costBasis > 0 ? abs(gain / costBasis * 100) : 0)
-			out.up = gain >= 0
+			out.up = gain > -0.005
 			out.stakeValue = PaperPortfolio.money(q.price * sharesCount)
 			return out
 		}
@@ -693,9 +708,14 @@ final class PaperPortfolio: ObservableObject {
 
 	// MARK: - Formatting
 
-	nonisolated static func signedWhole(_ value: Double) -> String { (value < 0 ? "-$" : "+$") + wholeDollars(abs(value)).dropFirst() }
-	nonisolated static func signedMoney(_ value: Double) -> String { (value < 0 ? "-" : "+") + money(abs(value)) }
-	nonisolated static func signedPct(_ pct: Double) -> String { String(format: "%+.1f%%", pct) }
+	// The sign is the shown figure's: a gain that rounds to nothing reads "+$0", never a red "-$0" (cost rounding
+	// leaves a first buy a fraction of a cent down).
+	nonisolated static func signedWhole(_ value: Double) -> String { (value.rounded() < 0 ? "-$" : "+$") + wholeDollars(abs(value)).dropFirst() }
+	nonisolated static func signedMoney(_ value: Double) -> String { ((value * 100).rounded() < 0 ? "-" : "+") + money(abs(value)) }
+	nonisolated static func signedPct(_ pct: Double) -> String {
+		let shown = (pct * 10).rounded() / 10
+		return String(format: "%+.1f%%", shown == 0 ? 0 : shown)
+	}
 
 	/// A stake as its label - whole dollars "$25", otherwise "$25.50".
 	nonisolated static func stakeLabel(_ amount: Double) -> String { amount == amount.rounded() ? wholeDollars(amount) : money(amount) }
@@ -717,15 +737,11 @@ final class PaperPortfolio: ObservableObject {
 	/// Shares to four places - the tickets' "0.8803".
 	nonisolated static func shares(_ value: Double) -> String { String(format: "%.4f", value) }
 
-	/// What the XP tiers used to grant (shared/src/tierConfig.ts SANDBOX_BUDGETS) - only a portfolio from before the one
-	/// money system (2026-10-07) can be missing its start.
-	nonisolated static let tierBudgets: [Int: Double] = [1: 1000, 2: 3000, 3: 5000, 4: 10000, 5: 25000]
-
-	/// What the account started with - the gains are measured from it (web usePaperPortfolio). Every portfolio has its
-	/// start since the one-money-system migration; one from before it started on its tier's grant. Reading $10,000 for
-	/// those made a $3,000 tier-2 portfolio show -$7,000.
+	/// What the account started with - the gains are measured from it (web usePaperPortfolio). Every set-up portfolio
+	/// has its start since the one-money-system migration; assuming $10,000 once made a $3,000 one show -$7,000.
 	nonisolated static func startingCash(_ portfolio: SandboxPortfolioResponse) -> Double {
-		portfolio.start ?? portfolio.tier.flatMap { tierBudgets[$0] } ?? defaultSetupBalance
+		// Not set up yet: the amount a first trade would start it on (never an XP-tier figure - those are retired).
+		portfolio.initialized ? (portfolio.start ?? defaultSetupBalance) : defaultSetupBalance
 	}
 
 	/// Today as "Sep 4" - the picked / sold lines' date.

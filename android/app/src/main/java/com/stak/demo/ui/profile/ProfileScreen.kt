@@ -240,9 +240,9 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 					// The % with the dollars: starts range from $500 to $10,000, and only a % compares across them.
 					val pct = if (pp.paperStart > 0) gain / pp.paperStart * 100 else 0.0
 					Text(
-						text = "${if (gain >= 0) "▲" else "▼"} ${pp.signedUsd(gain)} (${pp.signedPct(pct)}) all time on ${pp.wholeUsd(pp.paperStart)} paper",
+						text = "${if (gain > -0.005) "▲" else "▼"} ${pp.signedUsd(gain)} (${pp.signedPct(pct)}) all time on ${pp.wholeUsd(pp.paperStart)} paper",
 						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-						color = if (gain >= 0) Green else Color(0xFFE5484D),
+						color = if (gain > -0.005) Green else Color(0xFFE5484D),
 					)
 				} else {
 					Text(

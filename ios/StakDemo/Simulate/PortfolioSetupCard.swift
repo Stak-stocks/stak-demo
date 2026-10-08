@@ -118,7 +118,9 @@ struct PortfolioSetupLine: View {
 
 	var body: some View {
 		let u = figmaUnit
-		Text("\(portfolio.portfolioName) · \(portfolio.strategy) · started with \(PaperPortfolio.wholeDollars(portfolio.paperStart))")
+		// A portfolio from before setup existed has no name or strategy: just what it started with (web's SetupLine).
+		let parts = [portfolio.portfolioName, portfolio.strategy].filter { !$0.isEmpty }
+		Text((parts + ["started with \(PaperPortfolio.wholeDollars(portfolio.paperStart))"]).joined(separator: " · "))
 			.font(StakFont.geist(11 * u))
 			.stakLineHeight(14 * u, size: 11 * u, face: .geist)
 			.foregroundStyle(Sim.muted)
