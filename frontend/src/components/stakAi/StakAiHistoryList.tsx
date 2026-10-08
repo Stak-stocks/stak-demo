@@ -118,7 +118,7 @@ function RenameDialog({ c, onClose, onSave }: { c: StakAiConversation | null; on
 						value={title}
 						onChange={(e) => setTitle(e.target.value.slice(0, 80))}
 						aria-label="Chat name"
-						className="h-[44px] w-full rounded-[10px] border border-[#243049] bg-transparent px-3 text-[14px] text-white outline-none focus:border-[#69B3CA]"
+						className="h-[44px] w-full rounded-[10px] border border-[#64789A] bg-transparent px-3 text-[14px] text-white outline-none focus:border-[#69B3CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#69B3CA]"
 					/>
 					<DialogFooter className="mt-4">
 						<button type="button" onClick={onClose} className={`min-h-[44px] rounded-[8px] px-4 text-[14px] ${deskFocus}`} style={{ color: DISC.muted }}>Cancel</button>

@@ -21,7 +21,7 @@ export function UpdatesCard({ unreadCompanies, unread, onOpen }: { unreadCompani
 				<span style={{ font: f(400, 15) }} aria-hidden="true">🔔</span>
 				<p style={{ font: f(600, 15, 19, "heading"), color: "#fff" }}>Updates in your STAK</p>
 				{unread > 0 && (
-					<span className="ml-auto grid shrink-0 place-items-center rounded-full" style={{ width: cu(24), height: cu(24), background: DISC.blue, font: f(500, 12), color: "#fff" }}>
+					<span className="ml-auto grid shrink-0 place-items-center rounded-full" style={{ width: cu(24), height: cu(24), background: DISC.blue, font: f(500, 12), color: DISC.pageBg }}>
 						{unread}
 					</span>
 				)}

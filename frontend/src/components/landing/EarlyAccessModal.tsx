@@ -30,6 +30,9 @@ export function EarlyAccessModal({ open, onClose }: { open: boolean; onClose: ()
 	const [emailed, setEmailed] = useState(false);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const dialogRef = useRef<HTMLDivElement>(null);
+	// The form swaps for "You're on the list": focus moves to that heading, not nowhere.
+	const doneRef = useRef<HTMLHeadingElement>(null);
+	useEffect(() => { if (state === "done") doneRef.current?.focus(); }, [state]);
 	const titleId = useId();
 	const errorId = useId();
 
@@ -49,7 +52,9 @@ export function EarlyAccessModal({ open, onClose }: { open: boolean; onClose: ()
 				const items = [...dialogRef.current.querySelectorAll<HTMLElement>("a[href], button:not([disabled]), input:not([disabled])")];
 				if (items.length === 0) return;
 				const first = items[0]!, last = items[items.length - 1]!;
-				if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+				// Focus outside the dialog (the form swapped for its "done" message): Tab brings it back in.
+				if (!dialogRef.current.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+				else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
 				else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 			}
 		};
@@ -84,13 +89,14 @@ export function EarlyAccessModal({ open, onClose }: { open: boolean; onClose: ()
 	}
 
 	return createPortal(
-		<div className="fixed inset-0 z-[200] grid place-items-center p-4" style={{ background: "rgba(4,8,18,0.72)", backdropFilter: "blur(6px)" }} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+		// Scrolls when it doesn't fit (zoomed in, a phone on its side): every field and the button stay reachable.
+		<div className="fixed inset-0 z-[200] grid place-items-center overflow-y-auto p-4" style={{ background: "rgba(4,8,18,0.72)", backdropFilter: "blur(6px)" }} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
 			<div
 				ref={dialogRef}
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby={titleId}
-				className="relative w-full max-w-[440px] rounded-[20px] p-7 sm:p-8"
+				className="relative my-auto w-full max-w-[440px] rounded-[20px] p-7 sm:p-8"
 				style={{ background: "#0E1626", border: "1px solid rgba(105,179,202,0.28)", boxShadow: "0 30px 80px rgba(0,0,0,0.55)", fontFamily: "'Sora', sans-serif" }}
 			>
 				<div className="flex items-center justify-between">
@@ -109,7 +115,7 @@ export function EarlyAccessModal({ open, onClose }: { open: boolean; onClose: ()
 						<span className="grid h-[64px] w-[64px] place-items-center rounded-full" style={{ background: "rgba(105,179,202,0.12)", boxShadow: "0 0 0 1px rgba(105,179,202,0.4)" }}>
 							<CircleCheck className="h-[34px] w-[34px]" style={{ color: DISC.teal }} aria-hidden="true" />
 						</span>
-						<h2 id={titleId} className="mt-5 text-[24px] font-semibold leading-[30px] text-white">{already ? "You're already on the list!" : "You're on the list!"}</h2>
+						<h2 id={titleId} ref={doneRef} tabIndex={-1} className="mt-5 text-[24px] font-semibold leading-[30px] text-white outline-none">{already ? "You're already on the list!" : "You're on the list!"}</h2>
 						<p role="status" className="mt-2 text-[14px] leading-[21px]" style={{ color: DISC.body }}>
 							{already ? "This email already has early access saved." : "Thanks for joining early access."}<br />
 							{emailed ? "Check your inbox for your next step." : "We'll be in touch soon with next steps."}
@@ -129,7 +135,7 @@ export function EarlyAccessModal({ open, onClose }: { open: boolean; onClose: ()
 					<form onSubmit={submit} noValidate className="pt-6">
 						<h2 id={titleId} className="text-[26px] font-semibold leading-[33px] text-white">Be the first to experience STAK.</h2>
 						<p className="mt-3 text-[14px] leading-[21px]" style={{ color: DISC.body }}>Get early access to the app and join our first community of beta testers.</p>
-						<label className="mt-6 flex h-[50px] items-center gap-3 rounded-[12px] px-4 focus-within:ring-1 focus-within:ring-[#69B3CA]" style={{ background: "#0A1020", border: `1px solid ${error ? "#E5484D" : "rgba(255,255,255,0.1)"}` }}>
+						<label className="mt-6 flex h-[50px] items-center gap-3 rounded-[12px] px-4 focus-within:ring-1 focus-within:ring-[#69B3CA]" style={{ background: "#0A1020", border: `1px solid ${error ? "#FF6B6B" : "#64789A"}` }}>
 							<Mail className="h-[17px] w-[17px] shrink-0" style={{ color: DISC.muted }} aria-hidden="true" />
 							<input
 								ref={inputRef}
@@ -146,11 +152,11 @@ export function EarlyAccessModal({ open, onClose }: { open: boolean; onClose: ()
 								style={{ caretColor: DISC.teal }}
 							/>
 						</label>
-						{error && <p id={errorId} role="alert" className="mt-2 text-[12.5px]" style={{ color: "#E5484D" }}>{error}</p>}
+						{error && <p id={errorId} role="alert" className="mt-2 text-[12.5px]" style={{ color: "#FF6B6B" }}>{error}</p>}
 						<button
 							type="submit"
 							disabled={state === "sending"}
-							className={`mt-4 flex h-[50px] w-full items-center justify-center gap-2 rounded-[12px] text-[15px] font-semibold text-white transition-[filter,opacity] hover:brightness-110 disabled:opacity-60 ${FOCUS}`}
+							className={`mt-4 flex h-[50px] w-full items-center justify-center gap-2 rounded-[12px] text-[15px] font-semibold text-[#0A1020] transition-[filter,opacity] hover:brightness-110 disabled:opacity-60 ${FOCUS}`}
 							style={{ background: DISC.cta }}
 						>
 							{state === "sending" ? "Joining…" : <>Join early access <ArrowRight className="h-[17px] w-[17px]" aria-hidden="true" /></>}

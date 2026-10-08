@@ -233,10 +233,10 @@ function ArticlePage() {
 							type="button"
 							onClick={addToStak}
 							className={`flex items-center justify-center ${PRESS}`}
-							style={{ width: cu(150), height: cu(52), borderRadius: cu(6), gap: cu(8), background: CTA_GRADIENT, border: `${cu(0.36)} solid rgba(101,158,173,0.5)`, font: f(500, 14, 21), color: "#fff", ...focusRing }}
+							style={{ width: cu(150), height: cu(52), borderRadius: cu(6), gap: cu(8), background: CTA_GRADIENT, border: `${cu(0.36)} solid rgba(101,158,173,0.5)`, font: f(500, 14, 21), color: DISC.pageBg, ...focusRing }}
 						>
 							Add to STAK
-							<svg viewBox="0 0 14 14" style={{ width: cu(14), height: cu(14) }} fill="#fff" aria-hidden="true">
+							<svg viewBox="0 0 14 14" style={{ width: cu(14), height: cu(14) }} fill="currentColor" aria-hidden="true">
 								<path d="M12.25 7C12.25 7.116 12.2039 7.2273 12.1219 7.3094C12.0398 7.3914 11.9285 7.4375 11.8125 7.4375H7.4375V11.8125C7.4375 11.9285 7.3914 12.0398 7.3094 12.1219C7.2273 12.2039 7.116 12.25 7 12.25C6.884 12.25 6.7727 12.2039 6.6906 12.1219C6.6086 12.0398 6.5625 11.9285 6.5625 11.8125V7.4375H2.1875C2.0715 7.4375 1.9602 7.3914 1.8781 7.3094C1.7961 7.2273 1.75 7.116 1.75 7C1.75 6.884 1.7961 6.7727 1.8781 6.6906C1.9602 6.6086 2.0715 6.5625 2.1875 6.5625H6.5625V2.1875C6.5625 2.0715 6.6086 1.9602 6.6906 1.8781C6.7727 1.7961 6.884 1.75 7 1.75C7.116 1.75 7.2273 1.7961 7.3094 1.8781C7.3914 1.9602 7.4375 2.0715 7.4375 2.1875V6.5625H11.8125C11.9285 6.5625 12.0398 6.6086 12.1219 6.6906C12.2039 6.7727 12.25 6.884 12.25 7Z" />
 							</svg>
 						</button>

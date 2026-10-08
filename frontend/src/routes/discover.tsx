@@ -626,7 +626,7 @@ function App() {
 			<button
 				type="button"
 				onClick={() => { refetchBrands(); }}
-				className="text-white transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+				className="text-[#0A1020] transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
 				style={{ marginTop: cu(18), width: cu(140), height: cu(44), borderRadius: cu(6), background: DISC.cta, font: `500 ${cu(14)} var(--font-body)`, outlineColor: DISC.teal }}
 			>
 				Retry

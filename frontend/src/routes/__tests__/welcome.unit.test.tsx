@@ -1,21 +1,22 @@
 /**
  * Landing page — cross-breakpoint unit suite.
  *
- * The landing page renders one of three fixed-size canvases scaled to the
- * viewport: phone (390, <600px), tablet (810, 600–1024px), desktop (1400,
- * ≥1025px). These tests render the real LandingPage at representative widths
- * and lock in the layout routing, the interactive behavior, and the
- * design-review invariants (hands-off FAQ, sharp mockup, removed email pill,
- * approved copy) so no future Figma pass can silently regress them.
+ * The landing page is one flowing page with three looks, from the Figma frames: phone (<600px), tablet
+ * (600–1024px) and desktop (≥1025px), picked by the page's width in CSS px - so zooming in moves down the list.
+ * Nothing that holds words is scaled (WCAG 1.4.4 / 1.4.10 / 1.4.12). These tests render the real LandingPage at
+ * representative widths and lock in the layout routing, the interactive behavior, and the design-review
+ * invariants (hands-off FAQ, sharp mockup, removed email pill, approved copy) so no future Figma pass can
+ * silently regress them.
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockNavigate = vi.fn();
+let mockSearch: { join?: "1" } = {};
 vi.mock("@tanstack/react-router", () => ({
 	createFileRoute: () => (opts: unknown) => opts,
 	useNavigate: () => mockNavigate,
-	useSearch: () => ({}),
+	useSearch: () => mockSearch,
 }));
 // The early-access modal saves through the API client, which needs Supabase settings at import; the landing tests don't.
 vi.mock("@/lib/api", () => ({ joinWaitlist: vi.fn() }));
@@ -49,10 +50,16 @@ function renderAt(width: number) {
 	return render(<LandingPage />);
 }
 
-function canvas(): HTMLElement {
-	const el = document.querySelector(".landing-canvas");
+function page(): HTMLElement {
+	const el = document.querySelector<HTMLElement>(".landing-page");
 	expect(el).not.toBeNull();
-	return el as HTMLElement;
+	return el!;
+}
+
+/** Puts a section `top` px down the page, as the browser would lay it out. */
+function placeSection(key: string, top: number) {
+	const el = document.getElementById(`landing-${key}`)!;
+	el.getBoundingClientRect = () => ({ top, bottom: top, left: 0, right: 0, width: 0, height: 0, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
 }
 
 const FAQ_QUESTIONS = [
@@ -76,52 +83,59 @@ const ALL = [
 beforeEach(() => {
 	mockNavigate.mockClear();
 	scrollToSpy.mockClear();
+	mockSearch = {};
 });
 afterEach(cleanup);
 
-/* ─── breakpoint → canvas routing and scaling ───────────────────────── */
+/* ─── breakpoint → layout routing ───────────────────────────────────── */
 describe("breakpoint routing", () => {
-	it("renders the 390 phone canvas below 600px", () => {
-		renderAt(390);
-		expect(canvas().style.width).toBe("390px");
-		expect(canvas().style.transform).toBe("scale(1)");
+	it.each([
+		[320, "phone"],
+		[390, "phone"],
+		[599, "phone"],
+		[600, "tablet"],
+		[810, "tablet"],
+		[1024, "tablet"],
+		[1025, "desktop"],
+		[1920, "desktop"],
+	] as const)("%ipx shows the %s layout", (width, layout) => {
+		renderAt(width);
+		expect(page()).toHaveAttribute("data-layout", layout);
 	});
 
-	it("scales the phone canvas up at 599px and switches to tablet at 600px", () => {
-		renderAt(599);
-		expect(canvas().style.width).toBe("390px");
-		expect(canvas().style.transform).toBe(`scale(${599 / 390})`);
-		cleanup();
-		renderAt(600);
-		expect(canvas().style.width).toBe("810px");
-		expect(canvas().style.transform).toBe(`scale(${600 / 810})`);
+	it.each(ALL)("%s: the header matches the layout - links on desktop, a menu button below", (name, width) => {
+		renderAt(width);
+		if (name === "desktop") {
+			expect(screen.getByRole("navigation", { name: "Primary" })).toBeVisible();
+			expect(screen.queryByLabelText("Menu")).toBeNull();
+		} else {
+			expect(screen.getByLabelText("Menu")).toBeInTheDocument();
+		}
 	});
 
-	it("renders the 810 tablet canvas at 810px and through 1024px (iPad)", () => {
-		renderAt(810);
-		expect(canvas().style.width).toBe("810px");
-		expect(canvas().style.transform).toBe("scale(1)");
-		cleanup();
-		renderAt(1024);
-		expect(canvas().style.width).toBe("810px");
-		expect(canvas().style.transform).toBe(`scale(${1024 / 810})`);
-	});
-
-	it("renders the 1400 desktop canvas from 1025px, scaling up uncapped on wide screens", () => {
-		renderAt(1025);
-		expect(canvas().style.width).toBe("1400px");
-		cleanup();
-		renderAt(1920);
-		expect(canvas().style.width).toBe("1400px");
-		expect(canvas().style.transform).toBe(`scale(${1920 / 1400})`);
-	});
-
-	it("re-routes the layout when the window resizes across a breakpoint", () => {
+	it("re-routes the layout when the window resizes (or zooms) across a breakpoint", () => {
 		renderAt(1440);
-		expect(canvas().style.width).toBe("1400px");
+		expect(page()).toHaveAttribute("data-layout", "desktop");
 		viewport = 390;
 		fireEvent(window, new Event("resize"));
-		expect(canvas().style.width).toBe("390px");
+		expect(page()).toHaveAttribute("data-layout", "phone");
+	});
+
+	it.each(ALL)("%s: no words are scaled - the page flows at its real size", (_name, width) => {
+		renderAt(width);
+		for (const el of document.querySelectorAll<HTMLElement>(".landing-scroll *")) {
+			// The photo mosaic is a picture, drawn to the page width; the closed menu shrinks a touch as it fades out.
+			if (el.closest("[data-decor], #landing-menu")) continue;
+			expect(el.style.transform).not.toMatch(/scale\((?!1\))/);
+		}
+	});
+
+	it.each(ALL)("%s: real headings - one h1, then an h2 per section", (_name, width) => {
+		renderAt(width);
+		expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+		for (const name of [/The Market Isn't Hard/, /Three Swipes to/, /Everything You Need/, /Real People/, /answer/, /Our community/]) {
+			expect(screen.getByRole("heading", { level: 2, name })).toBeInTheDocument();
+		}
 	});
 });
 
@@ -138,6 +152,15 @@ describe("hero", () => {
 		cleanup();
 		renderAt(DESKTOP);
 		expect(document.querySelector('img[src*="hero-box-frame124-t810-2x"]')).not.toBeNull();
+		expect(document.querySelector('img[src*="hero-box-frame124-m390-2x"]')).toBeNull();
+	});
+
+	it("?join=1 opens the early-access form, and closing it drops the parameter", () => {
+		mockSearch = { join: "1" };
+		renderAt(DESKTOP);
+		expect(screen.getByRole("dialog")).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Close" }));
+		expect(mockNavigate).toHaveBeenCalledWith({ to: "/welcome", search: {}, replace: true });
 	});
 
 	it.each(ALL)("%s: pre-launch, no section sends people to sign up or scroll with a button", (_name, width) => {
@@ -150,12 +173,13 @@ describe("hero", () => {
 
 /* ─── header: pinned, and its CTA is early access ───────────────────── */
 describe("header", () => {
-	it.each(ALL)("%s: the header lives outside the scrolling canvas, in a sticky layer", (_name, width) => {
+	it.each(ALL)("%s: the header stays on screen (sticky), outside the page's sections", (_name, width) => {
 		renderAt(width);
 		const logo = screen.getAllByAltText("STAK")[0];
-		expect(canvas().contains(logo)).toBe(false);
-		const sticky = [...document.querySelectorAll<HTMLElement>("div")].find((d) => d.style.position === "sticky");
-		expect(sticky?.contains(logo)).toBe(true);
+		expect(page().contains(logo)).toBe(false);
+		const header = document.querySelector("header");
+		expect(header?.style.position).toBe("sticky");
+		expect(header?.contains(logo)).toBe(true);
 	});
 
 	it("desktop: 'Get early access' in the header opens the early-access form", () => {
@@ -187,7 +211,7 @@ describe("header", () => {
 		renderAt(width);
 		const burger = screen.getByLabelText("Menu");
 		fireEvent.click(burger);
-		fireEvent.pointerDown(canvas());
+		fireEvent.pointerDown(page());
 		expect(burger).toHaveAttribute("aria-expanded", "false");
 		fireEvent.click(burger);
 		fireEvent.keyDown(document, { key: "Escape" });
@@ -204,6 +228,14 @@ describe("FAQ (hands-off section)", () => {
 		}
 		expect(screen.queryByText(FAQ_ANSWER_1)).toBeNull();
 		expect(screen.queryByText(FAQ_ANSWER_2)).toBeNull();
+	});
+
+	it.each(ALL)("%s: each question is a heading whose button names and controls its answer", (_name, width) => {
+		renderAt(width);
+		const q = screen.getByRole("button", { name: FAQ_QUESTIONS[0] });
+		expect(q.closest("h3")).not.toBeNull();
+		fireEvent.click(q);
+		expect(screen.getByRole("region", { name: FAQ_QUESTIONS[0] })).toHaveAttribute("id", q.getAttribute("aria-controls"));
 	});
 
 	it.each(ALL)("%s: accordion opens, switches (single-open), and closes", (_name, width) => {
@@ -251,10 +283,11 @@ describe("footer links before launch", () => {
 /* ─── navigation: hamburger menu (phone/tablet) and desktop nav ─────── */
 describe("navigation", () => {
 	it.each([
-		["phone", PHONE, 5640], // PHONE_SEC.faq at scale 1
-		["tablet", TABLET, 4883], // TABLET_SEC.faq at scale 1
-	] as const)("%s: hamburger opens the menu and FAQ scrolls the right layout anchor", (_name, width, expectedTop) => {
+		["phone", PHONE],
+		["tablet", TABLET],
+	] as const)("%s: hamburger opens the menu and FAQ scrolls to the FAQ section", (_name, width) => {
 		renderAt(width);
+		placeSection("faq", 4883);
 		const burger = screen.getByLabelText("Menu");
 		expect(burger).toHaveAttribute("aria-expanded", "false");
 		fireEvent.click(burger);
@@ -264,21 +297,76 @@ describe("navigation", () => {
 		}
 		const faqItems = screen.getAllByText("FAQ");
 		fireEvent.click(faqItems[0]); // menu entry renders above footer link
-		expect(scrollToSpy).toHaveBeenCalledWith({ top: expectedTop, behavior: "smooth" });
+		const padTop = width === PHONE ? 70 : 110;
+		expect(scrollToSpy).toHaveBeenCalledWith({ top: 4883 + padTop - 16, behavior: "smooth" });
+		expect(burger).toHaveAttribute("aria-expanded", "false");
 	});
 
-	it("desktop: nav 'FAQ' scrolls to the desktop anchor scaled to the viewport", () => {
+	it("desktop: nav 'FAQ' scrolls to where the FAQ section is, and takes keyboard focus to its heading", () => {
 		renderAt(DESKTOP);
-		const faqButtons = screen.getAllByText("FAQ");
-		fireEvent.click(faqButtons[0]);
-		expect(scrollToSpy).toHaveBeenCalledWith({ top: 5529 * (1440 / 1400), behavior: "smooth" });
+		placeSection("faq", 5529);
+		fireEvent.click(screen.getAllByText("FAQ")[0]);
+		expect(scrollToSpy).toHaveBeenCalledWith({ top: 5529 + 70 - 16, behavior: "smooth" });
+		expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2, name: /answer/ }));
 	});
 
-	it("phone: footer 'Features' scrolls to the phone Features anchor", () => {
+	it("phone: footer 'Features' scrolls to the Features section", () => {
 		renderAt(PHONE);
+		placeSection("features", 3050);
 		const links = screen.getAllByRole("button", { name: "Features" });
 		fireEvent.click(links[links.length - 1]); // the footer's; the menu's comes first
-		expect(scrollToSpy).toHaveBeenCalledWith({ top: 3050, behavior: "smooth" });
+		expect(scrollToSpy).toHaveBeenCalledWith({ top: 3050 + 70 - 16, behavior: "smooth" });
+	});
+
+	it("with reduced motion, nav links jump instead of gliding", () => {
+		const matchMedia = window.matchMedia;
+		window.matchMedia = ((q: string) => ({ matches: q.includes("reduce"), media: q, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+		try {
+			renderAt(DESKTOP);
+			placeSection("faq", 5529);
+			fireEvent.click(screen.getAllByText("FAQ")[0]);
+			expect(scrollToSpy).toHaveBeenCalledWith({ top: 5529 + 70 - 16, behavior: "auto" });
+		} finally {
+			window.matchMedia = matchMedia;
+		}
+	});
+
+	it("phone: the menu's 'Get early access' leaves focus on the menu button for the form to hand back", () => {
+		renderAt(PHONE);
+		const burger = screen.getByLabelText("Menu");
+		fireEvent.click(burger);
+		const cta = screen.getAllByRole("button", { name: "Get early access" }).find((b) => b.closest("#landing-menu"));
+		fireEvent.click(cta!);
+		fireEvent.click(screen.getByRole("button", { name: "Close" }));
+		expect(document.activeElement).toBe(burger);
+	});
+
+	it("phone: Tabbing out of the open menu closes it", () => {
+		renderAt(PHONE);
+		const burger = screen.getByLabelText("Menu");
+		fireEvent.click(burger);
+		fireEvent.blur(burger, { relatedTarget: screen.getAllByRole("button", { name: FAQ_QUESTIONS[0] })[0] });
+		expect(burger).toHaveAttribute("aria-expanded", "false");
+	});
+
+	it.each([
+		["phone", PHONE],
+		["tablet", TABLET],
+	] as const)("%s: the moving logo strip has a pause button", (_name, width) => {
+		renderAt(width);
+		const pause = screen.getByRole("button", { name: "Pause the partner logos" });
+		fireEvent.click(pause);
+		expect(pause).toHaveAttribute("aria-pressed", "true");
+		expect(pause).toHaveAccessibleName("Play the partner logos");
+		expect(document.querySelector(".landing-marquee")).toHaveClass("landing-paused");
+	});
+
+	it("phone: Escape closes the menu and puts focus back on its button", () => {
+		renderAt(PHONE);
+		const burger = screen.getByLabelText("Menu");
+		fireEvent.click(burger);
+		fireEvent.keyDown(document, { key: "Escape" });
+		expect(document.activeElement).toBe(burger);
 	});
 
 	it("desktop: nav 'Home' scrolls back to the top", () => {

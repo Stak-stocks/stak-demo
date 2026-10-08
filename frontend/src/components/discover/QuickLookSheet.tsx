@@ -89,11 +89,13 @@ export function QuickLookSheet({ brand, onClose }: { brand: BrandSummary; onClos
 			if (e.key === "Escape") { onCloseRef.current(); return; }
 			if (e.key !== "Tab" || !sheetRef.current) return;
 			// Keep Tab inside the sheet: it is modal, so the page behind must not be reachable.
-			const focusable = sheetRef.current.querySelectorAll<HTMLElement>("button, [href], input, [tabindex]:not([tabindex='-1'])");
+			const focusable = sheetRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), [href], input, textarea, select, [tabindex]:not([tabindex='-1'])");
 			if (focusable.length === 0) { e.preventDefault(); return; }
 			const first = focusable[0];
 			const last = focusable[focusable.length - 1];
 			const active = document.activeElement;
+			// Focus outside the sheet: Tab brings it back in, never to the page behind.
+			if (!sheetRef.current.contains(active)) { e.preventDefault(); first.focus(); return; }
 			if (e.shiftKey && (active === first || active === sheetRef.current)) { e.preventDefault(); last.focus(); }
 			else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
 		};
