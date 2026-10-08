@@ -83,13 +83,13 @@ export function MatrixGrid({ options, selected, onSelect }: { options: QuizOptio
 	const desk = useQuizDesktop();
 	if (desk) {
 		return (
-			<div className="grid grid-cols-2" style={{ gap: cu(20) }} role="radiogroup">
+			<div className="grid grid-cols-2" style={{ gap: cu(20) }} role="group" aria-label="Answers">
 				{options.map((o) => <DesktopQuizOption key={o.index} option={o} selected={selected === o.index} onClick={() => onSelect(o.index)} />)}
 			</div>
 		);
 	}
 	return (
-		<div className="grid grid-cols-2" style={{ gap: `${cu(12)} ${cu(13)}`, paddingTop: cu(4) }} role="radiogroup">
+		<div className="grid grid-cols-2" style={{ gap: `${cu(12)} ${cu(13)}`, paddingTop: cu(4) }} role="group" aria-label="Answers">
 			{options.map((o) => <MatrixQuizOption key={o.index} option={o} selected={selected === o.index} onClick={() => onSelect(o.index)} />)}
 		</div>
 	);

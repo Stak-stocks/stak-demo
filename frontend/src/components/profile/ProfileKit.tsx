@@ -30,7 +30,11 @@ export function SettingsCard({ children, padding = "4u 0" }: { children: ReactNo
 }
 
 /** A 48u row: label on the left; a chevron, a value, or nothing on the right. Not a button unless it has an action. */
-export function SettingsLinkRow({ label, onClick, value, chevron = true, tone }: { label: string; onClick?: () => void; value?: string; chevron?: boolean; tone?: string }) {
+export function SettingsLinkRow({ label, onClick, value, chevron = true, tone, expanded }: {
+	label: string; onClick?: () => void; value?: string; chevron?: boolean; tone?: string;
+	/** For a row that opens a panel below it (Delete account): screen readers hear open / closed. */
+	expanded?: boolean;
+}) {
 	const inner = (
 		<>
 			<span style={{ font: f(500, 13, 17), color: tone ?? "#fff" }}>{label}</span>
@@ -41,7 +45,7 @@ export function SettingsLinkRow({ label, onClick, value, chevron = true, tone }:
 	);
 	const style = { height: cu(48), padding: `0 ${cu(14)}` };
 	return onClick ? (
-		<button type="button" onClick={onClick} className={`flex w-full items-center text-left ${PRESS}`} style={{ ...style, ...focusRing }}>{inner}</button>
+		<button type="button" onClick={onClick} aria-expanded={expanded} className={`flex w-full items-center text-left ${PRESS}`} style={{ ...style, ...focusRing }}>{inner}</button>
 	) : (
 		<div className="flex w-full items-center" style={style}>{inner}</div>
 	);

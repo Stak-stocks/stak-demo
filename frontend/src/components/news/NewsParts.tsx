@@ -86,7 +86,7 @@ export function BriefCardView({ item, onOpen, opensPage }: { item: BriefItem; on
 			<span style={{ font: f(600, 19, 25, "heading"), color: INK }}>{item.title}</span>
 			{item.body && <span style={{ font: f(400, 12, 17), color: INK }}>{item.body}</span>}
 			<span className="flex items-center" style={{ height: cu(21), paddingTop: cu(4) }}>
-				<span style={{ font: f(400, 11, 14), color: INK, opacity: 0.6 }}>{item.source}</span>
+				<span style={{ font: f(400, 11, 14), color: INK, opacity: 0.8 }}>{item.source}</span>
 				<span className="flex-1" />
 				{tappable && (
 					<span className="flex items-center" style={{ gap: cu(4), color: INK }}>

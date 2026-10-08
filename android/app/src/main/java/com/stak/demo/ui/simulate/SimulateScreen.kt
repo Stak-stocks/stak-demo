@@ -662,7 +662,7 @@ internal fun BuyPill(text: String = "Buy", onClick: () -> Unit) {
 				onClick = onClick,
 			),
 	) {
-		Text(text, style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp), color = Color.White)
+		Text(text, style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp), color = StakColors.Bg)
 	}
 }
 

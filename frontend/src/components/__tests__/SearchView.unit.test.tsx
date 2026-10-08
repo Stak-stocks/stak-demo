@@ -55,7 +55,7 @@ vi.mock("@/components/discover/DiscoverCard", () => ({
 }));
 
 vi.mock("@/components/discover/QuickLookSheet", () => ({
-	QuickLookSheet: ({ brand }: any) => <div role="dialog">Quick Look: {brand.name}</div>,
+	QuickLookSheet: ({ brand }: any) => <div role="dialog" aria-label={`Quick Look: ${brand.name}`}>Quick Look: {brand.name}</div>,
 }));
 
 function renderSearch(props: Partial<Parameters<typeof SearchView>[0]> = {}) {
@@ -117,7 +117,8 @@ describe("SearchView", () => {
 		renderSearch();
 		typeQuery("apple");
 		fireEvent.click(screen.getByRole("button", { name: "Learn more" }));
-		expect(screen.getByRole("dialog")).toHaveTextContent("Quick Look: Apple Inc");
+		// The search is itself a dialog now; the Quick Look opens over it.
+		expect(screen.getByRole("dialog", { name: /^Quick Look: Apple Inc/ })).toBeInTheDocument();
 		// Counts toward Investing Taste's "Quick Looks read".
 		expect(recordEngagement).toHaveBeenCalledWith("learn_more", "1", expect.objectContaining({ ticker: "AAPL" }));
 	});

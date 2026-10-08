@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, useId } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { X, Search, Clock, Trash2, Check, Plus, ArrowRight } from "lucide-react";
@@ -103,6 +103,26 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 		recordEngagement("learn_more", brand.id, { ticker: brand.ticker, categories: brand.interestCategories }).catch(() => {});
 	}, [remember]);
 
+	// A modal over the page: focus goes back to whatever opened it (the top bar's search) when it closes.
+	const dialogRef = useRef<HTMLDivElement>(null);
+	const titleId = useId();
+	useEffect(() => {
+		if (!open) return;
+		const opener = document.activeElement as HTMLElement | null;
+		return () => { opener?.focus?.(); };
+	}, [open]);
+	// Tab stays inside (the page behind is covered); from anywhere outside it comes back in.
+	const trapTab = (e: React.KeyboardEvent) => {
+		if (e.key !== "Tab" || quickLook || !dialogRef.current) return;
+		const focusable = dialogRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), [href], input, textarea, select, [tabindex]:not([tabindex='-1'])");
+		if (focusable.length === 0) return;
+		const first = focusable[0]!, last = focusable[focusable.length - 1]!;
+		const active = document.activeElement;
+		if (!dialogRef.current.contains(active)) { e.preventDefault(); first.focus(); }
+		else if (e.shiftKey && active === first) { e.preventDefault(); last.focus(); }
+		else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+	};
+
 	// Esc closes the Quick Look sheet first (it handles its own Esc), then the search.
 	useEffect(() => {
 		if (!open || quickLook) return;
@@ -118,6 +138,11 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 	return (
 		<>
 			<div
+				ref={dialogRef}
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby={titleId}
+				onKeyDown={trapTab}
 				className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] md:left-[220px] md:bottom-0 z-50 flex flex-col"
 				// Cards are drawn in figma units: the phone's own scale on mobile, 1:1 (a 350px card) on desktop.
 				style={{ background: DISC.pageBg, ["--u" as string]: `${isMobile ? phoneUnit : 1}px` }}
@@ -135,7 +160,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 						>
 							<X className="h-[18px] w-[18px]" style={{ color: "#AEAEAE" }} />
 						</button>
-						<h2 className="font-heading text-[20px] font-semibold text-white">Search Stocks</h2>
+						<h2 id={titleId} className="font-heading text-[20px] font-semibold text-white">Search Stocks</h2>
 					</div>
 
 					<div className="relative">
@@ -151,8 +176,8 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 							autoComplete="off"
 							autoCorrect="off"
 							spellCheck={false}
-							className="h-[48px] w-full rounded-[12px] pl-11 pr-4 text-[14px] text-white outline-none transition-colors placeholder:text-[#819ABB] focus:border-[#69B3CA]"
-							style={{ background: DISC.sheet, border: "1px solid rgba(120,170,220,0.16)" }}
+							className="h-[48px] w-full rounded-[12px] border border-[#64789A] pl-11 pr-4 text-[14px] text-white outline-none transition-colors placeholder:text-[#819ABB] focus-visible:border-[#69B3CA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#69B3CA]"
+							style={{ background: DISC.sheet }}
 						/>
 					</div>
 				</div>
@@ -163,7 +188,7 @@ export function SearchView({ open, onClose, onSwipeRight }: SearchViewProps) {
 						{searching ? (
 							results.length > 0 ? (
 								<>
-									<p className="mb-4 text-[13px]" style={{ color: DISC.muted }}>
+									<p role="status" className="mb-4 text-[13px]" style={{ color: DISC.muted }}>
 										{results.length === MAX_RESULTS ? `Top ${MAX_RESULTS} matches` : `${results.length} ${results.length === 1 ? "match" : "matches"}`} — Learn more for a quick look.
 									</p>
 									<div className="grid justify-center gap-6" style={{ gridTemplateColumns: `repeat(auto-fill, calc(${CARD_WIDTH} * var(--u)))` }}>

@@ -51,7 +51,7 @@ function AppSettingsPage() {
 			</SettingsCard>
 
 			<SettingsCard>
-				<SettingsLinkRow label="Delete account" chevron={!open} onClick={() => { setOpen((v) => !v); setTyped(""); }} />
+				<SettingsLinkRow label="Delete account" chevron={!open} expanded={open} onClick={() => { setOpen((v) => !v); setTyped(""); }} />
 				{open && (
 					<div style={{ display: "flex", flexDirection: "column", gap: cu(10), padding: `0 ${cu(14)} ${cu(14)}` }}>
 						<p style={{ font: f(400, 12, 17), color: DISC.body }}>This deletes your STAK account - your saves, paper portfolio and settings - and signs you out. It can’t be undone.</p>

@@ -4,7 +4,7 @@ import type { ChartRange } from "@/lib/api";
 import { chartFractions } from "@/lib/chartSeries";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { PHONE_MAX_WIDTH, useFigmaUnit, useShellInset } from "@/components/discover/useFigmaUnit";
-import { GradientCta, PRESS, f, focusRing, sheetCard } from "@/components/phone/phone";
+import { FIELD_FOCUS, GradientCta, PRESS, f, focusRing, sheetCard } from "@/components/phone/phone";
 
 export const SIM = {
 	ctaBorder: "linear-gradient(to bottom, rgba(101,158,173,0.63), rgba(22,54,63,0.43))",
@@ -91,7 +91,7 @@ export function RangeChart({ values, width = 343, height = 73.56, color = DISC.t
 	const last = Math.max(1, fractions.length - 1);
 	const points = fractions.map((fr, i) => `${(width * i) / last},${height * (1 - fr)}`).join(" ");
 	return (
-		<svg viewBox={`0 0 ${width} ${height}`} style={{ width: cu(width), height: cu(height), overflow: "visible" }} fill="none" role="img" aria-label="Value over time">
+		<svg viewBox={`0 0 ${width} ${height}`} style={{ width: cu(width), height: cu(height), overflow: "visible" }} fill="none" aria-hidden="true">
 			<polyline points={points} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 		</svg>
 	);
@@ -198,7 +198,7 @@ export function MoneyField({ prefix, value, onChange, placeholder, label, radius
 	radius?: number;
 }) {
 	return (
-		<label className="flex items-center" style={{ gap: cu(4), borderRadius: cu(radius), background: SIM.amountBg, border: `${cu(0.5)} solid ${SIM.amountSelBorder}`, padding: `${cu(8)} ${cu(12)}` }}>
+		<label className={`flex items-center ${FIELD_FOCUS}`} style={{ gap: cu(4), borderRadius: cu(radius), background: SIM.amountBg, border: `${cu(0.5)} solid ${SIM.amountSelBorder}`, padding: `${cu(8)} ${cu(12)}` }}>
 			<span style={{ font: f(500, 12, 16), color: SIM.amountInk }}>{prefix}</span>
 			<input
 				inputMode="decimal"
@@ -243,16 +243,24 @@ export function SheetScaffold({ children, onDismiss, label, scrim = "rgba(0,0,0,
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key === "Escape") { onDismissRef.current(); return; }
 			if (e.key !== "Tab" || !sheetRef.current) return;
-			const focusable = sheetRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), [href], input, [tabindex]:not([tabindex='-1'])");
+			const focusable = sheetRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), [href], input, textarea, select, [tabindex]:not([tabindex='-1'])");
 			if (focusable.length === 0) { e.preventDefault(); return; }
 			const first = focusable[0];
 			const last = focusable[focusable.length - 1];
 			const active = document.activeElement;
+			// Focus outside the sheet (its control swapped away, say): Tab brings it back in, never to the page behind.
+			if (!sheetRef.current.contains(active)) { e.preventDefault(); first.focus(); return; }
 			if (e.shiftKey && (active === first || active === sheetRef.current)) { e.preventDefault(); last.focus(); }
 			else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
 		};
 		window.addEventListener("keydown", onKey);
-		return () => { cancelAnimationFrame(raf); window.removeEventListener("keydown", onKey); opener?.focus?.(); };
+		// The sheet's content swaps (a ticket becomes its receipt) and the focused button goes with it: focus the sheet
+		// again rather than leave it nowhere.
+		const refocus = new MutationObserver(() => {
+			if (sheetRef.current && !sheetRef.current.contains(document.activeElement)) sheetRef.current.focus();
+		});
+		if (sheetRef.current) refocus.observe(sheetRef.current, { childList: true, subtree: true });
+		return () => { cancelAnimationFrame(raf); window.removeEventListener("keydown", onKey); refocus.disconnect(); opener?.focus?.(); };
 	}, []);
 
 	const dragging = dragStart.current !== null;

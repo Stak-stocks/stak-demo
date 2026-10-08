@@ -226,7 +226,7 @@ function StockDetailPage() {
 			<div className="flex items-center" style={{ gap: cu(12), padding: `${cu(6)} ${cu(20)} 0` }}>
 				<CompanyLogo src={brand ? getBrandLogoUrl(brand) : null} name={name} />
 				<div className="min-w-0 flex-1" style={{ display: "flex", flexDirection: "column", gap: cu(2) }}>
-					<p className="truncate" style={{ font: f(600, 20, undefined, "heading"), color: "#fff" }}>{name}</p>
+					<p className="break-words" style={{ font: f(600, 20, undefined, "heading"), color: "#fff" }}>{name}</p>
 					<p style={{ font: f(400, 11), color: DISC.muted }}>{category ? `${symbol} · in your ${categoryName(category)}` : symbol}</p>
 				</div>
 				{saved && (

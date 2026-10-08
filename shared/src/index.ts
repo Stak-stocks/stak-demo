@@ -65,6 +65,8 @@ export type { SandboxStartingBalance, SandboxStrategy } from "./sandboxConfig";
 
 export { PRICE_THRESHOLDS, DEFAULT_PRICE_THRESHOLD, isPriceThreshold } from "./notificationConfig";
 export { TERMS_VERSION, PRIVACY_VERSION, TERMS_URL, PRIVACY_URL, ELIGIBILITY_ENFORCED_FROM } from "./eligibility";
+export { TERMS_OF_SERVICE, PRIVACY_POLICY } from "./legalText";
+export type { LegalDoc, LegalSection, LegalBlock } from "./legalText";
 export type { PriceThreshold } from "./notificationConfig";
 
 export { STAK_AI_WINDOW_LIMIT, STAK_AI_WINDOW_HOURS, STAK_AI_VIA } from "./stakAi";

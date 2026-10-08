@@ -42,7 +42,7 @@ describe("POST /eligibility", () => {
 		expect(forgetVerifiedTokenMock).toHaveBeenCalledWith("tok");
 	});
 
-	it("needs all three boxes ticked", async () => {
+	it("needs all three confirmations", async () => {
 		const app = await buildApp();
 		expect((await request(app).post("/eligibility").send({})).status).toBe(400);
 		expect((await request(app).post("/eligibility").send({ inUS: true, acceptTerms: true })).status).toBe(400);

@@ -135,7 +135,7 @@ function RowMenu({ company, onOpen, onPractice, onRemove }: { company: string; o
 		return () => document.removeEventListener("mousedown", close);
 	}, [open]);
 	const dismiss = () => { setOpen(false); trigger.current?.focus(); };
-	const item = `block w-full rounded-[6px] px-3 py-2 text-left text-[12.5px] transition-colors hover:bg-white/[0.06] focus:bg-white/[0.06] focus:outline-none`;
+	const item = `block w-full rounded-[6px] px-3 py-2 text-left text-[12.5px] transition-colors hover:bg-white/[0.06] focus-visible:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#69B3CA]`;
 	const pick = (fn: () => void) => () => { setOpen(false); fn(); };
 	return (
 		<div
@@ -323,8 +323,8 @@ const compactUsd = (n: number) => (Math.abs(n) >= 1000 ? `${(n / 1000).toFixed(1
 function Stat({ label, value, color = "#fff" }: { label: string; value: string; color?: string }) {
 	return (
 		<div className="flex min-w-0 flex-col gap-[2px]">
-			<span className="truncate text-[11px]" style={{ color: DESK.muted }}>{label}</span>
-			<span className="truncate text-[13px] font-semibold tabular-nums" style={{ color }}>{value}</span>
+			<span className="break-words text-[11px]" style={{ color: DESK.muted }}>{label}</span>
+			<span className="break-words text-[13px] font-semibold tabular-nums" style={{ color }}>{value}</span>
 		</div>
 	);
 }

@@ -58,6 +58,7 @@ final class StockRepository {
     }
     func deleteMe() async throws -> OkResponse { try await api.deleteMe() }
     func confirmEligibility() async throws -> OkResponse { try await api.confirmEligibility(EligibilityRequest()) }
+    func getLegal(_ doc: String) async throws -> LegalDocResponse { try await api.getLegal(doc) }
     func getTaste() async throws -> TasteResponse { try await api.getTaste() }
     func getUpdates() async throws -> UpdatesResponse { try await api.getUpdates() }
     func markUpdateRead(_ id: Int64) async throws -> OkResponse { try await api.markUpdateRead(id) }

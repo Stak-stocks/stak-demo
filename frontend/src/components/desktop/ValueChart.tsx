@@ -43,8 +43,12 @@ export function ValueChart({ points, color, className = "", formatValue }: {
 	const h = hover === null ? null : points[hover]!;
 	const hPct = h && values[0]! > 0 ? ((h.value - values[0]!) / values[0]!) * 100 : null;
 
+	// What the chart shows, for screen readers (the line and its hover readout are visual only).
+	const change = values[last]! - values[0]!;
+	const summary = `${shortDay(points[0]!.ts)} to ${shortDay(points[last]!.ts)}: ${formatValue(values[0]!)} to ${formatValue(values[last]!)}, `
+		+ `${change >= 0 ? "up" : "down"} ${formatValue(Math.abs(change))}; high ${formatValue(max)}, low ${formatValue(min)}`;
 	return (
-		<div className={`flex gap-3 ${className}`}>
+		<div className={`flex gap-3 ${className}`} role="img" aria-label={summary}>
 			<div className="flex min-w-0 flex-1 flex-col">
 				<div ref={boxRef} className="relative min-h-0 flex-1" onPointerMove={onMove} onPointerLeave={() => setHover(null)}>
 					<svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden="true">

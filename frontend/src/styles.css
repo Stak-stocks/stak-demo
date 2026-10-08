@@ -93,7 +93,7 @@ input::-webkit-credentials-auto-fill-button {
 
 	/* STAK brand tokens beyond the generic shadcn set */
 	--accent-blue: #69B3CA;
-	--muted-faint: #5c6b85;
+	--muted-faint: #7d8da8;
 	--body-dim: #c8d2e0;
 	--text-faint: rgba(255, 255, 255, 0.4);
 	--text-dim: rgba(255, 255, 255, 0.62);
@@ -110,7 +110,7 @@ input::-webkit-credentials-auto-fill-button {
 	/* My STAK pages' slightly different token set (same palette family) */
 	--mystak-card: #181f30;
 	--mystak-muted: #819abb;
-	--mystak-faint: #5c6b85;
+	--mystak-faint: #7d8da8;
 	--mystak-body: #c8d2e0;
 	--mystak-teal: #69b3ca;
 	--mystak-header-gray: #d3d3dd;

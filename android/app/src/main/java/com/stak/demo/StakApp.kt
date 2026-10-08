@@ -33,6 +33,7 @@ class StakApp : Application() {
 		// No sync here: a push can start the process without the app being opened.
 		com.stak.demo.data.ProfileSync.init(repository)
 		com.stak.demo.data.Eligibility.init(repository)
+		com.stak.demo.data.LegalDocs.init(repository)
 		com.stak.demo.data.StakEvents.init(repository)
 		com.stak.demo.data.LiveQuotes.init(repository)
 		com.stak.demo.data.TrendingStocks.init(repository)

@@ -89,7 +89,7 @@ function PortfolioPage() {
 								pick={p}
 								subLight
 								onOpen={() => openPick(p.ticker)}
-								trailing={<button type="button" onClick={() => openPick(p.ticker)} aria-label={`Sell ${p.ticker}`} className={PRESS} style={{ ...hairlineButton, width: cu(60), height: cu(30) }}>Sell</button>}
+								trailing={<button type="button" onClick={() => openPick(p.ticker)} aria-label={`Sell ${p.ticker}`} className={PRESS} style={{ ...hairlineButton, ...focusRing, width: cu(60), height: cu(30) }}>Sell</button>}
 							/>
 						))}
 
@@ -97,7 +97,7 @@ function PortfolioPage() {
 							<>
 								<Kicker>SOLD · REALIZED</Kicker>
 								{paper.realized.map((r, i) => (
-									<div key={`${r.ticker}-${r.executedAt}-${i}`} className="flex items-center" style={{ gap: cu(12), ...sheetCard(12), padding: `${cu(12)} ${cu(14)}`, opacity: 0.72 }}>
+									<div key={`${r.ticker}-${r.executedAt}-${i}`} className="flex items-center" style={{ gap: cu(12), ...sheetCard(12), padding: `${cu(12)} ${cu(14)}` }}>
 										<Badge letter={r.ticker} size={36} fontSize={14} alpha={0.55} />
 										<span className="min-w-0 flex-1" style={{ display: "flex", flexDirection: "column", gap: cu(2) }}>
 											<span style={{ font: f(600, 12, 15, "heading"), color: DISC.headerGray }}>{r.ticker}</span>
@@ -123,7 +123,7 @@ function PortfolioPage() {
 									<span style={{ font: f(600, 14, undefined, "heading"), color: "#fff" }}>Buy {o.ticker} · limit {usd(o.limitPrice)}</span>
 									<span style={{ font: f(300, 11), color: DISC.muted }}>{usd(o.amount)} reserved · placed {monthDay(o.createdAt)} · pending</span>
 								</span>
-								<button type="button" onClick={() => { void paper.cancelOrder(o.id); }} aria-label={`Cancel ${o.ticker} order`} className={PRESS} style={{ ...hairlineButton, width: cu(64), height: cu(30) }}>Cancel</button>
+								<button type="button" onClick={() => { void paper.cancelOrder(o.id); }} aria-label={`Cancel ${o.ticker} order`} className={PRESS} style={{ ...hairlineButton, ...focusRing, width: cu(64), height: cu(30) }}>Cancel</button>
 							</div>
 						))}
 					</section>
@@ -139,7 +139,7 @@ function PortfolioPage() {
 						</div>
 						{shownTrades.length === 0 && <p style={{ font: f(400, 11), color: DISC.faint }}>{filter === "buys" ? "No buys yet." : "No sells yet."}</p>}
 						{shownTrades.map((t) => (
-							<div key={t.id} className="flex items-center" style={{ gap: cu(12), opacity: 0.85 }}>
+							<div key={t.id} className="flex items-center" style={{ gap: cu(12) }}>
 								<Badge letter={t.ticker} size={36} fontSize={14} alpha={0.7} />
 								<span className="min-w-0 flex-1" style={{ display: "flex", flexDirection: "column", gap: cu(2) }}>
 									<span style={{ font: f(600, 12, undefined, "heading"), color: DISC.headerGray }}>{t.side === "buy" ? "Bought" : "Sold"} {t.ticker}</span>

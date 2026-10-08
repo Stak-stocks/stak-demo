@@ -14,14 +14,16 @@ export const DISC = {
 	cardDark: "#10182B",
 	headerGray: "#D3D3DD",
 	blue: "#69B3CA",
-	redDown: "#E5484D",
+	// #FF6B6B, not #E5484D: AA text contrast on the cards too (4.2:1 -> 5.9:1 on the sheet).
+	redDown: "#FF6B6B",
 	badgeInk: "#9EADC7",
 	avatar: "#242B3D",
 	navCircle: "#192238",
 	tabBar: "#060C1D",
 	pageBg: "#0A1020",
 	muted: "#819ABB",
-	faint: "#5C6B85",
+	// #7D8DA8, not #5C6B85: AA text contrast on every surface (3.0-3.5:1 -> 4.6-5.6:1).
+	faint: "#7D8DA8",
 	body: "#C8D2E0",
 	teal: "#69B3CA",
 	green: "#2FD08A",

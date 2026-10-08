@@ -328,7 +328,7 @@ struct AuthCta: View {
 		Button(action: action) {
 			Text(text)
 				.font(StakFont.geist(14 * u, .medium))
-				.foregroundStyle(StakColors.textPrimary)
+				.foregroundStyle(StakColors.bg) // navy on the teal gradient: white read 1.4-3.3:1 (WCAG AA)
 				.frame(maxWidth: .infinity)
 				.frame(height: 52 * u * typeScale)
 				.background(

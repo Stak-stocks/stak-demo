@@ -600,7 +600,7 @@ private fun PositionClosedContent(pick: PickSpec, onBackToSimulate: () -> Unit, 
 				Text(
 					"Back to Simulate",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp, lineHeight = (20.69 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-					color = Color.White,
+					color = StakColors.Bg,
 				)
 			}
 			// 73:1025 (exact-design audit 2026-09-04): hairline only - the 4% white fill was never authored.

@@ -223,7 +223,7 @@ const Composer = forwardRef<ComposerHandle, { chat: StakAiChat; look: Look; vari
 
 	return (
 		<div style={{ padding: `${s(8)} ${s(20)}`, paddingBottom: variant === "phone" ? `max(${s(10)}, env(safe-area-inset-bottom))` : s(14) }}>
-			<div className="flex items-end focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#69B3CA]" style={{ borderRadius: s(22), background: look.raised, border: `1px solid ${look.border}`, padding: `${s(2)} ${s(2)} ${s(2)} ${s(16)}` }}>
+			<div className="flex items-end focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#69B3CA]" style={{ borderRadius: s(22), background: look.raised, border: "1px solid #64789A", padding: `${s(2)} ${s(2)} ${s(2)} ${s(16)}` }}>
 				<textarea
 					ref={box}
 					rows={1}

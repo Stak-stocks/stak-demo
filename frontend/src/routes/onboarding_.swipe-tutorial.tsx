@@ -229,13 +229,13 @@ function PhoneSwipeTutorial() {
 				<div style={{ height: cu(16) }} />
 				<div className="flex justify-center" style={{ gap: s(48), zIndex: 2, position: "relative" }}>
 					<div className="flex flex-col items-center" style={{ gap: s(6) }}>
-						<button type="button" onClick={() => advance(-1, 0)} aria-label="Pass" className={`grid place-items-center rounded-full ${PRESS}`} style={{ width: s(56), height: s(56), background: passBg }}>
+						<button type="button" onClick={() => advance(-1, 0)} aria-label="Pass" className={`grid place-items-center rounded-full ${PRESS}`} style={{ width: s(56), height: s(56), background: passBg, outlineColor: "#69B3CA" }}>
 							<svg viewBox="0 0 20 20" style={{ width: s(20), height: s(20) }} fill="none" aria-hidden="true"><path d="M2 2 L18 18 M18 2 L2 18" stroke={passInk} strokeWidth="2.4" strokeLinecap="round" /></svg>
 						</button>
 						<span style={{ font: `400 ${s(12)} var(--font-body)`, color: "#ACAFB1" }}>Pass</span>
 					</div>
 					<div className="flex flex-col items-center" style={{ gap: s(6) }}>
-						<button type="button" onClick={() => advance(1, 0)} aria-label="STAK" className={`grid place-items-center rounded-full ${PRESS}`} style={{ width: s(56), height: s(56), background: stakBg }}>
+						<button type="button" onClick={() => advance(1, 0)} aria-label="STAK" className={`grid place-items-center rounded-full ${PRESS}`} style={{ width: s(56), height: s(56), background: stakBg, outlineColor: "#69B3CA" }}>
 							<img src={stakMark} alt="" style={{ width: s(28), height: s(28) }} draggable={false} />
 						</button>
 						<span style={{ font: `400 ${s(12)} var(--font-body)`, color: "#ACAFB1" }}>STAK</span>

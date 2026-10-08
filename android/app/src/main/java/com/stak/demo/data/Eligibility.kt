@@ -10,16 +10,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * "Before we get started": three boxes - 18 or older, living in the United States, and the Terms / Privacy (Terms
- * §2); no date of birth. While an account hasn't confirmed them, [required] is true and the gate covers the whole app -
+ * "Before we get started": one "Agree and continue" confirms 18 or older, living in the United States, and the Terms /
+ * Privacy (Terms §2); no date of birth. While an account hasn't confirmed them, [required] is true and the gate covers the whole app -
  * a new account right after it signs up, an existing one the next time it opens. The server keeps that each was
  * confirmed, when, and which versions of the documents. Mirrors shared/src/eligibility.ts, web
  * components/onboarding/EligibilityGate.tsx and iOS Core/Eligibility.swift.
  */
 object Eligibility {
-	const val TERMS_URL = "https://thestak.org/terms"
-	const val PRIVACY_URL = "https://thestak.org/privacy"
-
 	private var repository: StockRepository? = null
 	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 	/** The session last asked about - a rotation or a second launch path doesn't ask again for the same one. */
@@ -58,23 +55,15 @@ object Eligibility {
 		}
 	}
 
-	sealed interface Outcome {
-		data object Confirmed : Outcome
-		/** [invalid]: the server didn't get all three boxes; otherwise a network or server failure. */
-		data class Failed(val invalid: Boolean) : Outcome
-	}
-
-	/** Sends the three confirmations. */
-	suspend fun confirm(): Outcome {
-		val repo = repository ?: return Outcome.Failed(invalid = false)
+	/** Sends the three confirmations; false when they didn't reach the server (a network or server failure). */
+	suspend fun confirm(): Boolean {
+		val repo = repository ?: return false
 		return try {
 			repo.confirmEligibility()
 			required = false
-			Outcome.Confirmed
-		} catch (e: retrofit2.HttpException) {
-			Outcome.Failed(invalid = e.code() == 400)
+			true
 		} catch (e: Exception) {
-			Outcome.Failed(invalid = false)
+			false
 		}
 	}
 

@@ -10,13 +10,18 @@ export const f = (weight: number, size: number, lineHeight?: number, family: "bo
 /** Android's PressDim: the pressed target fades to 70%, no ripple. */
 export const PRESS = "transition-opacity active:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
 export const focusRing: CSSProperties = { outlineColor: DISC.teal };
+/** A text field's edge: 3:1 against the page and the cards (WCAG 1.4.11), so the field reads as a field. */
+export const FIELD_EDGE = "#64789A";
+/** A text field's focus ring, drawn on its wrapper (the input inside has no outline of its own). */
+export const FIELD_FOCUS = "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#69B3CA]";
 
 /** Android's two card surfaces at a corner radius in figma units: the sheet (most cards) and the darker card. */
 export const sheetCard = (radius: number): CSSProperties => ({ borderRadius: cu(radius), background: DISC.sheet });
 export const darkCard = (radius: number): CSSProperties => ({ borderRadius: cu(radius), background: DISC.cardDark });
 
 /**
- * The house primary button: Android's CTA gradient, white label, faded to half when disabled. Each Android frame's
+ * The house primary button: Android's CTA gradient, navy label (white read 1.4-3.3:1 on it; navy passes WCAG AA), faded to
+ * half when disabled. Each Android frame's
  * version (AuthCta, SheetCta, QuizCta) passes its own height, hairline rim and glow.
  */
 export function GradientCta({ children, onClick, disabled, type = "button", height = 52, rim, shadow, fontSize = 14 }: {
@@ -41,7 +46,7 @@ export function GradientCta({ children, onClick, disabled, type = "button", heig
 				// DISC.cta is already a gradient: it's a background layer as is (wrapping it in linear-gradient() drew nothing).
 				...(rim ? { border: `${cu(0.36)} solid transparent`, background: `${DISC.cta} padding-box, ${rim} border-box` } : { background: DISC.cta }),
 				// No inline opacity: it would beat PRESS's active:opacity-70 and the press would show nothing.
-				boxShadow: shadow, font: f(500, fontSize), color: "#fff", ...focusRing,
+				boxShadow: shadow, font: f(500, fontSize), color: DISC.pageBg, ...focusRing,
 			}}
 		>
 			{children}

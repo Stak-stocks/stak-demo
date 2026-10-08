@@ -365,9 +365,12 @@ private struct LiveAddToStakButton: View {
 				Text("Add to STAK")
 					.font(StakFont.geist(14 * u, .medium))
 					.stakLineHeight(20.69 * u, size: 14 * u, face: .geist)
-					.foregroundStyle(Color.white)
+					.foregroundStyle(StakColors.bg)
+				// Navy like the label beside it on the teal button.
 				Image("IcPlusSmall")
+					.renderingMode(.template)
 					.resizable()
+					.foregroundStyle(StakColors.bg)
 					.frame(width: 14 * u, height: 14 * u)
 			}
 			.frame(width: 150 * u * typeScale, height: 52 * u * typeScale)
