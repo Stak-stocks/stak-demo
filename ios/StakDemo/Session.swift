@@ -80,7 +80,8 @@ final class Session: ObservableObject {
 			p.priceAlerts = prefs["priceAlerts"] as? Bool ?? true
 			p.dailyDeck = prefs["dailyDeck"] as? Bool ?? true
 			p.marketNews = prefs["marketNews"] as? Bool ?? false
-			p.priceThreshold = prefs["priceThreshold"] as? Int ?? UserProfile.defaultPriceThreshold
+			// One the server accepts - another would show here while the server kept its own.
+			p.priceThreshold = (prefs["priceThreshold"] as? Int).flatMap { UserProfile.priceThresholds.contains($0) ? $0 : nil } ?? UserProfile.defaultPriceThreshold
 			// Only Dark and Match system exist (the Light build of 2026-09-08 was withdrawn): a
 			// value that build stored reads as Dark, so the Appearance page always shows a choice.
 			p.appearance = (prefs["appearance"] as? String) == "system" ? "system" : "dark"
@@ -145,7 +146,7 @@ final class Session: ObservableObject {
 			UserProfile.shared.priceAlerts = true
 			UserProfile.shared.dailyDeck = true
 			UserProfile.shared.marketNews = false
-			UserProfile.shared.priceThreshold = 3
+			UserProfile.shared.priceThreshold = UserProfile.defaultPriceThreshold
 		}
 		// Brand-new account: the server's creation month isn't known yet, and it is this one. Any other sign-in waits
 		// for the month the server gives (ProfileSync).
@@ -207,7 +208,7 @@ final class Session: ObservableObject {
 		UserProfile.shared.priceAlerts = true
 		UserProfile.shared.dailyDeck = true
 		UserProfile.shared.marketNews = false
-		UserProfile.shared.priceThreshold = 3
+		UserProfile.shared.priceThreshold = UserProfile.defaultPriceThreshold
 		UserProfile.shared.appearance = "dark"
 		UserProfile.shared.linkedGoogle = false
 		UserProfile.shared.linkedApple = false

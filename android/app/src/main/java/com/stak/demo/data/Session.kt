@@ -110,7 +110,8 @@ object Session {
 		UserProfile.priceAlerts = p.getBoolean(KEY_PRICE_ALERTS, true)
 		UserProfile.dailyDeck = p.getBoolean(KEY_DAILY_DECK, true)
 		UserProfile.marketNews = p.getBoolean(KEY_MARKET_NEWS, false)
-		UserProfile.priceThreshold = p.getInt(KEY_PRICE_THRESHOLD, 3)
+		UserProfile.priceThreshold = p.getInt(KEY_PRICE_THRESHOLD, UserProfile.DEFAULT_PRICE_THRESHOLD)
+			.takeIf { it in UserProfile.PRICE_THRESHOLDS } ?: UserProfile.DEFAULT_PRICE_THRESHOLD
 		// Only Dark and Match system exist (the Light build of 2026-09-08 was withdrawn): a
 		// value that build stored reads as Dark, so the Appearance page always shows a choice.
 		UserProfile.appearance = p.getString(KEY_APPEARANCE, "dark").let { if (it == "system") "system" else "dark" }
@@ -164,7 +165,7 @@ object Session {
 			UserProfile.priceAlerts = true
 			UserProfile.dailyDeck = true
 			UserProfile.marketNews = false
-			UserProfile.priceThreshold = 3
+			UserProfile.priceThreshold = UserProfile.DEFAULT_PRICE_THRESHOLD
 		}
 		// Brand-new account: the server's creation month isn't known yet, and it is this one.
 		if (!demo && answeredOnboarding && UserProfile.joined.isBlank()) UserProfile.joined = StakClock.monthYear()
@@ -251,7 +252,7 @@ object Session {
 		UserProfile.priceAlerts = true
 		UserProfile.dailyDeck = true
 		UserProfile.marketNews = false
-		UserProfile.priceThreshold = 3
+		UserProfile.priceThreshold = UserProfile.DEFAULT_PRICE_THRESHOLD
 		UserProfile.appearance = "dark"
 		UserProfile.linkedGoogle = false
 		UserProfile.linkedApple = false

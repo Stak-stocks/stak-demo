@@ -295,6 +295,7 @@ internal object PaperPortfolio {
 		this.strategy = strategy
 		setupDone = true
 		positions = emptyList()
+		pickedAt = emptyMap()
 		realized = emptyList()
 		trades = emptyList()
 		openOrders = emptyList()
@@ -905,6 +906,7 @@ internal object PaperPortfolio {
 		recordTrade("SELL", symbol, held.spec.badge, held.liveValue * p, (held.spec.shares.toDoubleOrNull() ?: 0.0) * p, parseUsd(live.priceNow))
 		if (p >= 0.999) {
 			positions = positions.filterNot { it === held }
+			pickedAt = pickedAt - symbol
 			cash += held.liveValue
 			realized = listOf(Realized(badge = held.spec.badge, ticker = symbol, sub = sub, amount = live.gain, up = banked)) + realized
 		} else {

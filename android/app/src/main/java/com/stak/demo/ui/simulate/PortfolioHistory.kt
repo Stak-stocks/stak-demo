@@ -125,11 +125,17 @@ internal object PortfolioHistory {
 	 * so the week starts from its first bar - or null when the chart didn't come back.
 	 */
 	suspend fun weekCloses(symbol: String): List<Pair<Long, Double>>? {
+		weekCache[symbol]?.let { (at, bars) -> if (System.currentTimeMillis() - at < CLOSES_TTL_MS) return bars }
 		val repo = repository ?: return null
 		val prices = runCatching { repo.getChart(symbol, "1w").prices }.getOrNull() ?: return null
-		return prices.mapNotNull { p -> if (p.close <= 0.0) null else runCatching { Instant.parse(p.ts).toEpochMilli() }.getOrNull()?.let { it to p.close } }
-			.sortedBy { it.first }.takeIf { it.size >= 2 }
+		val bars = prices.mapNotNull { p -> if (p.close <= 0.0) null else runCatching { Instant.parse(p.ts).toEpochMilli() }.getOrNull()?.let { it to p.close } }
+			.sortedBy { it.first }.takeIf { it.size >= 2 } ?: return null
+		weekCache[symbol] = System.currentTimeMillis() to bars
+		return bars
 	}
+
+	/** [weekCloses] per symbol for a few minutes, like [closesCache] - SPY's is read on every pick page. */
+	private val weekCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, List<Pair<Long, Double>>>>()
 
 	/** [points]' values as the 0..1 fractions RangeChart draws. */
 	fun fractions(points: List<Point>): List<Float> = chartFractions(points.map { it.value })

@@ -36,7 +36,7 @@ async function warmRiskWatch(ticker: string, companyName: string): Promise<void>
 import { getEdgarEarningsEps } from "../services/edgarService.js";
 import { cacheDelete, cacheGet, cacheSet, cacheSetIfAbsent } from "../lib/cache.js";
 import { pgQuery } from "../lib/postgres.js";
-import { sendPush } from "../services/pushService.js";
+import { sendPush, type WebKeys } from "../services/pushService.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
 import { marketSessionBucket, getEasternDateKey, getPeerTickers, formatMarketCap, calcPercentChange, STAK_CAPACITY, DEFAULT_PRICE_THRESHOLD } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
@@ -715,8 +715,8 @@ stockRouter.get("/push-run", async (req, res) => {
 			}
 		}
 
-		const devices = await pgQuery<{ token: string; uid: string; timezone: string; price_alerts: boolean; daily_deck: boolean; price_threshold: number | null }>(
-			`select token, uid, timezone, price_alerts, daily_deck, price_threshold from push_devices`,
+		const devices = await pgQuery<{ token: string; uid: string; timezone: string; price_alerts: boolean; daily_deck: boolean; price_threshold: number | null; web_keys: WebKeys }>(
+			`select token, uid, timezone, price_alerts, daily_deck, price_threshold, web_keys from push_devices`,
 		);
 		if (devices.rows.length === 0) { res.json({ ok: true, moves, decks, failed }); return; }
 
@@ -727,7 +727,6 @@ stockRouter.get("/push-run", async (req, res) => {
 				`select uid, brand_id from stak_brands where uid = any($1)`, [alertUids],
 			);
 			const tickerById = new Map(brands.map((b) => [b.id, b.ticker.toUpperCase()]));
-			const nameByTicker = new Map(brands.map((b) => [b.ticker.toUpperCase(), b.name]));
 			const byUser = new Map<string, string[]>();
 			for (const r of saved.rows) {
 				const t = tickerById.get(r.brand_id);
@@ -754,28 +753,30 @@ stockRouter.get("/push-run", async (req, res) => {
 			const devicesByUser = new Map<string, typeof devices.rows>();
 			for (const d of devices.rows) if (d.price_alerts) devicesByUser.set(d.uid, [...(devicesByUser.get(d.uid) ?? []), d]);
 			// Each device at its own threshold - a phone set to 1% hears a move another set to 5% doesn't.
-			const sends: { uid: string; token: string; ticker: string; dir: "up" | "down"; pct: number; threshold: number }[] = [];
+			const sends: { uid: string; token: string; webKeys: WebKeys; ticker: string; dir: "up" | "down"; move: number; threshold: number }[] = [];
 			for (const [uid, held] of byUser) {
 				for (const ticker of held) {
 					const p = pct.get(ticker);
 					if (p === undefined) continue;
 					for (const d of devicesByUser.get(uid) ?? []) {
 						const threshold = d.price_threshold ?? DEFAULT_PRICE_THRESHOLD;
-						if (Math.abs(p) >= threshold) sends.push({ uid, token: d.token, ticker, dir: p >= 0 ? "up" : "down", pct: p, threshold });
+						if (Math.abs(p) >= threshold) sends.push({ uid, token: d.token, webKeys: d.web_keys, ticker, dir: p >= 0 ? "up" : "down", move: p, threshold });
 					}
 				}
 			}
 			await mapWithLimit(sends, 8, async (s) => {
 				// Told under the old per-account key earlier today (before the per-device thresholds shipped): not again.
+				// Only matters on the deploy day - remove after 2026-10-15.
 				if (await cacheGet<boolean>(`push:move:${s.uid}:${today}:${s.ticker}:${s.dir}`)) return;
 				// Once per device, stock, direction and day - claimed in one step, so an overlapping run can't send it too.
 				if (!(await cacheSetIfAbsent(`push:move:${s.token}:${today}:${s.ticker}:${s.dir}`, true, PUSH_DEDUPE_TTL_MS))) return;
 				const name = nameByTicker.get(s.ticker);
 				const r = await sendPush(
 					s.token,
-					`${s.ticker} is ${s.dir} ${Math.abs(s.pct).toFixed(1)}% today`,
+					`${s.ticker} is ${s.dir} ${Math.abs(s.move).toFixed(1)}% today`,
 					`${name ? `${name}, one of your saved stocks,` : "One of your saved stocks"} moved ${s.threshold}% or more.`,
 					{ kind: "move", ticker: s.ticker },
+					s.webKeys,
 				);
 				if (r === "sent") moves++; else if (r === "failed") failed++;
 			});
@@ -790,7 +791,7 @@ stockRouter.get("/push-run", async (req, res) => {
 			const localDay = `${get("year")}-${get("month")}-${get("day")}`;
 			const key = `push:deck:${d.token}:${localDay}`;
 			if (!(await cacheSetIfAbsent(key, true, PUSH_DEDUPE_TTL_MS))) continue;
-			const r = await sendPush(d.token, "Your deck is ready", "Fresh cards, tuned to your taste. Swipe when you have a minute.", { kind: "deck" });
+			const r = await sendPush(d.token, "Your deck is ready", "Fresh cards, tuned to your taste. Swipe when you have a minute.", { kind: "deck" }, d.web_keys);
 			if (r === "sent") decks++; else if (r === "failed") failed++;
 		}
 

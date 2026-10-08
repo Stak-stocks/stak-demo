@@ -246,10 +246,12 @@ POST `/api/sandbox/fill-orders` with the warm secret) — created and enabled.
 - Frontend: `public/sw.js`, `lib/webPush.ts`, the "Browser notifications" switch in
   `routes/profile_.notifications.tsx`; onboarding permissions subscribes; logout unsubscribes.
 - `vercel.json` serves `/sw.js` with no-cache.
-- Price threshold (2026-10-08): migration `20261008010000_push_devices_price_threshold.sql` adds
+- Price threshold (2026-10-08): migration `20261008010000_push_devices_price_threshold.sql` (applied) adds
   `push_devices.price_threshold` (1/3/5/10, default 3; the list lives in `shared/src/notificationConfig.ts`).
   Every client sends `priceThreshold` with `PUT /push-device`; push-run checks each device at its own threshold
-  and dedupes per token (`push:move:<token>:<day>:<ticker>:<dir>`). Web re-sends its settings once per page load.
+  and dedupes per token (`push:move:<token>:<day>:<ticker>:<dir>`, claimed in one step with `cacheSetIfAbsent`;
+  the old per-account `push:move:<uid>:...` key is also honoured, for the deploy day only - remove after
+  2026-10-15). Web re-sends its settings once per page load.
 
 ### 4.4 Other backend changes (deployed)
 `compression()` middleware (before `express.json`) in `index.ts`; `GET /api/brands` precomputes

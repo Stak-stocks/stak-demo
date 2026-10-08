@@ -407,6 +407,7 @@ final class PaperPortfolio: ObservableObject {
 		self.strategy = strategy
 		setupDone = true
 		positions = []
+		pickedAt = [:]
 		realized = []
 		trades = []
 		openOrders = []
@@ -531,6 +532,7 @@ final class PaperPortfolio: ObservableObject {
 		recordTrade(side: "SELL", symbol: symbol, badge: held.spec.badge, amount: value * p, shares: (Double(held.spec.shares) ?? 0) * p, price: PaperPortfolio.amount(live.priceNow))
 		if p >= 0.999 {
 			positions.remove(at: i)
+			pickedAt[symbol] = nil
 			cash += value
 			realized.insert(Realized(badge: held.spec.badge, ticker: symbol, sub: sub, amount: live.gain, up: banked), at: 0)
 		} else {

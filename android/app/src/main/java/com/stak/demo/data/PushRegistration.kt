@@ -7,6 +7,7 @@ import android.os.Build
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -22,6 +23,8 @@ object PushRegistration {
 
 	private var repository: StockRepository? = null
 	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+	@Volatile
+	private var lastUpload: Job? = null
 
 	fun init(context: Context, repo: StockRepository) {
 		repository = repo
@@ -35,10 +38,6 @@ object PushRegistration {
 		}
 	}
 
-	/** The upload in flight - the next waits for it. */
-	@Volatile
-	private var lastUpload: kotlinx.coroutines.Job? = null
-
 	/**
 	 * Sends this install's token and current settings to the backend. Called at start-up,
 	 * after sign-in, when a notification setting changes, and when FCM issues a new token.
@@ -49,21 +48,24 @@ object PushRegistration {
 		val repo = repository ?: return
 		// The settings as they are now, and in order: each upload waits for the one before it, so two quick changes
 		// (a threshold tapped twice) reach the server in the order they were made.
-		val previous = lastUpload
-		lastUpload = scope.launch {
-			previous?.join()
-			val token = knownToken ?: runCatching { FirebaseMessaging.getInstance().token.await() }.getOrNull() ?: return@launch
-			runCatching {
-				repo.putPushDevice(
-					PushDeviceRequest(
-						token = token,
-						platform = "android",
-						timezone = java.util.TimeZone.getDefault().id,
-						priceAlerts = UserProfile.notificationsOn && UserProfile.priceAlerts,
-						dailyDeck = UserProfile.notificationsOn && UserProfile.dailyDeck,
-						priceThreshold = UserProfile.priceThreshold,
-					),
-				)
+		// Swapped under a lock: FCM's new-token callback and the settings screen call in from different threads.
+		synchronized(this) {
+			val previous = lastUpload
+			lastUpload = scope.launch {
+				previous?.join()
+				val token = knownToken ?: runCatching { FirebaseMessaging.getInstance().token.await() }.getOrNull() ?: return@launch
+				runCatching {
+					repo.putPushDevice(
+						PushDeviceRequest(
+							token = token,
+							platform = "android",
+							timezone = java.util.TimeZone.getDefault().id,
+							priceAlerts = UserProfile.notificationsOn && UserProfile.priceAlerts,
+							dailyDeck = UserProfile.notificationsOn && UserProfile.dailyDeck,
+							priceThreshold = UserProfile.priceThreshold,
+						),
+					)
+				}
 			}
 		}
 	}

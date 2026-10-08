@@ -17,8 +17,8 @@ import kotlinx.coroutines.launch
  * A real account's inbox is built from its own data (device check, 2026-09-16).
  * It used to be a fixed pair - "Welcome to STAK" and "Save a stock to start your
  * STAK", both stamped "Just now" forever, the second still shown with four stocks
- * saved. Now: a big move on a saved stock (the threshold the settings page sets, 3% by default,
- * promises, only while "Price moves on your picks" is on), today's deck while cards
+ * saved. Now: a big move on a saved stock (at least the threshold set on the settings page,
+ * 3% by default, and only while "Price moves on your picks" is on), today's deck while cards
  * are left ("Daily deck"), the save prompt only while nothing is saved, and the
  * welcome for the account's first week, dated from when the account was created.
  */

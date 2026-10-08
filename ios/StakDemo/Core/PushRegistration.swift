@@ -23,6 +23,10 @@ enum PushRegistration {
     private(set) static var configured = false
     /// The upload in flight: each waits for the one before it, so two quick setting changes reach the server in order.
     private static var lastUpload: Task<Void, Never>? = nil
+    /// The install's Firebase token - one per phone, not per account, so not in StakStore (whose keys are per account):
+    /// a token that arrives while signed out is the one the next sign-in sends. A new key: the APNs token the app
+    /// kept before can never be sent by mistake.
+    private static let tokenKey = "push.fcmToken"
 
     /// Starts Firebase when the app carries its config. Called once, at launch.
     static func configure(delegate: MessagingDelegate) {
@@ -32,13 +36,13 @@ enum PushRegistration {
         configured = true
     }
 
-    /// Register with the OS (if not already) and, if a stored token exists, push current preferences to the backend.
-    /// Safe to call multiple times.
+    /// Register with the OS (if not already) and upload the settings with the stored token, or ask Firebase for one
+    /// when none is kept. Safe to call multiple times.
     static func sync() {
         guard configured, !StakStore.demoAccount, Session.shared.token != nil else { return }
         UIApplication.shared.registerForRemoteNotifications()
         guard let token = storedToken() else {
-            // None kept (a sign-out deleted it, or it came before Firebase did): ask Firebase - it issues a fresh one
+            // None kept (a sign-out deleted it, or Firebase hadn't issued one yet): ask Firebase - it issues a fresh one
             // once the APNs token is in, as Android's sync() does.
             Messaging.messaging().token { token, _ in
                 guard let token, !token.isEmpty else { return }
@@ -69,10 +73,6 @@ enum PushRegistration {
         guard configured else { return }
         Messaging.messaging().deleteToken { _ in }
     }
-
-    /// The install's Firebase token - one per phone, not per account (a token that arrives while signed out is the
-    /// one the next sign-in sends). A new key: the APNs token the app kept before can never be sent by mistake.
-    private static let tokenKey = "push.fcmToken"
 
     private static func storedToken() -> String? {
         let t = UserDefaults.standard.string(forKey: tokenKey) ?? ""; return t.isEmpty ? nil : t
