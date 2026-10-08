@@ -47,7 +47,9 @@ export function Sidebar({ open, active, onToggle }: Props) {
 
 			{ITEMS.map((item, i) => {
 				const isActive = item.key === active;
-				const icon = isActive ? A.nav[item.key].on : A.nav[item.key].off;
+				// Profile pages (2:2476 et al.): the Home row keeps a 24px icon and a SemiBold 13 label, no highlight
+				const onProfile = active === "profile" && item.key === "home";
+				const icon = isActive ? A.nav[item.key].on : onProfile ? A.nav.home.profile : A.nav[item.key].off;
 				return (
 					<Link
 						key={item.key}
@@ -60,12 +62,16 @@ export function Sidebar({ open, active, onToggle }: Props) {
 						)}
 						style={{ top: 92 + i * 48 }}
 					>
-						<img alt="" src={icon} className={cn("shrink-0", isActive ? "size-[24px]" : "size-[20px]")} />
+						<img alt="" src={icon} className={cn("shrink-0", isActive || onProfile ? "size-[24px]" : "size-[20px]")} />
 						{open && (
 							<span
 								className={cn(
 									"whitespace-nowrap font-geist",
-									isActive ? "text-[16px] font-semibold text-[#d9d9d9]" : "text-[13px] font-medium text-[#aeaeae]",
+									isActive
+										? "text-[16px] font-semibold text-[#d9d9d9]"
+										: onProfile
+											? "text-[13px] font-semibold text-[#aeaeae]"
+											: "text-[13px] font-medium text-[#aeaeae]",
 								)}
 							>
 								{item.label}

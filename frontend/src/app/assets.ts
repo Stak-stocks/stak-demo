@@ -13,7 +13,7 @@ export const A = {
 	navShow: `${base}/1ce9c.svg`,
 	settings: `${base}/43072.svg`,
 	nav: {
-		home: { on: `${base}/7b7af.svg`, off: `${base}/4c706.svg` },
+		home: { on: `${base}/7b7af.svg`, off: `${base}/4c706.svg`, profile: `${base}/b554e.svg` },
 		news: { on: `${base}/9d895.svg`, off: `${base}/78043.svg` },
 		discover: { on: `${base}/e9d5c.svg`, off: `${base}/e9365.svg` },
 		mystak: { on: `${base}/7c0a6.svg`, off: `${base}/a42b8.svg` },
