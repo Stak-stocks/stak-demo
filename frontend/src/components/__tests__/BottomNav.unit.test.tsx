@@ -30,13 +30,13 @@ describe("BottomNav", () => {
 		} as any);
 	});
 
-	it("renders all five nav items: Discover, My STAK, News, Playground, Profile", () => {
+	it("renders the three remaining nav items: Discover, My STAK, Profile (News and Playground were removed)", () => {
 		render(<BottomNav />);
 		expect(screen.getByText("Discover")).toBeInTheDocument();
 		expect(screen.getByText("My STAK")).toBeInTheDocument();
-		expect(screen.getByText("News")).toBeInTheDocument();
-		expect(screen.getByText("Playground")).toBeInTheDocument();
 		expect(screen.getByText("Profile")).toBeInTheDocument();
+		expect(screen.queryByText("News")).not.toBeInTheDocument();
+		expect(screen.queryByText("Playground")).not.toBeInTheDocument();
 	});
 
 	it("renders My STAK as a Link to /my-stak", () => {
