@@ -2,6 +2,7 @@ import { Router } from "express";
 import { pgQuery } from "../lib/postgres.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { singleFlight } from "../lib/singleFlight.js";
 import { xpToTier, TIER_XP, type TierNumber, getNYSEHolidays, getMarketDayKey, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 import {
@@ -107,7 +108,19 @@ interface WhatHappenedResult {
 	watchItems: Array<{ icon: string; label: string; body: string }>;
 }
 
-async function generateWhatHappenedAndContext(
+// Single-flight: the apps re-read the brief at each market session change (pre-market, 9:30, 12:00, 15:30, 16:00
+// ET), so every open app asks within a couple of minutes of the same boundary. Without this, each request that
+// missed the cache ran its own copy of the shared work - N grounded searches for one boundary - before the first
+// one's result landed in the cache. Per instance; the shared cache covers the rest.
+function generateWhatHappenedAndContext(
+	session: Session, marketClosed: boolean, dayLabel: string, marketDrivers: string | null, mood: Mood,
+	spyDp: number | null, qqqDp: number | null, diaDp: number | null, topSector: string | null, worstSector: string | null,
+): Promise<WhatHappenedResult> {
+	return singleFlight(`daily-brief:events:${getEasternDateKey()}:${briefStateKey(mood, session, marketClosed, dayLabel)}`, () =>
+		generateWhatHappenedAndContextOnce(session, marketClosed, dayLabel, marketDrivers, mood, spyDp, qqqDp, diaDp, topSector, worstSector));
+}
+
+async function generateWhatHappenedAndContextOnce(
 	session: Session,
 	marketClosed: boolean,
 	dayLabel: string,
@@ -355,7 +368,12 @@ const SESSION_TONE: Record<Session, string> = {
 	close:  "Markets are closing or have just closed. Write in a recap tone — what happened and what does it mean going forward?",
 };
 
-async function searchMarketDrivers(today: string, skipSearch: boolean, session: Session): Promise<string | null> {
+/** Single-flight (see generateWhatHappenedAndContext): this is the grounded search - the costly one. */
+function searchMarketDrivers(today: string, skipSearch: boolean, session: Session): Promise<string | null> {
+	return singleFlight(`daily-brief:drivers:${today}:${session}:${skipSearch}`, () => searchMarketDriversOnce(today, skipSearch, session));
+}
+
+async function searchMarketDriversOnce(today: string, skipSearch: boolean, session: Session): Promise<string | null> {
 	const cacheKey = `daily-brief:drivers:v2:${today}:${session}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
@@ -415,7 +433,17 @@ Return a factual 3-4 sentence paragraph summarising the 1-3 most significant thi
 	return null;
 }
 
-async function generateMarketText(
+/** Single-flight (see generateWhatHappenedAndContext). */
+function generateMarketText(
+	mood: Mood, session: Session, spyDp: number | null, qqqDp: number | null, diaDp: number | null,
+	vixDp?: number | null, sectorsGreen?: number, sectorsRed?: number, topSector?: string | null, worstSector?: string | null,
+	marketClosed = false, dayLabel = "Today's", marketDrivers: string | null = null, holiday: string | null = null,
+): Promise<{ moodExplanation: string; plainEnglish: string }> {
+	return singleFlight(`daily-brief:text:${getEasternDateKey()}:${briefStateKey(mood, session, marketClosed, dayLabel)}`, () =>
+		generateMarketTextOnce(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector, marketClosed, dayLabel, marketDrivers, holiday));
+}
+
+async function generateMarketTextOnce(
 	mood: Mood,
 	session: Session,
 	spyDp: number | null,
@@ -1151,7 +1179,12 @@ const SESSION_PRIMARY_DECKS: Record<Mood, Record<Session, DeckDef>> = {
 
 // ── Shared market-data builder (used by both /warm and /) ────────────────────
 
-async function buildSharedMarketData() {
+/** Single-flight (see generateWhatHappenedAndContext): ~16 quote reads and the market status, shared by everyone. */
+function buildSharedMarketData() {
+	return singleFlight("daily-brief:shared-market-data", buildSharedMarketDataOnce);
+}
+
+async function buildSharedMarketDataOnce() {
 	const today = getEasternDateKey();
 	const [[spyDp, qqqDp, diaDp, iwmDp, vixDp, ...sectorChanges], marketStatus] = await Promise.all([
 		Promise.all([

@@ -87,6 +87,13 @@ Use the native iOS behavior wherever an iPhone user expects it. Everything else 
 
 ## 4. Product rules that apply to iOS too
 
+- **Create account and Sign in have no back button** (Android has none; the flow starts on Create account and
+  switches to Sign in with the "Already have an account? / New to STAK?" text link). PR #167 still has an
+  `AuthBackCircle` at the top of `CreateAccountView` and `SignInView` - remove both. Forgot password keeps its back
+  button, like Android. The same goes for the iOS edge-swipe: there's nothing to swipe back to on these two screens.
+- **The "Continue with Apple" pill** in PR #167 is a placeholder (it just runs the same action as Create account).
+  Keep the pill for iOS but wire it to real Sign in with Apple (section 3); Android shows Google only.
+
 - **Colors:** Android's teal `#69B3CA` and CTA gradient (`#A6E4F7 → #5DA8BF → #3C98B4`), page `#0A1020`, cards
   `#171D2C`. No bright cyan, indigo or violet.
 - **American English** in all copy (practicing, color, center…).

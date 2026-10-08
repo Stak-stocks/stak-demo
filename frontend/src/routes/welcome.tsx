@@ -1620,6 +1620,19 @@ function FooterSocialLinks() {
 	);
 }
 
+/** The footer's "Privacy terms" slot: the Privacy Policy and the Terms of Service, side by side on one line so the
+ *  footer keeps the design's height. */
+function LegalFooterLinks({ style }: { style: CSSProperties }) {
+	const link: CSSProperties = { ...style, color: "inherit", textDecoration: "none" };
+	return (
+		<span style={{ ...style, display: "inline-flex", gap: 6, alignItems: "center" }}>
+			<a href="/privacy" style={link}>Privacy</a>
+			<span aria-hidden="true">·</span>
+			<a href="/terms" style={link}>Terms</a>
+		</span>
+	);
+}
+
 /* Footer "Useful Links" column (Figma node 1:1053) — 135 wide, gap 49
    ├── Heading "Useful Links" (1:1054)
    └── Items wrapper (1:1055)
@@ -1644,7 +1657,7 @@ function FooterUsefulLinks({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) =
 				<button type="button" onClick={() => onScrollTo("howItWorks")} style={linkStyle}>How it works</button>
 				<button type="button" onClick={() => onScrollTo("features")} style={linkStyle}>Features</button>
 				<button type="button" onClick={() => onScrollTo("faq")} style={linkStyle}>FAQ</button>
-				<p style={{ margin: 0, whiteSpace: "nowrap", fontFamily: SR, fontWeight: 300, fontSize: 16, lineHeight: "25px" }} data-node-id="1:1060">Privacy terms</p>
+				<LegalFooterLinks style={{ margin: 0, whiteSpace: "nowrap", fontFamily: SR, fontWeight: 300, fontSize: 16, lineHeight: "25px", color: "#fff" }} />
 			</div>
 		</div>
 	);
@@ -2197,7 +2210,9 @@ function MobileFooter({ onSubscribe, onScrollTo }: { onSubscribe: (email: string
 		<div style={{ display: "flex", flexDirection: "column", gap: 30, alignItems: "flex-start", width: 135 }}>
 			<p style={{ fontFamily: SR, fontWeight: 600, fontSize: 16, margin: 0, lineHeight: "25px", whiteSpace: "nowrap" }}>{title}</p>
 			<div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-				{items.map((it, i) => it.href
+				{items.map((it, i) => it.label === "Privacy terms"
+					? <LegalFooterLinks key={i} style={itemStyle} />
+					: it.href
 					? <a key={i} href={it.href} target="_blank" rel="noopener noreferrer" style={{ ...itemStyle, textDecoration: "none" }}>{it.label}</a>
 					: it.onClick
 					? <button key={i} type="button" onClick={it.onClick} style={{ ...btnReset, ...itemStyle, ...(it.label === "Home" ? { fontSize: 14 } : {}) }}>{it.label}</button>
@@ -2656,6 +2671,7 @@ function MobileFooter390({ onSubscribe, onScrollTo }: { onSubscribe: (email: str
 					const style: CSSProperties = { margin: 0, whiteSpace: "nowrap", ...(it === "Home" ? { fontSize: 14 } : {}) };
 					const key = SCROLL[it];
 					if (it === "Instagram") return <a key={i} href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" style={{ ...style, color: "inherit", textDecoration: "none" }}>{it}</a>;
+					if (it === "Privacy terms") return <LegalFooterLinks key={i} style={style} />;
 					return key
 						? <button key={i} type="button" onClick={() => onScrollTo(key)} style={{ ...btnReset, ...style, textAlign: "left", font: "inherit", fontSize: style.fontSize ?? "inherit", color: "inherit", cursor: "pointer" }}>{it}</button>
 						: <p key={i} style={style}>{it}</p>;
