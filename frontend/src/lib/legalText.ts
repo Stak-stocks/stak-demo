@@ -1,7 +1,7 @@
 // The published Terms of Service and Privacy Policy: the founders' documents (STAK_Terms_of_Service and
-// STAK_Privacy_Policy, October 7, 2026) with the October 8 corrections that bring them in line with the app (date of
-// birth at sign-up, web and iOS push, Google sign-in, the Gemini models, in-app account deletion, notification
-// settings and time zone, hosting) - in use pending the lawyer's review. Changing either means bumping TERMS_VERSION /
+// STAK_Privacy_Policy, October 7, 2026) with the October 8 corrections that bring them in line with the app (the
+// eligibility confirmation at sign-up, web and iOS push, Google sign-in, the Gemini models, in-app account deletion,
+// notification settings and time zone, hosting) - in use pending the lawyer's review. Changing either means bumping TERMS_VERSION /
 // PRIVACY_VERSION in shared/src/eligibility.ts, which asks every account to accept again.
 
 /** A paragraph, or a bulleted list. */
@@ -30,13 +30,8 @@ export const PRIVACY_POLICY: LegalDoc = {
 			"STAK uses Supabase Auth for account authentication, sign-up verification, and password-reset workflows. We do not need to view your password in plain text.",
 			"If you choose to sign in with Google, Google shares your name, email address, and basic profile information with STAK to create and authenticate your account. Google’s own privacy terms govern the information it processes when you use Sign in with Google.",
 		] },
-		{ heading: "", sub: "B. Age and eligibility information", blocks: [
-			"Before you use the Service, we ask for your date of birth, whether you currently reside in the United States, and your agreement to these Terms and this Privacy Policy.",
-			{ list: [
-				"We use your date of birth only to determine whether you are at least 18 years old. We do not store your date of birth.",
-				"We store that your eligibility was confirmed and when, that you confirmed U.S. residence, and which versions of the Terms of Service and Privacy Policy you accepted and when.",
-				"If a sign-up is declined because the person is under 18, we delete the account and keep only a one-way cryptographic hash of the email address for 30 days, so the same address cannot immediately sign up again. The hash cannot be used to read the email address.",
-			] },
+		{ heading: "", sub: "B. Eligibility confirmations", blocks: [
+			"Before you use the Service, we ask you to confirm that you are at least 18 years old and currently reside in the United States, and to agree to the Terms of Service and this Privacy Policy. We store that you made each confirmation, when, and which versions of the Terms of Service and Privacy Policy you accepted. We do not ask for or store your date of birth.",
 		] },
 		{ heading: "", sub: "C. Beta-profile and survey information", blocks: [
 			"If you complete a beta questionnaire or provide product feedback, we may collect information such as:",
@@ -141,7 +136,7 @@ export const PRIVACY_POLICY: LegalDoc = {
 			"You can delete your STAK account at any time in the app’s settings, or request deletion of your account and associated personal information by contacting support@thestak.org, subject to information we must or are permitted to retain for legal, security, fraud-prevention, dispute-resolution, or technical reasons.",
 		] },
 		{ heading: "11. Children", blocks: [
-			"The beta is not intended for anyone under 18, and we do not knowingly permit users under 18 to participate. We ask for a date of birth before the Service can be used, and we delete accounts that indicate the user is under 18 (see “Age and eligibility information” above). If you believe a person under 18 has provided personal information to STAK, contact support@thestak.org.",
+			"The beta is not intended for anyone under 18, and we do not knowingly permit users under 18 to participate. We ask every user to confirm that they are at least 18 years old before the Service can be used (see “Eligibility confirmations” above), and we delete accounts we learn belong to someone under 18. If you believe a person under 18 has provided personal information to STAK, contact support@thestak.org.",
 		] },
 		{ heading: "12. United States Service and Data Processing", blocks: [
 			"The current beta is offered only in the United States. Our providers may process or store information in the United States or other locations where they operate. By using the Service, you understand that information may be processed in locations with different data-protection rules than your state of residence.",
@@ -171,7 +166,7 @@ export const TERMS_OF_SERVICE: LegalDoc = {
 		] },
 		{ heading: "2. Eligibility and U.S.-Only Beta", blocks: [
 			"You must be at least 18 years old and located in the United States to participate in the current beta. By using STAK, you represent that you meet these requirements and are legally able to enter into these Terms.",
-			"Before you can use the Service, we ask you to provide your date of birth, confirm that you currently reside in the United States, and agree to these Terms and the Privacy Policy. Providing false information to gain access violates these Terms. We may suspend or delete an account that does not meet these requirements.",
+			"Before you can use the Service, we ask you to confirm that you are at least 18 years old and currently reside in the United States, and to agree to these Terms and the Privacy Policy. Providing false information to gain access violates these Terms. We may suspend or delete an account that does not meet these requirements.",
 		] },
 		{ heading: "3. The STAK Beta", blocks: [
 			"STAK is currently a beta product. Features may be experimental, incomplete, unavailable, delayed, changed, or removed at any time. We may limit beta access, impose usage limits, reset test data, pause features, or discontinue all or part of the beta without guaranteeing continued availability.",
