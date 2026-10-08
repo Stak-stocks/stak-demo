@@ -169,6 +169,11 @@ export function AuthBackLink({ label, onClick }: { label: string; onClick: () =>
 	);
 }
 
+/** Text in the auth column at the phone's side margin (the desktop column has none of its own). */
+export function AuthInset({ children }: { children: ReactNode }) {
+	return <div style={{ padding: useContext(AuthDesktop) ? 0 : `0 ${cu(24)}` }}>{children}</div>;
+}
+
 /** The sign-in / create-account / forgot-password frame: a faint tilted brand mark behind a 342u column on the
  *  phone; on desktop, the design's split screen (brand panel left, the same form in a centred column right).
  *  Auth pages share one frame. With no `nav` of its own, a page gets a back circle to the landing page, so

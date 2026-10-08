@@ -349,16 +349,13 @@ describe("navigation", () => {
 		expect(burger).toHaveAttribute("aria-expanded", "false");
 	});
 
-	it.each([
-		["phone", PHONE],
-		["tablet", TABLET],
-	] as const)("%s: the moving logo strip has a pause button", (_name, width) => {
+	it.each(ALL)("%s: the partner logos stand still on one row - all six shown once, nothing to pause", (_name, width) => {
 		renderAt(width);
-		const pause = screen.getByRole("button", { name: "Pause the partner logos" });
-		fireEvent.click(pause);
-		expect(pause).toHaveAttribute("aria-pressed", "true");
-		expect(pause).toHaveAccessibleName("Play the partner logos");
-		expect(document.querySelector(".landing-marquee")).toHaveClass("landing-paused");
+		for (const name of ["Block Wallet", "Amplitude", "Better Stack", "Brex", "Deel", "Spotify"]) {
+			expect(screen.getAllByAltText(name)).toHaveLength(1);
+		}
+		expect(screen.queryByRole("button", { name: /partner logos/ })).toBeNull();
+		for (const style of document.querySelectorAll("style")) expect(style.textContent).not.toMatch(/@keyframes/);
 	});
 
 	it("phone: Escape closes the menu and puts focus back on its button", () => {

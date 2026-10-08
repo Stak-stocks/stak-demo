@@ -234,7 +234,7 @@ function Root() {
 			</div>
 		);
 	}
-	// "Before we get started" (18+, U.S., Terms / Privacy - three boxes) over everything until the account confirms - new and
+	// "Before we get started" (18+, U.S., Terms / Privacy - one "Agree and continue") over everything until the account confirms - new and
 	// existing accounts alike (as the apps); an account with no row yet hasn't confirmed either. The server refuses a
 	// new account's other requests until then too.
 	if (isLoggedIn && !accountLoading && !turningAway && !isLegalPage && !eligibilityConfirmed && (account === null || account.needsEligibility === true)) {
