@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { getStockChart, type ChartRange } from "@/lib/api";
 import { allPreMarket } from "@/lib/chartSeries";
 import { usePaperPortfolio, type Pick } from "@/hooks/usePaperPortfolio";
-import { monthDay, signedUsd, signedPct, stakeLabel, usd } from "@/lib/simFormat";
+import { isUp, monthDay, signedUsd, signedPct, stakeLabel, usd } from "@/lib/simFormat";
 import { SellFlow } from "@/components/simulate/SellFlow";
 import { PickDesktop } from "@/components/simulate/desktop/PickDesktop";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -68,13 +68,13 @@ function PickPage() {
 			<PhonePage>
 				{header}
 				<div style={{ padding: `${cu(6)} ${cu(20)}` }}>
-					{paper.loading ? null : <EmptyStateCard title="Not in your portfolio" body={`You don't hold ${symbol.toUpperCase()} right now. Buy it from Saved staks on Simulate.`} link="Go to Simulate" onLink={() => navigate({ to: "/simulate" })} />}
+					{paper.loading ? null : <EmptyStateCard title="Not in your portfolio" body={`You don’t hold ${symbol.toUpperCase()} right now. Buy it from Saved staks on Simulate.`} link="Go to Simulate" onLink={() => navigate({ to: "/simulate" })} />}
 				</div>
 			</PhonePage>
 		);
 	}
 
-	const up = pick.gain >= 0;
+	const up = isUp(pick.gain);
 	const [wholeGain, centsGain = "00"] = signedUsd(pick.gain).split(".");
 	const closes = (chart?.prices ?? []).filter((p) => p.close > 0);
 	const flatToday = range === "1d" && allPreMarket(closes);
@@ -147,8 +147,9 @@ function PickPage() {
 
 				<div style={{ display: "flex", flexDirection: "column", gap: cu(10) }}>
 					<div className="flex" style={{ gap: cu(10) }}>
-						<StatBox label="This week" value={weekGain === null ? "—" : signedUsd(weekGain)} color={(weekGain ?? 0) >= 0 ? DISC.green : DISC.red} />
-						<StatBox label="vs the market" value={versus === null ? "—" : Math.abs(versus) < 0.05 ? "Even" : signedPct(versus)} color={(versus ?? 0) >= 0 ? DISC.green : DISC.red} />
+						{/* Muted until read; an "Even" reads green (the apps' thresholds). */}
+						<StatBox label="This week" value={weekGain === null ? "—" : signedUsd(weekGain)} color={weekGain === null ? DISC.muted : isUp(weekGain) ? DISC.green : DISC.red} />
+						<StatBox label="vs the market" value={versus === null ? "—" : Math.abs(versus) < 0.05 ? "Even" : signedPct(versus)} color={versus === null ? DISC.muted : versus > -0.05 ? DISC.green : DISC.red} />
 					</div>
 					<div className="flex" style={{ gap: cu(10) }}>
 						<StatBox label="Price then" value={usd(pick.costPerShare)} />

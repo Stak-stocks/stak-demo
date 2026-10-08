@@ -113,11 +113,11 @@ describe("BuyFlow", () => {
 		renderBuy(paper);
 		const confirm = await screen.findByRole("button", { name: "Confirm practice buy" });
 		await waitFor(() => expect(confirm).toBeEnabled());
-		expect(screen.getByText(/0\.2500/)).toBeTruthy();
+		expect(screen.getByText(/0\.250\b/)).toBeTruthy();
 		fireEvent.click(confirm);
 		expect(await screen.findByText("Order filled")).toBeTruthy();
 		expect(paper.buy).toHaveBeenCalledWith("AAPL", 25);
-		expect(screen.getByText(/1\.2500/)).toBeTruthy();
+		expect(screen.getByText(/1\.250\b/)).toBeTruthy();
 	});
 
 	it("a buy that fails stays on the ticket (the banner says why)", async () => {
@@ -137,7 +137,7 @@ describe("BuyFlow", () => {
 		await waitFor(() => expect(confirm).toBeEnabled());
 		fireEvent.click(screen.getByRole("button", { name: "$50" }));
 		expect(screen.getByRole("button", { name: "$25" }).getAttribute("aria-pressed") ?? "").not.toBe("false");
-		expect(screen.getByText(/0\.2500/)).toBeTruthy();
+		expect(screen.getByText(/0\.250\b/)).toBeTruthy();
 	});
 
 	it("a limit below today's price is placed as an open order", async () => {

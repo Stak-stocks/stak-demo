@@ -75,7 +75,7 @@ export function SimulateDesktop({ initialSymbol }: { initialSymbol?: string }) {
 	const [symbol, setSymbol] = useState<string | null>(initialSymbol ?? null);
 	const [mode, setMode] = useState<TradeMode>("buy");
 	const [explainerHidden, setExplainerHidden] = useState(() => { try { return localStorage.getItem(EXPLAINER_KEY) === "1"; } catch { return false; } });
-	const { points, loading: historyLoading } = usePortfolioHistory(paper.trades, paper.paperStart, range);
+	const { points, loading: historyLoading } = usePortfolioHistory(paper.trades, paper.paperStart, range, { cash: paper.cash + paper.openOrders.reduce((s, o) => s + o.amount, 0), shares: Object.fromEntries(paper.picks.map((p) => [p.ticker, p.shares])), value: paper.portfolioValue });
 
 	const brandByTicker = useMemo(() => new Map(allBrands.map((b) => [b.ticker.toUpperCase(), b])), [allBrands]);
 	const holdings = useMemo(() => [...paper.picks].sort((a, b) => b.value - a.value), [paper.picks]);

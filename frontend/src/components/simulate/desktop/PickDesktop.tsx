@@ -1,7 +1,7 @@
 import { ArrowRight, ChevronRight, History, Plus, Sparkles } from "lucide-react";
 import type { ChartRange, SandboxTrade, StockChartPoint } from "@/lib/api";
 import type { Pick } from "@/hooks/usePaperPortfolio";
-import { monthDayYear, sharesLabel, signedPct, signedUsd, usd } from "@/lib/simFormat";
+import { isUp, monthDayYear, sharesLabel, signedPct, signedUsd, usd } from "@/lib/simFormat";
 import type { BrandSummary } from "@stak/shared";
 import { BrandLogo } from "@/components/BrandLogo";
 import { DESK, DeskButton, Panel, PanelHeader, SkeletonBar, changeColor, deskFocus, deskPageBg, signedPctLabel } from "@/components/desktop/deskKit";
@@ -40,7 +40,7 @@ export function PickDesktop({ pick, brand, held, range, onRange, prices, chartLo
 	onStock: () => void;
 	onBack: () => void;
 }) {
-	const up = pick.gain >= 0;
+	const up = isUp(pick.gain);
 	const lineColor = prices.length >= 2 && prices[prices.length - 1]!.close < prices[0]!.close ? DESK.red : DESK.green;
 
 	return (

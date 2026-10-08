@@ -46,7 +46,8 @@ export function SellFlow({ pick, paper, onClose, onBackToSimulate, onViewPortfol
 		if (busy || portion <= 0) return; // nothing to sell yet: Android just ignores the tap
 		setBusy(true);
 		try {
-			if (await paper.sell(pick.ticker, portion)) setClosed({ pick, portion });
+			// 99.9% and up is the whole position - otherwise the server keeps a sliver (the apps send 1 too).
+			if (await paper.sell(pick.ticker, portion >= 0.999 ? 1 : portion)) setClosed({ pick, portion });
 		} finally {
 			setBusy(false);
 		}

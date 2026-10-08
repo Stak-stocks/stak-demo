@@ -86,6 +86,22 @@ export function nextDeckNote(now = new Date()): string {
 
 export const formatPrice = (price: number | null | undefined) => (price == null ? "—" : usd(price));
 
+/**
+ * The US Eastern date ("2026-10-09") of the session a quote's daily move belongs to: today from the 9:30 open on a
+ * weekday, else the last weekday before (holidays not known) - the apps' StakClock.sessionDay. Friday's move keeps one
+ * date through the weekend, so its notification isn't new again at each midnight.
+ */
+export function sessionDay(now = new Date()): string {
+	const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+	const weekend = et.getDay() === 0 || et.getDay() === 6;
+	const day = new Date(et);
+	if (weekend || et.getHours() * 60 + et.getMinutes() < 570) {
+		do { day.setDate(day.getDate() - 1); } while (day.getDay() === 0 || day.getDay() === 6);
+	}
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
+}
+
 /** "today" - but before the 9:30 ET open and on weekends the move is the last session's: "on Friday" (Android's sessionChange). */
 export function sessionWord(now = new Date()): string {
 	const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));

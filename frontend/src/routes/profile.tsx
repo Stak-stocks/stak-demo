@@ -6,7 +6,7 @@ import { getProfile } from "@/lib/api";
 import { useMyStakData } from "@/hooks/useMyStakData";
 import { usePaperPortfolio } from "@/hooks/usePaperPortfolio";
 import { chips } from "@/lib/tasteModel";
-import { signedPct, signedUsd, usd, wholeUsd } from "@/lib/simFormat";
+import { isUp, signedPct, signedUsd, usd, wholeUsd } from "@/lib/simFormat";
 import { SettingsCard, SettingsLinkRow } from "@/components/profile/ProfileKit";
 import { ProfileDesktop } from "@/components/profile/ProfileDesktop";
 import { shareInvite } from "@/lib/invite";
@@ -43,7 +43,7 @@ function ProfilePage() {
 
 	const name = appUser.displayName || "STAK User";
 	const joined = me?.createdAt ? new Date(me.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "";
-	const up = paper.allTimeGain >= 0;
+	const up = isUp(paper.allTimeGain);
 	// Loading, or not set up yet: cash reads 0 against the budget, which would show as a -100% loss.
 	const paperReady = !paper.loading && !paper.needsSetup;
 

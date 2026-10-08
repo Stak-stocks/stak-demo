@@ -164,8 +164,19 @@ export function usePaperPortfolio(): PaperPortfolio {
  * The portfolio's value over time, replayed from the trade ledger at one point per trading day.
  * Null while there is nothing honest to draw ("No history yet").
  */
-export function usePortfolioHistory(trades: SandboxTrade[], paperStart: number, range: ChartRange): { values: number[] | null; points: ChartValuePoint[] | null; loading: boolean } {
-	const traded = useMemo(() => [...new Set(trades.map((t) => t.ticker))].sort(), [trades]);
+export function usePortfolioHistory(
+	trades: SandboxTrade[],
+	paperStart: number,
+	range: ChartRange,
+	/** Today's cash (with open orders' stakes) and shares - the replay runs backward from it (buildLedgerSeries). */
+	now?: { cash: number; shares: Record<string, number>; value?: number },
+): { values: number[] | null; points: ChartValuePoint[] | null; loading: boolean } {
+	const nowKey = now ? `${now.cash}|${Object.entries(now.shares).sort().map(([t, q]) => `${t}:${q}`).join(",")}` : "";
+	const traded = useMemo(
+		() => [...new Set([...trades.map((t) => t.ticker), ...Object.keys(now?.shares ?? {})])].sort(),
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[trades, nowKey],
+	);
 	const charts = useQueries({
 		queries: traded.map((ticker) => ({
 			queryKey: ["stock-chart", ticker, range],
@@ -177,11 +188,14 @@ export function usePortfolioHistory(trades: SandboxTrade[], paperStart: number, 
 	const loading = charts.some((c) => c.isPending);
 	const version = charts.map((c) => c.dataUpdatedAt).join(",");
 	const points = useMemo(() => {
-		if (trades.length === 0 || loading) return null;
+		if (traded.length === 0 || loading) return null;
 		const series: Record<string, ReturnType<typeof dailyCloses>> = {};
 		traded.forEach((ticker, i) => { series[ticker] = dailyCloses((charts[i]?.data?.prices ?? []).map((p) => ({ ts: p.ts, close: p.close }))); });
-		return buildLedgerSeries(trades, paperStart, series);
-	}, [trades, paperStart, traded, loading, version]);
+		// Every symbol's history, or no line: a missing one would count its shares as $0 (the apps' rule).
+		if (traded.some((ticker) => (series[ticker] ?? []).length === 0)) return null;
+		return buildLedgerSeries(trades, paperStart, series, now);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [trades, paperStart, traded, loading, version, nowKey, now?.value]);
 	const values = useMemo(() => points?.map((p) => p.value) ?? null, [points]);
 	return { values, points, loading };
 }

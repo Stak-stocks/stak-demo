@@ -8,7 +8,7 @@ import { useBrandsList } from "@/hooks/useBrandsList";
 import { STAK_CAPACITY } from "@/lib/constants";
 import { readRememberedArticle, rememberArticles, type StoredArticle } from "@/lib/openedArticle";
 import { summaryBeyondHeadline } from "@/lib/newsText";
-import { DISC, cu } from "@/components/discover/discoverTheme";
+import { DISC, cu, sessionWord } from "@/components/discover/discoverTheme";
 import { BackCircle, PRESS, PhonePage, f, focusRing, sheetCard } from "@/components/phone/phone";
 import { ArticleDesktop } from "@/components/news/ArticleDesktop";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -259,7 +259,7 @@ function ArticlePage() {
 							<div className="flex-1" style={{ display: "flex", flexDirection: "column", gap: cu(3) }}>
 								<span style={{ font: f(600, 26, 33, "heading"), color: "#fff" }}>{price != null ? `$${price.toFixed(2)}` : "--"}</span>
 								{change != null && (
-									<span style={{ font: f(500, 13, 17), color: up ? DISC.green : "#FF5A6A" }}>{change >= 0 ? "+" : ""}{change.toFixed(2)}% today</span>
+									<span style={{ font: f(500, 13, 17), color: up ? DISC.green : "#FF5A6A" }}>{change >= 0 ? "+" : ""}{change.toFixed(2)}% {sessionWord()}</span>
 								)}
 							</div>
 							{quote && <img src={up ? "/app/news_sparkline.png" : "/app/news_sparkline_down.png"} alt="" style={{ width: cu(110), height: cu(40) }} draggable={false} />}

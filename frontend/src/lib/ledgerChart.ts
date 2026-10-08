@@ -18,12 +18,20 @@ export function buildLedgerSeries(
 	trades: SandboxTrade[],
 	startBalance: number,
 	series: Record<string, PricePoint[]>,
+	/**
+	 * Today's snapshot - cash (with open orders' reserved stakes) and shares by ticker. Given, the replay opens from it
+	 * with every logged trade undone (as the apps do): a portfolio holding stock bought before the trade ledger, or
+	 * whose oldest trades fell off the page read, replayed forward from the start drew a line that tracked only the
+	 * logged trades and disagreed with the value above it.
+	 */
+	now?: { cash: number; shares: Record<string, number>; value?: number },
 ): ChartValuePoint[] | null {
-	if (trades.length === 0) return null;
+	const heldNow = Object.values(now?.shares ?? {}).some((q) => q > 1e-9);
+	if (trades.length === 0 && !heldNow) return null;
 	const ordered = [...trades]
 		.map((t) => ({ ...t, ms: Date.parse(t.executedAt) }))
 		.sort((a, b) => a.ms - b.ms || a.id - b.id);
-	const firstTradeMs = ordered[0]!.ms;
+	const firstTradeMs = ordered[0]?.ms ?? -Infinity;
 
 	const priced = Object.fromEntries(
 		Object.entries(series).map(([ticker, pts]) => [
@@ -38,6 +46,12 @@ export function buildLedgerSeries(
 
 	let cash = startBalance;
 	const shares = new Map<string, number>();
+	if (now) {
+		// The opening state: today's, with every logged trade's cash and shares taken back out.
+		cash = now.cash - ordered.reduce((sum, t) => sum + (t.side === "buy" ? -t.amount : t.amount), 0);
+		for (const [ticker, qty] of Object.entries(now.shares)) shares.set(ticker, qty);
+		for (const t of ordered) shares.set(t.ticker, (shares.get(t.ticker) ?? 0) - (t.side === "buy" ? t.shares : -t.shares));
+	}
 	const lastTradePrice = new Map<string, number>();
 	const cursor = new Map<string, number>();
 	let tradeIdx = 0;
@@ -51,18 +65,27 @@ export function buildLedgerSeries(
 			lastTradePrice.set(t.ticker, t.price);
 		}
 		let holdings = 0;
+		let unpriced = false;
 		for (const [ticker, qty] of shares) {
 			if (qty <= 1e-9) continue;
 			const pts = priced[ticker] ?? [];
 			let i = cursor.get(ticker) ?? -1;
 			while (i + 1 < pts.length && pts[i + 1]!.ms <= ms) i++;
 			cursor.set(ticker, i);
-			// Before a stock's first bar in the window, its own last fill is the honest price.
-			const price = i >= 0 ? pts[i]!.close : lastTradePrice.get(ticker) ?? 0;
+			// Before a stock's first bar in the window, its own last fill is the honest price. A holding with neither
+			// (bought before the ledger) can't be priced here: the moment is left out, never counted at $0 (the apps).
+			const price = i >= 0 ? pts[i]!.close : lastTradePrice.get(ticker);
+			if (price === undefined) { unpriced = true; break; }
 			holdings += qty * price;
 		}
+		if (unpriced) continue;
 		const value = round2(cash + holdings);
 		out.push({ ts: new Date(ms).toISOString(), value, pnl: round2(value - startBalance) });
 	}
-	return out;
+	// The line ends on the live value printed above it (the apps' endingToday).
+	if (now?.value !== undefined && out.length > 0) {
+		const value = round2(now.value);
+		out.push({ ts: new Date().toISOString(), value, pnl: round2(value - startBalance) });
+	}
+	return out.length >= 2 ? out : null;
 }

@@ -224,8 +224,8 @@ sandboxRouter.post("/sell", authMiddleware, async (req: AuthenticatedRequest, re
 			// happen the moment two devices on the same account trade concurrently.
 			await client.query(`SELECT uid FROM playground_state WHERE uid = $1 FOR UPDATE`, [uid]);
 
-			const posRow = await client.query<{ shares: string }>(
-				`SELECT shares FROM sandbox_portfolio WHERE uid = $1 AND ticker = $2 FOR UPDATE`,
+			const posRow = await client.query<{ shares: string; price_at_add: string }>(
+				`SELECT shares, price_at_add FROM sandbox_portfolio WHERE uid = $1 AND ticker = $2 FOR UPDATE`,
 				[uid, symbol],
 			);
 
@@ -270,10 +270,13 @@ sandboxRouter.post("/sell", authMiddleware, async (req: AuthenticatedRequest, re
 				[sellValue, uid],
 			);
 
+			// The position's average cost goes with the sale: realized gain = (price - cost_basis) x shares, with no need
+			// for the buys to still be in the ledger (positions from before it existed, or past the page the apps read).
+			const costBasis = posRow.rows[0].price_at_add != null ? Number(posRow.rows[0].price_at_add) : null;
 			await client.query(
-				`INSERT INTO sandbox_trades (uid, ticker, side, shares, price, amount, source)
-				 VALUES ($1, $2, 'sell', $3, $4, $5, 'market')`,
-				[uid, symbol, sharesToSell, price, sellValue],
+				`INSERT INTO sandbox_trades (uid, ticker, side, shares, price, amount, source, cost_basis)
+				 VALUES ($1, $2, 'sell', $3, $4, $5, 'market', $6)`,
+				[uid, symbol, sharesToSell, price, sellValue, costBasis],
 			);
 
 			await client.query("COMMIT");
@@ -656,8 +659,9 @@ sandboxRouter.get("/trades", authMiddleware, async (req: AuthenticatedRequest, r
 		const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 100, 1), 500);
 		const { rows } = await pgQuery<{
 			id: number; ticker: string; side: string; shares: string; price: string; amount: string; source: string; executed_at: string;
+			cost_basis: string | null;
 		}>(
-			`SELECT id, ticker, side, shares, price, amount, source, executed_at FROM sandbox_trades
+			`SELECT id, ticker, side, shares, price, amount, source, executed_at, cost_basis FROM sandbox_trades
 			 WHERE uid = $1 ORDER BY executed_at DESC LIMIT $2`,
 			[uid, limit],
 		);
@@ -665,6 +669,8 @@ sandboxRouter.get("/trades", authMiddleware, async (req: AuthenticatedRequest, r
 			trades: rows.map((t) => ({
 				id: t.id, ticker: t.ticker, side: t.side, shares: Number(t.shares), price: Number(t.price),
 				amount: Number(t.amount), source: t.source, executedAt: t.executed_at,
+				// A sale's average cost (null on buys, and on sales from before it was recorded).
+				costBasis: t.cost_basis != null ? Number(t.cost_basis) : null,
 			})),
 		});
 	} catch (e) {
@@ -724,8 +730,11 @@ sandboxRouter.post("/fill-orders", async (req, res) => {
 						continue;
 					}
 
+					// Filled like /buy: shares rounded DOWN to a thousandth, charged at the price to the cent, and the rest of the
+					// reservation refunded - rounding up bought more than was paid for and showed a gain out of nowhere.
 					const amount = Number(order.amount);
-					const shares = Math.round((amount / price) * 1000) / 1000;
+					const shares = Math.floor((amount / price) * 1000) / 1000;
+					const cost = Math.round(price * shares * 100) / 100;
 
 					// Locked — a concurrent /buy on the same uid/ticker also reads-computes-writes
 					// this row from its own snapshot; without this lock, whichever of the two
@@ -749,10 +758,16 @@ sandboxRouter.post("/fill-orders", async (req, res) => {
 						[order.uid, order.ticker, newShares, newPrice, addedAt],
 					);
 					await client.query(`UPDATE sandbox_orders SET status = 'filled', filled_at = now() WHERE id = $1`, [order.id]);
+					if (amount - cost > 0) {
+						await client.query(
+							`UPDATE playground_state SET sandbox_cash = ROUND(COALESCE(sandbox_cash, 0) + $1, 2) WHERE uid = $2`,
+							[Math.round((amount - cost) * 100) / 100, order.uid],
+						);
+					}
 					await client.query(
 						`INSERT INTO sandbox_trades (uid, ticker, side, shares, price, amount, source)
 						 VALUES ($1, $2, 'buy', $3, $4, $5, 'limit')`,
-						[order.uid, order.ticker, shares, price, amount],
+						[order.uid, order.ticker, shares, price, cost],
 					);
 
 					await client.query("COMMIT");

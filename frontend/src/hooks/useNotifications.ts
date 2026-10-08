@@ -2,7 +2,8 @@ import { useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DAILY_SWIPE_LIMIT } from "@stak/shared";
 import { getDeviceState, getProfile, putDeviceState, type DeviceState } from "@/lib/api";
-import { getEasternDateKey, getLastCloseRef, getTodayKey } from "@/lib/utils";
+import { getLastCloseRef, getTodayKey } from "@/lib/utils";
+import { sessionDay } from "@/components/discover/discoverTheme";
 import { buildNotifications, unreadIds, type NotificationItem } from "@/lib/notifications";
 import { readNotificationPrefs } from "@/lib/notificationPrefs";
 import { useMyStakData } from "@/hooks/useMyStakData";
@@ -44,7 +45,8 @@ export function useNotifications() {
 	const items: NotificationItem[] = useMemo(() => buildNotifications({
 		held: swipedBrands.map((b) => ({ ticker: b.ticker, name: b.name, changePercent: batchQuotes[b.ticker]?.changePercent ?? null })),
 		closeRef: getLastCloseRef(),
-		marketDay: getEasternDateKey(),
+		// The session the move belongs to, not the calendar day (the apps): Friday's move stays read through Monday's open.
+		marketDay: sessionDay(),
 		deckCardsLeft: Math.max(0, DAILY_SWIPE_LIMIT - usedToday),
 		deckDay: getTodayKey(),
 		createdAt: profile?.createdAt,
