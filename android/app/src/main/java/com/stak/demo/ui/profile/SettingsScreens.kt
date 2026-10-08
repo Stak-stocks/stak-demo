@@ -361,7 +361,6 @@ private fun FaqRow(question: String, answer: String) {
 	}
 }
 
-/** Where the legal pages live - the landing site's routes. */
 
 /** A small selectable chip - the notification threshold, the portfolio setup's balances. */
 @Composable

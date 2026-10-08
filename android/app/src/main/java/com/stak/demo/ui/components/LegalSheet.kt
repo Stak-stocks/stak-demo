@@ -1,6 +1,5 @@
 package com.stak.demo.ui.components
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,6 +11,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -35,7 +37,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,23 +55,43 @@ private val CardBg = Color(0xFF171D2C)
 /**
  * The Terms of Service or Privacy Policy ([doc]: LegalDocs.TERMS / PRIVACY) in a full-screen sheet over the app - the
  * whole text to scroll through, no browser. With [onAgree] (the eligibility gate), "I agree" sits at the bottom and
- * switches on once the end has been reached; without it the sheet only reads. Mirrors iOS LegalSheetView.
+ * switches on once the end has been reached; without it the sheet only reads. A full-screen dialog, so TalkBack can't
+ * wander into the screen beneath and Back closes it. Mirrors iOS LegalSheetView.
  */
 @Composable
 fun LegalSheet(doc: String, onClose: () -> Unit, onAgree: (() -> Unit)? = null) {
+	androidx.compose.ui.window.Dialog(
+		onDismissRequest = onClose,
+		properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+	) {
+		// A fresh sheet per document - the gate goes from the Terms straight to the Privacy Policy, which starts at its top.
+		androidx.compose.runtime.key(doc) { LegalSheetContent(doc, onClose, onAgree) }
+	}
+}
+
+@Composable
+private fun LegalSheetContent(doc: String, onClose: () -> Unit, onAgree: (() -> Unit)?) {
 	val u = figmaUnit()
 	var loaded by remember(doc) { mutableStateOf<LegalDocResponse?>(null) }
 	var failed by remember(doc) { mutableStateOf(false) }
 	var attempt by remember(doc) { mutableIntStateOf(0) }
 	LaunchedEffect(doc, attempt) {
 		failed = false
-		loaded = LegalDocs.load(doc)
+		// What someone agrees to is read fresh; reading only may use the kept copy.
+		loaded = LegalDocs.load(doc, fresh = onAgree != null)
 		failed = loaded == null
 	}
 	val listState = rememberLazyListState()
-	// The end is reached when the list can't scroll further (a short screen's whole text counts at once).
-	val atEnd by remember { derivedStateOf { !listState.canScrollForward } }
-	BackHandler(onBack = onClose)
+	// The end is reached once the last item has been on screen - not "can't scroll further", which a screen reader's
+	// focus may stop just short of, and which reads true before the list has been laid out.
+	var atEnd by remember(doc) { mutableStateOf(false) }
+	val lastSeen by remember {
+		derivedStateOf {
+			val info = listState.layoutInfo
+			info.totalItemsCount > 0 && info.visibleItemsInfo.lastOrNull()?.index == info.totalItemsCount - 1
+		}
+	}
+	LaunchedEffect(lastSeen) { if (lastSeen) atEnd = true }
 
 	Box(
 		modifier = Modifier
@@ -82,7 +103,7 @@ fun LegalSheet(doc: String, onClose: () -> Unit, onAgree: (() -> Unit)? = null) 
 		Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
 			Row(
 				verticalAlignment = Alignment.CenterVertically,
-				modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp, vertical = (12 * u).dp),
+				modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp, vertical = (14 * u).dp),
 			) {
 				Text(
 					loaded?.title ?: if (doc == LegalDocs.TERMS) "Terms of Service" else "Privacy Policy",
@@ -95,8 +116,11 @@ fun LegalSheet(doc: String, onClose: () -> Unit, onAgree: (() -> Unit)? = null) 
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp),
 					color = StakColors.Teal,
 					modifier = Modifier
+						// A full-size target (48dp) for a short word.
+						.heightIn(min = 48.dp)
 						.clickable(interactionSource = remember { MutableInteractionSource() }, indication = PressDim, role = Role.Button, onClick = onClose)
-						.padding((8 * u).dp),
+						.padding(horizontal = (12 * u).dp)
+						.wrapContentHeight(),
 				)
 			}
 			val text = loaded
@@ -105,12 +129,13 @@ fun LegalSheet(doc: String, onClose: () -> Unit, onAgree: (() -> Unit)? = null) 
 					text != null -> LazyColumn(
 						state = listState,
 						verticalArrangement = Arrangement.spacedBy((12 * u).dp),
-						modifier = Modifier.fillMaxSize().padding(horizontal = (20 * u).dp),
+						contentPadding = androidx.compose.foundation.layout.PaddingValues(start = (20 * u).dp, end = (20 * u).dp, bottom = (16 * u).dp),
+						modifier = Modifier.fillMaxSize(),
 					) {
 						item {
 							Text(
 								"Effective date: ${text.effective}",
-								style = TextStyle(fontFamily = Geist, fontStyle = FontStyle.Italic, fontSize = (12 * u).sp),
+								style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp),
 								color = StakColors.Muted,
 							)
 						}
@@ -146,14 +171,18 @@ fun LegalSheet(doc: String, onClose: () -> Unit, onAgree: (() -> Unit)? = null) 
 								}
 							}
 						}
-						item { Box(modifier = Modifier.padding(bottom = (16 * u).dp)) }
 					}
 					failed -> Column(
 						horizontalAlignment = Alignment.CenterHorizontally,
 						verticalArrangement = Arrangement.spacedBy((10 * u).dp),
 						modifier = Modifier.align(Alignment.Center).padding((24 * u).dp),
 					) {
-						Text("Couldn’t load this right now.", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp), color = StakColors.Muted)
+						Text(
+							"Couldn’t load this right now.",
+							style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp),
+							color = StakColors.Muted,
+							modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite },
+						)
 						Text(
 							"Try again",
 							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp),

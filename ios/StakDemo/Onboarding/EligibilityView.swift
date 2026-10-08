@@ -9,8 +9,10 @@ struct EligibilityView: View {
 	@State private var accepted = false
 	@State private var busy = false
 	@State private var error: String? = nil
-	/// The document open in the sheet, or nil.
+	/// The document open in the sheet, or nil; and which have been agreed at their end.
 	@State private var reading: LegalDocKind? = nil
+	@State private var agreedTerms = false
+	@State private var agreedPrivacy = false
 
 	private var ready: Bool { adult && inUS && accepted && !busy }
 
@@ -73,7 +75,16 @@ struct EligibilityView: View {
 		// The gate is the whole screen: VoiceOver can't wander into the app beneath it.
 		.accessibilityAddTraits(.isModal)
 		.sheet(item: $reading) { kind in
-			LegalSheetView(kind: kind, onAgree: { accepted = true; error = nil })
+			// The box covers both documents: agreeing to one opens the other if it hasn't been read yet, and the box ticks
+			// once both have been agreed at their end (as Android).
+			LegalSheetView(kind: kind, onAgree: {
+				if kind == .terms { agreedTerms = true } else { agreedPrivacy = true }
+				error = nil
+				if agreedTerms && agreedPrivacy { accepted = true; return }
+				let next: LegalDocKind = agreedTerms ? .privacy : .terms
+				// After this sheet has gone.
+				DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { reading = next }
+			})
 		}
 	}
 

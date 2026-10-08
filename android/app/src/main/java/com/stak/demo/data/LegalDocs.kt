@@ -3,7 +3,7 @@ package com.stak.demo.data
 /**
  * The Terms of Service and Privacy Policy for the in-app sheet (ui/components/LegalSheet.kt), read from GET
  * /api/legal/:doc - the same text the web shows at /terms and /privacy (shared/src/legalText.ts). Kept for the life of
- * the process once read. Mirrors iOS Core/LegalDocs.swift.
+ * the process once read. Mirrors iOS Components/LegalSheetView.swift (LegalDocs).
  */
 object LegalDocs {
 	const val TERMS = "terms"
@@ -16,9 +16,12 @@ object LegalDocs {
 		repository = repo
 	}
 
-	/** [doc] is [TERMS] or [PRIVACY]; null when it couldn't be read (the sheet offers a retry). */
-	suspend fun load(doc: String): LegalDocResponse? {
-		cache[doc]?.let { return it }
+	/**
+	 * [doc] is [TERMS] or [PRIVACY]; null when it couldn't be read (the sheet offers a retry). [fresh]: read it again even
+	 * if kept - what someone agrees to must be the current version.
+	 */
+	suspend fun load(doc: String, fresh: Boolean = false): LegalDocResponse? {
+		if (!fresh) cache[doc]?.let { return it }
 		val repo = repository ?: return null
 		return runCatching { repo.getLegal(doc) }.getOrNull()?.also { cache[doc] = it }
 	}

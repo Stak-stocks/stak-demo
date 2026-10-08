@@ -13,9 +13,10 @@ enum LegalDocKind: String, Identifiable {
 enum LegalDocs {
 	private static var cache: [LegalDocKind: LegalDocResponse] = [:]
 
-	/// Nil when it couldn't be read (the sheet offers a retry).
-	static func load(_ kind: LegalDocKind) async -> LegalDocResponse? {
-		if let hit = cache[kind] { return hit }
+	/// Nil when it couldn't be read (the sheet offers a retry). `fresh`: read it again even if kept - what someone agrees
+	/// to must be the current version.
+	static func load(_ kind: LegalDocKind, fresh: Bool = false) async -> LegalDocResponse? {
+		if !fresh, let hit = cache[kind] { return hit }
 		guard let doc = try? await StockRepository.shared.getLegal(kind.rawValue) else { return nil }
 		cache[kind] = doc
 		return doc
@@ -32,6 +33,7 @@ struct LegalSheetView: View {
 	@State private var doc: LegalDocResponse? = nil
 	@State private var failed = false
 	@State private var reachedEnd = false
+	@State private var viewport: CGFloat = 0
 
 	private static let textInk = Color(argb: 0xFFC8D2E0)
 
@@ -44,10 +46,14 @@ struct LegalSheetView: View {
 					.foregroundStyle(StakColors.textPrimary)
 					.accessibilityAddTraits(.isHeader)
 				Spacer()
-				Button("Close") { dismiss() }
-					.font(StakFont.geist(14 * u, .medium))
-					.foregroundStyle(StakColors.teal)
-					.buttonStyle(.pressDim)
+				Button { dismiss() } label: {
+					Text("Close")
+						.font(StakFont.geist(14 * u, .medium))
+						.foregroundStyle(StakColors.teal)
+						// A full-size target (44pt) for a short word.
+						.frame(minWidth: 44, minHeight: 44)
+				}
+				.buttonStyle(.pressDim)
 			}
 			.padding(.horizontal, 20 * u)
 			.padding(.vertical, 14 * u)
@@ -57,10 +63,11 @@ struct LegalSheetView: View {
 					ScrollView {
 						LazyVStack(alignment: .leading, spacing: 12 * u) {
 							Text("Effective date: \(doc.effective)")
-								.font(StakFont.geist(12 * u).italic())
+								.font(StakFont.geist(12 * u))
 								.foregroundStyle(StakColors.muted)
 							Text(doc.notice)
 								.font(StakFont.geist(11.5 * u, .semiBold))
+								.lineSpacing(5 * u)
 								.foregroundStyle(Self.textInk)
 								.padding(14 * u)
 								.frame(maxWidth: .infinity, alignment: .leading)
@@ -79,7 +86,7 @@ struct LegalSheetView: View {
 									}
 									ForEach(Array(section.blocks.enumerated()), id: \.offset) { _, block in
 										if let text = block.text {
-											Text(text).font(StakFont.geist(13.5 * u)).foregroundStyle(Self.textInk)
+											Text(text).font(StakFont.geist(13.5 * u)).lineSpacing(7 * u).foregroundStyle(Self.textInk)
 										}
 										ForEach(Array((block.list ?? []).enumerated()), id: \.offset) { _, line in
 											HStack(alignment: .top, spacing: 8 * u) {
@@ -87,21 +94,30 @@ struct LegalSheetView: View {
 												Text(line).frame(maxWidth: .infinity, alignment: .leading)
 											}
 											.font(StakFont.geist(13.5 * u))
+											.lineSpacing(7 * u)
 											.foregroundStyle(Self.textInk)
 										}
 									}
 								}
 								.padding(.top, 8 * u)
 							}
-							// Drawn only once scrolled into view: the end has been reached.
-							Color.clear.frame(height: 1).onAppear { reachedEnd = true }
+							// Where the text ends - reached once it's inside the visible area (not just built: a lazy stack builds a
+							// little ahead of the screen).
+							Color.clear.frame(height: 1)
+								.background(GeometryReader { g in
+									Color.clear.preference(key: LegalEndKey.self, value: g.frame(in: .named("legalScroll")).minY)
+								})
 						}
 						.padding(.horizontal, 20 * u)
 						.padding(.bottom, 16 * u)
 					}
+					.coordinateSpace(name: "legalScroll")
+					.background(GeometryReader { g in Color.clear.onAppear { viewport = g.size.height }.onChange(of: g.size.height) { _, h in viewport = h } })
+					.onPreferenceChange(LegalEndKey.self) { y in if viewport > 0, y <= viewport { reachedEnd = true } }
 				} else if failed {
 					VStack(spacing: 10 * u) {
 						Text("Couldn’t load this right now.").font(StakFont.geist(13 * u)).foregroundStyle(StakColors.muted)
+							.onAppear { AccessibilityNotification.Announcement("Couldn’t load this right now.").post() }
 						Button("Try again") { Task { await load() } }
 							.font(StakFont.geist(13 * u, .medium))
 							.foregroundStyle(StakColors.teal)
@@ -131,12 +147,21 @@ struct LegalSheetView: View {
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+		.presentationDragIndicator(.visible)
+		.presentationBackground(StakColors.bg)
 		.task { await load() }
 	}
 
 	private func load() async {
 		failed = false
-		doc = await LegalDocs.load(kind)
+		// What someone agrees to is read fresh; reading only may use the kept copy.
+		doc = await LegalDocs.load(kind, fresh: onAgree != nil)
 		failed = doc == nil
 	}
+}
+
+/// Where the legal text's end sits in the sheet's scroll area (LegalSheetView).
+private struct LegalEndKey: PreferenceKey {
+	static var defaultValue: CGFloat = .infinity
+	static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = min(value, nextValue()) }
 }

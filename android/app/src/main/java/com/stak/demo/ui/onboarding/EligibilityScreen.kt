@@ -63,8 +63,10 @@ internal fun EligibilityScreen(onSignOut: () -> Unit) {
 	val u = figmaUnit()
 	val scope = rememberCoroutineScope()
 	val context = LocalContext.current
-	// The document open in the sheet (LegalDocs.TERMS / PRIVACY), or null.
+	// The document open in the sheet (LegalDocs.TERMS / PRIVACY), or null; and which have been agreed at their end.
 	var reading by rememberSaveable { mutableStateOf<String?>(null) }
+	var agreedTerms by rememberSaveable { mutableStateOf(false) }
+	var agreedPrivacy by rememberSaveable { mutableStateOf(false) }
 	var adult by rememberSaveable { mutableStateOf(false) }
 	var inUS by rememberSaveable { mutableStateOf(false) }
 	var accepted by rememberSaveable { mutableStateOf(false) }
@@ -137,7 +139,17 @@ internal fun EligibilityScreen(onSignOut: () -> Unit) {
 			com.stak.demo.ui.components.LegalSheet(
 				doc = doc,
 				onClose = { reading = null },
-				onAgree = { accepted = true; error = null; reading = null },
+				// The box covers both documents: agreeing to one opens the other if it hasn't been read yet, and the box
+				// ticks once both have been agreed at their end.
+				onAgree = {
+					if (doc == com.stak.demo.data.LegalDocs.TERMS) agreedTerms = true else agreedPrivacy = true
+					error = null
+					reading = when {
+						!agreedTerms -> com.stak.demo.data.LegalDocs.TERMS
+						!agreedPrivacy -> com.stak.demo.data.LegalDocs.PRIVACY
+						else -> { accepted = true; null }
+					}
+				},
 			)
 		}
 	}
