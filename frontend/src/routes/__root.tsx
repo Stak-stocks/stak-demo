@@ -114,7 +114,7 @@ function Root() {
 			navigate({ to: "/welcome" });
 		}
 		if (!loading && !accountLoading && user && !isAuthPage && account?.onboardingCompleted !== true) {
-			navigate({ to: "/onboarding" });
+			navigate({ to: "/onboarding", search: { step: 1 } });
 		}
 	}, [user, loading, accountLoading, account, isAuthPage, isDesktopApp, navigate]);
 

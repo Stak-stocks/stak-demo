@@ -1,17 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { A } from "@/app/assets";
+import { HomeSkeleton } from "@/app/home/HomeSkeleton";
 import { PageHeader } from "@/app/PageHeader";
 import { account } from "@/app/data/account";
 import { homePromos, marketMood } from "@/app/data/home";
 import { NotificationsPanel } from "@/app/notifications/NotificationsPanel";
 
 type NotificationsVariant = "list" | "empty";
-type HomeSearch = { firstRun?: boolean; notifications?: "1" | "empty" };
+type HomeSearch = { firstRun?: boolean; notifications?: "1" | "empty"; loading?: boolean };
 
 export const Route = createFileRoute("/_app/home")({
 	validateSearch: (search: Record<string, unknown>): HomeSearch => ({
 		firstRun: search.firstRun === true || search.firstRun === 1 || search.firstRun === "1" ? true : undefined,
+		loading: search.loading === true || search.loading === 1 || search.loading === "1" ? true : undefined,
 		notifications:
 			search.notifications === "1" || search.notifications === 1 || search.notifications === true
 				? "1"
@@ -24,7 +26,8 @@ export const Route = createFileRoute("/_app/home")({
 
 /** Figma 2:414 "Desktop · Home · Main" and 2:532 "Desktop · Home · first run" (no picks block). */
 function HomePage() {
-	const { firstRun, notifications } = Route.useSearch();
+	const { firstRun, notifications, loading } = Route.useSearch();
+	if (loading) return <HomeSkeleton />;
 	const fromSearch: NotificationsVariant | null = notifications === "1" ? "list" : notifications === "empty" ? "empty" : null;
 	const [panel, setPanel] = useState<NotificationsVariant | null>(fromSearch);
 	useEffect(() => setPanel(fromSearch), [fromSearch]);

@@ -1,15 +1,60 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { A } from "@/app/assets";
 import { PRIMARY_GRADIENT } from "@/app/auth/ui";
+import { GradientButton } from "@/app/simulate/ui";
 import { MS } from "@/app/mystak/assets";
 import { ALLOCATION, COLLECTIONS, type Collection, DISCOVER_CTA, INSIGHT, PERFORMANCE } from "@/app/mystak/data";
 import { cn } from "@/lib/utils";
 
+type MyStakSearch = { state?: "empty" };
+
 export const Route = createFileRoute("/_app/my-stak/")({
+	validateSearch: (search: Record<string, unknown>): MyStakSearch => ({
+		state: search.state === "empty" ? "empty" : undefined,
+	}),
 	component: MyStakPage,
 });
 
+const EMPTY = {
+	title: "Nothing saved yet",
+	body: "Save a company from today’s deck and it lands here, sorted into a collection for you. Your STAK builds itself from what you keep.",
+	cta: "Go to today’s deck",
+	caption: "12 companies are waiting in today’s deck",
+} as const;
+
+/** Figma 2:1830 "Desktop · My STAK · Empty" (10 States): the header, then a 640px stage with the empty-box block. */
+function MyStakEmpty() {
+	return (
+		<div className="flex w-[932px] flex-col items-start gap-[38px]">
+			<div className="flex flex-col items-start gap-[4px] overflow-clip whitespace-nowrap">
+				<h1 className="font-sora text-[26px] font-semibold leading-[33px] text-[#f2f6fc]">My STAK</h1>
+				<p className="font-geist text-[13px] leading-[17px] text-[#819abb]">Your living watchlist and learning hub</p>
+			</div>
+			<div className="flex h-[640px] w-full flex-col items-center justify-center overflow-clip">
+				<div className="flex flex-col items-center overflow-clip">
+					<div className="relative h-[151px] w-[121.143px]">
+						<img alt="" src={A.emptyBox} className="absolute left-[-5.26px] top-0 block h-[165.355px] w-[135.091px] max-w-none" />
+					</div>
+					<div className="h-[28px] w-[10px]" />
+					<p className="whitespace-nowrap text-center font-sora text-[26px] font-semibold leading-[33px] text-white">{EMPTY.title}</p>
+					<div className="size-[10px]" />
+					<p className="w-[460px] text-center font-geist text-[15px] leading-[22px] text-[#819abb]">{EMPTY.body}</p>
+					<div className="h-[28px] w-[10px]" />
+					<Link to="/discover" className="block w-[240px]">
+						<GradientButton>{EMPTY.cta}</GradientButton>
+					</Link>
+					<div className="h-[14px] w-[10px]" />
+					<p className="whitespace-nowrap text-center font-geist text-[13px] leading-[17px] text-[#819abb]">{EMPTY.caption}</p>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 /** Figma 2:4667 "Desktop · My STAK Overview · synced" (1440x1096): 547px main column + 350px rail. */
 function MyStakPage() {
+	const { state } = Route.useSearch();
+	if (state === "empty") return <MyStakEmpty />;
 	const rows: Collection[][] = [];
 	for (let i = 0; i < COLLECTIONS.length; i += 2) rows.push(COLLECTIONS.slice(i, i + 2));
 	return (

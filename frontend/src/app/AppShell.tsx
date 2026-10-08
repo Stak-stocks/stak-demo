@@ -1,6 +1,7 @@
 import { useRouterState } from "@tanstack/react-router";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { type NavKey, Sidebar } from "./Sidebar";
+import { SidebarSkeleton } from "./SidebarSkeleton";
 
 const NAV_KEY = "stak.nav.open";
 
@@ -29,8 +30,9 @@ export function activeFromPath(pathname: string): NavKey {
 export function AppShell({ children }: { children: ReactNode }) {
 	const [open, setOpen] = useState<boolean>(readNavOpen);
 	const pathname = useRouterState({ select: (s) => s.location.pathname });
-	const search = useRouterState({ select: (s) => s.location.search as { nav?: string } });
-	const forced = search?.nav === "closed" ? false : search?.nav === "open" ? true : undefined;
+	const search = useRouterState({ select: (s) => s.location.search as { nav?: string; loading?: string | number | boolean } });
+	const loading = search.loading === 1 || search.loading === "1" || search.loading === true;
+	const forced = search.nav === "closed" ? false : search.nav === "open" ? true : undefined;
 	const navOpen = forced ?? open;
 
 	useEffect(() => {
@@ -45,7 +47,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 	return (
 		<div className="flex min-h-screen bg-[#0a1020] font-geist text-[#f2f6fc] antialiased">
-			<Sidebar open={navOpen} active={activeFromPath(pathname)} onToggle={toggle} />
+			{loading ? (
+				<SidebarSkeleton active={activeFromPath(pathname) === "discover" ? "discover" : "home"} />
+			) : <Sidebar open={navOpen} active={activeFromPath(pathname)} onToggle={toggle} />}
 			<main className="min-w-0 flex-1">
 				<div className="pr-[50px] pt-[88px]" style={{ paddingLeft: navOpen ? 40 : 24 }}>
 					{children}

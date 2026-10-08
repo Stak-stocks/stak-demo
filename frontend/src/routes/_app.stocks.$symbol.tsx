@@ -1,3 +1,4 @@
+import { StockDetailSkeleton } from "@/app/stocks/StockDetailSkeleton";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { stockDetails } from "@/app/stocks/data";
 import { PracticeBuySheet } from "@/app/stocks/PracticeBuySheet";
@@ -9,6 +10,7 @@ type StockSearch = {
 	ticket?: boolean;
 	sheet?: boolean;
 	from?: "discover" | "my-stak";
+	loading?: boolean;
 };
 
 const flag = (v: unknown) => (v === true || v === 1 || v === "1" || v === "true" ? true : undefined);
@@ -20,6 +22,7 @@ export const Route = createFileRoute("/_app/stocks/$symbol")({
 		ticket: flag(s.ticket),
 		sheet: flag(s.sheet),
 		from: s.from === "my-stak" ? "my-stak" : undefined,
+		loading: flag(s.loading),
 	}),
 	component: StockPage,
 });
@@ -34,6 +37,7 @@ function StockPage() {
 	const { symbol } = Route.useParams();
 	const search = Route.useSearch();
 	const navigate = useNavigate();
+	if (search.loading) return <StockDetailSkeleton />;
 	const key = symbol.toUpperCase() as keyof typeof stockDetails;
 	const stock = stockDetails[key] ?? stockDetails.AAPL;
 	const from = search.from ?? "discover";

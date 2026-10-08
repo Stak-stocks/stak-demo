@@ -1,3 +1,4 @@
+import { DeckSkeleton } from "@/app/discover/DeckSkeleton";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect } from "react";
 import { D } from "@/app/discover/assets";
@@ -7,11 +8,12 @@ import { deckCards, deckCopy, deckHeader } from "@/app/discover/data";
 import { deckTicket } from "@/app/stocks/data";
 import { PracticeBuySheet } from "@/app/stocks/PracticeBuySheet";
 
-type DeckSearch = { state?: "saved" | "buy"; i?: number };
+type DeckSearch = { state?: "saved" | "buy"; i?: number; loading?: boolean };
 
 export const Route = createFileRoute("/_app/discover")({
 	validateSearch: (s: Record<string, unknown>): DeckSearch => ({
 		state: s.state === "saved" || s.state === "buy" ? s.state : undefined,
+		loading: s.loading === true || s.loading === 1 || s.loading === "1" ? true : undefined,
 		i: typeof s.i === "number" && s.i >= 0 && s.i < deckHeader.total ? s.i : undefined,
 	}),
 	component: DiscoverPage,
@@ -26,10 +28,11 @@ const deck = Array.from({ length: deckHeader.total }, (_, k) => deckCards[k % de
  * ← pass · → save · ↵ practice buy.
  */
 function DiscoverPage() {
-	const { state, i } = Route.useSearch();
+	const { state, i, loading } = Route.useSearch();
 	const navigate = useNavigate();
 	const index = i ?? 1;
 	const saved = state === "saved";
+	if (loading) return <DeckSkeleton />;
 	const buying = state === "buy";
 	const centre = deck[index];
 	const left = deck[(index - 1 + deck.length) % deck.length];

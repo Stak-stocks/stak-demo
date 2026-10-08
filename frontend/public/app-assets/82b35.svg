@@ -1,0 +1,25 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="230.092" height="210.101" viewBox="0 0 230.092 210.101" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group 1000002777" opacity="0.15">
+<path id="Vector 67" opacity="0.15" d="M22.5842 153.898L41.2634 127.748H186.961L207.508 150.163L114.112 185.653L22.5842 153.898Z" fill="#A3D0E3"/>
+<path id="Vector 56" opacity="0.15" d="M31.9237 150.158L41.2633 137.083H186.961L198.168 148.29L114.112 178.177L31.9237 150.158Z" fill="#91C8E0"/>
+<g id="Vector 68" opacity="0.15" filter="url(#filter0_f_0_53)">
+<path d="M31.9237 150.158L41.2633 137.083H186.961L198.168 148.29L114.112 178.177L31.9237 150.158Z" fill="#91C8E0"/>
+</g>
+<path id="Vector 57" opacity="0.15" d="M10.9052 23.3589L36.2105 46.7176L114.073 19.4657L92.6609 6.11295e-05L10.9052 23.3589Z" fill="#66B7DA"/>
+<path id="Vector 58" opacity="0.15" d="M139.377 0L211.4 23.3588L191.934 48.6641L114.072 19.4657L139.377 0Z" fill="#66B7DA"/>
+<path id="Vector 60" opacity="0.15" d="M114.071 75.9148L191.934 48.6628V144.045L114.071 171.296V75.9148Z" fill="#65B2D3"/>
+<path id="Vector 61" opacity="0.15" d="M114.072 75.917L36.2089 46.7176V144.047L114.072 171.299V75.917Z" fill="#5CA1BF"/>
+<path id="Vector 64" opacity="0.15" d="M114.072 19.464L36.2097 46.716L114.072 75.9145V19.464Z" fill="#63A9C8"/>
+<path id="Vector 65" opacity="0.15" d="M114.072 19.4638L191.935 48.6623L114.072 75.9143V19.4638Z" fill="#63A4C1"/>
+<path id="Vector 66" opacity="0.15" d="M90.7136 103.166L114.072 75.9141L80.9808 97.3263L90.7136 103.166Z" fill="#5395B2"/>
+<path id="Vector 62" opacity="0.15" d="M8.95736 70.0765L36.2093 46.7177L114.072 75.9162L80.9803 103.168L8.95736 70.0765Z" fill="#66B7DA"/>
+<path id="Vector 63" opacity="0.15" d="M191.934 48.6628L215.293 72.0216L143.27 103.167L114.071 75.9148L191.934 48.6628Z" fill="#66B7DA"/>
+</g>
+<defs>
+<filter id="filter0_f_0_53" x="0" y="105.159" width="230.092" height="104.942" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="15.9618" result="effect1_foregroundBlur_0_53"/>
+</filter>
+</defs>
+</svg>

@@ -29,4 +29,29 @@ export const A = {
 	cautionIcon: `${base}/7527d.png`,
 	deckBoxIllustration: `${base}/illus-deck-box@2x.png`,
 	seePicksPill: `${base}/pill-see-picks@2x.png`,
+	// loading state (10 States, 2:1991): dimmed variants of the same pieces
+	settingsDim: `${base}/57a89.svg`,
+	gaugeDim: `${base}/d6f2a.svg`,
+	arrowRightDim: `${base}/0c06d.svg`,
+	deckBoxDim: `${base}/01105.svg`,
+	seePicksPillDim: `${base}/pill-see-picks-loading@2x.png`,
+	// 10 States: empty-box illustration shared by My STAK empty (2:1830) and Simulate empty (2:2255)
+	emptyBox: `${base}/43d31.svg`,
+	// 10 States: Stock detail loading (2:2113) and Deck loading (2:2305)
+	loading: {
+		chartDim: `${base}/d70ff.svg`,
+		bookmarkDim: `${base}/0f040.svg`,
+		marker: `${base}/b764f.svg`,
+		caretA: `${base}/1bc1c.svg`,
+		caretB: `${base}/378fc.svg`,
+		ring: `${base}/da4ff.svg`,
+		deckGroupA: `${base}/82b35.svg`,
+		deckVectorA: `${base}/7d507.svg`,
+		bookmarkA: `${base}/9acde.svg`,
+		deckGroupB: `${base}/8fc70.svg`,
+		bookmarkB: `${base}/0b7d2.svg`,
+		deckGroupC: `${base}/bc5eb.svg`,
+		deckVectorC: `${base}/32d5f.svg`,
+		bookmarkC: `${base}/a09d9.svg`,
+	},
 } as const;
