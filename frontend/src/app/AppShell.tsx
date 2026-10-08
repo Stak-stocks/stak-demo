@@ -51,7 +51,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 				<SidebarSkeleton active={activeFromPath(pathname) === "discover" ? "discover" : "home"} />
 			) : <Sidebar open={navOpen} active={activeFromPath(pathname)} onToggle={toggle} />}
 			<main className="min-w-0 flex-1">
-				<div className="pr-[50px] pt-[88px]" style={{ paddingLeft: navOpen ? 40 : 24 }}>
+				<div className="pr-[50px] pt-[88px] transition-[padding-left] duration-[280ms] ease-in-out" style={{ paddingLeft: navOpen ? 40 : 24 }}>
 					{children}
 				</div>
 			</main>

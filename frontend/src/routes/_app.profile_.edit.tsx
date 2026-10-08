@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { editProfile } from "@/app/profile/data";
+import { useAccountDisplay } from "@/app/useAccountDisplay";
 import { GradientButton, RowLabel, RowValue, SectionLabel, SettingsCard, SettingsRow } from "@/app/profile/ui";
 import { PageHeader } from "@/app/PageHeader";
 
@@ -9,6 +10,8 @@ export const Route = createFileRoute("/_app/profile_/edit")({
 
 /** Figma 2:2555 "Desktop · Edit profile". */
 function EditProfilePage() {
+	const me = useAccountDisplay();
+	const values: Record<string, string> = { "DISPLAY NAME": me.name, HANDLE: me.handle, EMAIL: me.email };
 	const navigate = useNavigate();
 	return (
 		<div className="flex w-full flex-col items-start gap-[29px]">
@@ -20,7 +23,7 @@ function EditProfilePage() {
 						aria-label="Change photo"
 						className="flex size-[64px] items-center justify-center overflow-clip rounded-[32px] bg-[#242b3d]"
 					>
-						<span className="whitespace-nowrap font-sora text-[22px] font-semibold leading-[28px] text-[#9eadc7]">{editProfile.initial}</span>
+						<span className="whitespace-nowrap font-sora text-[22px] font-semibold leading-[28px] text-[#9eadc7]">{me.initial}</span>
 					</button>
 					<p className="whitespace-nowrap font-geist text-[12px] leading-[16px] text-[#819abb]">{editProfile.avatarHint}</p>
 				</div>
@@ -29,7 +32,7 @@ function EditProfilePage() {
 					<label key={field.label} className="flex w-full flex-col items-start gap-[6px] overflow-clip">
 						<span className="whitespace-nowrap font-geist text-[11px] font-medium leading-[14px] text-[#819abb]">{field.label}</span>
 						<input
-							defaultValue={field.value}
+							defaultValue={values[field.label] ?? field.value}
 							className="block h-[49px] w-full rounded-[14px] border-0 bg-[#181f30] px-[16px] py-0 font-geist text-[13px] leading-[17px] text-white outline-none"
 						/>
 					</label>

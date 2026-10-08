@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { A } from "@/app/assets";
 import { HomeSkeleton } from "@/app/home/HomeSkeleton";
 import { PageHeader } from "@/app/PageHeader";
-import { account } from "@/app/data/account";
+import { useAccountDisplay } from "@/app/useAccountDisplay";
 import { homePromos, marketMood } from "@/app/data/home";
 import { NotificationsPanel } from "@/app/notifications/NotificationsPanel";
 
@@ -33,7 +33,7 @@ function HomePage() {
 	useEffect(() => setPanel(fromSearch), [fromSearch]);
 	return (
 		<div className="relative flex w-full flex-col items-start gap-[29px]">
-			<PageHeader title={account.greeting} onBell={() => setPanel((p) => (p ? null : "list"))} />
+			<PageHeader title={useAccountDisplay().greeting} onBell={() => setPanel((p) => (p ? null : "list"))} />
 			{panel && <NotificationsPanel variant={panel} onClose={() => setPanel(null)} />}
 			<div className="flex flex-col items-center gap-[55px]">
 				<div className="flex w-full flex-col items-end gap-[19px]">

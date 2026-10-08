@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { A } from "./assets";
-import { account } from "./data/account";
+import { useAccountDisplay } from "./useAccountDisplay";
 
 /** Figma "Desktop Sidebar · Nav (locked)" — 6 sections × open (216) / closed (72). */
 export type NavKey = "home" | "news" | "discover" | "mystak" | "simulate" | "profile";
@@ -20,7 +20,7 @@ export function Sidebar({ open, active, onToggle }: Props) {
 	const width = open ? 216 : 72;
 	return (
 		<aside
-			className="sticky top-0 h-screen shrink-0 overflow-clip bg-[#080d1a]"
+			className="sticky top-0 h-screen shrink-0 overflow-clip bg-[#080d1a] transition-[width] duration-[280ms] ease-in-out"
 			style={{ width }}
 			data-nav={open ? "open" : "closed"}
 		>
@@ -91,6 +91,7 @@ export function Sidebar({ open, active, onToggle }: Props) {
 }
 
 function AccountRow({ open, active }: { open: boolean; active: boolean }) {
+	const account = useAccountDisplay();
 	return (
 		<Link
 			to="/profile"
@@ -108,7 +109,7 @@ function AccountRow({ open, active }: { open: boolean; active: boolean }) {
 				<>
 					<div className="flex flex-col items-start gap-px overflow-clip whitespace-nowrap">
 						<span className="font-geist text-[13px] font-semibold text-[#d9d9d9]">{account.name}</span>
-						<span className="font-geist text-[8.5px] text-[#819abb]">{account.handle}</span>
+						<span className="font-geist text-[8.5px] text-[#819abb]">{account.sidebarLine}</span>
 					</div>
 					<img alt="" src={A.settings} className="size-[17px] shrink-0" />
 				</>
