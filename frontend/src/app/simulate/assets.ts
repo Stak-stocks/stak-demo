@@ -7,4 +7,5 @@ export const SA = {
 	back: `${base}/f0c2a.svg`, // 22px chevron
 	sparkle: `${base}/f268b.svg`, // icon/sparkle 16
 	checkCircle: `${base}/25543.svg`, // 47px success check
+	emptyBox: `${base}/43d31.svg`, // 10 · States "Group 1000002801" 135.091x165.355 (empty Simulate)
 } as const;

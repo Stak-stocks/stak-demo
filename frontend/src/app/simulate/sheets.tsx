@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { SA } from "./assets";
-import { cashAvailable, money, pickDetail, sheets, shares4, signedMoney, type Stock } from "./data";
+import { buyFailed, cashAvailable, money, pickDetail, sheets, shares4, signedMoney, type Stock } from "./data";
 import { AmountChip, Avatar, GhostButton, GradientButton, SellButton } from "./ui";
 
 /** Scrim + centred 480 sheet ("Sheet" 2:1421 et al.). The scrim colour differs per frame in the Figma. */
@@ -269,6 +269,26 @@ export function PortfolioSellSheet({
 			<Buttons>
 				<SellButton onClick={() => onConfirm(portion)}>{s.sell}</SellButton>
 				<GhostButton onClick={onClose}>{sheets.back}</GhostButton>
+			</Buttons>
+		</Modal>
+	);
+}
+
+/** 2:1972 "Couldn’t place that trade" (10 · States, over Simulate home). */
+export function BuyFailedSheet({
+	stock,
+	onRetry,
+	onClose,
+}: { stock: Stock; onRetry: () => void; onClose: () => void }) {
+	return (
+		<Modal onClose={onClose}>
+			<SheetTitle>{buyFailed.title}</SheetTitle>
+			<p className="whitespace-nowrap font-geist text-[12px] font-medium leading-[16px] text-[#e5484d]">{buyFailed.status}</p>
+			<StockRow stock={stock} name={stock.nameConfirm} />
+			<Description>{buyFailed.description}</Description>
+			<Buttons>
+				<GradientButton onClick={onRetry}>{buyFailed.retry}</GradientButton>
+				<GhostButton onClick={onClose}>{buyFailed.dismiss}</GhostButton>
 			</Buttons>
 		</Modal>
 	);

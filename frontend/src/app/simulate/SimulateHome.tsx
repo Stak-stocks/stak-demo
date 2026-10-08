@@ -1,13 +1,14 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { SA } from "./assets";
-import { cashAvailable, simulateHome, stocks } from "./data";
-import { AddConfirmSheet, AddSuccessSheet } from "./sheets";
-import { Avatar, Card, CardTitle, Eyebrow, GREEN, type Palette, RED, RED_ROW, SmallBuyButton } from "./ui";
+import { cashAvailable, simulateEmpty, simulateHome, stocks } from "./data";
+import { AddConfirmSheet, AddSuccessSheet, BuyFailedSheet } from "./sheets";
+import { Avatar, Card, CardTitle, Eyebrow, GradientButton, GREEN, type Palette, RED, RED_ROW, SmallBuyButton } from "./ui";
 
 export type SimulateHomeSearch = {
 	variant?: "alt";
-	modal?: "add-confirm" | "add-success";
+	state?: "empty";
+	modal?: "add-confirm" | "add-success" | "buy-failed";
 	symbol?: string;
 	amount?: number;
 };
@@ -26,6 +27,8 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 	const symbol = search.symbol ?? (alt ? "PLTR" : "NVDA");
 	const stock = stocks[symbol] ?? stocks.NVDA;
 	const d = simulateHome;
+
+	if (search.state === "empty") return <SimulateEmpty />;
 
 	return (
 		<div className="flex flex-col items-start gap-[22px]" style={{ width: alt ? 1144 : 1126, marginTop: alt ? 4 : 0 }}>
@@ -138,6 +141,9 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 					onClose={() => setSearch({})}
 				/>
 			)}
+			{search.modal === "buy-failed" && (
+				<BuyFailedSheet stock={stock} onRetry={() => setSearch({ modal: "add-confirm", symbol })} onClose={() => setSearch({})} />
+			)}
 			{search.modal === "add-success" && (
 				<AddSuccessSheet
 					symbol={symbol}
@@ -193,3 +199,63 @@ function PortfolioHero({ palette }: { palette: Palette }) {
 }
 
 export const simulateCash = cashAvailable;
+
+/** 2:2255 "Desktop · Simulate · Empty" (10 · States): hero with a flat baseline, then the empty stage. */
+function SimulateEmpty() {
+	const d = simulateHome;
+	const e = simulateEmpty;
+	return (
+		<div className="flex w-[1126px] flex-col items-start gap-[22px]">
+			<div className="flex h-[67px] flex-col items-start justify-between overflow-clip">
+				<p className="whitespace-nowrap font-sora text-[26px] font-semibold leading-[33px] text-[#f2f6fc]">{d.title}</p>
+				<div className="flex items-start overflow-clip rounded-[999px] bg-[rgba(255,255,255,0.08)] px-[12px] py-[5px]">
+					<p className="whitespace-nowrap font-geist text-[11px] font-medium leading-[14px] text-[#819abb]">{d.badge}</p>
+				</div>
+			</div>
+			<Card className="w-[744px]">
+				<Eyebrow>{e.hero.eyebrow}</Eyebrow>
+				<p className="whitespace-nowrap font-sora text-[34px] font-semibold leading-[43px] text-[#f2f6fc]">{e.hero.value}</p>
+				<div className="flex items-center gap-[14px] overflow-clip whitespace-nowrap text-[12px] leading-[16px] text-[#819abb]">
+					<p className="font-geist font-medium">{e.hero.moves}</p>
+					<p className="font-geist">{e.hero.rank}</p>
+				</div>
+				<div className="relative h-[120px] w-full overflow-clip rounded-[12px] bg-[#181f30]">
+					<div className="absolute left-[10px] top-[77px] h-px w-[672px] bg-[rgba(129,154,187,0.35)]" />
+					<div className="absolute left-[526px] top-[86px] flex items-start gap-[8px] overflow-clip">
+						{d.hero.ranges.map((r) => {
+							const active = r === d.hero.activeRange;
+							return (
+								<button
+									key={r}
+									type="button"
+									className={cn("flex items-start overflow-clip rounded-[8px] px-[10px] py-[4px]", active && "bg-[#181f30]")}
+								>
+									<span
+										className={cn("whitespace-nowrap font-geist text-[11px] font-medium leading-[14px]", active ? "text-[#f2f6fc]" : "text-[#819abb]")}
+									>
+										{r}
+									</span>
+								</button>
+							);
+						})}
+					</div>
+				</div>
+			</Card>
+			<div className="flex w-[744px] flex-col items-center justify-center overflow-clip pt-[56px]">
+				<div className="flex flex-col items-center overflow-clip">
+					<div className="relative h-[151px] w-[121.143px]">
+						<img alt="" src={SA.emptyBox} className="absolute left-[-5.26px] top-0 block h-[165.355px] w-[135.091px] max-w-none" />
+					</div>
+					<div className="h-[28px] w-[10px]" />
+					<p className="whitespace-nowrap text-center font-sora text-[26px] font-semibold leading-[33px] text-white">{e.title}</p>
+					<div className="size-[10px]" />
+					<p className="w-[460px] text-center font-geist text-[15px] leading-[22px] text-[#819abb]">{e.body}</p>
+					<div className="h-[28px] w-[10px]" />
+					<Link to="/discover" className="block w-[240px]">
+						<GradientButton>{e.cta}</GradientButton>
+					</Link>
+				</div>
+			</div>
+		</div>
+	);
+}

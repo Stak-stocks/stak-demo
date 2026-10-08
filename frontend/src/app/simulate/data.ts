@@ -211,3 +211,19 @@ export function signedMoney(n: number): string {
 export function shares4(n: number): string {
 	return n.toFixed(4);
 }
+
+/** 10 · States — 2:2255 "Desktop · Simulate · Empty" and 2:1972 "Practice buy · Failed" sheet (copy verbatim). */
+export const simulateEmpty = {
+	hero: { eyebrow: "PORTFOLIO VALUE", value: "$10,000", moves: "No moves yet", rank: "Unranked" },
+	title: "No practice trades yet",
+	body: "Pick a saved company and buy with paper money at real prices. Nothing here is real until you decide it is.",
+	cta: "See today’s pick",
+} as const;
+
+export const buyFailed = {
+	title: "Couldn’t place that trade",
+	status: "Order not placed",
+	description: "Prices are refreshing. Your paper cash wasn’t touched.",
+	retry: "Try again",
+	dismiss: "Not now",
+} as const;
