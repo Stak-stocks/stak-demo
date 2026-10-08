@@ -4,8 +4,8 @@
 export const MIN_AGE = 18;
 
 /** The published Terms of Service / Privacy Policy. Bumping either asks every account to accept again. */
-export const TERMS_VERSION = "2026-10-07";
-export const PRIVACY_VERSION = "2026-10-07";
+export const TERMS_VERSION = "2026-10-08";
+export const PRIVACY_VERSION = "2026-10-08";
 export const TERMS_URL = "https://thestak.org/terms";
 export const PRIVACY_URL = "https://thestak.org/privacy";
 
