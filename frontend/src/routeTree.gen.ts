@@ -10,20 +10,33 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as SplashRouteImport } from './routes/splash'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as ProfileRouteImport } from './routes/profile'
-import { Route as OnboardingRouteImport } from './routes/onboarding'
-import { Route as MyStakRouteImport } from './routes/my-stak'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as CheckEmailRouteImport } from './routes/check-email'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppProfileRouteImport } from './routes/_app.profile'
+import { Route as AppNewsRouteImport } from './routes/_app.news'
 import { Route as AppHomeRouteImport } from './routes/_app.home'
+import { Route as AppSimulateIndexRouteImport } from './routes/_app.simulate.index'
+import { Route as AppSimulatePortfolioRouteImport } from './routes/_app.simulate.portfolio'
+import { Route as AppSimulateLeaderboardRouteImport } from './routes/_app.simulate.leaderboard'
+import { Route as AppProfileTasteRiskRouteImport } from './routes/_app.profile_.taste-risk'
+import { Route as AppProfileEditRouteImport } from './routes/_app.profile_.edit'
+import { Route as AppNewsIdRouteImport } from './routes/_app.news_.$id'
+import { Route as AppSimulatePicksSymbolRouteImport } from './routes/_app.simulate.picks.$symbol'
 
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
   path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SplashRoute = SplashRouteImport.update({
+  id: '/splash',
+  path: '/splash',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -36,21 +49,6 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
   path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProfileRoute = ProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OnboardingRoute = OnboardingRouteImport.update({
-  id: '/onboarding',
-  path: '/onboarding',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MyStakRoute = MyStakRouteImport.update({
-  id: '/my-stak',
-  path: '/my-stak',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -59,6 +57,11 @@ const LoginRoute = LoginRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckEmailRoute = CheckEmailRouteImport.update({
+  id: '/check-email',
+  path: '/check-email',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -70,100 +73,192 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppProfileRoute = AppProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppNewsRoute = AppNewsRouteImport.update({
+  id: '/news',
+  path: '/news',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppHomeRoute = AppHomeRouteImport.update({
   id: '/home',
   path: '/home',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSimulateIndexRoute = AppSimulateIndexRouteImport.update({
+  id: '/simulate/',
+  path: '/simulate/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSimulatePortfolioRoute = AppSimulatePortfolioRouteImport.update({
+  id: '/simulate/portfolio',
+  path: '/simulate/portfolio',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSimulateLeaderboardRoute = AppSimulateLeaderboardRouteImport.update({
+  id: '/simulate/leaderboard',
+  path: '/simulate/leaderboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProfileTasteRiskRoute = AppProfileTasteRiskRouteImport.update({
+  id: '/profile_/taste-risk',
+  path: '/profile/taste-risk',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProfileEditRoute = AppProfileEditRouteImport.update({
+  id: '/profile_/edit',
+  path: '/profile/edit',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppNewsIdRoute = AppNewsIdRouteImport.update({
+  id: '/news_/$id',
+  path: '/news/$id',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSimulatePicksSymbolRoute = AppSimulatePicksSymbolRouteImport.update({
+  id: '/simulate/picks/$symbol',
+  path: '/simulate/picks/$symbol',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/check-email': typeof CheckEmailRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
-  '/my-stak': typeof MyStakRoute
-  '/onboarding': typeof OnboardingRoute
-  '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/splash': typeof SplashRoute
   '/welcome': typeof WelcomeRoute
   '/home': typeof AppHomeRoute
+  '/news': typeof AppNewsRoute
+  '/profile': typeof AppProfileRoute
+  '/news/$id': typeof AppNewsIdRoute
+  '/profile/edit': typeof AppProfileEditRoute
+  '/profile/taste-risk': typeof AppProfileTasteRiskRoute
+  '/simulate/leaderboard': typeof AppSimulateLeaderboardRoute
+  '/simulate/portfolio': typeof AppSimulatePortfolioRoute
+  '/simulate/': typeof AppSimulateIndexRoute
+  '/simulate/picks/$symbol': typeof AppSimulatePicksSymbolRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/check-email': typeof CheckEmailRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
-  '/my-stak': typeof MyStakRoute
-  '/onboarding': typeof OnboardingRoute
-  '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/splash': typeof SplashRoute
   '/welcome': typeof WelcomeRoute
   '/home': typeof AppHomeRoute
+  '/news': typeof AppNewsRoute
+  '/profile': typeof AppProfileRoute
+  '/news/$id': typeof AppNewsIdRoute
+  '/profile/edit': typeof AppProfileEditRoute
+  '/profile/taste-risk': typeof AppProfileTasteRiskRoute
+  '/simulate/leaderboard': typeof AppSimulateLeaderboardRoute
+  '/simulate/portfolio': typeof AppSimulatePortfolioRoute
+  '/simulate': typeof AppSimulateIndexRoute
+  '/simulate/picks/$symbol': typeof AppSimulatePicksSymbolRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
+  '/check-email': typeof CheckEmailRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
-  '/my-stak': typeof MyStakRoute
-  '/onboarding': typeof OnboardingRoute
-  '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/splash': typeof SplashRoute
   '/welcome': typeof WelcomeRoute
   '/_app/home': typeof AppHomeRoute
+  '/_app/news': typeof AppNewsRoute
+  '/_app/profile': typeof AppProfileRoute
+  '/_app/news_/$id': typeof AppNewsIdRoute
+  '/_app/profile_/edit': typeof AppProfileEditRoute
+  '/_app/profile_/taste-risk': typeof AppProfileTasteRiskRoute
+  '/_app/simulate/leaderboard': typeof AppSimulateLeaderboardRoute
+  '/_app/simulate/portfolio': typeof AppSimulatePortfolioRoute
+  '/_app/simulate/': typeof AppSimulateIndexRoute
+  '/_app/simulate/picks/$symbol': typeof AppSimulatePicksSymbolRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/check-email'
     | '/forgot-password'
     | '/login'
-    | '/my-stak'
-    | '/onboarding'
-    | '/profile'
     | '/reset-password'
     | '/signup'
+    | '/splash'
     | '/welcome'
     | '/home'
+    | '/news'
+    | '/profile'
+    | '/news/$id'
+    | '/profile/edit'
+    | '/profile/taste-risk'
+    | '/simulate/leaderboard'
+    | '/simulate/portfolio'
+    | '/simulate/'
+    | '/simulate/picks/$symbol'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/check-email'
     | '/forgot-password'
     | '/login'
-    | '/my-stak'
-    | '/onboarding'
-    | '/profile'
     | '/reset-password'
     | '/signup'
+    | '/splash'
     | '/welcome'
     | '/home'
+    | '/news'
+    | '/profile'
+    | '/news/$id'
+    | '/profile/edit'
+    | '/profile/taste-risk'
+    | '/simulate/leaderboard'
+    | '/simulate/portfolio'
+    | '/simulate'
+    | '/simulate/picks/$symbol'
   id:
     | '__root__'
     | '/'
     | '/_app'
+    | '/check-email'
     | '/forgot-password'
     | '/login'
-    | '/my-stak'
-    | '/onboarding'
-    | '/profile'
     | '/reset-password'
     | '/signup'
+    | '/splash'
     | '/welcome'
     | '/_app/home'
+    | '/_app/news'
+    | '/_app/profile'
+    | '/_app/news_/$id'
+    | '/_app/profile_/edit'
+    | '/_app/profile_/taste-risk'
+    | '/_app/simulate/leaderboard'
+    | '/_app/simulate/portfolio'
+    | '/_app/simulate/'
+    | '/_app/simulate/picks/$symbol'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  CheckEmailRoute: typeof CheckEmailRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
-  MyStakRoute: typeof MyStakRoute
-  OnboardingRoute: typeof OnboardingRoute
-  ProfileRoute: typeof ProfileRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  SplashRoute: typeof SplashRoute
   WelcomeRoute: typeof WelcomeRoute
 }
 
@@ -174,6 +269,13 @@ declare module '@tanstack/react-router' {
       path: '/welcome'
       fullPath: '/welcome'
       preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/splash': {
+      id: '/splash'
+      path: '/splash'
+      fullPath: '/splash'
+      preLoaderRoute: typeof SplashRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -190,27 +292,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/profile': {
-      id: '/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProfileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/onboarding': {
-      id: '/onboarding'
-      path: '/onboarding'
-      fullPath: '/onboarding'
-      preLoaderRoute: typeof OnboardingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/my-stak': {
-      id: '/my-stak'
-      path: '/my-stak'
-      fullPath: '/my-stak'
-      preLoaderRoute: typeof MyStakRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -223,6 +304,13 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/check-email': {
+      id: '/check-email'
+      path: '/check-email'
+      fullPath: '/check-email'
+      preLoaderRoute: typeof CheckEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
@@ -239,6 +327,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/profile': {
+      id: '/_app/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/news': {
+      id: '/_app/news'
+      path: '/news'
+      fullPath: '/news'
+      preLoaderRoute: typeof AppNewsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/home': {
       id: '/_app/home'
       path: '/home'
@@ -246,15 +348,82 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppHomeRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/simulate/': {
+      id: '/_app/simulate/'
+      path: '/simulate'
+      fullPath: '/simulate/'
+      preLoaderRoute: typeof AppSimulateIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/simulate/portfolio': {
+      id: '/_app/simulate/portfolio'
+      path: '/simulate/portfolio'
+      fullPath: '/simulate/portfolio'
+      preLoaderRoute: typeof AppSimulatePortfolioRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/simulate/leaderboard': {
+      id: '/_app/simulate/leaderboard'
+      path: '/simulate/leaderboard'
+      fullPath: '/simulate/leaderboard'
+      preLoaderRoute: typeof AppSimulateLeaderboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/profile_/taste-risk': {
+      id: '/_app/profile_/taste-risk'
+      path: '/profile/taste-risk'
+      fullPath: '/profile/taste-risk'
+      preLoaderRoute: typeof AppProfileTasteRiskRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/profile_/edit': {
+      id: '/_app/profile_/edit'
+      path: '/profile/edit'
+      fullPath: '/profile/edit'
+      preLoaderRoute: typeof AppProfileEditRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/news_/$id': {
+      id: '/_app/news_/$id'
+      path: '/news/$id'
+      fullPath: '/news/$id'
+      preLoaderRoute: typeof AppNewsIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/simulate/picks/$symbol': {
+      id: '/_app/simulate/picks/$symbol'
+      path: '/simulate/picks/$symbol'
+      fullPath: '/simulate/picks/$symbol'
+      preLoaderRoute: typeof AppSimulatePicksSymbolRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
   AppHomeRoute: typeof AppHomeRoute
+  AppNewsRoute: typeof AppNewsRoute
+  AppProfileRoute: typeof AppProfileRoute
+  AppNewsIdRoute: typeof AppNewsIdRoute
+  AppProfileEditRoute: typeof AppProfileEditRoute
+  AppProfileTasteRiskRoute: typeof AppProfileTasteRiskRoute
+  AppSimulateLeaderboardRoute: typeof AppSimulateLeaderboardRoute
+  AppSimulatePortfolioRoute: typeof AppSimulatePortfolioRoute
+  AppSimulateIndexRoute: typeof AppSimulateIndexRoute
+  AppSimulatePicksSymbolRoute: typeof AppSimulatePicksSymbolRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppHomeRoute: AppHomeRoute,
+  AppNewsRoute: AppNewsRoute,
+  AppProfileRoute: AppProfileRoute,
+  AppNewsIdRoute: AppNewsIdRoute,
+  AppProfileEditRoute: AppProfileEditRoute,
+  AppProfileTasteRiskRoute: AppProfileTasteRiskRoute,
+  AppSimulateLeaderboardRoute: AppSimulateLeaderboardRoute,
+  AppSimulatePortfolioRoute: AppSimulatePortfolioRoute,
+  AppSimulateIndexRoute: AppSimulateIndexRoute,
+  AppSimulatePicksSymbolRoute: AppSimulatePicksSymbolRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -262,13 +431,12 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  CheckEmailRoute: CheckEmailRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
-  MyStakRoute: MyStakRoute,
-  OnboardingRoute: OnboardingRoute,
-  ProfileRoute: ProfileRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  SplashRoute: SplashRoute,
   WelcomeRoute: WelcomeRoute,
 }
 export const routeTree = rootRouteImport

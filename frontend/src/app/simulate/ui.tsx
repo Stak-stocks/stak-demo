@@ -1,0 +1,221 @@
+import { Link } from "@tanstack/react-router";
+import type { CSSProperties, ReactNode } from "react";
+import { cn } from "@/lib/utils";
+import { SA } from "./assets";
+
+/** Card surfaces. The alternate frames (2:970, 2:1116) use the bluer pair. */
+export type Palette = { card: string; inner: string };
+export const PALETTE: Palette = { card: "#181f30", inner: "#12203e" };
+export const PALETTE_ALT: Palette = { card: "#0e1a36", inner: "#12203e" };
+
+/** Button canon (00 References): r6 · h52 · Geist Medium · hairline + glow. */
+export const GRADIENT =
+	"linear-gradient(180deg, rgb(166, 228, 247) 8.8889%, rgb(93, 168, 191) 39.189%, rgb(60, 152, 180) 72.549%), linear-gradient(90deg, rgb(44, 157, 188) 0%, rgb(44, 157, 188) 100%)";
+export const GLOW_FILTER =
+	"drop-shadow(0px 77.322px 10.839px rgba(82,170,199,0)) drop-shadow(0px 49.862px 9.756px rgba(82,170,199,0.01)) drop-shadow(0px 28.183px 8.31px rgba(82,170,199,0.03))";
+export const GHOST_FILTER =
+	"drop-shadow(0px 77.322px 10.839px rgba(82,170,199,0)) drop-shadow(0px 49.862px 9.756px rgba(82,170,199,0.01)) drop-shadow(0px 28.183px 8.31px rgba(82,170,199,0.05)) drop-shadow(0px 12.285px 6.142px rgba(82,170,199,0.09)) drop-shadow(0px 2.891px 3.252px rgba(82,170,199,0.1))";
+const BUY_FILTER = "drop-shadow(0px 12.285px 6.142px rgba(82,170,199,0.04))";
+const SELL_FILTER = "drop-shadow(0px 12.285px 6.142px rgba(82,170,199,0.02))";
+/** Figma hairline strokes sit inside the box; an inset shadow keeps the layout size and the fractional width. */
+export const hairline = (width: number, color: string) => `inset 0 0 0 ${width}px ${color}`;
+
+export function Card({
+	className,
+	style,
+	palette = PALETTE,
+	children,
+}: { className?: string; style?: CSSProperties; palette?: Palette; children: ReactNode }) {
+	return (
+		<section
+			className={cn("flex flex-col items-start gap-[12px] overflow-clip rounded-[16px] p-[20px]", className)}
+			style={{ backgroundColor: palette.card, ...style }}
+		>
+			{children}
+		</section>
+	);
+}
+
+export function Eyebrow({ children, className }: { children: ReactNode; className?: string }) {
+	return (
+		<p className={cn("whitespace-nowrap font-geist text-[11px] font-medium leading-[14px] tracking-[0.88px] text-[#819abb]", className)}>
+			{children}
+		</p>
+	);
+}
+
+export function CardTitle({ children }: { children: ReactNode }) {
+	return <p className="whitespace-nowrap font-sora text-[15px] font-semibold leading-[19px] text-[#f2f6fc]">{children}</p>;
+}
+
+/** Back chevron + breadcrumb ("Simulate  /  Portfolio", two spaces around the slash, as authored). */
+export function BackHeader({ crumb, to, style }: { crumb: string; to: string; style?: CSSProperties }) {
+	return (
+		<div className="flex flex-col items-start gap-[31px]" style={style}>
+			<Link
+				to={to}
+				aria-label="Back"
+				className="flex size-[40px] shrink-0 items-center justify-center overflow-clip rounded-[20px] bg-[#192238]"
+			>
+				<img alt="" src={SA.back} className="size-[22px]" />
+			</Link>
+			<p className="whitespace-pre font-geist text-[16px] font-medium leading-[21px] text-[#819abb]">{crumb}</p>
+		</div>
+	);
+}
+
+export function PageTitle({ title, subtitle }: { title: string; subtitle: string }) {
+	return (
+		<div className="flex flex-col items-start gap-[4px] overflow-clip whitespace-nowrap">
+			<p className="font-sora text-[26px] font-semibold leading-[33px] text-[#f2f6fc]">{title}</p>
+			<p className="font-geist text-[13px] leading-[17px] text-[#819abb]">{subtitle}</p>
+		</div>
+	);
+}
+
+/** Filter chip row ("Top gainers · Newest · Worst", "This week · All time"). */
+export function FilterChip({
+	active,
+	activeBg = PALETTE.card,
+	children,
+	onClick,
+}: { active: boolean; activeBg?: string; children: ReactNode; onClick?: () => void }) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className={cn(
+				"flex items-start overflow-clip rounded-[999px] px-[14px] py-[6px] font-geist text-[12px] font-medium leading-[16px]",
+				active ? "text-[#f2f6fc]" : "text-[#819abb]",
+			)}
+			style={active ? { backgroundColor: activeBg } : { boxShadow: hairline(1, "rgba(255,255,255,0.1)") }}
+		>
+			<span className="whitespace-nowrap">{children}</span>
+		</button>
+	);
+}
+
+export function Avatar({
+	letter,
+	size,
+	radius,
+	bg,
+	className,
+}: { letter: string; size: number; radius: number; bg: string; className?: string }) {
+	return (
+		<div
+			className={cn("flex shrink-0 items-center justify-center overflow-clip", className)}
+			style={{ width: size, height: size, borderRadius: radius, backgroundColor: bg }}
+		>
+			{size === 36 ? (
+				<span className="whitespace-nowrap font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{letter}</span>
+			) : (
+				<span className="whitespace-nowrap font-sora text-[15px] font-semibold leading-[19px] text-[#9eadc7]">{letter}</span>
+			)}
+		</div>
+	);
+}
+
+export function GradientButton({
+	children,
+	onClick,
+	className,
+	height = 52,
+}: { children: ReactNode; onClick?: () => void; className?: string; height?: number }) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className={cn("flex w-full items-center justify-center rounded-[6px] px-[14px] py-[7px]", className)}
+			style={{ height, backgroundImage: GRADIENT, boxShadow: hairline(0.361, "rgba(101,158,173,0.63)"), filter: GLOW_FILTER }}
+		>
+			<span className="whitespace-nowrap font-geist text-[14px] font-medium leading-[20.69px] text-white">{children}</span>
+		</button>
+	);
+}
+
+/** "Back" / "Keep exploring" / "View portfolio" — bordered ghost button. */
+export function GhostButton({
+	children,
+	onClick,
+	height = 51,
+	radius = 5.781,
+	fontSize = 14.453,
+	className,
+}: { children: ReactNode; onClick?: () => void; height?: number; radius?: number; fontSize?: number; className?: string }) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className={cn("flex w-full items-center justify-center px-[14px] py-[7px]", className)}
+			style={{ height, borderRadius: radius, boxShadow: hairline(0.361, "rgba(52,59,79,0.33)"), filter: GHOST_FILTER }}
+		>
+			<span className="whitespace-nowrap font-sora leading-[18px] text-[#819abb]" style={{ fontSize }}>
+				{children}
+			</span>
+		</button>
+	);
+}
+
+/** "Sell" — dark teal-hairlined button (pick detail rail, portfolio sell sheet). */
+export function SellButton({ children, onClick, width }: { children: ReactNode; onClick?: () => void; width?: number }) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className={cn("flex h-[51px] items-center justify-center rounded-[6px] bg-[#12203e]", width ? "" : "w-full")}
+			style={{ width, boxShadow: hairline(0.361, "rgba(101,158,173,0.63)"), filter: SELL_FILTER }}
+		>
+			<span className="whitespace-nowrap font-sora text-[14px] leading-[20.69px] text-white">{children}</span>
+		</button>
+	);
+}
+
+/** 60x30 "Buy" in the Saved staks rows. */
+export function SmallBuyButton({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className="flex h-[30px] w-[60px] shrink-0 items-center justify-center rounded-[5.781px] px-[10px] py-[7.226px]"
+			style={{ backgroundImage: GRADIENT, boxShadow: hairline(0.361, "rgba(101,158,173,0.63)"), filter: BUY_FILTER }}
+		>
+			<span className="whitespace-nowrap font-sora text-[12px] leading-[15px] text-white">{children}</span>
+		</button>
+	);
+}
+
+/** 60x30 "Sell" in the Picks table. */
+export function SmallSellButton({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className="flex h-[30px] w-[60px] shrink-0 items-center justify-center rounded-[5.781px] px-[10px] py-[7.226px]"
+			style={{ boxShadow: hairline(1, "rgba(255,255,255,0.14)") }}
+		>
+			<span className="whitespace-nowrap font-sora text-[12px] leading-[15px] text-[#819abb]">{children}</span>
+		</button>
+	);
+}
+
+/** Quick-amount / portion chip inside the sheets. */
+export function AmountChip({ selected, children, onClick }: { selected: boolean; children: ReactNode; onClick?: () => void }) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className={cn(
+				"flex min-w-px flex-1 items-center justify-center overflow-clip rounded-[10px] py-[8px] font-geist text-[12px] font-medium leading-[16px]",
+				selected ? "bg-[#0f2a38] text-[#a6e4f7]" : "bg-[#0b1430] text-[#dce7f7]",
+			)}
+			style={{ boxShadow: selected ? hairline(0.5, "#5da8bf") : hairline(1, "rgba(255,255,255,0.12)") }}
+		>
+			<span className="whitespace-nowrap">{children}</span>
+		</button>
+	);
+}
+
+export const GREEN = "#2fd08a";
+export const RED = "#ff5a6a";
+export const RED_ROW = "#e5484d";
