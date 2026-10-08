@@ -41,7 +41,7 @@ export function useNotifications() {
 	const firstName = appUser?.displayName?.split(" ")[0] ?? undefined;
 	const prefs = readNotificationPrefs(account?.preferences);
 	// The bell is on every page: the first account read re-sends this browser's push settings once.
-	useEffect(() => { if (account) syncWebPushPrefsOnLoad(prefs); }, [account, prefs]);
+	useEffect(() => { if (account) syncWebPushPrefsOnLoad(prefs); }, [account, prefs.priceAlerts, prefs.dailyDeck, prefs.priceThreshold]);
 	const swipeState = account?.dailySwipeState;
 	const usedToday = swipeState?.date === getTodayKey() ? swipeState.count : 0;
 

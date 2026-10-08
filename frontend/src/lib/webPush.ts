@@ -72,10 +72,17 @@ export async function enableWebPush(prefs: PushPrefs): Promise<EnableResult> {
 	}
 }
 
+/** The re-send in flight: each waits for the one before it, so two quick changes reach the server in order (as the apps). */
+let lastSync: Promise<void> = Promise.resolve();
+
 /** Re-sends the alert switches for an existing subscription (a no-op when this browser isn't subscribed). */
-export async function syncWebPushPrefs(prefs: PushPrefs): Promise<void> {
-	const sub = await currentSubscription();
-	if (sub) await register(sub, prefs);
+export function syncWebPushPrefs(prefs: PushPrefs): Promise<void> {
+	const next = lastSync.catch(() => {}).then(async () => {
+		const sub = await currentSubscription();
+		if (sub) await register(sub, prefs);
+	});
+	lastSync = next;
+	return next;
 }
 
 let loadSynced = false;
@@ -86,11 +93,13 @@ let loadSynced = false;
 export function syncWebPushPrefsOnLoad(prefs: PushPrefs): void {
 	if (loadSynced || !webPushSupported()) return;
 	loadSynced = true;
-	void syncWebPushPrefs(prefs).catch(() => {});
+	void syncWebPushPrefs(prefs).catch(() => { loadSynced = false; });
 }
 
 /** Unsubscribes this browser and tells the backend to stop sending to it. Safe to call when not subscribed. */
 export async function disableWebPush(): Promise<void> {
+	// The next account signed in on this page load re-sends its own settings.
+	loadSynced = false;
 	const sub = await currentSubscription();
 	if (!sub) return;
 	const endpoint = sub.endpoint;

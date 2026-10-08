@@ -14,9 +14,16 @@ const METADATA_TOKEN_URL =
 	"http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
+/** The fetch in flight: parallel sends on a cold or expired token wait on one request, not one each. */
+let tokenRequest: Promise<string | null> | null = null;
 
 async function accessToken(): Promise<string | null> {
 	if (cachedToken && cachedToken.expiresAt - 60_000 > Date.now()) return cachedToken.value;
+	tokenRequest ??= fetchAccessToken().finally(() => { tokenRequest = null; });
+	return tokenRequest;
+}
+
+async function fetchAccessToken(): Promise<string | null> {
 	try {
 		const res = await fetch(METADATA_TOKEN_URL, {
 			headers: { "Metadata-Flavor": "Google" },
@@ -51,12 +58,14 @@ export function getVapidPublicKey(): string | null {
 /** A web subscription's token is its endpoint URL; FCM registration tokens are never URLs. */
 const isWebToken = (token: string) => token.startsWith("https://");
 
-async function sendWebPush(endpoint: string, title: string, body: string, data: Record<string, string>): Promise<PushResult> {
+export type WebKeys = { p256dh?: string; auth?: string } | null;
+
+async function sendWebPush(endpoint: string, title: string, body: string, data: Record<string, string>, knownKeys?: WebKeys): Promise<PushResult> {
 	if (!webPushConfigured) return "failed";
-	const row = await pgQuery<{ web_keys: { p256dh?: string; auth?: string } | null }>(
+	// The caller usually read them with the device already; looked up only when it didn't.
+	const keys = knownKeys !== undefined ? knownKeys : (await pgQuery<{ web_keys: WebKeys }>(
 		`select web_keys from push_devices where token = $1`, [endpoint],
-	).catch(() => null);
-	const keys = row?.rows[0]?.web_keys;
+	).catch(() => null))?.rows[0]?.web_keys;
 	if (!keys?.p256dh || !keys?.auth) return "failed";
 	try {
 		await webpush.sendNotification(
@@ -80,15 +89,17 @@ async function sendWebPush(endpoint: string, title: string, body: string, data: 
 /**
  * One notification to one device. [data] rides along for the app to route the tap
  * (e.g. { kind: "move", ticker: "NVDA" }). A token FCM reports as no longer valid is
- * deleted, so an uninstalled app stops being sent to.
+ * deleted, so an uninstalled app stops being sent to. [webKeys]: a browser's keys when the
+ * caller already has its row (saves a lookup per send).
  */
 export async function sendPush(
 	token: string,
 	title: string,
 	body: string,
 	data: Record<string, string> = {},
+	webKeys?: WebKeys,
 ): Promise<PushResult> {
-	if (isWebToken(token)) return sendWebPush(token, title, body, data);
+	if (isWebToken(token)) return sendWebPush(token, title, body, data, webKeys);
 	const bearer = await accessToken();
 	if (!bearer) {
 		console.warn("[push] no access token (not on Cloud Run?) - skipping send");

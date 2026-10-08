@@ -1,3 +1,5 @@
+import { DEFAULT_PRICE_THRESHOLD } from "@stak/shared";
+
 // The notification inbox, built on-device exactly like Android's StakNotifications.kt: nothing is
 // stored server-side except which item ids were read (GET/PUT /api/me/android-state), so a read
 // on either app is a read on both. Item ids must match Android's format for that to hold.
@@ -31,7 +33,7 @@ export function ageLabel(ms: number): string {
 	return `${Math.floor(hours / 24)}d ago`;
 }
 
-export const PRICE_MOVE_THRESHOLD_PCT = 3;
+export const PRICE_MOVE_THRESHOLD_PCT = DEFAULT_PRICE_THRESHOLD;
 const WELCOME_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface BuildInput {

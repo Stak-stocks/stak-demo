@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useAccount } from "@/context/AccountContext";
 import { updateProfile } from "@/lib/api";
-import { PRICE_THRESHOLDS, readNotificationPrefs, type NotificationPrefs } from "@/lib/notificationPrefs";
+import { PRICE_THRESHOLDS } from "@stak/shared";
+import { readNotificationPrefs, type NotificationPrefs } from "@/lib/notificationPrefs";
 import { currentSubscription, disableWebPush, enableWebPush, syncWebPushPrefs, webPushSupported } from "@/lib/webPush";
 import { Caption, NoticeCard, PermissionCard, SettingsScaffold } from "@/components/profile/ProfileKit";
 import { cu } from "@/components/discover/discoverTheme";
@@ -65,7 +66,7 @@ function NotificationSettingsPage() {
 			)}
 			<PermissionCard
 				title="Price moves on your picks"
-				sub={`A nudge when a saved or bought stock moves ${prefs.priceThreshold}% or more.`}
+				sub={`A nudge when a saved stock moves ${prefs.priceThreshold}% or more.`}
 				checked={prefs.priceAlerts}
 				onChange={(v) => change({ ...prefs, priceAlerts: v })}
 			/>

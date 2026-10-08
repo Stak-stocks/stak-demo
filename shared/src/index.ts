@@ -63,7 +63,7 @@ export {
 } from "./sandboxConfig";
 export type { SandboxStartingBalance, SandboxStrategy } from "./sandboxConfig";
 
-export { PRICE_THRESHOLDS, DEFAULT_PRICE_THRESHOLD } from "./notificationConfig";
+export { PRICE_THRESHOLDS, DEFAULT_PRICE_THRESHOLD, isPriceThreshold } from "./notificationConfig";
 export type { PriceThreshold } from "./notificationConfig";
 
 export { STAK_AI_WINDOW_LIMIT, STAK_AI_WINDOW_HOURS, STAK_AI_VIA } from "./stakAi";
