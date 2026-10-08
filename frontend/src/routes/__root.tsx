@@ -18,6 +18,7 @@ import { getMarketEarnings } from "@/lib/api";
 import { useStakTickers } from "@/hooks/useStakTickers";
 import { useSwipeLimit } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
+import { isDesktopAppPath } from "@/app/paths";
 
 export const Route = createRootRoute({
 	component: Root,
@@ -35,6 +36,7 @@ function Root() {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding", "/verify-email"].includes(location.pathname);
+	const isDesktopApp = isDesktopAppPath(location.pathname);
 	const isSubPage = location.pathname.startsWith("/profile/") || location.pathname.startsWith("/brand/");
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [briefOpen, setBriefOpen] = useState(false);
@@ -53,13 +55,13 @@ function Root() {
 
 	// Auth/landing pages are always dark regardless of user theme preference
 	useEffect(() => {
-		if (isAuthPage) {
+		if (isAuthPage || isDesktopApp) {
 			document.documentElement.classList.add("dark");
 		} else {
 			// Restore user's actual theme by triggering ThemeProvider re-apply
 			reapplyTheme();
 		}
-	}, [isAuthPage, reapplyTheme]);
+	}, [isAuthPage, isDesktopApp, reapplyTheme]);
 
 	// Reset scroll to top and clear any body overflow lock on every route change
 	useEffect(() => {
@@ -108,13 +110,14 @@ function Root() {
 	}, [account, saveToStak, stakLimitReached, incrementStakSwipe, queryClient]);
 
 	useEffect(() => {
+		if (isDesktopApp) return;
 		if (!loading && !accountLoading && !user && !isAuthPage) {
 			navigate({ to: "/welcome" });
 		}
 		if (!loading && !accountLoading && user && !isAuthPage && account?.onboardingCompleted !== true) {
 			navigate({ to: "/onboarding" });
 		}
-	}, [user, loading, accountLoading, account, isAuthPage, navigate]);
+	}, [user, loading, accountLoading, account, isAuthPage, isDesktopApp, navigate]);
 
 	// Show Daily Brief once per day — only from 10am ET onwards, deliberately AFTER
 	// the 9:30am ET open (not before): the brief is sourced from real trading
@@ -176,6 +179,16 @@ function Root() {
 		window.addEventListener("open-brief", handler);
 		return () => window.removeEventListener("open-brief", handler);
 	}, []);
+
+	// Desktop app (Figma desktop frames): rendered bare — its own shell, no mobile chrome, no auth bounce.
+	if (isDesktopApp) {
+		return (
+			<ErrorBoundary tagName="main" className="min-h-full">
+				<Outlet />
+				<Toaster position="top-center" theme="dark" richColors />
+			</ErrorBoundary>
+		);
+	}
 
 	if (loading || accountLoading) {
 		return (

@@ -1,0 +1,20 @@
+/**
+ * Routes of the desktop app rebuilt from the Figma desktop frames. The root route renders these
+ * bare (no mobile shell, no auth bounce); the list grows as each old screen is replaced.
+ */
+export const DESKTOP_APP_PREFIXES = [
+	"/home",
+	"/news",
+	"/discover",
+	"/stocks",
+	"/my-stak",
+	"/simulate",
+	"/profile",
+	"/notifications",
+	"/splash",
+	"/check-email",
+] as const;
+
+export function isDesktopAppPath(pathname: string): boolean {
+	return DESKTOP_APP_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}

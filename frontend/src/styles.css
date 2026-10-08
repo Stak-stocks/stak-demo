@@ -270,3 +270,20 @@ input::-webkit-credentials-auto-fill-button {
 		background-position: 0% 50%;
 	}
 }
+
+/* ── STAK app (desktop rebuild, Figma SGodL9Eyc2FkEejpv5ixQE) — self-hosted fonts, same files as the Android app ── */
+@font-face { font-family: "Geist"; font-weight: 300; font-style: normal; font-display: swap; src: url("/fonts/geist_light.ttf") format("truetype"); }
+@font-face { font-family: "Geist"; font-weight: 400; font-style: normal; font-display: swap; src: url("/fonts/geist_regular.ttf") format("truetype"); }
+@font-face { font-family: "Geist"; font-weight: 500; font-style: normal; font-display: swap; src: url("/fonts/geist_medium.ttf") format("truetype"); }
+@font-face { font-family: "Geist"; font-weight: 600; font-style: normal; font-display: swap; src: url("/fonts/geist_semibold.ttf") format("truetype"); }
+@font-face { font-family: "Geist"; font-weight: 700; font-style: normal; font-display: swap; src: url("/fonts/geist_bold.ttf") format("truetype"); }
+@font-face { font-family: "Sora"; font-weight: 300; font-style: normal; font-display: swap; src: url("/fonts/sora_light.ttf") format("truetype"); }
+@font-face { font-family: "Sora"; font-weight: 400; font-style: normal; font-display: swap; src: url("/fonts/sora_regular.ttf") format("truetype"); }
+@font-face { font-family: "Sora"; font-weight: 500; font-style: normal; font-display: swap; src: url("/fonts/sora_medium.ttf") format("truetype"); }
+@font-face { font-family: "Sora"; font-weight: 600; font-style: normal; font-display: swap; src: url("/fonts/sora_semibold.ttf") format("truetype"); }
+@font-face { font-family: "Sora"; font-weight: 700; font-style: normal; font-display: swap; src: url("/fonts/sora_bold.ttf") format("truetype"); }
+
+@theme {
+	--font-geist: "Geist", sans-serif;
+	--font-sora: "Sora", sans-serif;
+}

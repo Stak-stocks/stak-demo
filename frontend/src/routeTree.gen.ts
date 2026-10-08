@@ -21,6 +21,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeagueRouteImport } from './routes/league'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as FeedRouteImport } from './routes/feed'
+import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProfileSecurityRouteImport } from './routes/profile_.security'
 import { Route as ProfilePersonalDetailsRouteImport } from './routes/profile_.personal-details'
@@ -28,6 +29,7 @@ import { Route as ProfileHelpSupportRouteImport } from './routes/profile_.help-s
 import { Route as LeagueResultsRouteImport } from './routes/league_.results'
 import { Route as LeaguePerformanceRouteImport } from './routes/league_.performance'
 import { Route as LeagueLineupRouteImport } from './routes/league_.lineup'
+import { Route as AppHomeRouteImport } from './routes/_app.home'
 
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
@@ -89,6 +91,10 @@ const FeedRoute = FeedRouteImport.update({
   path: '/feed',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -124,6 +130,11 @@ const LeagueLineupRoute = LeagueLineupRouteImport.update({
   path: '/league/lineup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppHomeRoute = AppHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -139,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
   '/welcome': typeof WelcomeRoute
+  '/home': typeof AppHomeRoute
   '/league/lineup': typeof LeagueLineupRoute
   '/league/performance': typeof LeaguePerformanceRoute
   '/league/results': typeof LeagueResultsRoute
@@ -160,6 +172,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
   '/welcome': typeof WelcomeRoute
+  '/home': typeof AppHomeRoute
   '/league/lineup': typeof LeagueLineupRoute
   '/league/performance': typeof LeaguePerformanceRoute
   '/league/results': typeof LeagueResultsRoute
@@ -170,6 +183,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
   '/feed': typeof FeedRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/league': typeof LeagueRoute
@@ -182,6 +196,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/verify-email': typeof VerifyEmailRoute
   '/welcome': typeof WelcomeRoute
+  '/_app/home': typeof AppHomeRoute
   '/league_/lineup': typeof LeagueLineupRoute
   '/league_/performance': typeof LeaguePerformanceRoute
   '/league_/results': typeof LeagueResultsRoute
@@ -205,6 +220,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/verify-email'
     | '/welcome'
+    | '/home'
     | '/league/lineup'
     | '/league/performance'
     | '/league/results'
@@ -226,6 +242,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/verify-email'
     | '/welcome'
+    | '/home'
     | '/league/lineup'
     | '/league/performance'
     | '/league/results'
@@ -235,6 +252,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/_app'
     | '/feed'
     | '/forgot-password'
     | '/league'
@@ -247,6 +265,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/verify-email'
     | '/welcome'
+    | '/_app/home'
     | '/league_/lineup'
     | '/league_/performance'
     | '/league_/results'
@@ -257,6 +276,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
   FeedRoute: typeof FeedRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LeagueRoute: typeof LeagueRoute
@@ -363,6 +383,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FeedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -412,11 +439,29 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LeagueLineupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/home': {
+      id: '/_app/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof AppHomeRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppHomeRoute: typeof AppHomeRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppHomeRoute: AppHomeRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
   FeedRoute: FeedRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LeagueRoute: LeagueRoute,
