@@ -14,8 +14,13 @@ final class DeviceStateSync {
 	@MainActor
 	func sync() {
 		guard !Session.shared.demoAccount, Session.shared.token != nil else { return }
+		// A read that lands after a sign-out or account switch belongs to the account that left (the store's keys
+		// resolve to the current one at write time).
+		let account = Session.shared.accountGeneration
 		Task.detached(priority: .background) {
 			guard let remote = try? await self.repo.getAndroidState() else { return }
+			let current = await MainActor.run { Session.shared.accountGeneration == account }
+			guard current else { return }
 			await MainActor.run {
 				if StakStore.stringSet("notif.read") == nil, !remote.notifRead.isEmpty {
 					StakStore.set(Set(remote.notifRead), for: "notif.read")

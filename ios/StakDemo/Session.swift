@@ -129,8 +129,9 @@ final class Session: ObservableObject {
 		demoAccount = demo
 		StakStore.demoAccount = demo
 		UserProfile.shared.demoAccount = demo
-		// Only a brand-new account is a first-time user; Sign in is an active user.
-		firstRunPending = !demo
+		// Only a brand-new account (just through onboarding) is a first-time user; any other sign-in is a returning one
+		// (every live sign-in passes demo: false, so `!demo` alone made each one a first run).
+		firstRunPending = !demo && answeredOnboarding
 		// The persona's own profile, or a real account's own from the server: an onboarding started and abandoned
 		// before "Already have an account? Sign in" must not leak its brand picks or risk answer into the account
 		// (audit 2026-09-07).
@@ -187,6 +188,9 @@ final class Session: ObservableObject {
 
 	/// Log out: forget the session and the profile; next launch asks to sign in.
 	func signOut() {
+		// The push token is forgotten under the leaving account's keys - after the switch below it would clear the
+		// demo's copy and leave this account's in place.
+		PushRegistration.forget()
 		accountGeneration += 1
 		signedIn = false
 		resumedSignedIn = false
@@ -209,7 +213,6 @@ final class Session: ObservableObject {
 		UserProfile.shared.linkedApple = false
 		UserProfile.shared.joined = ""
 		UserProfile.shared.email = ""
-		PushRegistration.forget()
 		token = nil
 		accountId = nil
 		// No account any more: the holdings stop writing to the server (the next sign-in's applyAccount reloads them).

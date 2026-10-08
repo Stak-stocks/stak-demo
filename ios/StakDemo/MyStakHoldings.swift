@@ -114,8 +114,10 @@ final class MyStakHoldings: ObservableObject {
 			},
 			uniquingKeysWith: { $1 }
 		)
-		if !fresh.isEmpty { tickers = Set(fresh) }
-		if let saved { details = saved }
+		// An empty list is an answer too - everything unsaved on another device. Kept local, the next save here would
+		// write the stale list back and the removed stocks would return everywhere.
+		tickers = Set(fresh)
+		if fresh.isEmpty { details = [:] } else if let saved { details = saved }
 		persist()
 	}
 

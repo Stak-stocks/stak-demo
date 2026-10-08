@@ -51,7 +51,10 @@ object ProfileSync {
 				UserProfile.email = me.email
 				Entitlements.apply(me.plan)
 				StakNotifications.rememberCreatedAt(me.createdAt)
-				if (UserProfile.displayName.isBlank() && me.displayName.isNotBlank()) UserProfile.displayName = me.displayName
+				// The account's name wins when it has one - a rename on another phone reaches this one; a blank never
+				// wipes the name here.
+				val serverName = me.displayName.trim()
+				if (serverName.isNotEmpty() && serverName != UserProfile.displayName) UserProfile.displayName = serverName
 				val taste = me.taste?.takeIf { it.hasAnswers }
 				if (taste != null) {
 					UserProfile.goal = taste.goal

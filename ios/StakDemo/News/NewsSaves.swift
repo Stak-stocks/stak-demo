@@ -15,6 +15,7 @@ final class NewsSaves: ObservableObject {
 		guard !ids.contains(id) else { return }
 		ids.insert(id)
 		StakStore.set(ids, for: "news.saved")
+		Task { @MainActor in DeviceStateSync.shared.push() }
 	}
 
 	/// Unsaving a stock forgets the stories that saved it, so they offer Add to STAK again (Codex review, PR #167).
@@ -23,6 +24,7 @@ final class NewsSaves: ObservableObject {
 		guard next.count != ids.count else { return }
 		ids = next
 		StakStore.set(ids, for: "news.saved")
+		Task { @MainActor in DeviceStateSync.shared.push() }
 	}
 
 	private init() {}

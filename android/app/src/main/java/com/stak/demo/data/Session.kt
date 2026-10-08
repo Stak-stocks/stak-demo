@@ -139,7 +139,9 @@ object Session {
 		demoAccount = demo
 		accountGeneration++
 		// Only a brand-new account is a first-time user; Sign in is an active user.
-		firstRunPending = !demo
+		// Only a brand-new account (just through onboarding) is a first-time user; any other sign-in is a returning one
+		// (every live sign-in passes demo = false, so `!demo` alone made each one a first run).
+		firstRunPending = !demo && answeredOnboarding
 		if (!demo && !answeredOnboarding) {
 			UserProfile.brandPicks = emptySet()
 			UserProfile.goal = -1

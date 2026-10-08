@@ -174,7 +174,9 @@ struct ProfileSetupView: View {
 			guard editing, !seeded else { return }
 			seeded = true
 			let current = UserProfile.shared.displayName.trimmingCharacters(in: .whitespaces)
-			name = current.isEmpty ? UserProfile.shared.greetingName : current
+			// The account's own name only: a blank one stays blank - greetingName is "there" for a real account, and
+			// Save would store it.
+			name = current
 			photoData = UserProfile.shared.photoData
 			photo = photoData.flatMap { UIImage(data: $0) }
 		}

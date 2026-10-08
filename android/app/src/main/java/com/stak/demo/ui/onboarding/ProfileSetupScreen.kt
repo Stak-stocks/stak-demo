@@ -75,7 +75,9 @@ fun ProfileSetupScreen(
 	// The frame arrives with "Nedu" typed (avatar "N", counter 4 / 20) - user, 2026-09-04 (CHINEDU 01 · Onboarding 1:793): the exact frame wins.
 	// Product audit (2026-09-05): a real first run starts with an empty name
 	// (the frame's "Nedu" was authored demo state) and Proceed waits for one.
-	var name by rememberSaveable { mutableStateOf(if (editing) com.stak.demo.data.UserProfile.displayName.ifBlank { com.stak.demo.data.UserProfile.greetingName } else "") }
+	// The account's own name only: a blank one stays blank - greetingName is "there" for a real account, and Save
+	// would store it.
+	var name by rememberSaveable { mutableStateOf(if (editing) com.stak.demo.data.UserProfile.displayName else "") }
 	// User's motion (2026-08-21): Add a photo opens the system gallery and
 	// the chosen image becomes the avatar. The photo picker carries its own
 	// permission flow, so no runtime permission is requested by the app.

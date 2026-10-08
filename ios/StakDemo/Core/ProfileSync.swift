@@ -32,10 +32,10 @@ final class ProfileSync {
 				UserProfile.shared.email = me.email
 				Entitlements.shared.apply(raw: me.plan)
 				StakNotifications.rememberCreatedAt(me.createdAt)
-				if UserProfile.shared.displayName.trimmingCharacters(in: .whitespaces).isEmpty,
-				   !me.displayName.trimmingCharacters(in: .whitespaces).isEmpty {
-					UserProfile.shared.displayName = me.displayName
-				}
+				// The account's name wins when it has one - a rename on another phone reaches this one; a blank never
+				// wipes the name here.
+				let serverName = me.displayName.trimmingCharacters(in: .whitespaces)
+				if !serverName.isEmpty, serverName != UserProfile.shared.displayName { UserProfile.shared.displayName = serverName }
 				if let taste = me.taste, taste.hasAnswers {
 					UserProfile.shared.goal = taste.goal
 					UserProfile.shared.risk = taste.risk

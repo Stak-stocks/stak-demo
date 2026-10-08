@@ -38,8 +38,12 @@ object DeviceStateSync {
 	fun sync() {
 		val repo = repository ?: return
 		if (Session.demoAccount || Session.token == null) return
+		// A read that lands after a sign-out or account switch belongs to the account that left (the store's keys
+		// resolve to the current one at write time).
+		val account = Session.accountGeneration
 		scope.launch {
 			val remote = runCatching { repo.getAndroidState() }.getOrNull() ?: return@launch
+			if (Session.accountGeneration != account) return@launch
 			if (StakStore.getSet("notif.read") == null && remote.notifRead.isNotEmpty()) {
 				StakStore.putSet("notif.read", remote.notifRead.toSet())
 			}

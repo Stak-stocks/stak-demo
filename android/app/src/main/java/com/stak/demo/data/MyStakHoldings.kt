@@ -40,6 +40,10 @@ object MyStakHoldings {
 	@Volatile
 	private var pendingWrite: Job? = null
 
+	/** Bumped by every reset (sign-in, sign-out, account switch): a read for one account never lands in the next. */
+	@Volatile
+	private var generation = 0
+
 	fun init(repo: StockRepository) {
 		repository = repo
 	}
@@ -82,6 +86,7 @@ object MyStakHoldings {
 
 	/** Product audit (2026-09-05): a NEW account holds nothing until the user saves; the demo account keeps the seed. */
 	fun reset(demo: Boolean) {
+		generation++
 		// Local prefs restore first — instant, no network wait.
 		tickers = StakStore.getSet("holdings") ?: if (demo) SEED else emptySet()
 		savedAt = StakStore.getString("saved_at")?.split(",")?.mapNotNull { e ->
@@ -99,11 +104,21 @@ object MyStakHoldings {
 	/** Re-reads the saved list and what the server knows about each save. Silent on failure. */
 	suspend fun refreshFromBackend() {
 		if (Session.token == null) return
+		val started = generation
 		// Never read the list out from under a save or unsave still being written.
-		runCatching { pendingWrite?.join() }
+		val awaited = pendingWrite
+		runCatching { awaited?.join() }
 		val resp = runCatching { repository?.getAndroidStocks() }.getOrNull() ?: return
-		tickers = resp.tickers.toSet().ifEmpty { tickers }
-		if (resp.saved.isNotEmpty()) {
+		// Signed out or switched account meanwhile: this answer belongs to someone else (iOS's guard).
+		if (generation != started) return
+		// A save or unsave started while the read was out: the server's list predates it, and applying it would
+		// quietly undo the change (it is re-read after that write).
+		if (pendingWrite !== awaited) return
+		// An empty list is an answer too - everything unsaved on another device. Kept local, the next save here would
+		// write the stale list back and the removed stocks would return everywhere.
+		tickers = resp.tickers.toSet()
+		if (resp.tickers.isEmpty()) details = emptyMap()
+		else if (resp.saved.isNotEmpty()) {
 			details = resp.saved.filter { it.ticker.isNotBlank() }.associate { s ->
 				s.ticker to SavedStock(
 					ticker = s.ticker,

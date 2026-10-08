@@ -777,3 +777,268 @@ extension OkResponse {
         ok = c?.value(.ok, or: true) ?? true
     }
 }
+
+// MARK: – Tolerant decoding for the remaining models (final audit, 2026-10-08)
+//
+// The rest of the replies, given the same treatment. Two of them were failing outright: STAK AI's usage carries no
+// `unlimited` key for a limited account (so every answer read as cut off and the counter never showed), and its
+// history / messages send snake_case keys (so the chat list and every reopened chat failed). A successful swipe
+// sends no `limitReached`, and a saved-stocks PUT no `saved`.
+
+extension MeResponse {
+    private enum CodingKeys: String, CodingKey { case displayName, onboardingCompleted, createdAt, email, taste, plan }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        displayName = c.value(.displayName, or: ""); onboardingCompleted = c.value(.onboardingCompleted, or: false)
+        createdAt = c.value(.createdAt, or: ""); email = c.value(.email, or: "")
+        taste = c.value(.taste, or: nil); plan = c.value(.plan, or: "free")
+    }
+}
+
+extension TasteDto {
+    private enum CodingKeys: String, CodingKey { case goal, risk, riskStyle, picks }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        goal = c.value(.goal, or: -1); risk = c.value(.risk, or: -1)
+        riskStyle = c.value(.riskStyle, or: ""); picks = c.value(.picks, or: [])
+    }
+}
+
+extension TasteThemeDto {
+    private enum CodingKeys: String, CodingKey { case category, score, share, saves, learnMores, opens, passes, savedNames, lastSavedAt }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        category = c.value(.category, or: ""); score = c.flexibleDouble(.score, or: 0); share = c.flexibleDouble(.share, or: 0)
+        saves = c.value(.saves, or: 0); learnMores = c.value(.learnMores, or: 0); opens = c.value(.opens, or: 0)
+        passes = c.value(.passes, or: 0); savedNames = c.value(.savedNames, or: []); lastSavedAt = c.value(.lastSavedAt, or: nil)
+    }
+}
+
+extension TasteResponse {
+    private enum CodingKeys: String, CodingKey { case themes, otherShare, totalSaves, signals, learning }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        themes = c.value(.themes, or: []); otherShare = c.flexibleDouble(.otherShare, or: 0)
+        totalSaves = c.value(.totalSaves, or: 0); signals = c.value(.signals, or: 0); learning = c.value(.learning, or: true)
+    }
+}
+
+extension CulturalSectionDto {
+    private enum CodingKeys: String, CodingKey { case heading, content }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        heading = c.value(.heading, or: ""); content = c.value(.content, or: "")
+    }
+}
+
+extension CulturalContextDto {
+    private enum CodingKeys: String, CodingKey { case title, sections }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        title = c.value(.title, or: ""); sections = c.value(.sections, or: [])
+    }
+}
+
+extension BrandProfileDto {
+    private enum CodingKeys: String, CodingKey { case id, ticker, name, bio, culturalContext }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = c.value(.id, or: ""); ticker = c.value(.ticker, or: ""); name = c.value(.name, or: "")
+        bio = c.value(.bio, or: ""); culturalContext = c.value(.culturalContext, or: .init())
+    }
+}
+
+extension BrandsListResponse {
+    private enum CodingKeys: String, CodingKey { case brands }
+    init(from decoder: Decoder) throws {
+        brands = try decoder.container(keyedBy: CodingKeys.self).value(.brands, or: [])
+    }
+}
+
+extension DailySwipesResponse {
+    private enum CodingKeys: String, CodingKey { case date, count, limit }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        date = c.value(.date, or: ""); count = c.value(.count, or: 0); limit = c.value(.limit, or: 0)
+    }
+}
+
+extension SwipeResponse {
+    private enum CodingKeys: String, CodingKey { case success, limitReached, dailySwipeCount, dailySwipeLimit }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        success = c.value(.success, or: false); limitReached = c.value(.limitReached, or: false)
+        dailySwipeCount = c.value(.dailySwipeCount, or: 0); dailySwipeLimit = c.value(.dailySwipeLimit, or: 0)
+    }
+}
+
+extension TipResponse {
+    private enum CodingKeys: String, CodingKey { case tip }
+    init(from decoder: Decoder) throws {
+        tip = try decoder.container(keyedBy: CodingKeys.self).value(.tip, or: "")
+    }
+}
+
+extension RecommendationsResponse {
+    private enum CodingKeys: String, CodingKey { case brandIds, categories }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        brandIds = c.value(.brandIds, or: []); categories = c.value(.categories, or: nil)
+    }
+}
+
+extension EventResponse {
+    private enum CodingKeys: String, CodingKey { case success }
+    init(from decoder: Decoder) throws {
+        success = try decoder.container(keyedBy: CodingKeys.self).value(.success, or: false)
+    }
+}
+
+extension PassedEntry {
+    private enum CodingKeys: String, CodingKey { case id, at }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = c.value(.id, or: ""); at = c.flexibleInt64(.at) ?? 0
+    }
+}
+
+extension PassedResponse {
+    private enum CodingKeys: String, CodingKey { case entries }
+    init(from decoder: Decoder) throws {
+        entries = try decoder.container(keyedBy: CodingKeys.self).value(.entries, or: [])
+    }
+}
+
+extension SwipeRecord {
+    private enum CodingKeys: String, CodingKey { case brandId, direction, timestamp }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        brandId = c.value(.brandId, or: ""); direction = c.value(.direction, or: ""); timestamp = c.value(.timestamp, or: "")
+    }
+}
+
+extension SwipeHistoryResponse {
+    private enum CodingKeys: String, CodingKey { case swipes }
+    init(from decoder: Decoder) throws {
+        swipes = try decoder.container(keyedBy: CodingKeys.self).value(.swipes, or: [])
+    }
+}
+
+extension QuickLookDto {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        in10Seconds = c.value(.in10Seconds, or: ""); whyNow = c.value(.whyNow, or: ""); setup = c.value(.setup, or: "")
+        theCatch = c.value(.theCatch, or: ""); whatToWatch = c.value(.whatToWatch, or: ""); keyThemes = c.value(.keyThemes, or: [])
+    }
+}
+
+extension QuickLookResponse {
+    private enum CodingKeys: String, CodingKey { case quickLook }
+    init(from decoder: Decoder) throws {
+        quickLook = try decoder.container(keyedBy: CodingKeys.self).value(.quickLook, or: nil)
+    }
+}
+
+extension AndroidStateResponse {
+    private enum CodingKeys: String, CodingKey { case portfolio, notifRead, newsSaved }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        portfolio = c.value(.portfolio, or: nil); notifRead = c.value(.notifRead, or: []); newsSaved = c.value(.newsSaved, or: [])
+    }
+}
+
+extension AndroidStocksResponse {
+    private enum CodingKeys: String, CodingKey { case tickers, saved }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        tickers = c.value(.tickers, or: []); saved = c.value(.saved, or: [])
+    }
+}
+
+extension SavedStockDto {
+    private enum CodingKeys: String, CodingKey { case ticker, brandId, name, category, savedAt, priceAtSave }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        ticker = c.value(.ticker, or: ""); brandId = c.value(.brandId, or: ""); name = c.value(.name, or: "")
+        category = c.value(.category, or: nil); savedAt = c.value(.savedAt, or: nil)
+        let price = c.flexibleDouble(.priceAtSave, or: .nan)
+        priceAtSave = price.isNaN ? nil : price
+    }
+}
+
+extension StakAiSource {
+    private enum CodingKeys: String, CodingKey { case ticker, headline, url }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        ticker = c.value(.ticker, or: ""); headline = c.value(.headline, or: ""); url = c.value(.url, or: nil)
+    }
+}
+
+extension StakAiUsage {
+    private enum CodingKeys: String, CodingKey { case used, limit, unlimited, remaining, resetsAt }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        used = c.value(.used, or: 0); limit = c.value(.limit, or: 5); unlimited = c.value(.unlimited, or: false)
+        remaining = c.value(.remaining, or: -1); resetsAt = c.value(.resetsAt, or: nil)
+    }
+}
+
+extension StakAiConversationDto {
+    // The conversations list is the database row as-is: snake_case.
+    private enum CodingKeys: String, CodingKey {
+        case id, title, preview
+        case updatedAt = "updated_at", contextType = "context_type", contextLabel = "context_label"
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = c.value(.id, or: ""); title = c.value(.title, or: ""); updatedAt = c.value(.updatedAt, or: "")
+        contextType = c.value(.contextType, or: nil); contextLabel = c.value(.contextLabel, or: nil); preview = c.value(.preview, or: nil)
+    }
+}
+
+extension StakAiConversationsResponse {
+    private enum CodingKeys: String, CodingKey { case conversations, nextBefore }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        conversations = c.value(.conversations, or: []); nextBefore = c.value(.nextBefore, or: nil)
+    }
+}
+
+extension StakAiMessageDto {
+    private enum CodingKeys: String, CodingKey { case id, role, content, via, feedback, kind, createdAt = "created_at" }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = c.flexibleInt64(.id) ?? 0; role = c.value(.role, or: ""); content = c.value(.content, or: "")
+        createdAt = c.value(.createdAt, or: ""); via = c.value(.via, or: nil); feedback = c.value(.feedback, or: nil)
+        kind = c.value(.kind, or: "answer")
+    }
+}
+
+extension StakAiMessagesResponse {
+    private enum CodingKeys: String, CodingKey { case title, messages, context }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        title = c.value(.title, or: ""); messages = c.value(.messages, or: []); context = c.value(.context, or: nil)
+    }
+}
+
+extension StakAiChatReply {
+    private enum CodingKeys: String, CodingKey { case messageId, conversationId, response, title, usage, followUps, answerKind, sources }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        // The server sends null when the answer's row id isn't known.
+        messageId = c.flexibleInt64(.messageId) ?? 0
+        conversationId = c.value(.conversationId, or: ""); response = c.value(.response, or: "")
+        title = c.value(.title, or: nil); usage = c.value(.usage, or: nil)
+        followUps = c.value(.followUps, or: []); answerKind = c.value(.answerKind, or: "answer")
+        sources = c.value(.sources, or: nil)
+    }
+}
+
+extension StakAiError {
+    private enum CodingKeys: String, CodingKey { case error, code, usage }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        error = c.value(.error, or: nil); code = c.value(.code, or: nil); usage = c.value(.usage, or: nil)
+    }
+}

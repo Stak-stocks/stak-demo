@@ -43,7 +43,7 @@ final class AuthViewModel: ObservableObject {
                 Session.shared.setToken(session.accessToken)
                 let me = try? await repository.getMe()
                 applyDisplayName(from: me)
-                UserProfile.shared.linkedGoogle = false
+                UserProfile.shared.linkedGoogle = false; UserProfile.shared.linkedApple = false
                 Session.shared.saveProfile()
                 uiState = .success(onboardingComplete: me?.onboardingCompleted ?? true)
             } catch {
@@ -64,7 +64,7 @@ final class AuthViewModel: ObservableObject {
                 )
                 if let session = response.session {
                     Session.shared.setToken(session.accessToken)
-                    UserProfile.shared.linkedGoogle = false
+                    UserProfile.shared.linkedGoogle = false; UserProfile.shared.linkedApple = false
                     uiState = .success(onboardingComplete: false)
                 } else {
                     uiState = .awaitingConfirmation(email: email.trimmingCharacters(in: .whitespaces))
@@ -101,7 +101,7 @@ final class AuthViewModel: ObservableObject {
                 )
                 guard let session = response.session else { throw AuthFlowError.noSession }
                 Session.shared.setToken(session.accessToken)
-                UserProfile.shared.linkedGoogle = false
+                UserProfile.shared.linkedGoogle = false; UserProfile.shared.linkedApple = false
                 uiState = .success(onboardingComplete: false)
             } catch {
                 uiState = .error(friendlyError(error))
@@ -237,7 +237,7 @@ final class AuthViewModel: ObservableObject {
                 let me = try? await repository.getMe()
                 // The profile's name first; the Google account's name for a new user who has none yet.
                 applyDisplayName(from: me, fallback: result.user.profile?.name)
-                UserProfile.shared.linkedGoogle = true
+                UserProfile.shared.linkedGoogle = true; UserProfile.shared.linkedApple = false
                 Session.shared.saveProfile()
                 uiState = .success(onboardingComplete: me?.onboardingCompleted ?? true)
             } catch {
@@ -266,7 +266,7 @@ final class AuthViewModel: ObservableObject {
                 Session.shared.setToken(session.accessToken)
                 let me = try? await repository.getMe()
                 applyDisplayName(from: me, fallback: fullName)
-                UserProfile.shared.linkedApple = true
+                UserProfile.shared.linkedApple = true; UserProfile.shared.linkedGoogle = false
                 Session.shared.saveProfile()
                 uiState = .success(onboardingComplete: me?.onboardingCompleted ?? true)
             } catch {
