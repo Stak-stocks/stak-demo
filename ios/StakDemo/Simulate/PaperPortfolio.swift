@@ -230,7 +230,8 @@ final class PaperPortfolio: ObservableObject {
 				Trade(
 					side: t.side.uppercased(), symbol: t.ticker, badge: String(t.ticker.prefix(1)),
 					amount: t.amount, shares: t.shares, price: t.price,
-					day: PaperPortfolio.dayLabel(t.executedAt), epochDay: PaperPortfolio.epochDay(t.executedAt)
+					day: PaperPortfolio.dayLabel(t.executedAt), epochDay: PaperPortfolio.epochDay(t.executedAt),
+					costBasis: t.costBasis
 				)
 			}
 		}
@@ -334,9 +335,13 @@ final class PaperPortfolio: ObservableObject {
 				basisPerShare[t.symbol] = total > 0 ? (prevBasis * prevShares + t.price * t.shares) / total : t.price
 				sharesHeld[t.symbol] = total
 			} else {
-				let basis = basisPerShare[t.symbol] ?? t.price
+				// The server's own cost for the sale first: a position bought before the ledger (or past the page read)
+				// replayed to a basis of $0 or the last logged buy, and showed a loss as a profit.
+				let basis = t.costBasis ?? basisPerShare[t.symbol] ?? t.price
 				let gain = (t.price - basis) * t.shares
 				sharesHeld[t.symbol] = (sharesHeld[t.symbol] ?? 0) - t.shares
+				// Sold out (the server lets a sale exceed the holding by a thousandth): the next buy starts a fresh basis.
+				if (sharesHeld[t.symbol] ?? 0) <= 1e-6 { sharesHeld[t.symbol] = 0; basisPerShare[t.symbol] = nil }
 				out.append(Realized(
 					badge: t.badge, ticker: t.symbol,
 					sub: "Sold \(t.day) · \(gain > -0.005 ? "profit banked" : "loss realized")",
@@ -689,6 +694,8 @@ final class PaperPortfolio: ObservableObject {
 		let price: Double
 		let day: String
 		let epochDay: Int
+		/// A sale's average cost as the server recorded it (nil on buys, older sales and the demo's ledger).
+		var costBasis: Double? = nil
 		/// Row identity for ForEach only - never persisted.
 		var id = UUID()
 		var isBuy: Bool { side == "BUY" }

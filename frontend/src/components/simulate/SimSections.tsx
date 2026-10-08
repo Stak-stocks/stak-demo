@@ -82,7 +82,7 @@ export function SetupLine({ paper }: { paper: PaperPortfolio }) {
 
 // ── Score hero ───────────────────────────────────────────────────────────────────────────────────
 export function ScoreHero({ paper, range, onRange }: { paper: PaperPortfolio; range: ChartRange; onRange: (r: ChartRange) => void }) {
-	const { values, loading } = usePortfolioHistory(paper.trades, paper.paperStart, range);
+	const { values, loading } = usePortfolioHistory(paper.trades, paper.paperStart, range, { cash: paper.cash + paper.openOrders.reduce((s, o) => s + o.amount, 0), shares: Object.fromEntries(paper.picks.map((p) => [p.ticker, p.shares])) });
 	const [whole, cents = "00"] = usd(paper.portfolioValue).split(".");
 	const gain = paper.allTimeGain;
 	const up = gain >= 0;

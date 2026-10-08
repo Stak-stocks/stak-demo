@@ -373,6 +373,8 @@ data class SandboxPortfolioResponse(
 data class SandboxTradeDto(
     val id: Long = 0L, val ticker: String = "", val side: String = "", val shares: Double = 0.0,
     val price: Double = 0.0, val amount: Double = 0.0, val source: String = "market", val executedAt: String = "",
+    /** A sale's average cost when it sold (null on buys and older sales) - its realized gain needs no buy in the ledger. */
+    val costBasis: Double? = null,
 )
 data class SandboxTradesResponse(val trades: List<SandboxTradeDto> = emptyList())
 data class QuickLookResponse(val quickLook: QuickLookDto? = null)

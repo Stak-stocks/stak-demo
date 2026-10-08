@@ -446,6 +446,8 @@ export interface SandboxTrade {
 	shares: number;
 	price: number;
 	amount: number;
+	/** A sale's average cost when it sold (null on buys and older sales) - its realized gain needs no buy in the ledger. */
+	costBasis?: number | null;
 	source: "market" | "limit";
 	executedAt: string;
 }

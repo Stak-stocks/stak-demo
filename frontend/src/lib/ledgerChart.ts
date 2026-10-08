@@ -18,12 +18,20 @@ export function buildLedgerSeries(
 	trades: SandboxTrade[],
 	startBalance: number,
 	series: Record<string, PricePoint[]>,
+	/**
+	 * Today's snapshot - cash (with open orders' reserved stakes) and shares by ticker. Given, the replay opens from it
+	 * with every logged trade undone (as the apps do): a portfolio holding stock bought before the trade ledger, or
+	 * whose oldest trades fell off the page read, replayed forward from the start drew a line that tracked only the
+	 * logged trades and disagreed with the value above it.
+	 */
+	now?: { cash: number; shares: Record<string, number> },
 ): ChartValuePoint[] | null {
-	if (trades.length === 0) return null;
+	const heldNow = Object.values(now?.shares ?? {}).some((q) => q > 1e-9);
+	if (trades.length === 0 && !heldNow) return null;
 	const ordered = [...trades]
 		.map((t) => ({ ...t, ms: Date.parse(t.executedAt) }))
 		.sort((a, b) => a.ms - b.ms || a.id - b.id);
-	const firstTradeMs = ordered[0]!.ms;
+	const firstTradeMs = ordered[0]?.ms ?? -Infinity;
 
 	const priced = Object.fromEntries(
 		Object.entries(series).map(([ticker, pts]) => [
@@ -38,6 +46,12 @@ export function buildLedgerSeries(
 
 	let cash = startBalance;
 	const shares = new Map<string, number>();
+	if (now) {
+		// The opening state: today's, with every logged trade's cash and shares taken back out.
+		cash = now.cash - ordered.reduce((sum, t) => sum + (t.side === "buy" ? -t.amount : t.amount), 0);
+		for (const [ticker, qty] of Object.entries(now.shares)) shares.set(ticker, qty);
+		for (const t of ordered) shares.set(t.ticker, (shares.get(t.ticker) ?? 0) - (t.side === "buy" ? t.shares : -t.shares));
+	}
 	const lastTradePrice = new Map<string, number>();
 	const cursor = new Map<string, number>();
 	let tradeIdx = 0;

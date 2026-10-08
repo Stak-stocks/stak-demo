@@ -27,8 +27,13 @@ export function computeRealized(newestFirst: SandboxTrade[]): RealizedSale[] {
 			basisPerShare.set(t.ticker, total > 0 ? (prevBasis * prevShares + t.price * t.shares) / total : t.price);
 			sharesHeld.set(t.ticker, total);
 		} else {
-			const basis = basisPerShare.get(t.ticker) ?? t.price;
-			sharesHeld.set(t.ticker, (sharesHeld.get(t.ticker) ?? 0) - t.shares);
+			// The server's own cost for the sale first: a position bought before the ledger (or past the page read)
+			// replayed to the last logged buy and showed a loss as a profit.
+			const basis = t.costBasis ?? basisPerShare.get(t.ticker) ?? t.price;
+			const left = (sharesHeld.get(t.ticker) ?? 0) - t.shares;
+			sharesHeld.set(t.ticker, left);
+			// Sold out (a sale may exceed the holding by a thousandth): the next buy starts a fresh basis.
+			if (left <= 1e-6) { sharesHeld.set(t.ticker, 0); basisPerShare.delete(t.ticker); }
 			out.push({ ticker: t.ticker, gain: (t.price - basis) * t.shares, proceeds: t.amount, executedAt: t.executedAt });
 		}
 	}

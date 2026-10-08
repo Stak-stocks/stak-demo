@@ -271,6 +271,8 @@ struct SandboxPortfolioResponse: Decodable {
 struct SandboxTradeDto: Decodable {
     var id: Int64 = 0; var ticker: String = ""; var side: String = ""; var shares: Double = 0
     var price: Double = 0; var amount: Double = 0; var source: String = "market"; var executedAt: String = ""
+    /// A sale's average cost when it sold (nil on buys and older sales) - its realized gain needs no buy in the ledger.
+    var costBasis: Double? = nil
 }
 struct SandboxTradesResponse: Decodable { var trades: [SandboxTradeDto] = [] }
 
@@ -712,13 +714,15 @@ extension SandboxPortfolioResponse {
 }
 
 extension SandboxTradeDto {
-    private enum CodingKeys: String, CodingKey { case id, ticker, side, shares, price, amount, source, executedAt }
+    private enum CodingKeys: String, CodingKey { case id, ticker, side, shares, price, amount, source, executedAt, costBasis }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = c.flexibleInt64(.id) ?? 0; ticker = c.value(.ticker, or: ""); side = c.value(.side, or: "")
         shares = c.flexibleDouble(.shares, or: 0); price = c.flexibleDouble(.price, or: 0)
         amount = c.flexibleDouble(.amount, or: 0); source = c.value(.source, or: "market")
         executedAt = c.value(.executedAt, or: "")
+        let basis = c.flexibleDouble(.costBasis, or: .nan)
+        costBasis = basis.isNaN ? nil : basis
     }
 }
 

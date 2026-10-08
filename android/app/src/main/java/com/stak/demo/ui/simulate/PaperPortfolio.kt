@@ -112,6 +112,8 @@ internal data class Trade(
 	val side: String, val symbol: String, val badge: String,
 	val amount: Double, val shares: Double, val price: Double,
 	val day: String, val epochDay: Long,
+	/** A sale's average cost as the server recorded it (null on buys, older sales and the demo's ledger). */
+	val costBasis: Double? = null,
 ) {
 	val isBuy: Boolean get() = side == "BUY"
 }
@@ -480,6 +482,7 @@ internal object PaperPortfolio {
 				side = t.side.uppercase(Locale.US), symbol = t.ticker, badge = t.ticker.take(1),
 				amount = t.amount, shares = t.shares, price = t.price,
 				day = dayLabelOf(t.executedAt), epochDay = epochDayOf(t.executedAt),
+				costBasis = t.costBasis,
 			)
 		} ?: serverTrades
 		val mappedOrders = portfolio.openOrders.map { o ->
@@ -589,9 +592,13 @@ internal object PaperPortfolio {
 				costBasisPerShare[t.symbol] = if (newShares > 0.0) (prevBasis * prevShares + t.price * t.shares) / newShares else t.price
 				sharesHeld[t.symbol] = newShares
 			} else {
-				val basis = costBasisPerShare[t.symbol] ?: t.price
+				// The server's own cost for the sale first: a position bought before the ledger (or past the page read)
+				// replayed to a basis of $0 or the last logged buy, and showed a loss as a profit.
+				val basis = t.costBasis ?: costBasisPerShare[t.symbol] ?: t.price
 				val gain = (t.price - basis) * t.shares
 				sharesHeld[t.symbol] = (sharesHeld[t.symbol] ?: 0.0) - t.shares
+				// Sold out (the server lets a sale exceed the holding by a thousandth): the next buy starts a fresh basis.
+				if ((sharesHeld[t.symbol] ?: 0.0) <= 1e-6) { sharesHeld[t.symbol] = 0.0; costBasisPerShare.remove(t.symbol) }
 				out.add(Realized(badge = t.badge, ticker = t.symbol, sub = "Sold ${t.day} · ${if (gain > -0.005) "profit banked" else "loss realized"}", amount = signedUsd(gain), up = gain > -0.005))
 			}
 		}

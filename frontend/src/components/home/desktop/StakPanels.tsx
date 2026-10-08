@@ -332,7 +332,7 @@ function Stat({ label, value, color = "#fff" }: { label: string; value: string; 
 /** The paper portfolio at a glance. It owns usePaperPortfolio so its 15s price refresh only re-renders this panel. */
 export function PracticePanel({ onOpen }: { onOpen: () => void }) {
 	const paper = usePaperPortfolio();
-	const { points: ledger, loading: historyLoading } = usePortfolioHistory(paper.trades, paper.paperStart, "1w");
+	const { points: ledger, loading: historyLoading } = usePortfolioHistory(paper.trades, paper.paperStart, "1w", { cash: paper.cash + paper.openOrders.reduce((s, o) => s + o.amount, 0), shares: Object.fromEntries(paper.picks.map((p) => [p.ticker, p.shares])) });
 	// Tickers close at slightly different times, so a day can carry two ledger points; keep the last per day.
 	const points = dailyCloses((ledger ?? []).map((p) => ({ ts: p.ts, close: p.value })));
 	const values = points.map((p) => p.close);
