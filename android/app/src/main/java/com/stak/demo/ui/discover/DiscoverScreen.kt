@@ -1792,7 +1792,8 @@ internal fun DiscoverBuyFlow(
 				// fill - a top-up shows the summed shares, not just this order's.
 				// A placed limit reserves cash, not a holding: "Reserved for" shows what the stake buys AT the limit (review 2026-09-14).
 				val placed = placedLimit
-				val receiptShares = if (placed != null) String.format(java.util.Locale.US, "%.4f", amount / placed) else (com.stak.demo.ui.simulate.PaperPortfolio.pickSpec(spec.symbol)?.shares ?: live.shares)
+				// What it fills to: rounded down to a thousandth, as the server's fill does.
+				val receiptShares = if (placed != null) String.format(java.util.Locale.US, "%.3f", if (placed > 0.0) kotlin.math.floor(amount / placed * 1000) / 1000 else 0.0) else (com.stak.demo.ui.simulate.PaperPortfolio.pickSpec(spec.symbol)?.shares ?: live.shares)
 				OrderFilledContent(onPrimary = onFilledPrimary, onSecondary = onFilledSecondary, spec = live.copy(shares = receiptShares), primary = filledPrimary, secondary = filledSecondary, pendingLimit = placedLimit)
 			}
 		}

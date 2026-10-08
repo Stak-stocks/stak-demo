@@ -6,7 +6,7 @@ import { useFigmaUnit } from "@/components/discover/useFigmaUnit";
 import type { ChartRange } from "@/lib/api";
 import type { PaperPortfolio, Pick } from "@/hooks/usePaperPortfolio";
 import { bucketColor, buckets, simInsight } from "@/lib/simBuckets";
-import { signedPct, signedUsd, signedWhole, usd, wholeUsd } from "@/lib/simFormat";
+import { isUp, signedPct, signedUsd, signedWhole, usd, wholeUsd } from "@/lib/simFormat";
 import { usePortfolioHistory } from "@/hooks/usePaperPortfolio";
 import { heldCountLabel } from "@/components/mystak/CollectionChip";
 import { Sparkle } from "@/components/mystak/TasteCard";
@@ -82,10 +82,10 @@ export function SetupLine({ paper }: { paper: PaperPortfolio }) {
 
 // ── Score hero ───────────────────────────────────────────────────────────────────────────────────
 export function ScoreHero({ paper, range, onRange }: { paper: PaperPortfolio; range: ChartRange; onRange: (r: ChartRange) => void }) {
-	const { values, loading } = usePortfolioHistory(paper.trades, paper.paperStart, range, { cash: paper.cash + paper.openOrders.reduce((s, o) => s + o.amount, 0), shares: Object.fromEntries(paper.picks.map((p) => [p.ticker, p.shares])) });
+	const { values, loading } = usePortfolioHistory(paper.trades, paper.paperStart, range, { cash: paper.cash + paper.openOrders.reduce((s, o) => s + o.amount, 0), shares: Object.fromEntries(paper.picks.map((p) => [p.ticker, p.shares])), value: paper.portfolioValue });
 	const [whole, cents = "00"] = usd(paper.portfolioValue).split(".");
 	const gain = paper.allTimeGain;
-	const up = gain >= 0;
+	const up = isUp(gain);
 	const pad = { padding: `0 ${cu(20)}` };
 	return (
 		<section style={{ display: "flex", flexDirection: "column", gap: cu(11), ...sheetCard(18), padding: `${cu(20)} 0` }} aria-label="Portfolio value">
@@ -188,7 +188,7 @@ export function HowItWorks() {
 
 /** One held pick: badge, ticker, "Picked Sep 4 · up 12% since", live gain. */
 export function PortfolioRow({ pick, onOpen, trailing, subLight }: { pick: Pick; onOpen: () => void; trailing?: ReactNode; subLight?: boolean }) {
-	const up = pick.gain >= 0;
+	const up = isUp(pick.gain);
 	const sub = `Picked ${new Date(pick.addedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" })} · ${up ? "up" : "down"} ${Math.abs(pick.gainPct).toFixed(0)}% since`;
 	return (
 		<div className="flex items-center" style={{ gap: cu(12), ...sheetCard(12), padding: `${cu(12)} ${cu(14)}` }}>

@@ -3,6 +3,8 @@ package com.stak.demo.ui.simulate
 import com.stak.demo.data.ChartPoint
 import com.stak.demo.data.StockRepository
 import com.stak.demo.data.chartFractions
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import java.time.Instant
 import java.time.ZoneId
 
@@ -25,6 +27,22 @@ internal object PortfolioHistory {
 
 	fun init(repo: StockRepository) {
 		repository = repo
+	}
+
+	/**
+	 * Each symbol's closes per range, kept for a few minutes: a trade changes what was held, not what prices were, so
+	 * the rebuild it triggers (two per trade - the instant row, then the server's) needn't fetch every chart again.
+	 */
+	private val closesCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Map<Long, Double>>>()
+	private const val CLOSES_TTL_MS = 5 * 60 * 1000L
+
+	private suspend fun closesFor(repo: StockRepository, symbol: String, range: String): Map<Long, Double>? {
+		val key = "$symbol|$range"
+		closesCache[key]?.let { (at, closes) -> if (System.currentTimeMillis() - at < CLOSES_TTL_MS) return closes }
+		val prices = runCatching { repo.getChart(symbol, range.lowercase()).prices }.getOrNull() ?: return null
+		val closes = closesByDay(prices).takeIf { it.isNotEmpty() } ?: return null
+		closesCache[key] = System.currentTimeMillis() to closes
+		return closes
 	}
 
 	/** One trading day's real portfolio value. */
@@ -62,10 +80,10 @@ internal object PortfolioHistory {
 		val repo = repository ?: return null
 		val symbols = (holdings.keys.sorted() + trades.map { it.symbol }).distinct()
 		if (symbols.isEmpty()) return null
-		val closesBySymbol = symbols.mapNotNull { sym ->
-			val prices = runCatching { repo.getChart(sym, range.lowercase()).prices }.getOrNull() ?: return@mapNotNull null
-			closesByDay(prices).takeIf { it.isNotEmpty() }?.let { sym to it }
-		}.toMap()
+		// In parallel, as iOS does - one after another was N round trips before the line appeared.
+		val closesBySymbol = kotlinx.coroutines.coroutineScope {
+			symbols.map { sym -> async { closesFor(repo, sym, range)?.let { sym to it } } }.awaitAll()
+		}.filterNotNull().toMap()
 		// Every symbol's history, or no line: a missing one would count its shares as $0 and
 		// draw a drop that never happened.
 		if (closesBySymbol.size < symbols.size) return null
@@ -73,7 +91,8 @@ internal object PortfolioHistory {
 		// traded (a market holiday) never becomes a point either.
 		val firstTradeDay = trades.minOfOrNull { it.epochDay } ?: Long.MIN_VALUE
 		val days = closesBySymbol.values.flatMap { it.keys }.filter { it >= firstTradeDay }.distinct().sorted()
-		val points = days.mapNotNull { day ->
+		// Days x symbols x (days + trades) of work - off the main thread.
+		val points = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { days.mapNotNull { day ->
 			var held = 0.0
 			for (sym in symbols) {
 				val shares = sharesHeldAt(day, sym, holdings[sym] ?: 0.0, trades)
@@ -86,7 +105,7 @@ internal object PortfolioHistory {
 				held += shares * price
 			}
 			Point(day, cashAt(day, cash, trades) + held)
-		}
+		} }
 		return points.takeIf { it.size >= 2 }
 	}
 
@@ -104,8 +123,7 @@ internal object PortfolioHistory {
 	/** [symbol]'s closes over the last week (oldest first), or null when the chart didn't come back. */
 	suspend fun weekCloses(symbol: String): List<Double>? {
 		val repo = repository ?: return null
-		val closes = runCatching { repo.getChart(symbol, "1w").prices }.getOrNull()?.map { it.close }?.filter { it > 0.0 }
-		return closes?.takeIf { it.size >= 2 }
+		return closesFor(repo, symbol, "1w")?.toSortedMap()?.values?.toList()?.takeIf { it.size >= 2 }
 	}
 
 	/** [points]' values as the 0..1 fractions RangeChart draws. */

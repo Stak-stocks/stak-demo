@@ -100,7 +100,8 @@ const dw = (k: number) => `calc(${DESK_W} * ${k})`;
  * scales with the card's width; the card lifts a little on hover.
  */
 function DesktopLayout({ brand, paletteIndex, quote }: { brand: BrandSummary; paletteIndex: number; quote: { price: number; changePercent: number } | null }) {
-	const change = quote?.changePercent;
+	// A $0 quote (a halted or unknown symbol) is no price: "—" and no move, as the apps.
+	const change = quote && quote.price > 0 ? quote.changePercent : undefined;
 	const up = (change ?? 0) >= 0;
 	const headline = brand.bio ? brand.bio.charAt(0).toUpperCase() + brand.bio.slice(1) : "";
 	return (
@@ -122,7 +123,7 @@ function DesktopLayout({ brand, paletteIndex, quote }: { brand: BrandSummary; pa
 				<p style={{ font: `400 ${dw(0.024)}/1.3 var(--font-body)`, color: DISC.muted }}>{brand.ticker} · {brand.name}</p>
 				<p className="line-clamp-2" style={{ font: `600 ${dw(0.04)}/1.25 var(--font-heading)`, color: "#fff" }}>{headline}</p>
 				<div className="flex items-baseline" style={{ gap: dw(0.02), marginTop: dw(0.012) }}>
-					<span style={{ font: `600 ${dw(0.05)}/1.2 var(--font-heading)`, color: "#fff" }}>{formatPrice(quote?.price)}</span>
+					<span style={{ font: `600 ${dw(0.05)}/1.2 var(--font-heading)`, color: "#fff" }}>{formatPrice(quote && quote.price > 0 ? quote.price : undefined)}</span>
 					{change != null && (
 						<span style={{ font: `500 ${dw(0.028)}/1.2 var(--font-body)`, color: up ? DISC.green : DISC.red }}>
 							{up ? "▲" : "▼"} {Math.abs(change).toFixed(1)}% {sessionWord()}
@@ -152,7 +153,8 @@ export function DiscoverCard({ brand, paletteIndex, onLearnMore, live = true, qu
 	const quote = suppliedQuote === undefined ? own.quote : suppliedQuote;
 	const tip = showTip ? own.tip : "";
 	if (desktop) return <DesktopLayout brand={brand} paletteIndex={paletteIndex} quote={quote} />;
-	const change = quote?.changePercent;
+	// A $0 quote (a halted or unknown symbol) is no price: "—" and no move, as the apps.
+	const change = quote && quote.price > 0 ? quote.changePercent : undefined;
 	const up = (change ?? 0) >= 0;
 
 	return (
@@ -181,7 +183,7 @@ export function DiscoverCard({ brand, paletteIndex, onLearnMore, live = true, qu
 				</div>
 
 				<div className="flex items-end" style={{ gap: cu(9) }}>
-					<span style={{ font: `600 ${cu(20)}/${cu(25)} var(--font-heading)`, color: "#fff" }}>{formatPrice(quote?.price)}</span>
+					<span style={{ font: `600 ${cu(20)}/${cu(25)} var(--font-heading)`, color: "#fff" }}>{formatPrice(quote && quote.price > 0 ? quote.price : undefined)}</span>
 					{change != null && (
 						<span style={{ font: `500 ${cu(11)}/${cu(14)} var(--font-body)`, color: up ? DISC.green : DISC.red, paddingBottom: cu(2) }}>
 							{up ? "▲" : "▼"} {Math.abs(change).toFixed(1)}% {sessionWord()}

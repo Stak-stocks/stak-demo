@@ -548,7 +548,8 @@ final class PaperPortfolio: ObservableObject {
 	}
 
 	private func recordTrade(side: String, symbol: String, badge: String, amount: Double, shares: Double, price: Double) {
-		trades.insert(Trade(side: side, symbol: symbol, badge: badge, amount: amount, shares: shares, price: price, day: PaperPortfolio.today(), epochDay: MyStakHoldings.epochDay(Date(), in: .current)), at: 0)
+		// US Eastern, as the server dates it - a local date re-keyed the history chart when the server's row replaced it.
+		trades.insert(Trade(side: side, symbol: symbol, badge: badge, amount: amount, shares: shares, price: price, day: PaperPortfolio.today(), epochDay: MyStakHoldings.epochDay(Date(), in: TimeZone(identifier: "America/New_York") ?? .current)), at: 0)
 	}
 
 	// MARK: - The demo's ledger on the phone

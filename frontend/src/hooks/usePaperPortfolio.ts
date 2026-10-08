@@ -169,7 +169,7 @@ export function usePortfolioHistory(
 	paperStart: number,
 	range: ChartRange,
 	/** Today's cash (with open orders' stakes) and shares - the replay runs backward from it (buildLedgerSeries). */
-	now?: { cash: number; shares: Record<string, number> },
+	now?: { cash: number; shares: Record<string, number>; value?: number },
 ): { values: number[] | null; points: ChartValuePoint[] | null; loading: boolean } {
 	const nowKey = now ? `${now.cash}|${Object.entries(now.shares).sort().map(([t, q]) => `${t}:${q}`).join(",")}` : "";
 	const traded = useMemo(
@@ -191,9 +191,11 @@ export function usePortfolioHistory(
 		if (traded.length === 0 || loading) return null;
 		const series: Record<string, ReturnType<typeof dailyCloses>> = {};
 		traded.forEach((ticker, i) => { series[ticker] = dailyCloses((charts[i]?.data?.prices ?? []).map((p) => ({ ts: p.ts, close: p.close }))); });
+		// Every symbol's history, or no line: a missing one would count its shares as $0 (the apps' rule).
+		if (traded.some((ticker) => (series[ticker] ?? []).length === 0)) return null;
 		return buildLedgerSeries(trades, paperStart, series, now);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [trades, paperStart, traded, loading, version, nowKey]);
+	}, [trades, paperStart, traded, loading, version, nowKey, now?.value]);
 	const values = useMemo(() => points?.map((p) => p.value) ?? null, [points]);
 	return { values, points, loading };
 }

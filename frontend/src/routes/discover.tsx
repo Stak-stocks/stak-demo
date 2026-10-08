@@ -522,7 +522,9 @@ function App() {
 			passedEntriesRef.current = passedEntriesRef.current.filter((e) => e.id !== brand.id);
 			inOrder(brand.id, () => removePassedBrand(brand.id)).catch(() => {});
 		}
-		const cachedPrice = queryClient.getQueryData<{ quote: { price: number } | null }>(["stock", brand.ticker])?.quote?.price ?? null;
+		const quoted = queryClient.getQueryData<{ quote: { price: number } | null }>(["stock", brand.ticker])?.quote?.price;
+		// A $0 quote is no price - the save records none rather than measure "since you saved" from $0 (the apps).
+		const cachedPrice = quoted !== undefined && quoted > 0 ? quoted : null;
 		inOrder(brand.id, () => saveToStak(brand.id, cachedPrice)).catch((e) => {
 			console.error("Failed to save stak:", e);
 			toast.error("Failed to save", { description: "Changes may not persist", duration: 3000 });

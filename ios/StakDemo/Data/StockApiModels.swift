@@ -955,7 +955,9 @@ extension AndroidStocksResponse {
     private enum CodingKeys: String, CodingKey { case tickers, saved }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        tickers = c.value(.tickers, or: []); saved = c.value(.saved, or: [])
+        // Required: a reply without `tickers` is a failure, never "nothing saved" - read as empty, it wiped the phone's
+        // saves and the next save deleted the server's.
+        tickers = try c.decode([String].self, forKey: .tickers); saved = c.value(.saved, or: [])
     }
 }
 

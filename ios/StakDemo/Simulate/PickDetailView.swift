@@ -25,7 +25,7 @@ struct PickSpec: Codable, Equatable {
 	let vsMarket: String
 	let ahead: Bool
 	/// The day move on the sell row - the same figure the My STAK tile shows.
-	let dayChange: String
+	var dayChange: String
 	/// Cost basis label - "$100" for the six authored picks; a paper order carries its own.
 	var stakeBasis: String = "$100"
 	/// The This-week stat (1:4673) - authored "+$3.80"; a fresh order starts at "+$0.00".
@@ -147,6 +147,15 @@ struct PickDetailView: View {
 		}
 		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 		.background(StakColors.bg.ignoresSafeArea())
+		// Opened before the portfolio has ever loaded (a failed first read): this page asks again rather than spin -
+		// only Simulate polls.
+		.task(id: portfolio.hasHydrated) {
+			guard !portfolio.hasHydrated else { return }
+			while !Task.isCancelled && !portfolio.hasHydrated {
+				portfolio.refresh()
+				do { try await Task.sleep(nanoseconds: livePriceInterval) } catch { return }
+			}
+		}
 	}
 
 	private var detail: some View {

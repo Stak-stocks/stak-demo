@@ -207,6 +207,9 @@ class AuthViewModel @Inject constructor(
      * when the nav stack was cleared.
      */
     suspend fun saveProfile() {
+        // The name is pending until the server has it: ProfileSync won't overwrite it with the server's older one, and
+        // sends it again.
+        com.stak.demo.data.StakStore.putBoolean("name.pending", true)
         runCatching {
             stockRepository.putMe(
                 displayName = UserProfile.displayName.takeIf { it.isNotBlank() },
@@ -214,14 +217,16 @@ class AuthViewModel @Inject constructor(
                 // The answers go with the account, so a new phone shows the same taste.
                 taste = ProfileSync.currentTaste(),
             )
-        }
+        }.onSuccess { com.stak.demo.data.StakStore.putBoolean("name.pending", false) }
     }
 
     /** Updates display name after onboarding (Edit profile screen). Does not touch onboardingCompleted. */
     suspend fun updateProfile() {
+        // Pending until the server has it (offline, a save cut short): the next sync sends it rather than revert it.
+        com.stak.demo.data.StakStore.putBoolean("name.pending", true)
         runCatching {
             stockRepository.putMe(displayName = UserProfile.displayName.takeIf { it.isNotBlank() })
-        }
+        }.onSuccess { com.stak.demo.data.StakStore.putBoolean("name.pending", false) }
     }
 
     /**

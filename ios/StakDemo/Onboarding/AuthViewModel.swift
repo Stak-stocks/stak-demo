@@ -166,17 +166,22 @@ final class AuthViewModel: ObservableObject {
             goal: p.goal, risk: p.risk, riskStyle: p.riskStyle,
             picks: Array(p.brandPicks).sorted()
         )
-        _ = try? await repository.putMe(
+        // The name is pending until the server has it: ProfileSync won't overwrite it with the server's older one, and
+        // sends it again.
+        StakStore.set(true, for: "name.pending")
+        if (try? await repository.putMe(
             displayName: p.displayName.trimmingCharacters(in: .whitespaces).isEmpty ? nil : p.displayName,
             onboardingCompleted: true,
             taste: taste
-        )
+        )) != nil { StakStore.set(false, for: "name.pending") }
     }
 
     /// Updates display name only (Edit profile screen).
     func updateProfile() async {
         let name = UserProfile.shared.displayName.trimmingCharacters(in: .whitespaces)
-        _ = try? await repository.putMe(displayName: name.isEmpty ? nil : name)
+        // Pending until the server has it (offline, or a save cut short): the next sync sends it rather than revert it.
+        StakStore.set(true, for: "name.pending")
+        if (try? await repository.putMe(displayName: name.isEmpty ? nil : name)) != nil { StakStore.set(false, for: "name.pending") }
     }
 
     // MARK: – Change password

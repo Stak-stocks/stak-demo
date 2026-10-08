@@ -110,7 +110,16 @@ actor NetworkModule {
     /// with it can only fail again). Session keeps the new one, as android's authenticator does.
     private func refreshedToken(replacing request: URLRequest) async -> String? {
         let sent = request.value(forHTTPHeaderField: "Authorization")?.replacingOccurrences(of: "Bearer ", with: "") ?? ""
-        guard let fresh = try? await supabase.auth.refreshSession().accessToken, !fresh.isEmpty, fresh != sent else { return nil }
+        // A token another request already refreshed is used as is; otherwise one refresh - a dead session (offline, a
+        // revoked refresh token) was being refreshed twice per request.
+        let current = (try? await supabase.auth.session.accessToken) ?? ""
+        let fresh: String
+        if !current.isEmpty, current != sent {
+            fresh = current
+        } else {
+            guard let refreshed = try? await supabase.auth.refreshSession().accessToken, !refreshed.isEmpty, refreshed != sent else { return nil }
+            fresh = refreshed
+        }
         await MainActor.run { Session.shared.setToken(fresh) }
         return fresh
     }

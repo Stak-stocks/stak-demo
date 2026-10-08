@@ -36,7 +36,7 @@ final class MyStakHoldings: ObservableObject {
 	/// What the server knows about each save: the company's name, the category the deck ranked it on, and the price
 	/// when it was saved. My STAK reads this instead of the authored catalogue, so a stock outside the six demo
 	/// collections still shows up with its real name and group.
-	struct SavedStock: Codable {
+	struct SavedStock: Codable, Equatable {
 		let ticker: String
 		let brandId: String
 		let name: String
@@ -99,6 +99,11 @@ final class MyStakHoldings: ObservableObject {
 		// A save or unsave started while the read was out: the server's list predates it, and applying it would
 		// quietly undo the change (it will be re-read after that write).
 		guard pendingWrite == awaited else { return }
+		// This phone's last change never reached the server: send it instead of taking the server's older list.
+		if StakStore.bool("holdings.unsynced", default: false) {
+			syncToBackend()
+			return
+		}
 		let fresh = resp.tickers
 		let saved: [String: SavedStock]? = resp.saved.isEmpty ? nil : Dictionary(
 			resp.saved.filter { !$0.ticker.isEmpty }.map { s in
@@ -116,8 +121,12 @@ final class MyStakHoldings: ObservableObject {
 		)
 		// An empty list is an answer too - everything unsaved on another device. Kept local, the next save here would
 		// write the stale list back and the removed stocks would return everywhere.
-		tickers = Set(fresh)
-		if fresh.isEmpty { details = [:] } else if let saved { details = saved }
+		let next = Set(fresh)
+		let nextDetails = fresh.isEmpty ? [:] : (saved ?? details)
+		// Only what changed is published (and written): every assignment re-renders each screen watching the saves.
+		guard next != tickers || nextDetails != details else { return }
+		tickers = next
+		details = nextDetails
 		persist()
 	}
 
@@ -201,7 +210,10 @@ final class MyStakHoldings: ObservableObject {
 		let repo = self.repo
 		pendingWrite = Task { @MainActor in
 			await previous?.value
-			_ = try? await repo.putAndroidStocks(snapshot)
+			// A list the server never got is this phone's newer one: the next read sends it again rather than apply the
+			// server's older list over it (an offline save would otherwise vanish, and its removal reach the server).
+			let sent = (try? await repo.putAndroidStocks(snapshot)) != nil
+			StakStore.set(!sent, for: "holdings.unsynced")
 			// The row has to exist before its price can be stamped, so this follows the PUT rather than racing it -
 			// the server only keeps the first value.
 			if let brandId, !brandId.isEmpty, let priceNow, priceNow > 0 {

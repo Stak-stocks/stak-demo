@@ -26,6 +26,20 @@ enum PortfolioHistory {
 		return byDay
 	}
 
+	/// Each symbol's closes per range, kept for a few minutes: a trade changes what was held, not what prices were, so
+	/// the rebuild it triggers needn't fetch every chart again.
+	@MainActor private static var closesCache: [String: (at: Date, closes: [Int: Double])] = [:]
+	private static let closesTTL: TimeInterval = 5 * 60
+
+	@MainActor private static func cachedCloses(_ symbol: String, _ range: String) -> [Int: Double]? {
+		guard let hit = closesCache["\(symbol)|\(range)"], Date().timeIntervalSince(hit.at) < closesTTL else { return nil }
+		return hit.closes
+	}
+
+	@MainActor private static func remember(_ symbol: String, _ range: String, _ closes: [Int: Double]) {
+		closesCache["\(symbol)|\(range)"] = (Date(), closes)
+	}
+
 	/// `symbol`'s shares held at the end of `day`: today's count with every later trade undone.
 	private static func sharesHeld(at day: Int, _ symbol: String, now: Double, _ trades: [PaperPortfolio.Trade]) -> Double {
 		now - trades.filter { $0.symbol == symbol && $0.epochDay > day }.reduce(0) { $0 + ($1.isBuy ? $1.shares : -$1.shares) }
@@ -49,8 +63,10 @@ enum PortfolioHistory {
 		let closesBySymbol: [String: [Int: Double]] = await withTaskGroup(of: (String, [Int: Double]?).self) { group in
 			for sym in symbols {
 				group.addTask {
+					if let cached = await cachedCloses(sym, range) { return (sym, cached) }
 					guard let prices = (try? await StockRepository.shared.getChart(sym, range: range.lowercased()))?.prices else { return (sym, nil) }
 					let closes = closesByDay(prices)
+					if !closes.isEmpty { await remember(sym, range, closes) }
 					return (sym, closes.isEmpty ? nil : closes)
 				}
 			}

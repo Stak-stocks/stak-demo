@@ -1,5 +1,6 @@
 ﻿package com.stak.demo.ui.simulate
 
+import kotlinx.coroutines.async
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -152,8 +153,10 @@ fun PickDetailScreen(
 	var spyWeekPct by remember(symbol) { mutableStateOf<Double?>(null) }
 	LaunchedEffect(symbol, PaperPortfolio.demo) {
 		if (PaperPortfolio.demo) return@LaunchedEffect
-		weekCloses = PortfolioHistory.weekCloses(symbol)
-		spyWeekPct = PortfolioHistory.weekCloses("SPY")?.let { (it.last() - it.first()) / it.first() * 100.0 }
+		val stock = async { PortfolioHistory.weekCloses(symbol) }
+		val spy = async { PortfolioHistory.weekCloses("SPY") }
+		weekCloses = stock.await()
+		spyWeekPct = spy.await()?.let { (it.last() - it.first()) / it.first() * 100.0 }
 	}
 	// "+$24.00" -> "+$24" in the 48 box and ".00" in its own 16/20 box (1:4654).
 	val gainWhole = p.gain.substringBefore('.')
@@ -475,6 +478,14 @@ private fun StatBox(label: String, value: String, valueColor: Color, modifier: M
 @Composable
 private fun NotHeldPage(symbol: String, loading: Boolean, onBack: () -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	// Opened before the portfolio has ever loaded (a failed first read): this page asks again rather than spin - only
+	// Simulate polls.
+	LaunchedEffect(PaperPortfolio.hasHydrated) {
+		while (!PaperPortfolio.hasHydrated) {
+			PaperPortfolio.refresh()
+			kotlinx.coroutines.delay(com.stak.demo.ui.components.LIVE_PRICE_INTERVAL_MS)
+		}
+	}
 	Column(modifier = Modifier.fillMaxSize().background(StakColors.Bg).statusBarsPadding()) {
 		Row(
 			verticalAlignment = Alignment.CenterVertically,

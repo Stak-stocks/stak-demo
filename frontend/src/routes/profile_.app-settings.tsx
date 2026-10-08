@@ -54,7 +54,7 @@ function AppSettingsPage() {
 				<SettingsLinkRow label="Delete account" chevron={!open} onClick={() => { setOpen((v) => !v); setTyped(""); }} />
 				{open && (
 					<div style={{ display: "flex", flexDirection: "column", gap: cu(10), padding: `0 ${cu(14)} ${cu(14)}` }}>
-						<p style={{ font: f(400, 12, 17), color: DISC.body }}>This removes your saves, paper portfolio and settings from this device and signs you out. It can’t be undone.</p>
+						<p style={{ font: f(400, 12, 17), color: DISC.body }}>This deletes your STAK account - your saves, paper portfolio and settings - and signs you out. It can’t be undone.</p>
 						<label htmlFor="delete-confirm" style={{ font: f(500, 12, 17), color: DISC.body }}>Type DELETE to confirm</label>
 						<input
 							id="delete-confirm"
@@ -84,7 +84,7 @@ function AppSettingsPage() {
 				)}
 			</SettingsCard>
 
-			<Caption>Log out from the Profile page ends this account’s session.</Caption>
+			<Caption>Log out from the Profile page ends this session; your saves and paper portfolio are kept with your account for the next sign-in.</Caption>
 		</SettingsScaffold>
 	);
 }

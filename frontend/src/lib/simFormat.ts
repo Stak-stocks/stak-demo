@@ -6,12 +6,16 @@ const usd0 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 export const usd = (n: number) => `$${usd2.format(n)}`;
 export const wholeUsd = (n: number) => `$${usd0.format(n)}`;
 
+// The sign is the shown figure's (as the apps): a gain that rounds to nothing reads "+$0", never a red "-$0" - cost
+// rounding leaves a first buy a fraction of a cent down.
 /** "+$24.00" / "-$3.00" */
-export const signedUsd = (n: number) => `${n < 0 ? "-" : "+"}${usd(Math.abs(n))}`;
+export const signedUsd = (n: number) => `${Math.round(n * 100) < 0 ? "-" : "+"}${usd(Math.abs(n))}`;
 /** "+$186" / "-$3" - whole dollars */
-export const signedWhole = (n: number) => `${n < 0 ? "-" : "+"}$${usd0.format(Math.abs(n))}`;
+export const signedWhole = (n: number) => `${Math.round(n) < 0 ? "-" : "+"}$${usd0.format(Math.abs(n))}`;
 /** "+1.9%" / "-3.0%" */
-export const signedPct = (pct: number) => `${pct < 0 ? "-" : "+"}${Math.abs(pct).toFixed(1)}%`;
+export const signedPct = (pct: number) => `${Math.round(pct * 10) < 0 ? "-" : "+"}${Math.abs(pct).toFixed(1)}%`;
+/** A gain counts as up unless it is down by at least half a cent (the apps' rule). */
+export const isUp = (gain: number) => gain > -0.005;
 
 /** Cost-basis label: whole dollars read "$25", anything else "$25.50". */
 export const stakeLabel = (n: number) => (Math.abs(n - Math.round(n)) < 1e-9 ? wholeUsd(n) : usd(n));

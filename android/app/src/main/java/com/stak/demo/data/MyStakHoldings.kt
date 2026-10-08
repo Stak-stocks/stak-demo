@@ -114,6 +114,11 @@ object MyStakHoldings {
 		// A save or unsave started while the read was out: the server's list predates it, and applying it would
 		// quietly undo the change (it is re-read after that write).
 		if (pendingWrite !== awaited) return
+		// This phone's last change never reached the server: send it instead of taking the server's older list.
+		if (StakStore.getBoolean("holdings.unsynced", false)) {
+			syncToBackend()
+			return
+		}
 		// An empty list is an answer too - everything unsaved on another device. Kept local, the next save here would
 		// write the stale list back and the removed stocks would return everywhere.
 		tickers = resp.tickers.toSet()
@@ -279,7 +284,10 @@ object MyStakHoldings {
 		val previous = pendingWrite
 		pendingWrite = scope.launch {
 			previous?.join()
-			runCatching { repository?.putAndroidStocks(snapshot) }
+			// A list the server never got is this phone's newer one: the next read sends it again rather than apply the
+			// server's older list over it (an offline save would otherwise vanish, and its removal reach the server).
+			val sent = runCatching { repository?.putAndroidStocks(snapshot) }.getOrNull() != null
+			StakStore.putBoolean("holdings.unsynced", !sent)
 			// The row has to exist before its price can be stamped, so this follows
 			// the PUT rather than racing it - the server only keeps the first value.
 			if (!brandId.isNullOrBlank() && priceNow != null && priceNow > 0) {

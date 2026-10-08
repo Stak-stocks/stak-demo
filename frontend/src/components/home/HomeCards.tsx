@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { BrandSummary } from "@stak/shared";
 import { getTrending } from "@/lib/api";
-import { DISC, cu } from "@/components/discover/discoverTheme";
+import { DISC, cu, sessionWord } from "@/components/discover/discoverTheme";
 import { PRESS, f, focusRing } from "@/components/phone/phone";
 import { HOME } from "./MarketMoodCard";
 
@@ -86,7 +86,7 @@ export function TrendingStrip({ onOpenStock }: { onOpenStock: (ticker: string) =
 							</span>
 							<span style={{ font: f(400, 12), color: "#fff" }}>${stock.price.toFixed(2)}</span>
 							<span style={{ font: f(500, 11), color: up ? DISC.green : DISC.redDown }}>
-								{up ? "▲" : "▼"} {Math.abs(stock.changePercent).toFixed(1)}% today
+								{up ? "▲" : "▼"} {Math.abs(stock.changePercent).toFixed(1)}% {sessionWord()}
 							</span>
 						</button>
 					);

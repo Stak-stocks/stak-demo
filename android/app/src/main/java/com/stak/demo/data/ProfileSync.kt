@@ -53,8 +53,9 @@ object ProfileSync {
 				StakNotifications.rememberCreatedAt(me.createdAt)
 				// The account's name wins when it has one - a rename on another phone reaches this one; a blank never
 				// wipes the name here.
+				// ...unless this phone's edit hasn't reached the server yet: then it is the newer one, and goes up below.
 				val serverName = me.displayName.trim()
-				if (serverName.isNotEmpty() && serverName != UserProfile.displayName) UserProfile.displayName = serverName
+				if (!StakStore.getBoolean("name.pending", false) && serverName.isNotEmpty() && serverName != UserProfile.displayName) UserProfile.displayName = serverName
 				val taste = me.taste?.takeIf { it.hasAnswers }
 				if (taste != null) {
 					UserProfile.goal = taste.goal
@@ -66,6 +67,15 @@ object ProfileSync {
 				currentTaste().takeIf { taste == null && it.hasAnswers }
 			}
 			if (upload != null && Session.accountGeneration == account) runCatching { repo.putMe(taste = upload) }
+			// A rename that didn't reach the server (offline, a save cut short) goes up now.
+			val pendingName = withContext(Dispatchers.Main) {
+				UserProfile.displayName.trim().takeIf { Session.accountGeneration == account && StakStore.getBoolean("name.pending", false) && it.isNotEmpty() }
+			}
+			if (pendingName != null) {
+				runCatching { repo.putMe(displayName = pendingName) }.onSuccess {
+					withContext(Dispatchers.Main) { if (Session.accountGeneration == account) StakStore.putBoolean("name.pending", false) }
+				}
+			}
 		}
 	}
 

@@ -1445,7 +1445,8 @@ struct DiscoverBuyFlow: View {
 					// buy - a top-up shows the position's shares, not the ticket's.
 					// A pending limit (review 2026-09-14) reserves `amount` of cash: "Reserved for" shows
 					// what the stake buys AT the limit, not today's price or the existing holding.
-					let held = placedLimit.map { PaperPortfolio.shares(amount / $0) } ?? (PaperPortfolio.shared.pickSpec(spec.symbol)?.shares ?? live.shares)
+					// What it fills to: rounded down to a thousandth, as the server's fill does.
+					let held = placedLimit.map { String(format: "%.3f", $0 > 0 ? (amount / $0 * 1000).rounded(.down) / 1000 : 0) } ?? (PaperPortfolio.shared.pickSpec(spec.symbol)?.shares ?? live.shares)
 					OrderFilledSheet(
 						spec: BuySpec(
 							title: live.title, badge: live.badge, name: live.name, priceLine: live.priceLine, change: live.change,

@@ -11,7 +11,9 @@ import { Badge, MoneyField, PillChoice, SIM, SheetCheck, SheetCta, SheetScaffold
 const PRESETS = [10, 25, 50, 100] as const;
 const DEFAULT_AMOUNT = 25;
 
-const shares4 = (n: number) => (Number.isFinite(n) ? n.toFixed(4) : "0");
+/** Shares as the server fills them (sandbox.ts /buy, /fill-orders): rounded DOWN to a thousandth. */
+const fillShares = (amount: number, price: number) => (price > 0 ? Math.floor((amount / price) * 1000) / 1000 : 0);
+const shares3 = (n: number) => (Number.isFinite(n) ? n.toFixed(3) : "0");
 
 /** The stock summary at the top of the ticket and the receipt. */
 export function StockRow({ symbol, name, priceLine, change }: { symbol: string; name: string; priceLine: string; change: string }) {
@@ -85,7 +87,7 @@ export function BuyFlow({ symbol, company, paper, onClose, onViewPortfolio, view
 	const limitPrice = !isLimit || !price ? null : parsedLimit > 0 ? parsedLimit : price;
 	const limitOk = !isLimit || limitText === "" || parsedLimit > 0;
 	const belowMarket = limitPrice !== null && price !== null && limitPrice < price;
-	const shares = price ? (belowMarket ? amount / limitPrice! : amount / price) : 0;
+	const shares = price ? (belowMarket ? fillShares(amount, limitPrice!) : fillShares(amount, price)) : 0;
 
 	function choosePreset(value: number) {
 		if (value > cash) return; // a stake bigger than the cash on hand is quietly ignored
@@ -108,7 +110,7 @@ export function BuyFlow({ symbol, company, paper, onClose, onViewPortfolio, view
 		setBusy(true);
 		try {
 			if (belowMarket) {
-				if (await paper.placeLimit(symbol, amount, limitPrice!)) setFilled({ placedLimit: limitPrice, shares: amount / limitPrice!, held: heldAtOpen.current, amount });
+				if (await paper.placeLimit(symbol, amount, limitPrice!)) setFilled({ placedLimit: limitPrice, shares: fillShares(amount, limitPrice!), held: heldAtOpen.current, amount });
 			} else {
 				const result = await paper.buy(symbol, amount);
 				// The server answers with the whole position after the fill, not just the shares this order added.
@@ -135,7 +137,7 @@ export function BuyFlow({ symbol, company, paper, onClose, onViewPortfolio, view
 							{filled.placedLimit !== null ? `Waits for ${symbol} at ${usd(filled.placedLimit)} or below · paper order` : "Filled instantly · paper order"}
 						</p>
 						<Line label="Cash available" value={usd(cash - filled.amount)} />
-						<Get label={filled.placedLimit !== null ? "Reserved for" : "You now hold"} shares={shares4(filled.placedLimit !== null ? filled.shares : filled.held)} symbol={symbol} />
+						<Get label={filled.placedLimit !== null ? "Reserved for" : "You now hold"} shares={shares3(filled.placedLimit !== null ? filled.shares : filled.held)} symbol={symbol} />
 						<div className="flex w-full flex-col" style={{ gap: cu(16) }}>
 							<SheetCta onClick={onViewPortfolio}>{viewLabel}</SheetCta>
 							<SheetSecondary onClick={onClose}>Done</SheetSecondary>
@@ -177,7 +179,7 @@ export function BuyFlow({ symbol, company, paper, onClose, onViewPortfolio, view
 							)}
 						</div>
 
-						<Get label="You get" shares={shares4(shares)} symbol={symbol} />
+						<Get label="You get" shares={shares3(shares)} symbol={symbol} />
 
 						<div style={{ display: "flex", flexDirection: "column", gap: cu(16) }}>
 							<SheetCta onClick={confirm} disabled={!price || busy || !canBuy(amount) || !limitOk}>

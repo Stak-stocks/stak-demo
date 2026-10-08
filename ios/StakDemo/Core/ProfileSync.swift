@@ -34,8 +34,11 @@ final class ProfileSync {
 				StakNotifications.rememberCreatedAt(me.createdAt)
 				// The account's name wins when it has one - a rename on another phone reaches this one; a blank never
 				// wipes the name here.
+				// ...unless this phone's edit hasn't reached the server yet: then it is the newer one, and goes up below.
 				let serverName = me.displayName.trimmingCharacters(in: .whitespaces)
-				if !serverName.isEmpty, serverName != UserProfile.shared.displayName { UserProfile.shared.displayName = serverName }
+				if !StakStore.bool("name.pending", default: false), !serverName.isEmpty, serverName != UserProfile.shared.displayName {
+					UserProfile.shared.displayName = serverName
+				}
 				if let taste = me.taste, taste.hasAnswers {
 					UserProfile.shared.goal = taste.goal
 					UserProfile.shared.risk = taste.risk
@@ -51,6 +54,14 @@ final class ProfileSync {
 			}
 			if let upload, await MainActor.run(body: { Session.shared.accountGeneration == account }) {
 				_ = try? await self.repo.putMe(taste: upload)
+			}
+			// A rename that didn't reach the server (offline, a save cut short) goes up now.
+			let pendingName: String? = await MainActor.run {
+				guard Session.shared.accountGeneration == account, StakStore.bool("name.pending", default: false) else { return nil }
+				return UserProfile.shared.displayName.trimmingCharacters(in: .whitespaces)
+			}
+			if let pendingName, !pendingName.isEmpty, (try? await self.repo.putMe(displayName: pendingName)) != nil {
+				await MainActor.run { if Session.shared.accountGeneration == account { StakStore.set(false, for: "name.pending") } }
 			}
 		}
 	}

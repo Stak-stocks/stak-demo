@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { usePaperPortfolio } from "@/hooks/usePaperPortfolio";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PortfolioHistoryDesktop } from "@/components/simulate/desktop/PortfolioHistoryDesktop";
-import { monthDay, signedUsd, usd } from "@/lib/simFormat";
+import { isUp, monthDay, signedUsd, usd } from "@/lib/simFormat";
 import { Badge, EmptyStateCard, Kicker, SIM } from "@/components/simulate/simKit";
 import { PortfolioRow } from "@/components/simulate/SimSections";
 import { DISC, cu } from "@/components/discover/discoverTheme";
@@ -99,7 +99,7 @@ function PortfolioPage() {
 										<Badge letter={r.ticker} size={36} fontSize={14} alpha={0.55} />
 										<span className="min-w-0 flex-1" style={{ display: "flex", flexDirection: "column", gap: cu(2) }}>
 											<span style={{ font: f(600, 12, 15, "heading"), color: DISC.headerGray }}>{r.ticker}</span>
-											<span style={{ font: f(300, 10, 13), color: DISC.faint }}>Sold {monthDay(r.executedAt)} · {r.gain >= 0 ? "profit banked" : "loss realized"}</span>
+											<span style={{ font: f(300, 10, 13), color: DISC.faint }}>Sold {monthDay(r.executedAt)} · {isUp(r.gain) ? "profit banked" : "loss realized"}</span>
 										</span>
 										<span style={{ font: f(400, 14, 18), color: r.gain >= 0 ? DISC.green : DISC.red }}>{signedUsd(r.gain)}</span>
 									</div>

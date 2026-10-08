@@ -628,7 +628,8 @@ internal object PaperPortfolio {
 	}
 
 	private fun recordTrade(side: String, symbol: String, badge: String, amount: Double, shares: Double, price: Double) {
-		trades = listOf(Trade(side, symbol, badge, amount, shares, price, today(), LocalDate.now().toEpochDay())) + trades
+		// US Eastern, as the server dates it - a local date re-keyed the history chart when the server's row replaced it.
+		trades = listOf(Trade(side, symbol, badge, amount, shares, price, today(), LocalDate.now(marketZone).toEpochDay())) + trades
 	}
 
 	/** True when the cash on hand covers the stake reserved for a limit order too. */
