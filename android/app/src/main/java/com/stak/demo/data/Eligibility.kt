@@ -10,12 +10,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * "Before we get started": the beta's 18+ / U.S. confirmation and the Terms / Privacy acceptance (Terms §2). While an
- * account hasn't confirmed, [required] is true and the gate covers the whole app - a new account right after it signs
- * up, an existing one the next time it opens. The age is worked out by the server, which keeps only that it was
- * confirmed; under 18 it deletes the account and blocks the email for 30 days (any date it sends after that is
- * refused too). Mirrors shared/src/eligibility.ts, web components/onboarding/EligibilityGate.tsx and iOS
- * Core/Eligibility.swift.
+ * "Before we get started": three boxes - 18 or older, living in the United States, and the Terms / Privacy (Terms
+ * §2); no date of birth. While an account hasn't confirmed them, [required] is true and the gate covers the whole app -
+ * a new account right after it signs up, an existing one the next time it opens. The server keeps that each was
+ * confirmed, when, and which versions of the documents. Mirrors shared/src/eligibility.ts, web
+ * components/onboarding/EligibilityGate.tsx and iOS Core/Eligibility.swift.
  */
 object Eligibility {
 	const val TERMS_URL = "https://thestak.org/terms"
@@ -61,25 +60,19 @@ object Eligibility {
 
 	sealed interface Outcome {
 		data object Confirmed : Outcome
-		/** Not eligible: the server has deleted the account. */
-		data object Refused : Outcome
-		/** [invalid]: the server didn't accept the date or a box; otherwise a network or server failure. */
+		/** [invalid]: the server didn't get all three boxes; otherwise a network or server failure. */
 		data class Failed(val invalid: Boolean) : Outcome
 	}
 
-	/** Sends the confirmation. [dob] is "YYYY-MM-DD". */
-	suspend fun confirm(dob: String): Outcome {
+	/** Sends the three confirmations. */
+	suspend fun confirm(): Outcome {
 		val repo = repository ?: return Outcome.Failed(invalid = false)
 		return try {
-			repo.confirmEligibility(dob)
+			repo.confirmEligibility()
 			required = false
 			Outcome.Confirmed
 		} catch (e: retrofit2.HttpException) {
-			when (e.code()) {
-				403 -> Outcome.Refused
-				400 -> Outcome.Failed(invalid = true)
-				else -> Outcome.Failed(invalid = false)
-			}
+			Outcome.Failed(invalid = e.code() == 400)
 		} catch (e: Exception) {
 			Outcome.Failed(invalid = false)
 		}
@@ -91,11 +84,4 @@ object Eligibility {
 		checkedFor = null
 	}
 
-	/** "MMDDYYYY" as typed -> "YYYY-MM-DD", or null until it's a whole, real date from 1900 to today (the server checks again). */
-	fun isoDob(digits: String): String? {
-		if (digits.length != 8) return null
-		val (mm, dd, yyyy) = Triple(digits.substring(0, 2), digits.substring(2, 4), digits.substring(4))
-		val date = runCatching { java.time.LocalDate.of(yyyy.toInt(), mm.toInt(), dd.toInt()) }.getOrNull() ?: return null
-		return date.takeIf { it.year >= 1900 && !it.isAfter(java.time.LocalDate.now()) }?.toString()
-	}
 }

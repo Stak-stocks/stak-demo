@@ -98,7 +98,7 @@ interface StockApiService {
     @PUT("api/me")
     suspend fun putMe(@Body body: MePutRequest): MeResponse
 
-    /** "Before we get started": 403 = not eligible (the server deleted the account), 400 = the date or a box. */
+    /** "Before we get started": 400 = not all three boxes. */
     @POST("api/me/eligibility")
     suspend fun confirmEligibility(@Body body: EligibilityRequest): OkResponse
 

@@ -1,11 +1,10 @@
 import Foundation
 
-/// "Before we get started": the beta's 18+ / U.S. confirmation and the Terms / Privacy acceptance (Terms §2). While an
-/// account hasn't confirmed, `required` is true and the gate (EligibilityView) covers the whole app - a new account right
-/// after it signs up, an existing one the next time it opens. The age is worked out by the server, which keeps only that
-/// it was confirmed; under 18 it deletes the account and blocks the email for 30 days (any date it sends after that is
-/// refused too). Mirrors shared/src/eligibility.ts, web components/onboarding/EligibilityGate.tsx and android
-/// data/Eligibility.kt.
+/// "Before we get started": three boxes - 18 or older, living in the United States, and the Terms / Privacy (Terms
+/// §2); no date of birth. While an account hasn't confirmed them, `required` is true and the gate (EligibilityView)
+/// covers the whole app - a new account right after it signs up, an existing one the next time it opens. The server
+/// keeps that each was confirmed, when, and which versions of the documents. Mirrors shared/src/eligibility.ts, web
+/// components/onboarding/EligibilityGate.tsx and android data/Eligibility.kt.
 @MainActor
 final class EligibilityGate: ObservableObject {
 	static let shared = EligibilityGate()
@@ -44,24 +43,18 @@ final class EligibilityGate: ObservableObject {
 
 	enum Outcome: Equatable {
 		case confirmed
-		/// Not eligible: the server has deleted the account.
-		case refused
-		/// `invalid`: the server didn't accept the date or a box; otherwise a network or server failure.
+		/// `invalid`: the server didn't get all three boxes; otherwise a network or server failure.
 		case failed(invalid: Bool)
 	}
 
-	/// Sends the confirmation. `dob` is "YYYY-MM-DD".
-	func confirm(dob: String) async -> Outcome {
+	/// Sends the three confirmations.
+	func confirm() async -> Outcome {
 		do {
-			_ = try await StockRepository.shared.confirmEligibility(dob: dob)
+			_ = try await StockRepository.shared.confirmEligibility()
 			required = false
 			return .confirmed
 		} catch NetworkError.http(let code, _) {
-			switch code {
-			case 403: return .refused
-			case 400: return .failed(invalid: true)
-			default: return .failed(invalid: false)
-			}
+			return .failed(invalid: code == 400)
 		} catch {
 			return .failed(invalid: false)
 		}
@@ -71,26 +64,5 @@ final class EligibilityGate: ObservableObject {
 	func reset() {
 		required = false
 		checkedFor = nil
-	}
-
-	/// "MMDDYYYY" as typed -> "YYYY-MM-DD", or nil until it's a whole, real date from 1900 to today (the server checks
-	/// again).
-	nonisolated static func isoDob(_ digits: String, now: Date = Date()) -> String? {
-		guard digits.count == 8, let mm = Int(digits.prefix(2)), let dd = Int(digits.dropFirst(2).prefix(2)), let yyyy = Int(digits.suffix(4)),
-			  yyyy >= 1900 else { return nil }
-		var cal = Calendar(identifier: .gregorian)
-		cal.timeZone = TimeZone(identifier: "UTC")!
-		guard let date = cal.date(from: DateComponents(year: yyyy, month: mm, day: dd)), date <= now else { return nil }
-		let back = cal.dateComponents([.year, .month, .day], from: date)
-		guard back.year == yyyy, back.month == mm, back.day == dd else { return nil }
-		return String(format: "%04d-%02d-%02d", yyyy, mm, dd)
-	}
-
-	/// Up to eight typed digits as MM/DD/YYYY.
-	nonisolated static func formatDob(_ digits: String) -> String {
-		let d = Array(digits.prefix(8))
-		if d.count > 4 { return String(d[0..<2]) + "/" + String(d[2..<4]) + "/" + String(d[4...]) }
-		if d.count > 2 { return String(d[0..<2]) + "/" + String(d[2...]) }
-		return String(d)
 	}
 }

@@ -2,8 +2,7 @@ import { getVapidPublicKey } from "../services/pushService.js";
 import { Router } from "express";
 import { authMiddleware, forgetVerifiedToken, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
-import { DAILY_SWIPE_LIMIT, NEW_ACCOUNT_WINDOW_MS, STAK_CAPACITY, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, isPriceThreshold, DEFAULT_PRICE_THRESHOLD, MIN_AGE, TERMS_VERSION, PRIVACY_VERSION, ELIGIBILITY_BLOCK_DAYS, ageOn, latestUsDate, type StakStockTagConfig } from "@stak/shared";
-import { createHash } from "node:crypto";
+import { DAILY_SWIPE_LIMIT, NEW_ACCOUNT_WINDOW_MS, STAK_CAPACITY, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, isPriceThreshold, DEFAULT_PRICE_THRESHOLD, TERMS_VERSION, PRIVACY_VERSION, type StakStockTagConfig } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 import { planOf } from "../lib/entitlements.js";
@@ -816,41 +815,15 @@ async function deleteAccount(uid: string, supabaseUid: string, token: string | u
 
 const bearer = (req: AuthenticatedRequest) => req.headers.authorization?.replace(/^Bearer\s+/i, "") || undefined;
 
-/** A refused sign-up's email, kept only as this hash (lower-cased, trimmed). */
-const emailHash = (email: string) => createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
-
-// POST /api/me/eligibility { dob: "YYYY-MM-DD", inUS: true, acceptTerms: true } - the beta's 18+ / U.S. confirmation
-// (Terms §2) and the Terms / Privacy acceptance. The age is worked out here, not trusted from the app, and the date
-// of birth is never stored: only that it was confirmed, and when. Under 18 (or an email refused in the last 30 days),
-// the account is deleted on the spot - it never gets going - and its email is kept as a hash so it can't simply
-// try again.
+// POST /api/me/eligibility { ageConfirmed: true, inUS: true, acceptTerms: true } - "Before we get started": three
+// boxes - 18 or older, living in the United States, and the Terms and Privacy Policy (Terms §2). No date of birth.
+// What's kept: that each was confirmed, when, and which versions of the documents.
 meRouter.post("/eligibility", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const { dob, inUS, acceptTerms } = (req.body ?? {}) as { dob?: unknown; inUS?: unknown; acceptTerms?: unknown };
-		const age = typeof dob === "string" ? ageOn(dob, latestUsDate()) : null;
-		if (age === null) {
-			res.status(400).json({ error: "invalid_dob" });
-			return;
-		}
-		if (inUS !== true || acceptTerms !== true) {
+		const { ageConfirmed, inUS, acceptTerms } = (req.body ?? {}) as { ageConfirmed?: unknown; inUS?: unknown; acceptTerms?: unknown };
+		if (ageConfirmed !== true || inUS !== true || acceptTerms !== true) {
 			res.status(400).json({ error: "confirmation_required" });
-			return;
-		}
-		const email = req.user!.email ?? "";
-		const blocked = email
-			? (await pgQuery(`select 1 from signup_blocks where email_hash = $1 and blocked_until > now()`, [emailHash(email)])).rows.length > 0
-			: false;
-		if (age < MIN_AGE || blocked) {
-			if (email && !blocked) {
-				await pgQuery(
-					`insert into signup_blocks (email_hash, blocked_until) values ($1, now() + make_interval(days => $2))
-					on conflict (email_hash) do update set blocked_until = excluded.blocked_until`,
-					[emailHash(email), ELIGIBILITY_BLOCK_DAYS],
-				);
-			}
-			await deleteAccount(uid, await supabaseIdOf(uid), bearer(req));
-			res.status(403).json({ error: "not_eligible" });
 			return;
 		}
 		await ensureUserRow(uid, req.user!.email);

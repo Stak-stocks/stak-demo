@@ -199,8 +199,8 @@ data class MeResponse(
     val needsEligibility: Boolean = false,
 )
 
-/** POST /api/me/eligibility - the date of birth as "YYYY-MM-DD" (checked by the server, never stored). */
-data class EligibilityRequest(val dob: String, val inUS: Boolean = true, val acceptTerms: Boolean = true)
+/** POST /api/me/eligibility - "Before we get started": all three boxes. */
+data class EligibilityRequest(val ageConfirmed: Boolean = true, val inUS: Boolean = true, val acceptTerms: Boolean = true)
 
 /** One headline behind an update. */
 data class UpdateSourceDto(

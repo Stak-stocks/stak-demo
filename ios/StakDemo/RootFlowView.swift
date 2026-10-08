@@ -217,20 +217,6 @@ struct RootFlowView: View {
 			// the Face ID lock (it waits until that unlocks).
 			if eligibility.required && (phase == .flow || (phase == .main && !relocked)) {
 				EligibilityView(
-					onRefused: {
-						// The server has deleted the account: everything this phone kept of it goes too, and sign-up starts
-						// over (as Delete account).
-						Task {
-							await authVM.clearSession()
-							Session.shared.deleteAccount()
-							pendingConfirmation = nil
-							drafts.clear()
-							authVM.resetState()
-							anim = .dissolve
-							stack = [.createAccount]
-							withAnimation(FlowAnim.dissolve.animation) { phase = .flow }
-						}
-					},
 					onSignOut: {
 						// As Log out on Profile: Sign in, with Sign up beneath it.
 						Task {

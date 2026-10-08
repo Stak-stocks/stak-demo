@@ -99,10 +99,10 @@ Use the native iOS behavior wherever an iPhone user expects it. Everything else 
 - **Early access:** the web is closed to new sign-ups; Android sign-up is still open to the team. **Ask the user**
   whether iOS sign-up should be open before shipping to TestFlight.
 - **Delete account** needs "DELETE" typed (any case), like Android's App settings.
-- **"Before we get started"** (2026-10-08): date of birth, U.S. residence and Terms / Privacy, over the whole app while
-  GET /api/me says `needsEligibility` - `Core/Eligibility.swift` (EligibilityGate) + `Onboarding/EligibilityView.swift`,
-  shown from `RootFlowView`'s overlay (not over the splash or the Face ID lock). POST /api/me/eligibility: 403 = not
-  eligible (the server deleted the account), 400 = the date or a box. Mirrors android `data/Eligibility.kt`.
+- **"Before we get started"** (2026-10-08): three boxes (18 or older, U.S. residence, Terms / Privacy) over the whole
+  app while GET /api/me says `needsEligibility` - `Core/Eligibility.swift` (EligibilityGate) +
+  `Onboarding/EligibilityView.swift`, shown from `RootFlowView`'s overlay (not over the splash or the Face ID lock).
+  POST /api/me/eligibility (400 = not all three). Mirrors android `data/Eligibility.kt`.
 
 ## 5. Gap list to build (in this order)
 

@@ -20,7 +20,7 @@ import { useSwipeLimit } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
 import { JOIN_WAITLIST, WEB_GOOGLE_SIGN_IN_KEY, WEB_SIGNUP_OPEN, isBrandNewAccount } from "@/lib/earlyAccess";
 import { useFirstRunPending } from "@/lib/firstRun";
-import { EligibilityGate, EligibilityRefused } from "@/components/onboarding/EligibilityGate";
+import { EligibilityGate } from "@/components/onboarding/EligibilityGate";
 
 export const Route = createRootRoute({
 	component: Root,
@@ -35,7 +35,6 @@ function Root() {
 	const isLoggedIn = !!appUser;
 	const { account, accountLoading, saveToStak, refreshAccount } = useAccount();
 	const queryClient = useQueryClient();
-	const [eligibilityRefused, setEligibilityRefused] = useState(false);
 	// Confirmed in this tab: the gate stays down even before the account's next read says so (until a sign-out).
 	const [eligibilityConfirmed, setEligibilityConfirmed] = useState(false);
 	useEffect(() => { if (!appUser) setEligibilityConfirmed(false); }, [appUser]);
@@ -232,11 +231,7 @@ function Root() {
 			</div>
 		);
 	}
-	// Refused (under 18): the account is gone and this browser signed out - the answer stays up until OK.
-	if (eligibilityRefused) {
-		return <EligibilityRefused onDone={() => { setEligibilityRefused(false); navigate(WEB_SIGNUP_OPEN ? { to: "/signup" } : { to: "/welcome" }); }} />;
-	}
-	// "Before we get started" (18+, U.S., Terms / Privacy) over everything until the account confirms - new and
+	// "Before we get started" (18+, U.S., Terms / Privacy - three boxes) over everything until the account confirms - new and
 	// existing accounts alike (as the apps); an account with no row yet hasn't confirmed either. The server refuses a
 	// new account's other requests until then too.
 	if (isLoggedIn && !accountLoading && !turningAway && !isLegalPage && !eligibilityConfirmed && (account === null || account.needsEligibility === true)) {
@@ -246,14 +241,6 @@ function Root() {
 					// The server has it: the gate goes now, not when the account is next read.
 					setEligibilityConfirmed(true);
 					void refreshAccount().catch(() => {});
-				}}
-				onRefused={() => {
-					setEligibilityRefused(true);
-					// As Delete account: the session and everything this tab kept of the account go.
-					void logout().catch(() => {}).finally(() => {
-						queryClient.clear();
-						try { sessionStorage.clear(); } catch { /* best-effort */ }
-					});
 				}}
 				onSignOut={() => { void logout().catch(() => {}); }}
 			/>

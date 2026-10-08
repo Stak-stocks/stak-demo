@@ -88,9 +88,9 @@ struct MeResponse: Decodable {
     /// The account hasn't confirmed 18+, U.S. and the current Terms / Privacy yet (EligibilityGate).
     var needsEligibility: Bool = false
 }
-/// POST /api/me/eligibility - the date of birth as "YYYY-MM-DD" (checked by the server, never stored).
+/// POST /api/me/eligibility - "Before we get started": all three boxes.
 struct EligibilityRequest: Encodable {
-    let dob: String
+    var ageConfirmed = true
     var inUS = true
     var acceptTerms = true
 }

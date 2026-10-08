@@ -759,16 +759,6 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 		val gateAuthVm: AuthViewModel = hiltViewModel()
 		val gateScope = rememberCoroutineScope()
 		com.stak.demo.ui.onboarding.EligibilityScreen(
-			onRefused = {
-				gateScope.launch {
-					// The server has deleted the account: everything this phone kept of it goes too, and sign-up starts
-					// over (as Delete account).
-					gateAuthVm.clearSession()
-					gateAuthVm.resetState()
-					navController.navigate(StakRoutes.createAccount(via = "dissolve")) { popUpTo(0) { inclusive = true } }
-					com.stak.demo.data.Session.deleteAccount()
-				}
-			},
 			onSignOut = {
 				gateScope.launch {
 					// As Log out on Profile.
