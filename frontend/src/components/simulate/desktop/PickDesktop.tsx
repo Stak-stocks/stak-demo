@@ -4,7 +4,7 @@ import type { Pick } from "@/hooks/usePaperPortfolio";
 import { isUp, monthDayYear, sharesLabel, signedUsd, usd, versusWords } from "@/lib/simFormat";
 import type { BrandSummary } from "@stak/shared";
 import { BrandLogo } from "@/components/BrandLogo";
-import { DESK, DeskButton, Panel, PanelHeader, SkeletonBar, changeColor, deskFocus, deskPageBg, signedPctLabel } from "@/components/desktop/deskKit";
+import { DESK, DeskButton, Panel, PanelHeader, SkeletonBar, deskFocus, deskPageBg } from "@/components/desktop/deskKit";
 import { ValueChart } from "@/components/desktop/ValueChart";
 
 const RANGES: ReadonlyArray<readonly [ChartRange, string]> = [["1d", "1D"], ["1w", "1W"], ["1m", "1M"], ["3m", "3M"], ["ytd", "YTD"], ["1y", "1Y"]];
@@ -22,7 +22,7 @@ function Tile({ label, value, color = "#fff" }: { label: string; value: string; 
  * One practice holding on desktop: what it has made since it was bought, its price chart, how it did this week and
  * against the market, and Sell / Buy more - beside every trade in it. Same figures as the phone's pick page.
  */
-export function PickDesktop({ pick, brand, held, range, onRange, prices, chartLoading, flatToday, weekGain, versus, trades, onSell, onBuyMore, onStock, onBack }: {
+export function PickDesktop({ pick, brand, held, range, onRange, prices, chartLoading, flatToday, move, weekGain, versus, trades, onSell, onBuyMore, onStock, onBack }: {
 	pick: Pick;
 	brand: BrandSummary | undefined;
 	/** Still held (the page can outlive a full sale while its receipt shows). */
@@ -32,6 +32,8 @@ export function PickDesktop({ pick, brand, held, range, onRange, prices, chartLo
 	prices: StockChartPoint[];
 	chartLoading: boolean;
 	flatToday: boolean;
+	/** The price's change over the selected range, as the phone's pick page words it - null until read. */
+	move: { up: boolean; text: string } | null;
 	weekGain: number | null;
 	versus: number | null;
 	trades: SandboxTrade[];
@@ -76,9 +78,10 @@ export function PickDesktop({ pick, brand, held, range, onRange, prices, chartLo
 						<Panel label={`${pick.ticker} performance`} className="gap-4 p-6">
 							<div className="flex flex-wrap items-end justify-between gap-4">
 								<div>
-									<p className="text-[12.5px]" style={{ color: DESK.muted }}>Your gain on this holding</p>
-									<p className="font-heading text-[40px] font-semibold leading-[48px] tabular-nums" style={{ color: up ? "#fff" : DESK.red }}>{signedUsd(pick.gain)}</p>
-									<p className="text-[13.5px]" style={{ color: changeColor(pick.gain) }}>{signedPctLabel(pick.gainPct)} on a {usd(pick.stake)} paper stake</p>
+									{/* The price leads, and its change over the selected range (as the phone); the gain has its own tile. */}
+									<p className="text-[12.5px]" style={{ color: DESK.muted }}>Price now</p>
+									<p className="font-heading text-[40px] font-semibold leading-[48px] tabular-nums text-white">{usd(pick.price)}</p>
+									<p className="text-[13.5px] font-medium" style={{ color: move === null ? DESK.muted : move.up ? DESK.green : DESK.red }}>{move?.text ?? "—"}</p>
 								</div>
 								<div className="flex gap-1 rounded-[10px] p-1" role="group" aria-label="Chart range" style={{ background: DESK.panelRaised, border: `1px solid ${DESK.border}` }}>
 									{RANGES.map(([key, label]) => {
@@ -96,11 +99,11 @@ export function PickDesktop({ pick, brand, held, range, onRange, prices, chartLo
 						</Panel>
 
 						<div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
-							<Tile label="This week" value={weekGain === null ? "—" : signedUsd(weekGain)} color={weekGain === null ? DESK.muted : changeColor(weekGain)} />
-							<Tile label="vs S&P 500 this week" value={versus === null ? "—" : versusWords(versus)} color={versus === null ? DESK.muted : changeColor(versus)} />
+							<Tile label="This week" value={weekGain === null ? "—" : signedUsd(weekGain)} color={weekGain === null ? DESK.muted : isUp(weekGain) ? DESK.green : DESK.red} />
+							<Tile label="vs S&P 500 this week" value={versus === null ? "—" : versusWords(versus)} color={versus === null ? DESK.muted : versus > -0.05 ? DESK.green : DESK.red} />
 							<Tile label="Shares" value={sharesLabel(pick.shares)} />
 							<Tile label="Price then" value={usd(pick.costPerShare)} />
-							<Tile label="Price now" value={usd(pick.price)} />
+							<Tile label="Your gain" value={`${signedUsd(pick.gain)} (${up ? "+" : "-"}${Math.abs(pick.gainPct).toFixed(1)}%)`} color={up ? DESK.green : DESK.red} />
 							<Tile label="Value now" value={usd(pick.value)} />
 						</div>
 

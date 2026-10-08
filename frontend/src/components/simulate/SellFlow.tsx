@@ -59,7 +59,7 @@ export function SellFlow({ pick, paper, onClose, onBackToSimulate, onViewPortfol
 	const gain = (closed?.pick.gain ?? 0) * slice;
 
 	return (
-		<SheetScaffold label={receipt ? "Position closed" : `Sell ${pick.ticker}`} onDismiss={receipt ? onViewPortfolio : onClose} scrim="rgba(2,5,14,0.62)" draggable={false}>
+		<SheetScaffold label={receipt ? "Position closed" : `Sell ${pick.ticker}`} onDismiss={receipt ? onViewPortfolio : onClose} scrim="rgba(2,5,14,0.62)">
 			<div key={receipt ? "closed" : "confirm"} style={{ display: "flex", flexDirection: "column", gap: cu(14), alignItems: receipt ? "center" : "stretch", animation: "sheet-fade 350ms ease-out" }}>
 				{receipt ? (
 					<>

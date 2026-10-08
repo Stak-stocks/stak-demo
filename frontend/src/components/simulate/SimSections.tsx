@@ -6,8 +6,8 @@ import { useFigmaUnit } from "@/components/discover/useFigmaUnit";
 import type { ChartRange } from "@/lib/api";
 import type { PaperPortfolio, Pick } from "@/hooks/usePaperPortfolio";
 import { bucketColor, buckets, simInsight } from "@/lib/simBuckets";
-import { isUp, rangeLine, signedPct, signedUsd, signedWhole, usd, wholeUsd } from "@/lib/simFormat";
-import { usePortfolioHistory } from "@/hooks/usePaperPortfolio";
+import { isUp, rangeLine, rangeStartMs, signedPct, signedUsd, signedWhole, usd, wholeUsd } from "@/lib/simFormat";
+import { todaysMove, usePortfolioHistory } from "@/hooks/usePaperPortfolio";
 import { heldCountLabel } from "@/components/mystak/CollectionChip";
 import { Sparkle } from "@/components/mystak/TasteCard";
 import { DISC, cu, sessionWord } from "@/components/discover/discoverTheme";
@@ -86,11 +86,21 @@ export function ScoreHero({ paper, range, onRange }: { paper: PaperPortfolio; ra
 	const [whole, cents = "00"] = usd(paper.portfolioValue).split(".");
 	const gain = paper.allTimeGain;
 	const up = isUp(gain);
-	// The line under the value follows the pills: the change from the range's first value to today's. Until the range is
-	// read it shows the all-time change (as the apps).
-	const first = values && values.length >= 2 ? values[0]! : 0;
-	const rangeChange = first > 0 ? paper.portfolioValue - first : null;
-	const lineUp = rangeChange === null ? up : Math.round(rangeChange) >= 0;
+	// The line under the value follows the pills: 1D is today's move on what's held; a range the account began inside
+	// counts from the money it started with; otherwise from the range's first value to today's. Until it's read it shows
+	// the all-time change (as the apps).
+	const firstTradeMs = paper.trades.length > 0 ? Math.min(...paper.trades.map((t) => Date.parse(t.executedAt))) : null;
+	const [rangeChange, first] = ((): [number | null, number] => {
+		if (range === "1d") {
+			if (paper.picks.length === 0) return [null, 0];
+			const m = todaysMove(paper).usd;
+			return [m, paper.portfolioValue - m];
+		}
+		if (firstTradeMs !== null && firstTradeMs >= rangeStartMs(range)) return [gain, paper.paperStart];
+		const base = values?.[0] ?? 0;
+		return [base > 0 ? paper.portfolioValue - base : null, base];
+	})();
+	const lineUp = rangeChange === null || !(first > 0) ? up : Math.round(rangeChange) >= 0;
 	const pad = { padding: `0 ${cu(20)}` };
 	return (
 		<section style={{ display: "flex", flexDirection: "column", gap: cu(11), ...sheetCard(18), padding: `${cu(20)} 0` }} aria-label="Portfolio value">
@@ -107,7 +117,7 @@ export function ScoreHero({ paper, range, onRange }: { paper: PaperPortfolio; ra
 				<span style={{ font: f(500, 12, 16), color: DISC.ink }}>{usd(paper.cash)}</span>
 			</div>
 			<p style={{ ...pad, font: f(500, 12, 16), color: lineUp ? DISC.green : DISC.red }}>
-				{rangeChange !== null
+				{rangeChange !== null && first > 0
 					? rangeLine(signedWhole(rangeChange), (rangeChange / first) * 100, lineUp, range, sessionWord())
 					: <>{up ? "▲" : "▼"} {signedWhole(gain)} ({signedPct(paper.paperStart > 0 ? (gain / paper.paperStart) * 100 : 0)}) all time</>}
 			</p>

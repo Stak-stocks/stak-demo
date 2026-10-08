@@ -144,7 +144,7 @@ function StockDetailPage() {
 	const sheets = (
 		<>
 			{showSaved && (
-				<SheetScaffold label="Saved to My STAK" onDismiss={confirmSave} scrim="rgba(12,19,32,0.55)" draggable={false}>
+				<SheetScaffold label="Saved to My STAK" onDismiss={confirmSave} scrim="rgba(12,19,32,0.55)">
 					<div className="flex flex-col items-center" style={{ gap: cu(14), animation: "sheet-fade 350ms ease-out" }}>
 						<SheetCheck />
 						<h2 style={{ font: f(600, 18, undefined, "heading"), color: "#fff" }}>Saved to My STAK</h2>
