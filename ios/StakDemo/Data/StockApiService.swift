@@ -76,6 +76,8 @@ final class StockApiService {
     func getMe() async throws -> MeResponse { try await net.get("api/me") }
     func putMe(_ body: MePutRequest) async throws -> MeResponse { try await net.put("api/me", body: body) }
     func deleteMe() async throws -> OkResponse { try await net.delete("api/me") }
+    /// "Before we get started": 403 = not eligible (the server deleted the account), 400 = the date or a box.
+    func confirmEligibility(_ body: EligibilityRequest) async throws -> OkResponse { try await net.post("api/me/eligibility", body: body) }
     func getTaste() async throws -> TasteResponse { try await net.get("api/me/taste") }
     func getUpdates() async throws -> UpdatesResponse { try await net.get("api/me/updates") }
     func markUpdateRead(_ id: Int64) async throws -> OkResponse { try await net.post("api/me/updates/\(id)/read", body: EmptyBody()) }

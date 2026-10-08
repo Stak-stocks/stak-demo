@@ -192,6 +192,7 @@ final class Session: ObservableObject {
 		// The push token is forgotten under the leaving account's keys - after the switch below it would clear the
 		// demo's copy and leave this account's in place.
 		PushRegistration.forget()
+		EligibilityGate.shared.reset()
 		accountGeneration += 1
 		signedIn = false
 		resumedSignedIn = false

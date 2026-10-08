@@ -68,6 +68,8 @@ class AuthViewModel @Inject constructor(
                 onSuccess = { onboardingComplete ->
                     UserProfile.linkedGoogle = false
                     Session.saveProfile()
+                    // Signed in: \"Before we get started\" goes up over whatever comes next if the account hasn't confirmed.
+                    com.stak.demo.data.Eligibility.check()
                     _uiState.value = AuthUiState.Success(onboardingComplete)
                 },
                 onFailure = { e ->
@@ -92,6 +94,8 @@ class AuthViewModel @Inject constructor(
                         Session.setToken(token)
                         UserProfile.linkedGoogle = false
                         // New users always go through onboarding.
+                        // Signed in: \"Before we get started\" goes up over whatever comes next if the account hasn't confirmed.
+                        com.stak.demo.data.Eligibility.check()
                         _uiState.value = AuthUiState.Success(onboardingComplete = false)
                     } else {
                         // Email confirmation is enabled in the Supabase dashboard - this isn't
@@ -139,6 +143,8 @@ class AuthViewModel @Inject constructor(
                     Session.setToken(token)
                     UserProfile.linkedGoogle = false
                     // New users always go through onboarding.
+                    // Signed in: \"Before we get started\" goes up over whatever comes next if the account hasn't confirmed.
+                    com.stak.demo.data.Eligibility.check()
                     _uiState.value = AuthUiState.Success(onboardingComplete = false)
                 },
                 onFailure = { e -> _uiState.value = AuthUiState.Error(friendlyError(e)) },
@@ -310,6 +316,8 @@ class AuthViewModel @Inject constructor(
                 onSuccess = { onboardingComplete ->
                     UserProfile.linkedGoogle = true
                     Session.saveProfile()
+                    // Signed in: \"Before we get started\" goes up over whatever comes next if the account hasn't confirmed.
+                    com.stak.demo.data.Eligibility.check()
                     _uiState.value = AuthUiState.Success(onboardingComplete)
                 },
                 onFailure = { e ->

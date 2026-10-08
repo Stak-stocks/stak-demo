@@ -115,6 +115,8 @@ struct RootFlowView: View {
 	@State private var flowSwipeLive = false
 	/// An email sign-up waiting on its confirmation code - Create account shows the code entry while it is set.
 	@State private var pendingConfirmation: String? = nil
+	/// "Before we get started" (18+, U.S., Terms / Privacy) - over every screen while the account hasn't confirmed.
+	@ObservedObject private var eligibility = EligibilityGate.shared
 
 	/// Screens a swipe can go back from: every screen with an on-screen Back, and Sign in (swipe only - android's has
 	/// none, its system Back does it). Create account is the root, 01 Welcome and the deck loader have no Back.
@@ -210,6 +212,27 @@ struct RootFlowView: View {
 				.transition(anim.transition)
 			}
 		}
+		.overlay {
+			// A new account right after it signs up, an existing one the next time the app opens; not over the splash or
+			// the Face ID lock (it waits until that unlocks).
+			if eligibility.required && (phase == .flow || (phase == .main && !relocked)) {
+				EligibilityView(onRefused: {
+					// The server has deleted the account: its session goes, and sign-up starts over (as Delete account).
+					Task {
+						await authVM.clearSession()
+						Session.shared.signOut()
+						pendingConfirmation = nil
+						drafts.clear()
+						authVM.resetState()
+						anim = .dissolve
+						stack = [.createAccount]
+						withAnimation(FlowAnim.dissolve.animation) { phase = .flow }
+					}
+				})
+				.transition(.opacity)
+			}
+		}
+		.task { EligibilityGate.shared.check() }
 		.onChange(of: scenePhase) { _, next in
 			// Opening the app reads the notifications: the icon's badge (asked for when one arrives in front) clears.
 			if next == .active { UNUserNotificationCenter.current().setBadgeCount(0) }

@@ -64,6 +64,7 @@ export {
 export type { SandboxStartingBalance, SandboxStrategy } from "./sandboxConfig";
 
 export { PRICE_THRESHOLDS, DEFAULT_PRICE_THRESHOLD, isPriceThreshold } from "./notificationConfig";
+export { MIN_AGE, TERMS_VERSION, PRIVACY_VERSION, TERMS_URL, PRIVACY_URL, ELIGIBILITY_ENFORCED_FROM, ELIGIBILITY_BLOCK_DAYS, ageOn } from "./eligibility";
 export type { PriceThreshold } from "./notificationConfig";
 
 export { STAK_AI_WINDOW_LIMIT, STAK_AI_WINDOW_HOURS, STAK_AI_VIA } from "./stakAi";

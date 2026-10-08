@@ -98,6 +98,10 @@ interface StockApiService {
     @PUT("api/me")
     suspend fun putMe(@Body body: MePutRequest): MeResponse
 
+    /** "Before we get started": 403 = not eligible (the server deleted the account), 400 = the date or a box. */
+    @POST("api/me/eligibility")
+    suspend fun confirmEligibility(@Body body: EligibilityRequest): OkResponse
+
     /** App settings -> Delete account: removes every saved row and the Supabase auth record. */
     @DELETE("api/me")
     suspend fun deleteMe(): OkResponse

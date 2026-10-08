@@ -50,6 +50,7 @@ object ProfileSync {
 				joinedMonth(me.createdAt)?.let { UserProfile.joined = it }
 				UserProfile.email = me.email
 				Entitlements.apply(me.plan)
+				Eligibility.apply(me)
 				StakNotifications.rememberCreatedAt(me.createdAt)
 				// The account's name wins when it has one - a rename on another phone reaches this one; a blank never
 				// wipes the name here.

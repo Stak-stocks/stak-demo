@@ -31,6 +31,7 @@ final class ProfileSync {
 				if let joined = Self.joinedMonth(me.createdAt) { UserProfile.shared.joined = joined }
 				UserProfile.shared.email = me.email
 				Entitlements.shared.apply(raw: me.plan)
+				EligibilityGate.shared.apply(me)
 				StakNotifications.rememberCreatedAt(me.createdAt)
 				// The account's name wins when it has one - a rename on another phone reaches this one; a blank never
 				// wipes the name here.

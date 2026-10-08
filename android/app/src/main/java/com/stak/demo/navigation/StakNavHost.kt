@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -743,6 +744,22 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 	// filled - shown over every screen, not only Simulate, since the ticket also opens
 	// from Discover and the stock page.
 	com.stak.demo.ui.simulate.PaperTradeErrorBanner(modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter))
+	// "Before we get started" (18+, U.S., Terms / Privacy) over every screen while the account hasn't confirmed - a new
+	// account right after it signs up, an existing one the next time the app opens. Asked when the UI starts, not at
+	// process start (a push can do that).
+	LaunchedEffect(Unit) { com.stak.demo.data.Eligibility.check() }
+	if (com.stak.demo.data.Eligibility.required) {
+		val gateAuthVm: AuthViewModel = hiltViewModel()
+		val gateScope = rememberCoroutineScope()
+		com.stak.demo.ui.onboarding.EligibilityScreen(onRefused = {
+			gateScope.launch {
+				// The server has deleted the account: its session goes, and sign-up starts over (as Delete account).
+				gateAuthVm.clearSession()
+				navController.navigate(StakRoutes.createAccount(via = "dissolve")) { popUpTo(0) { inclusive = true } }
+				com.stak.demo.data.Session.signOut()
+			}
+		})
+	}
 	}
 }
 

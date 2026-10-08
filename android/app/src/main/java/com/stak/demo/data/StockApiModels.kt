@@ -195,7 +195,12 @@ data class MeResponse(
     val taste: TasteDto? = null,
     /** "free" or "plus" - read only through Entitlements. */
     val plan: String = "free",
+    /** The account hasn't confirmed 18+, U.S. and the current Terms / Privacy yet (Eligibility). */
+    val needsEligibility: Boolean = false,
 )
+
+/** POST /api/me/eligibility - the date of birth as "YYYY-MM-DD" (checked by the server, never stored). */
+data class EligibilityRequest(val dob: String, val inUS: Boolean = true, val acceptTerms: Boolean = true)
 
 /** One headline behind an update. */
 data class UpdateSourceDto(

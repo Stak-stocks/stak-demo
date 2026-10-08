@@ -85,6 +85,14 @@ struct PeerMetricsResponse: Decodable {
 struct MeResponse: Decodable {
     var displayName: String = ""; var onboardingCompleted: Bool = false
     var createdAt: String = ""; var email: String = ""; var taste: TasteDto?; var plan: String = "free"
+    /// The account hasn't confirmed 18+, U.S. and the current Terms / Privacy yet (EligibilityGate).
+    var needsEligibility: Bool = false
+}
+/// POST /api/me/eligibility - the date of birth as "YYYY-MM-DD" (checked by the server, never stored).
+struct EligibilityRequest: Encodable {
+    let dob: String
+    var inUS = true
+    var acceptTerms = true
 }
 struct MePutRequest: Encodable {
     var displayName: String?; var onboardingCompleted: Bool?; var taste: TasteDto?
@@ -792,12 +800,13 @@ extension OkResponse {
 // sends no `limitReached`, and a saved-stocks PUT no `saved`.
 
 extension MeResponse {
-    private enum CodingKeys: String, CodingKey { case displayName, onboardingCompleted, createdAt, email, taste, plan }
+    private enum CodingKeys: String, CodingKey { case displayName, onboardingCompleted, createdAt, email, taste, plan, needsEligibility }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         displayName = c.value(.displayName, or: ""); onboardingCompleted = c.value(.onboardingCompleted, or: false)
         createdAt = c.value(.createdAt, or: ""); email = c.value(.email, or: "")
         taste = c.value(.taste, or: nil); plan = c.value(.plan, or: "free")
+        needsEligibility = c.value(.needsEligibility, or: false)
     }
 }
 

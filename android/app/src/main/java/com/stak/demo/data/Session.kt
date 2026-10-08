@@ -236,6 +236,7 @@ object Session {
 	/** Log out: forget the session and the profile; next launch asks to sign in. */
 	fun signOut() {
 		PushRegistration.forget()
+		Eligibility.reset()
 		accountGeneration++
 		signedIn = false
 		resumedSignedIn = false

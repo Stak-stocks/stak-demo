@@ -20,6 +20,7 @@ import { useSwipeLimit } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
 import { JOIN_WAITLIST, WEB_GOOGLE_SIGN_IN_KEY, WEB_SIGNUP_OPEN, isBrandNewAccount } from "@/lib/earlyAccess";
 import { useFirstRunPending } from "@/lib/firstRun";
+import { EligibilityGate } from "@/components/onboarding/EligibilityGate";
 
 export const Route = createRootRoute({
 	component: Root,
@@ -32,7 +33,7 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 function Root() {
 	const { appUser, loading, logout } = useAuth();
 	const isLoggedIn = !!appUser;
-	const { account, accountLoading, saveToStak } = useAccount();
+	const { account, accountLoading, saveToStak, refreshAccount } = useAccount();
 	const { reset: resetOnboarding } = useOnboarding();
 	const { hasReachedLimit: stakLimitReached, increment: incrementStakSwipe } = useSwipeLimit(appUser?.uid ?? "guest", !!appUser);
 	const location = useLocation();
@@ -41,7 +42,9 @@ function Root() {
 	// -> quiz -> Permissions -> Profile), so every onboarding route needs a session. They render without nav chrome.
 	const isOnboardingRoute = location.pathname === "/onboarding" || location.pathname.startsWith("/onboarding/");
 	const needsAuthForOnboardingStep = isOnboardingRoute;
-	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password"].includes(location.pathname) || isOnboardingRoute;
+	// The Terms and Privacy pages open for anyone, signed in or not - the gate below links to them.
+	const isLegalPage = location.pathname === "/terms" || location.pathname === "/privacy";
+	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password"].includes(location.pathname) || isOnboardingRoute || isLegalPage;
 	const [searchOpen, setSearchOpen] = useState(false);
 	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -223,6 +226,19 @@ function Root() {
 			<div className="flex items-center justify-center h-full bg-background">
 				<div className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
 			</div>
+		);
+	}
+	// "Before we get started" (18+, U.S., Terms / Privacy) over everything until the account confirms - new and
+	// existing accounts alike (as the apps). The server refuses a new account's other requests until then too.
+	if (isLoggedIn && !accountLoading && !turningAway && !isLegalPage && account?.needsEligibility === true) {
+		return (
+			<EligibilityGate
+				onConfirmed={refreshAccount}
+				onRefused={async () => {
+					await logout().catch(() => {});
+					navigate({ to: "/welcome" });
+				}}
+			/>
 		);
 	}
 	if (isLoggedIn && !isAuthPage && onboardingCheckApplies && account?.onboardingCompleted !== true) {

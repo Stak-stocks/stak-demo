@@ -190,6 +190,8 @@ internal fun AuthInput(
 	trailing: (@Composable () -> Unit)? = null,
 	/** Inline validation (product audit, 2026-09-05): a red hairline and a caption under the field. */
 	error: String? = null,
+	/** How the typed text is drawn - a date of birth's slashes; [hidden] wins for a password. */
+	visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
 	val u = figmaUnit()
 	val textStyle = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, color = StakColors.TextPrimary)
@@ -212,7 +214,7 @@ internal fun AuthInput(
 				textStyle = textStyle,
 				singleLine = true,
 				cursorBrush = SolidColor(StakColors.Accent),
-				visualTransformation = if (hidden) PasswordVisualTransformation() else VisualTransformation.None,
+				visualTransformation = if (hidden) PasswordVisualTransformation() else visualTransformation,
 				keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
 				// The placeholder is the field's accessible name (screen readers and UI tests).
 				modifier = Modifier.fillMaxWidth().semantics { contentDescription = placeholder },

@@ -1,6 +1,24 @@
 import type { Request, Response, NextFunction } from "express";
 import { createHash } from "node:crypto";
 import { pgQuery } from "./lib/postgres.js";
+import { ELIGIBILITY_ENFORCED_FROM, PRIVACY_VERSION, TERMS_VERSION } from "@stak/shared";
+
+/**
+ * What an account that hasn't confirmed its eligibility (18+, U.S., Terms and Privacy accepted) may still call: reading
+ * its own account (which tells the app to ask), confirming, and leaving - deleting the account, or a push device.
+ */
+const BEFORE_ELIGIBILITY: ReadonlySet<string> = new Set([
+	"GET /api/me",
+	"POST /api/me/eligibility",
+	"DELETE /api/me",
+	"POST /api/me/turned-away",
+	"DELETE /api/me/push-device",
+]);
+
+function allowedBeforeEligibility(req: Request): boolean {
+	const path = `${req.baseUrl}${req.path}`.replace(/\/+$/, "") || "/";
+	return BEFORE_ELIGIBILITY.has(`${req.method} ${path}`);
+}
 
 /**
  * Verified logins, remembered briefly. Every authenticated request used to ask
@@ -69,6 +87,8 @@ export interface AuthenticatedRequest extends Request {
 		uid: string;
 		email?: string;
 		onboardingCompleted?: boolean;
+		/** False for an account created since eligibility was enforced that hasn't confirmed it yet. */
+		eligible?: boolean;
 	};
 }
 
@@ -89,6 +109,10 @@ export async function authMiddleware(
 	const hit = verified.get(tokenKey(token));
 	if (hit && hit.until > Date.now()) {
 		req.user = { ...hit.user };
+		if (req.user.eligible === false && !allowedBeforeEligibility(req)) {
+			res.status(403).json({ error: "eligibility_required" });
+			return;
+		}
 		next();
 		return;
 	}
@@ -121,17 +145,26 @@ export async function authMiddleware(
 			mapped = { rows: [{ firebase_uid: supabaseUid }] } as typeof mapped;
 		}
 
-		const onboardingResult = await pgQuery<{ onboarding_completed: boolean }>(
-			`select onboarding_completed from users where uid = $1`,
-			[mapped.rows[0]!.firebase_uid],
+		const onboardingResult = await pgQuery<{ onboarding_completed: boolean; eligible: boolean }>(
+			`select onboarding_completed,
+			        (age_confirmed and country_confirmed and terms_version = $2 and privacy_version = $3)
+			     or (created_at at time zone 'America/New_York')::date < $4::date as eligible
+			   from users where uid = $1`,
+			[mapped.rows[0]!.firebase_uid, TERMS_VERSION, PRIVACY_VERSION, ELIGIBILITY_ENFORCED_FROM],
 		);
 
 		req.user = {
 			uid: mapped.rows[0]!.firebase_uid,
 			email: supabaseUser.email,
 			onboardingCompleted: onboardingResult.rows[0]?.onboarding_completed === true,
+			// No row yet (it's made on the first request) is a new account: not eligible until it confirms.
+			eligible: onboardingResult.rows[0]?.eligible ?? false,
 		};
 		rememberVerified(token, req.user);
+		if (!req.user.eligible && !allowedBeforeEligibility(req)) {
+			res.status(403).json({ error: "eligibility_required" });
+			return;
+		}
 		next();
 	} catch {
 		res.status(401).json({ error: "Invalid or expired token" });

@@ -17,6 +17,7 @@
  * correct over maximally efficient, which is the right tradeoff at one user's data
  * volume (a handful of rows per table, not a bulk dataset).
  */
+import { PRIVACY_VERSION, TERMS_VERSION } from "@stak/shared";
 import { supabase } from "./supabase";
 import type {
 	UserDoc, PassedEntry, SearchEntry, StakSaveEntry, SandboxEntry, SandboxOrder,
@@ -102,6 +103,7 @@ export async function fetchSupabaseAccount(): Promise<UserDoc | null> {
 		phone: u.phone ?? undefined,
 		preferences: u.preferences ?? undefined,
 		onboardingCompleted: u.onboarding_completed,
+		needsEligibility: !(u.age_confirmed && u.country_confirmed && u.terms_version === TERMS_VERSION && u.privacy_version === PRIVACY_VERSION),
 		stakBrandIds,
 		stakSavedAt,
 		passedBrands,
