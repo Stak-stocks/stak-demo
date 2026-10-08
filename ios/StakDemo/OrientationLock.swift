@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import UserNotifications
 import GoogleSignIn
+import FirebaseMessaging
 
 /// The app is portrait-locked (Info.plist), EXCEPT while the article
 /// player's native fullscreen presentation is up: then the scene FOLLOWS
@@ -34,9 +35,11 @@ final class OrientationLock {
 	}
 }
 
-final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
 	func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
 		UNUserNotificationCenter.current().delegate = self
+		// Firebase (push) starts only when the app carries GoogleService-Info.plist - dormant until then.
+		PushRegistration.configure(delegate: self)
 		PushRegistration.sync()
 		// A returning account catches up with the server at launch, as android's Session.init does through
 		// applyAccount - Session's own init can't start these (they read Session.shared, still being built).
@@ -59,11 +62,18 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 	}
 
 	func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-		PushRegistration.tokenReceived(deviceToken)
+		PushRegistration.apnsTokenReceived(deviceToken)
+	}
+
+	/// Firebase issued or rotated this install's token - the one the backend sends to.
+	nonisolated func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+		guard let fcmToken, !fcmToken.isEmpty else { return }
+		Task { @MainActor in PushRegistration.fcmTokenReceived(fcmToken) }
 	}
 
 	func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-		// Simulator and devices without APNs capability: silently ignored.
+		// Simulator, or a build without the push entitlement (a free developer account): silently ignored - push stays
+		// off until the entitlement is added.
 	}
 
 	/// Show the notification banner while the app is in the foreground (mirrors Android onMessageReceived).

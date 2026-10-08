@@ -33,3 +33,6 @@ fastlane/test_output
 *.xcconfig.local
 Secrets.xcconfig
 Secrets.swift
+
+# Firebase config (per developer / project) - like android/app/google-services.json
+StakDemo/GoogleService-Info.plist

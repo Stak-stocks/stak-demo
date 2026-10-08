@@ -20,6 +20,11 @@ packages:
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS
     from: "8.0.0"
+  # Push: the backend delivers through Firebase Cloud Messaging. Dormant until GoogleService-Info.plist is in
+  # StakDemo/ (see Core/PushRegistration.swift).
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    from: "11.0.0"
 targets:
   StakDemo:
     type: application
@@ -48,3 +53,5 @@ targets:
         product: Supabase
       - package: GoogleSignIn
         product: GoogleSignIn
+      - package: Firebase
+        product: FirebaseMessaging

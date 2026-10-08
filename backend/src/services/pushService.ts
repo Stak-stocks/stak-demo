@@ -104,6 +104,8 @@ export async function sendPush(
 					notification: { title, body },
 					data,
 					android: { priority: "high", notification: { channel_id: "stak_alerts" } },
+					// iPhones (through Firebase's APNs bridge): play the default sound with the banner.
+					apns: { payload: { aps: { sound: "default" } } },
 				},
 			}),
 			signal: AbortSignal.timeout(8000),
