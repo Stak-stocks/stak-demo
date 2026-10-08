@@ -21,6 +21,7 @@ import { STAK_CAPACITY } from "@/lib/constants";
 import { JOIN_WAITLIST, WEB_GOOGLE_SIGN_IN_KEY, WEB_SIGNUP_OPEN, isBrandNewAccount } from "@/lib/earlyAccess";
 import { useFirstRunPending } from "@/lib/firstRun";
 import { EligibilityGate } from "@/components/onboarding/EligibilityGate";
+import { pageTitle } from "@/lib/pageTitle";
 
 export const Route = createRootRoute({
 	component: Root,
@@ -49,6 +50,8 @@ function Root() {
 	// The Terms and Privacy pages open for anyone, signed in or not - the gate below links to them.
 	const isLegalPage = location.pathname === "/terms" || location.pathname === "/privacy";
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password"].includes(location.pathname) || isOnboardingRoute || isLegalPage;
+	// Every page names itself in the browser tab (WCAG 2.4.2).
+	useEffect(() => { document.title = pageTitle(location.pathname); }, [location.pathname]);
 	const [searchOpen, setSearchOpen] = useState(false);
 	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -200,7 +203,7 @@ function Root() {
 	if (turningAway) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
-				<div className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
+				<div role="status" aria-label="Loading" className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
@@ -211,7 +214,7 @@ function Root() {
 	if ((loading || accountLoading) && !isAuthPage) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
-				<div className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
+				<div role="status" aria-label="Loading" className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
@@ -220,14 +223,14 @@ function Root() {
 	if (!isLoggedIn && !isAuthPage) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
-				<div className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
+				<div role="status" aria-label="Loading" className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
 	if (!isLoggedIn && needsAuthForOnboardingStep) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
-				<div className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
+				<div role="status" aria-label="Loading" className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
@@ -236,6 +239,7 @@ function Root() {
 	// new account's other requests until then too.
 	if (isLoggedIn && !accountLoading && !turningAway && !isLegalPage && !eligibilityConfirmed && (account === null || account.needsEligibility === true)) {
 		return (
+			<main>
 			<EligibilityGate
 				onConfirmed={() => {
 					// The server has it: the gate goes now, not when the account is next read.
@@ -244,12 +248,13 @@ function Root() {
 				}}
 				onSignOut={() => { void logout().catch(() => {}); }}
 			/>
+			</main>
 		);
 	}
 	if (isLoggedIn && !isAuthPage && onboardingCheckApplies && account?.onboardingCompleted !== true) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
-				<div className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
+				<div role="status" aria-label="Loading" className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
@@ -257,8 +262,11 @@ function Root() {
 	return (
 		<div className="fixed inset-0 flex flex-col bg-background">
 
-			<div ref={scrollRef} data-scroll-root className={`flex-1 overflow-y-auto overscroll-y-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${isAuthPage ? "" : isMobile ? (showTabBar ? "pb-[calc(96px+env(safe-area-inset-bottom))]" : "") : "pl-[220px]"}`}>
-				<ErrorBoundary tagName="main" className="min-h-full">
+			{/* Keyboard users jump past the navigation straight to the page (WCAG 2.4.1). */}
+			<a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[300] focus:rounded-md focus:bg-[#181F30] focus:px-4 focus:py-2 focus:text-white focus:outline focus:outline-2 focus:outline-[#69B3CA]">Skip to content</a>
+			{/* The scrollbar shows on the legal pages, where long reading needs a sense of place. */}
+			<div ref={scrollRef} data-scroll-root className={`flex-1 overflow-y-auto overscroll-y-contain ${isLegalPage ? "" : "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"} ${isAuthPage ? "" : isMobile ? (showTabBar ? "pb-[calc(96px+env(safe-area-inset-bottom))]" : "") : "pl-[220px]"}`}>
+				<ErrorBoundary tagName="main" id="main" tabIndex={-1} className="min-h-full outline-none">
 					<PageTransition pathname={location.pathname}>
 						<Outlet />
 					</PageTransition>

@@ -482,7 +482,7 @@ struct BuyPill: View {
 		Button(action: action) {
 			Text(text)
 				.font(StakFont.sora(12 * u))
-				.foregroundStyle(Color.white)
+				.foregroundStyle(StakColors.bg)
 				.lineLimit(1)
 				.minimumScaleFactor(0.7)
 				.frame(width: 60 * u, height: 30 * u * typeScale)

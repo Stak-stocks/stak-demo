@@ -1206,7 +1206,7 @@ private fun SheetCta(text: String, onClick: () -> Unit, enabled: Boolean = true)
 		Text(
 			text = text,
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp),
-			color = Color.White,
+			color = StakColors.Bg,
 		)
 	}
 }
@@ -1589,7 +1589,7 @@ private fun DeckLoadError(u: Float, onRetry: () -> Unit) {
 			Text(
 				text = "Retry",
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp),
-				color = Color.White,
+				color = StakColors.Bg,
 			)
 		}
 	}

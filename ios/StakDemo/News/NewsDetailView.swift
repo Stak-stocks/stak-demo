@@ -517,9 +517,12 @@ private struct AddToStakButton: View {
 			HStack(spacing: 8 * u) {
 				Text("Add to STAK")
 					.font(StakFont.geist(14 * u, .medium))
-					.foregroundStyle(StakColors.textPrimary)
+					.foregroundStyle(StakColors.bg)
+				// Navy like the label beside it on the teal button.
 				Image("IcPlusSmall")
+					.renderingMode(.template)
 					.resizable()
+					.foregroundStyle(StakColors.bg)
 					.frame(width: 14 * u, height: 14 * u)
 			}
 			.frame(width: 150 * u * typeScale, height: 52 * u * typeScale)
@@ -950,7 +953,7 @@ private struct SaveSuccessOverlay: View {
 					Button(action: onViewInMyStak) {
 						Text("View in My STAK")
 							.font(StakFont.geist(14 * u, .medium))
-							.foregroundStyle(StakColors.textPrimary)
+							.foregroundStyle(StakColors.bg)
 							.frame(maxWidth: .infinity)
 							.frame(height: 52 * u * typeScale)
 							.background(ctaGradient, in: RoundedRectangle(cornerRadius: 6 * u))

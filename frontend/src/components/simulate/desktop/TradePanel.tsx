@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeftRight, CheckCircle2, Info, Minus, Plus, Search } from "lucide-react";
 import { SANDBOX_DEFAULT_STARTING_BALANCE, SANDBOX_MIN_SHARES, type BrandSummary } from "@stak/shared";
@@ -30,6 +30,9 @@ export function TradePanel({ paper, brands, symbol, mode, onSymbol, onMode }: {
 }) {
 	const [query, setQuery] = useState("");
 	const [searching, setSearching] = useState(false);
+	// The highlighted search result (keyboard), -1 for none.
+	const [active, setActive] = useState(-1);
+	const listId = useId();
 	const [qtyText, setQtyText] = useState("1");
 	const [orderType, setOrderType] = useState<OrderType>("market");
 	const [limitText, setLimitText] = useState("");
@@ -113,7 +116,18 @@ export function TradePanel({ paper, brands, symbol, mode, onSymbol, onMode }: {
 	}
 
 	const input = `h-[40px] w-full rounded-[10px] px-3 text-[13.5px] text-white outline-none placeholder:text-[#819ABB] focus:border-[#69B3CA] ${deskFocus}`;
-	const inputStyle = { background: DESK.panelRaised, border: `1px solid ${DESK.border}` };
+	// The edge at 3:1 against the panel (WCAG 1.4.11), so each field reads as a field.
+	const inputStyle = { background: DESK.panelRaised, border: "1px solid #64789A" };
+	// The company search is a combobox: arrows move through the results, Enter picks, Esc closes, and the list stays
+	// open while focus is anywhere inside it (Tab used to close it before a result could be reached).
+	const pick = (ticker: string) => { onSymbol(ticker.toUpperCase()); setQuery(""); setSearching(false); setActive(-1); };
+	const open = searching && results.length > 0;
+	const onSearchKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+		if (e.key === "ArrowDown") { e.preventDefault(); setSearching(true); setActive((i) => Math.min(i + 1, results.length - 1)); }
+		else if (e.key === "ArrowUp") { e.preventDefault(); setActive((i) => Math.max(i - 1, 0)); }
+		else if (e.key === "Enter" && open && active >= 0) { e.preventDefault(); pick(results[active]!.ticker); }
+		else if (e.key === "Escape" && open) { e.preventDefault(); setSearching(false); setActive(-1); }
+	};
 
 	return (
 		<Panel label="Place a simulated trade" className="gap-4 p-5">
@@ -132,27 +146,39 @@ export function TradePanel({ paper, brands, symbol, mode, onSymbol, onMode }: {
 				})}
 			</div>
 
-			<div className="relative">
+			<div className="relative" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) { setSearching(false); setActive(-1); } }}>
 				<Search className="pointer-events-none absolute left-3 top-1/2 h-[16px] w-[16px] -translate-y-1/2" style={{ color: DESK.muted }} aria-hidden="true" />
 				<input
 					value={query}
-					onChange={(e) => { setQuery(e.target.value); setSearching(true); }}
+					onChange={(e) => { setQuery(e.target.value); setSearching(true); setActive(-1); }}
 					onFocus={() => setSearching(true)}
-					onBlur={() => setTimeout(() => setSearching(false), 150)}
+					onKeyDown={onSearchKey}
 					placeholder={mode === "sell" ? "Search your holdings" : "Search a company (e.g. AAPL, NVIDIA…)"}
 					aria-label="Search a company"
+					role="combobox"
+					aria-expanded={open}
+					aria-controls={listId}
+					aria-autocomplete="list"
+					aria-activedescendant={open && active >= 0 ? `${listId}-${active}` : undefined}
 					className={`${input} pl-9`}
 					style={inputStyle}
 				/>
-				{searching && results.length > 0 && (
-					<ul className="absolute inset-x-0 top-[44px] z-20 overflow-hidden rounded-[10px] p-1 shadow-[0_12px_30px_rgba(0,0,0,0.45)]" style={{ background: DESK.panelRaised, border: `1px solid ${DESK.border}` }}>
-						{results.map((b) => (
-							<li key={b.id}>
-								<button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { onSymbol(b.ticker.toUpperCase()); setQuery(""); setSearching(false); }} className={`flex w-full items-center gap-3 rounded-[8px] px-2 py-2 text-left hover:bg-white/[0.06] ${deskFocus}`}>
-									<BrandLogo brand={b} className="h-[24px] w-[24px] rounded-[6px]" alt="" />
-									<span className="text-[13px] font-semibold text-white">{b.ticker}</span>
-									<span className="truncate text-[12px]" style={{ color: DESK.muted }}>{b.name}</span>
-								</button>
+				{open && (
+					<ul id={listId} role="listbox" aria-label="Companies" className="absolute inset-x-0 top-[44px] z-20 overflow-hidden rounded-[10px] p-1 shadow-[0_12px_30px_rgba(0,0,0,0.45)]" style={{ background: DESK.panelRaised, border: `1px solid ${DESK.border}` }}>
+						{results.map((b, i) => (
+							<li
+								key={b.id}
+								id={`${listId}-${i}`}
+								role="option"
+								aria-selected={i === active}
+								onMouseDown={(e) => e.preventDefault()}
+								onClick={() => pick(b.ticker)}
+								className="flex w-full cursor-pointer items-center gap-3 rounded-[8px] px-2 py-2 text-left hover:bg-white/[0.06]"
+								style={i === active ? { background: "rgba(105,179,202,0.16)", boxShadow: "inset 0 0 0 1px #69B3CA" } : undefined}
+							>
+								<BrandLogo brand={b} className="h-[24px] w-[24px] rounded-[6px]" alt="" />
+								<span className="text-[13px] font-semibold text-white">{b.ticker}</span>
+								<span className="truncate text-[12px]" style={{ color: DESK.muted }}>{b.name}</span>
 							</li>
 						))}
 					</ul>

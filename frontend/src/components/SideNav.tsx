@@ -10,7 +10,7 @@ export function SideNav() {
 	const currentPath = useRouterState({ select: (s) => s.location.pathname });
 
 	return (
-		<nav aria-label="Main" className="fixed bottom-0 left-0 top-0 z-[60] flex w-[220px] flex-col" style={{ background: DESK.bg, borderRight: `1px solid ${DESK.border}` }}>
+		<nav aria-label="Main" className="fixed bottom-0 left-0 top-0 z-[60] flex w-[220px] flex-col overflow-y-auto" style={{ background: DESK.bg, borderRight: `1px solid ${DESK.border}` }}>
 			<Link to="/" aria-label="STAK home" className={`mx-5 mb-7 mt-6 flex items-center gap-2 rounded-md ${deskFocus}`}>
 				<img src={stakMark} alt="" className="h-[30px] w-[30px]" draggable={false} />
 				<Wordmark width={78} />

@@ -479,7 +479,7 @@ private struct DetailCta: View {
 		Button(action: action) {
 			Text(text)
 				.font(StakFont.geist(14 * u, .medium))
-				.foregroundStyle(Color.white)
+				.foregroundStyle(StakColors.bg)
 				.frame(maxWidth: .infinity)
 				.frame(height: 52 * u * typeScale)
 				.background(discCtaGradient, in: RoundedRectangle(cornerRadius: 6 * u))

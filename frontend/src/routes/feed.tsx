@@ -7,7 +7,7 @@ import { expandQuery, matchesBrief, matchesLive } from "@/lib/newsSearch";
 import { BriefCardView, BriefLoadingCard, BriefUnavailableCard, MoodMiniRow, NewsSection } from "@/components/news/NewsParts";
 import { NewsDesktop } from "@/components/news/NewsDesktop";
 import { DISC, cu } from "@/components/discover/discoverTheme";
-import { PRESS, PhonePage, f, focusRing, sheetCard } from "@/components/phone/phone";
+import { FIELD_EDGE, PRESS, PhonePage, f, focusRing, sheetCard } from "@/components/phone/phone";
 import { AskAiHeaderButton } from "@/components/stakAi/open";
 
 export const Route = createFileRoute("/feed")({
@@ -94,8 +94,8 @@ function FeedPage() {
 							onKeyDown={(e) => { if (e.key === "Escape") toggleSearch(); }}
 							placeholder="Search news"
 							aria-label="Search news"
-							className="w-full outline-none placeholder:text-[#5C6B85]"
-							style={{ marginTop: cu(12), ...sheetCard(12), padding: `${cu(13)} ${cu(16)}`, font: f(400, 13), color: "#fff", caretColor: DISC.teal }}
+							className="w-full outline-none placeholder:text-[#819ABB] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#69B3CA]"
+							style={{ marginTop: cu(12), ...sheetCard(12), border: `${cu(1)} solid ${FIELD_EDGE}`, padding: `${cu(13)} ${cu(16)}`, font: f(400, 13), color: "#fff", caretColor: DISC.teal }}
 						/>
 					)}
 				</header>

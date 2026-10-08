@@ -504,12 +504,14 @@ private fun LiveAddToStakButton(onClick: () -> Unit) {
                 lineHeight = (20.69 * u).sp,
                 lineHeightStyle = FIGMA_LINE_BOX,
             ),
-            color = Color.White,
+            color = StakColors.Bg,
         )
         Image(
             painter = painterResource(R.drawable.ic_plus_small),
             contentDescription = null,
             modifier = Modifier.size((14 * u).dp),
+            // Navy like the label beside it on the teal button.
+            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(StakColors.Bg),
         )
     }
 }

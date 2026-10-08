@@ -33,7 +33,7 @@ export function DonutRing({ shares, colors, size = 92, strokeWidth = 10, gapDegr
 	});
 
 	return (
-		<svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className={className}>
+		<svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className={className} aria-hidden="true">
 			{arcs.map((arc, i) => (
 				<circle
 					key={i}

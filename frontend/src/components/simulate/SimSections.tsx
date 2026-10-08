@@ -11,7 +11,7 @@ import { todaysMove, usePortfolioHistory } from "@/hooks/usePaperPortfolio";
 import { heldCountLabel } from "@/components/mystak/CollectionChip";
 import { Sparkle } from "@/components/mystak/TasteCard";
 import { DISC, cu, sessionWord } from "@/components/discover/discoverTheme";
-import { PRESS, SettingsChip, f, focusRing, sheetCard } from "@/components/phone/phone";
+import { FIELD_EDGE, PRESS, SettingsChip, f, focusRing, sheetCard } from "@/components/phone/phone";
 import { Badge, ChartNote, DarkCta, Kicker, RangeChart, RangeChips, SIM, gradientBorder, tealShadow } from "./simKit";
 
 const pickCountText = (n: number) => (n === 1 ? "1 pick" : `${n} picks`);
@@ -60,8 +60,8 @@ export function PortfolioSetupCard({ onSubmit }: { onSubmit: (balance: number, n
 				onChange={(e) => setName(e.target.value.slice(0, SANDBOX_NAME_MAX_LENGTH))}
 				placeholder="My first portfolio"
 				aria-label="Portfolio name"
-				className="w-full outline-none placeholder:text-[#819ABB]"
-				style={{ borderRadius: cu(10), background: DISC.avatar, border: `${cu(0.5)} solid ${DISC.divider}`, padding: `${cu(10)} ${cu(12)}`, font: f(500, 12, 16), color: "#fff", caretColor: DISC.teal }}
+				className="w-full outline-none placeholder:text-[#819ABB] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#69B3CA]"
+				style={{ borderRadius: cu(10), background: DISC.avatar, border: `${cu(1)} solid ${FIELD_EDGE}`, padding: `${cu(10)} ${cu(12)}`, font: f(500, 12, 16), color: "#fff", caretColor: DISC.teal }}
 			/>
 			{label("Strategy")}
 			<div className="flex" style={{ gap: cu(8) }}>
@@ -143,7 +143,7 @@ export function SavedStakRow({ ticker, sub, onBuy }: { ticker: string; sub: stri
 				onClick={onBuy}
 				aria-label={`Buy ${ticker}`}
 				className={PRESS}
-				style={{ width: cu(60), height: cu(30), borderRadius: cu(6), ...gradientBorder(DISC.cta), boxShadow: tealShadow(12.285, 12.285, 0.04), font: f(400, 12, undefined, "heading"), color: "#fff", ...focusRing }}
+				style={{ width: cu(60), height: cu(30), borderRadius: cu(6), ...gradientBorder(DISC.cta), boxShadow: tealShadow(12.285, 12.285, 0.04), font: f(400, 12, undefined, "heading"), color: DISC.pageBg, ...focusRing }}
 			>
 				Buy
 			</button>

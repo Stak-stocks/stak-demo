@@ -1021,7 +1021,7 @@ private fun DetailCta(text: String, enabled: Boolean = true, onClick: () -> Unit
 			)
 			.alpha(if (enabled) 1f else 0.5f),
 	) {
-		Text(text, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp), color = Color.White)
+		Text(text, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp), color = StakColors.Bg)
 	}
 }
 

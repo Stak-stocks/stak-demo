@@ -1074,7 +1074,7 @@ struct SheetCta: View {
 		Button(action: action) {
 			Text(text)
 				.font(StakFont.geist(14 * u, .medium))
-				.foregroundStyle(Color.white)
+				.foregroundStyle(StakColors.bg)
 				.frame(maxWidth: .infinity)
 				.frame(height: 52 * u * typeScale)
 				// Authored drop shadow (85:1394 Inspect): dy 12.28, blur 12.28,
@@ -1488,7 +1488,7 @@ private struct DeckLoadError: View {
 			Button(action: onRetry) {
 				Text("Retry")
 					.font(StakFont.geist(14 * u, .medium))
-					.foregroundStyle(Color.white)
+					.foregroundStyle(StakColors.bg)
 					.frame(width: 140 * u * typeScale, height: 44 * u * typeScale)
 					.background(discCtaGradient, in: RoundedRectangle(cornerRadius: 6 * u))
 			}

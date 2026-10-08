@@ -2,7 +2,7 @@ import { createContext, useContext, useId, useState, type ReactNode } from "reac
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
-import { GradientCta, PRESS, PhonePage, f, focusRing, sheetCard } from "@/components/phone/phone";
+import { FIELD_EDGE, FIELD_FOCUS, GradientCta, PRESS, PhonePage, f, focusRing, sheetCard } from "@/components/phone/phone";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 /** True inside the desktop (split-screen) auth frame, where a few pieces take the desktop design's look. */
@@ -12,7 +12,8 @@ const AuthDesktop = createContext(false);
 export const OTP_LENGTH = 6;
 
 const SUBTITLE = "#ACAFB1";
-export const AUTH_ERROR = "#E5484D";
+// #FF6B6B: AA text contrast on the page and on cards (the app's dangerText).
+export const AUTH_ERROR = "#FF6B6B";
 const BORDER = "linear-gradient(to bottom, rgba(101,158,173,0.631), rgba(22,54,63,0.431))";
 
 /** Android's AuthCta: a 52u gradient button, 20u in from each side, with a faint teal glow beneath. */
@@ -68,7 +69,7 @@ export function AuthInput({ value, onChange, placeholder, type = "text", error, 
 	const desk = useContext(AuthDesktop);
 	return (
 		<div style={{ display: "flex", flexDirection: "column", gap: cu(6) }}>
-			<div className="flex items-center" style={{ gap: cu(8), borderRadius: cu(desk ? 10 : 14), background: DISC.sheet, padding: cu(16), boxShadow: error ? `inset 0 0 0 ${cu(1)} ${AUTH_ERROR}` : undefined }}>
+			<div className={`flex items-center ${FIELD_FOCUS}`} style={{ gap: cu(8), borderRadius: cu(desk ? 10 : 14), background: DISC.sheet, padding: cu(16), boxShadow: `inset 0 0 0 ${cu(1)} ${error ? AUTH_ERROR : FIELD_EDGE}` }}>
 				<input
 					type={type}
 					value={value}
@@ -87,7 +88,7 @@ export function AuthInput({ value, onChange, placeholder, type = "text", error, 
 				/>
 				{trailing}
 			</div>
-			{error && <p id={errorId} style={{ paddingLeft: cu(4), font: f(400, 11), color: AUTH_ERROR }}>{error}</p>}
+			{error && <p id={errorId} role="alert" style={{ paddingLeft: cu(4), font: f(400, 11), color: AUTH_ERROR }}>{error}</p>}
 		</div>
 	);
 }
