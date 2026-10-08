@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { tasteRisk } from "@/app/profile/data";
 import { CHEVRON, RowLabel, RowValue, SectionLabel, SettingsCard, SettingsRow } from "@/app/profile/ui";
+import { col } from "@/app/FitCanvas";
 import { PageHeader } from "@/app/PageHeader";
 
 export const Route = createFileRoute("/_app/profile_/taste-risk")({
@@ -15,7 +16,7 @@ function TasteRiskPage() {
 	return (
 		<div className="flex w-full flex-col items-start gap-[29px]">
 			<PageHeader title={tasteRisk.title} onBell={() => navigate({ to: "/home", search: { notifications: "1" } })} />
-			<div className="flex w-[640px] flex-col items-start gap-[16px]">
+			<div className="flex flex-col items-start gap-[16px]" style={{ width: col(640) }}>
 				<SectionLabel>{taste.label}</SectionLabel>
 				<div className="flex w-full flex-col items-start gap-[17px] overflow-clip rounded-[16px] bg-[#10182b] px-[14px] pb-[4px] pt-[14px]">
 					<div className="flex w-full flex-wrap content-start items-start gap-y-[8px] overflow-clip">

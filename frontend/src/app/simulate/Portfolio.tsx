@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { colPlus } from "@/app/FitCanvas";
 import { portfolio, stocks } from "./data";
 import { PortfolioSellSheet } from "./sheets";
 import { Avatar, BackHeader, Eyebrow, FilterChip, GREEN, PageTitle, type Palette, RED, SmallSellButton } from "./ui";
@@ -22,7 +23,7 @@ export function Portfolio({ search }: { search: PortfolioSearch }) {
 	const d = portfolio;
 
 	return (
-		<div className="flex w-[1144px] flex-col items-start gap-[22px]" style={{ marginTop: alt ? -44 : 0 }}>
+		<div className="flex flex-col items-start gap-[22px]" style={{ width: colPlus(10), marginTop: alt ? -44 : 0 }}>
 			<div className="flex w-[186px] flex-col items-start gap-[24px]">
 				<BackHeader crumb={d.crumb} to="/simulate" style={{ marginLeft: alt ? 2 : 0 }} />
 				<PageTitle title={d.title} subtitle={d.subtitle} />

@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { A } from "@/app/assets";
+import { col } from "@/app/FitCanvas";
 import { HomeSkeleton } from "@/app/home/HomeSkeleton";
 import { PageHeader } from "@/app/PageHeader";
 import { useAccountDisplay } from "@/app/useAccountDisplay";
@@ -35,7 +36,7 @@ function HomePage() {
 		<div className="relative flex w-full flex-col items-start gap-[29px]">
 			<PageHeader title={useAccountDisplay().greeting} onBell={() => setPanel((p) => (p ? null : "list"))} />
 			{panel && <NotificationsPanel variant={panel} onClose={() => setPanel(null)} />}
-			<div className="flex flex-col items-center gap-[55px]">
+			<div className="flex flex-col items-center gap-[55px]" style={{ width: col(885) }}>
 				<div className="flex w-full flex-col items-end gap-[19px]">
 					<MarketMoodCard />
 					<div className="flex w-full items-end justify-between">
@@ -52,8 +53,8 @@ function HomePage() {
 function MarketMoodCard() {
 	const [left, mid, right] = marketMood.deck;
 	return (
-		<Link to="/news" className="relative block h-[470px] w-[885px] overflow-clip rounded-[16px] bg-[#171d2c]">
-			<div className="absolute left-[28px] top-[26px] flex items-start gap-[407px]">
+		<Link to="/news" className="relative block h-[470px] w-full overflow-clip rounded-[16px] bg-[#171d2c]">
+			<div className="absolute left-[28px] right-[24.563px] top-[26px] flex items-start justify-between">
 				<div className="flex w-[360px] flex-col items-start gap-[4px]">
 					<h2 className="w-full font-sora text-[22px] font-semibold leading-[28px] text-[#f2f6fc]">{marketMood.title}</h2>
 					<p className="w-full font-geist text-[13px] leading-[17px] text-[#819abb]">{marketMood.subtitle}</p>
@@ -103,7 +104,7 @@ function MarketMoodCard() {
 
 function WhyCard() {
 	return (
-		<Link to="/my-stak" className="relative block h-[119px] w-[430px] overflow-clip rounded-[8.229px] bg-[#171d2c]">
+		<Link to="/my-stak" className="relative block h-[119px] w-[48.588%] overflow-clip rounded-[8.229px] bg-[#171d2c]">
 			<div className="absolute left-[calc(50%-0.5px)] top-[calc(50%-0.5px)] flex w-[341px] -translate-x-1/2 -translate-y-1/2 items-center gap-[20px]">
 				<img alt="" src={A.cautionIcon} className="size-[108px] shrink-0 object-cover" />
 				<div className="flex flex-col items-start gap-[6.171px]">
@@ -117,10 +118,10 @@ function WhyCard() {
 
 function DeckPromoCard() {
 	return (
-		<Link to="/discover" className="relative block h-[119px] w-[430px] overflow-clip rounded-[8.229px] bg-[#69b3ca]">
+		<Link to="/discover" className="relative block h-[119px] w-[48.588%] overflow-clip rounded-[8.229px] bg-[#69b3ca]">
 			{/* "Illustration" group (box + coins + shadow), exported at 2x, clipped by the card exactly as in Figma */}
 			<img alt="" src={A.deckBoxIllustration} className="absolute left-[29.68px] top-0 h-[119px] w-[159px]" />
-			<div className="absolute left-[235.39px] top-[calc(50%+0.67px)] flex w-[160.457px] -translate-y-1/2 flex-col items-start gap-[10.286px]">
+			<div className="absolute left-[54.742%] top-[calc(50%+0.67px)] flex w-[160.457px] -translate-y-1/2 flex-col items-start gap-[10.286px]">
 				<p className="w-full font-geist text-[12.343px] font-light leading-[15.429px] text-black">{homePromos.deck.body}</p>
 				<span className="flex h-[32.914px] w-[126.514px] items-center justify-center gap-[3.086px] rounded-[15.429px] bg-[#0a1020] py-[4.728px]">
 					<span className="whitespace-nowrap font-geist text-[11.82px] font-medium text-white">{homePromos.deck.cta}</span>

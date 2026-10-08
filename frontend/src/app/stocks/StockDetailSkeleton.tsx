@@ -1,4 +1,5 @@
 import { A } from "@/app/assets";
+import { colPlus } from "@/app/FitCanvas";
 import { Bar } from "@/app/SidebarSkeleton";
 import { GLOW_FILTER, GRADIENT, hairline } from "@/app/simulate/ui";
 
@@ -8,18 +9,18 @@ const L = A.loading;
 /** Figma 2:2113 "Desktop · Stock detail · Loading" (section 10 States). Back block at y 44, columns at y 160. */
 export function StockDetailSkeleton() {
 	return (
-		<div className="relative h-[936px] w-[1144px]" aria-busy="true">
+		<div className="relative h-[936px]" style={{ width: colPlus(10) }} aria-busy="true">
 			<div className="absolute left-[1px] top-[-44px] flex flex-col items-start gap-[31px]">
 				<div className="size-[40px] rounded-[20px] bg-[#223050]" />
 				<Bar w={94.32} h={11.55} />
 			</div>
 
-			<div className="absolute left-0 top-[72px] flex items-start justify-center gap-[40px]">
-				<div className="flex w-[744px] flex-col items-start gap-[14px] overflow-clip">
+			<div className="absolute left-0 right-0 top-[72px] flex items-start justify-center gap-[40px]">
+				<div className="flex min-w-0 flex-col items-start gap-[14px] overflow-clip" style={{ flex: "744 1 0" }}>
 					{/* Performance chart */}
-					<div className="relative h-[220px] w-[744px] overflow-clip rounded-[16px] bg-[#181f30]">
-						<img alt="" src={L.chartDim} className="absolute left-[13px] top-[58.69px] block h-[124.484px] w-[692px] max-w-none" />
-						<div className="absolute left-[566px] top-[182px] flex items-start gap-[8px] overflow-clip">
+					<div className="relative h-[220px] w-full overflow-clip rounded-[16px] bg-[#181f30]">
+						<img alt="" src={L.chartDim} className="absolute left-[13px] top-[58.69px] block h-[124.484px] w-[calc(100%-52px)] max-w-none" />
+						<div className="absolute left-[calc(100%-178px)] top-[182px] flex items-start gap-[8px] overflow-clip">
 							{[0, 1, 2, 3].map((k) => (
 								<div key={k} className="flex items-start overflow-clip rounded-[8px] px-[10px] py-[4px]" style={k === 2 ? { backgroundColor: "#181f30" } : undefined}>
 									<Bar w={28} h={8} />
@@ -53,7 +54,7 @@ export function StockDetailSkeleton() {
 							</div>
 						</div>
 						<div className="relative h-[8px] w-full overflow-clip rounded-[4px] bg-[#293144]">
-							<img alt="" src={L.marker} className="absolute left-[88px] top-[-3px] size-[14px]" />
+							<img alt="" src={L.marker} className="absolute left-[12.3596%] top-[-3px] size-[14px]" />
 						</div>
 						<div className="flex h-[14px] w-full items-start justify-between overflow-clip">
 							<Bar w={28} h={8} />
@@ -80,14 +81,14 @@ export function StockDetailSkeleton() {
 						<Bar w={107.28} h={8} />
 						<Bar w={234.72} h={8} />
 						<Bar w={234.72} h={8} />
-						<div className="flex items-start gap-[12px]">
+						<div className="flex w-full items-start gap-[12px]">
 							{[
 								[50.4, 28],
 								[41.76, 28],
 								[64.08, 28],
 								[60.48, 30.96],
 							].map(([source, chip], k) => (
-								<div key={k} className="flex w-[205px] shrink-0 flex-col items-start gap-[8px] overflow-clip rounded-[12px] bg-[#181f30] p-[12px]">
+								<div key={k} className="flex w-[28.792%] shrink-0 flex-col items-start gap-[8px] overflow-clip rounded-[12px] bg-[#181f30] p-[12px]">
 									<div className="flex h-[22px] w-full items-center justify-between overflow-clip">
 										<Bar w={source} h={8} />
 										<div className="flex items-start overflow-clip rounded-[999px] bg-[rgba(255,255,255,0.08)] px-[8px] py-[3px]">
@@ -102,7 +103,7 @@ export function StockDetailSkeleton() {
 				</div>
 
 				{/* Action rail */}
-				<div className="flex w-[360px] flex-col items-start gap-[14px] overflow-clip">
+				<div className="flex min-w-0 flex-col items-start gap-[14px] overflow-clip" style={{ flex: "360 1 0" }}>
 					<div className="flex w-full flex-col items-start gap-[10px] overflow-clip rounded-[16px] bg-[#181f30] p-[16px]">
 						<div className="flex w-full flex-col items-start gap-[10px]">
 							<div

@@ -395,4 +395,6 @@ input::-webkit-credentials-auto-fill-button {
 /* standalone pages: the 1024-tall frame band is centred in taller windows; header chrome subtracts it to stay at the top */
 .stak-canvas {
 	--stak-band: max(0px, calc((100vh / var(--stak-zoom, 1) - 1024px) / 2));
+	/* the content column of the frames (1134 at 1440, nav open), as wide as the real window allows */
+	--stak-col: calc(var(--stak-vw, 1440px) - 306px);
 }

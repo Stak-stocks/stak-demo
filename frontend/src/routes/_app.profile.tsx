@@ -3,6 +3,7 @@ import { P } from "@/app/profile/assets";
 import { profile } from "@/app/profile/data";
 import { useAccountDisplay } from "@/app/useAccountDisplay";
 import { CHEVRON, RowLabel, RowValue, SectionLabel, SettingsCard, SettingsRow } from "@/app/profile/ui";
+import { col } from "@/app/FitCanvas";
 import { PageHeader } from "@/app/PageHeader";
 import { useAuth } from "@/context/AuthContext";
 
@@ -25,7 +26,7 @@ function ProfilePage() {
 	return (
 		<div className="flex w-full flex-col items-start gap-[29px]">
 			<PageHeader title={profile.title} onBell={() => navigate({ to: "/home", search: { notifications: "1" } })} />
-			<div className="flex w-[640px] flex-col items-start gap-[16px]">
+			<div className="flex flex-col items-start gap-[16px]" style={{ width: col(640) }}>
 				<div className="flex h-[88px] w-full items-center gap-[16px] overflow-clip pl-[5px]">
 					<div className="flex size-[72px] shrink-0 items-center justify-center overflow-clip rounded-[36px] border-2 border-[#66b7da] bg-[#242b3d]">
 						<span className="whitespace-nowrap font-sora text-[24.75px] font-semibold leading-[31px] text-[#9eadc7]">{me.initial}</span>

@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { BackCrumb } from "@/app/discover/BackCrumb";
 import { GhostButton, PrimaryButton } from "@/app/discover/Button";
+import { colPlus } from "@/app/FitCanvas";
 import { cn } from "@/lib/utils";
 import { S } from "./assets";
 import type { StockDetailData } from "./data";
@@ -20,6 +21,9 @@ export type StockDetailProps = {
 
 type Colors = { card: string; inner: string; track: string };
 
+/** A px offset authored on a track of the given width, kept at the same fraction when the track stretches. */
+const pct = (px: number, of: number) => `${((px / of) * 100).toFixed(4)}%`;
+
 /**
  * Stock detail (Figma "Desktop · Stock detail · …", 1440 × 1200). Two columns, 744 + 40 + 360.
  * Entered from Discover the back block floats at (1, −44) and the columns start 72px into the
@@ -31,7 +35,7 @@ export function StockDetail(p: StockDetailProps) {
 		: { card: "#181f30", inner: "#181f30", track: "#293144" };
 	const crumb = p.from === "my-stak" ? `My STAK  /  ${p.stock.symbol}` : `Discover  /  ${p.stock.symbol}`;
 	const columns = (
-		<div className="flex w-[1144px] items-start justify-center gap-[40px]">
+		<div className="flex items-start justify-center gap-[40px]" style={{ width: colPlus(10) }}>
 			<ContentColumn {...p} c={c} />
 			<ActionRail {...p} c={c} />
 		</div>
@@ -62,11 +66,11 @@ function Card({ className, style, children, c }: { className?: string; style?: C
 
 function ContentColumn({ stock, saved, c }: StockDetailProps & { c: Colors }) {
 	return (
-		<div className="flex w-[744px] flex-col items-start gap-[14px] overflow-clip">
+		<div className="flex min-w-0 flex-col items-start gap-[14px] overflow-clip" style={{ flex: "744 1 0" }}>
 			{/* Performance chart */}
-			<Card c={c} className="relative h-[220px] w-[744px]">
-				<img alt="" src={S.chart} className="absolute left-[13px] top-[58.69px] h-[124.49px] w-[692px] max-w-none" />
-				<div className="absolute left-[566px] top-[182px] flex items-start gap-[8px] overflow-clip">
+			<Card c={c} className="relative h-[220px] w-full">
+				<img alt="" src={S.chart} className="absolute left-[13px] top-[58.69px] h-[124.49px] w-[calc(100%-52px)] max-w-none" />
+				<div className="absolute left-[calc(100%-178px)] top-[182px] flex items-start gap-[8px] overflow-clip">
 					{stock.periods.map((per) => {
 						const on = per === stock.activePeriod;
 						return (
@@ -130,7 +134,7 @@ function ContentColumn({ stock, saved, c }: StockDetailProps & { c: Colors }) {
 					</div>
 				</div>
 				<div className="relative h-[8px] w-full overflow-clip rounded-[4px]" style={{ background: c.track }}>
-					<img alt="" src={S.marker} className="absolute top-[-3px] size-[14px]" style={{ left: stock.risk.markerLeft }} />
+					<img alt="" src={S.marker} className="absolute top-[-3px] size-[14px]" style={{ left: pct(stock.risk.markerLeft, 712) }} />
 				</div>
 				<div className="flex h-[14px] w-full items-start justify-between overflow-clip whitespace-nowrap font-geist text-[10px] leading-[13px] text-[#819abb]">
 					<p>{stock.risk.low}</p>
@@ -168,15 +172,15 @@ function ContentColumn({ stock, saved, c }: StockDetailProps & { c: Colors }) {
 				<p className="whitespace-nowrap font-sora text-[15px] font-semibold leading-[19px] text-[#f2f6fc]">{stock.news.title}</p>
 				<p className="whitespace-nowrap font-geist text-[11px] font-medium leading-[14px] text-[#2fd08a]">{stock.news.move}</p>
 				{stock.news.lines.map((l) => (
-					<p key={l} className="w-[326px] font-geist text-[11px] leading-[14px] text-[#819abb]">
+					<p key={l} className="w-[45.787%] font-geist text-[11px] leading-[14px] text-[#819abb]">
 						{l}
 					</p>
 				))}
-				<div className="flex items-start gap-[12px]">
+				<div className="flex w-full items-start gap-[12px]">
 					{stock.news.articles.map((a) => (
 						<div
 							key={a.source}
-							className="flex w-[205px] shrink-0 flex-col items-start gap-[8px] overflow-clip rounded-[12px] p-[12px]"
+							className="flex w-[28.792%] shrink-0 flex-col items-start gap-[8px] overflow-clip rounded-[12px] p-[12px]"
 							style={{ background: c.inner }}
 						>
 							<div className="flex h-[22px] w-full items-center justify-between overflow-clip">
@@ -185,7 +189,7 @@ function ContentColumn({ stock, saved, c }: StockDetailProps & { c: Colors }) {
 									<p className="whitespace-nowrap font-geist text-[10px] font-medium leading-[13px] text-[#819abb]">{a.tone}</p>
 								</div>
 							</div>
-							<p className="w-[173px] font-geist text-[12px] font-normal leading-[16px] text-[#f2f6fc]">{a.text}</p>
+							<p className="w-[calc(100%-8px)] font-geist text-[12px] font-normal leading-[16px] text-[#f2f6fc]">{a.text}</p>
 						</div>
 					))}
 				</div>
@@ -197,7 +201,7 @@ function ContentColumn({ stock, saved, c }: StockDetailProps & { c: Colors }) {
 function ActionRail({ stock, saved, open, c, onToggleSaved, onToggleOpen, onPracticeBuy }: StockDetailProps & { c: Colors }) {
 	const an = stock.analyst;
 	return (
-		<div className="flex w-[360px] flex-col items-start gap-[14px] overflow-clip">
+		<div className="flex min-w-0 flex-col items-start gap-[14px] overflow-clip" style={{ flex: "360 1 0" }}>
 			{/* CTA card */}
 			<Card c={c} className="flex w-full flex-col items-start gap-[10px] p-[16px]">
 				<div className="flex w-full flex-col items-start gap-[10px]">
@@ -225,8 +229,8 @@ function ActionRail({ stock, saved, open, c, onToggleSaved, onToggleOpen, onPrac
 						</button>
 						<p className="whitespace-nowrap font-geist text-[10px] leading-[13px] tracking-[0.8px] text-[#819abb]">{an.rangeLabel}</p>
 						<div className="relative h-[8px] w-full overflow-clip rounded-[4px]" style={{ background: c.inner }}>
-							<div className="absolute left-0 top-0 h-[8px] rounded-[4px] bg-[rgba(93,168,191,0.55)]" style={{ width: an.rangeFill }} />
-							<img alt="" src={S.marker} className="absolute top-[-3px] size-[14px]" style={{ left: an.rangeMarker }} />
+							<div className="absolute left-0 top-0 h-[8px] rounded-[4px] bg-[rgba(93,168,191,0.55)]" style={{ width: pct(an.rangeFill, 328) }} />
+							<img alt="" src={S.marker} className="absolute top-[-3px] size-[14px]" style={{ left: pct(an.rangeMarker, 328) }} />
 						</div>
 						<div className="flex h-[30px] w-full items-start justify-between overflow-clip whitespace-nowrap">
 							{[an.low, an.avg, an.high].map(([k, v], i) => (
@@ -244,7 +248,7 @@ function ActionRail({ stock, saved, open, c, onToggleSaved, onToggleOpen, onPrac
 							{an.consensusLabel}
 						</p>
 						<div className="relative h-[8px] w-full overflow-clip rounded-[4px]" style={{ background: c.inner }}>
-							<div className="absolute left-0 top-0 h-[8px] rounded-[4px] bg-[#2fd08a]" style={{ width: an.consensusFill }} />
+							<div className="absolute left-0 top-0 h-[8px] rounded-[4px] bg-[#2fd08a]" style={{ width: pct(an.consensusFill, 328) }} />
 						</div>
 						<div className="flex h-[16px] w-full items-start justify-between overflow-clip whitespace-nowrap font-geist text-[11px] font-medium leading-[14px]">
 							{an.counts.map((t, i) => (

@@ -2,6 +2,7 @@ import { DeckSkeleton } from "@/app/discover/DeckSkeleton";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect } from "react";
 import { D } from "@/app/discover/assets";
+import { colCentre } from "@/app/FitCanvas";
 import { GhostButton, PrimaryButton } from "@/app/discover/Button";
 import { DeckCard } from "@/app/discover/DeckCard";
 import { deckCards, deckCopy, deckHeader } from "@/app/discover/data";
@@ -65,7 +66,7 @@ function DiscoverPage() {
 
 	return (
 		<div className="relative -mt-[30px]">
-			<header className="flex h-[92px] w-[1087px] items-center justify-between">
+			<header className="flex h-[92px] w-full items-center justify-between pr-[47px]">
 				<div className="flex flex-col items-start gap-[6px] overflow-clip whitespace-nowrap">
 					<h1 className="font-sora text-[28px] font-semibold leading-[35px] text-[#f2f6fc]">{deckHeader.title}</h1>
 					<p className="font-geist text-[11px] font-medium leading-[14px] tracking-[0.88px] text-[#819abb]">{deckHeader.kicker}</p>
@@ -78,7 +79,7 @@ function DiscoverPage() {
 				</div>
 			</header>
 
-			<div className="ml-[161px] mt-[46px] flex w-[806.229px] flex-col items-center gap-[64px]">
+			<div className="mt-[46px] flex w-[806.229px] flex-col items-center gap-[64px]" style={{ marginLeft: colCentre(812) }}>
 				<div className="flex w-full flex-col items-center gap-[35px]">
 					<div className="relative h-[458.231px] w-[690.509px]">
 						<div className="absolute left-0 top-0 z-[1] flex h-[439.887px] w-[368.911px] items-center justify-center">
@@ -119,7 +120,7 @@ function DiscoverPage() {
 			</div>
 
 			{saved && (
-				<div className="absolute left-[464.33px] top-[118.01px] flex h-[44.963px] w-[161.348px] items-center justify-center" role="status">
+				<div className="absolute top-[118.01px] flex h-[44.963px] w-[161.348px] items-center justify-center" style={{ left: colCentre(812, 303.33) }} role="status">
 					<div className="flex rotate-[-2.15deg] items-center gap-[9px] overflow-clip rounded-[18px] bg-[rgba(36,43,61,0.48)] px-[16px] py-[11px]">
 						<img alt="" src={D.toastBookmark} className="size-[17px]" />
 						<p className="whitespace-nowrap font-geist text-[12px] font-medium leading-[16px] text-white">{deckCopy.toast}</p>

@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { N } from "@/app/news/assets";
+import { colPlus } from "@/app/FitCanvas";
 import { article } from "@/app/news/data";
 import { GradientButton } from "@/app/profile/ui";
 
@@ -21,7 +22,7 @@ function NewsDetailPage() {
 	const a = article;
 	const save = () => setSaved(true);
 	return (
-		<div className="flex w-[1130px] flex-col items-start gap-[24px]">
+		<div className="flex flex-col items-start gap-[24px]" style={{ width: colPlus(-4) }}>
 			<div className="flex flex-col items-start gap-[31px]">
 				<Link
 					to="/news"
@@ -34,16 +35,16 @@ function NewsDetailPage() {
 			</div>
 
 			<div className="flex w-full items-start justify-end gap-[30px]">
-				<div className="flex items-center p-[10px]">
-					<article className="flex w-[720px] flex-col items-start gap-[28px]">
+				<div className="flex min-w-0 items-center p-[10px]" style={{ flex: "720 1 0" }}>
+					<article className="flex w-full flex-col items-start gap-[28px]">
 						<Hero saved={saved} onSave={save} />
 
 						<div className="flex w-full flex-col items-start gap-[18px] overflow-clip">
 							<p className="whitespace-nowrap font-geist text-[11px] font-medium leading-[14px] tracking-[0.88px] text-[#5bd7e4]">
 								{a.category}
 							</p>
-							<h1 className="w-[720px] font-sora text-[30px] font-semibold leading-[38px] text-[#f2f6fc]">{a.title}</h1>
-							<p className="w-[720px] font-geist text-[16px] leading-[21px] text-[#819abb]">{a.dek}</p>
+							<h1 className="w-full font-sora text-[30px] font-semibold leading-[38px] text-[#f2f6fc]">{a.title}</h1>
+							<p className="w-full font-geist text-[16px] leading-[21px] text-[#819abb]">{a.dek}</p>
 							<div className="flex items-center gap-[10px] overflow-clip">
 								<span className="flex size-[26px] items-center justify-center overflow-clip rounded-[13px] bg-[#242b3d]">
 									<span className="whitespace-nowrap font-geist text-[10px] font-medium leading-[13px] text-[#f2f6fc]">
@@ -61,29 +62,29 @@ function NewsDetailPage() {
 								{a.gist.map((line) => (
 									<div key={line} className="flex h-[20px] w-full items-center gap-[10px] overflow-clip">
 										<img alt="" src={N.check} className="size-[18.4px] shrink-0" />
-										<span className="w-[630px] font-geist text-[13px] leading-[17px] text-[#f2f6fc]">{line}</span>
+										<span className="min-w-0 flex-1 font-geist text-[13px] leading-[17px] text-[#f2f6fc]">{line}</span>
 									</div>
 								))}
 							</div>
 
 							{a.paragraphs1.map((p) => (
-								<p key={p.slice(0, 32)} className="w-[720px] font-geist text-[15px] leading-[20px] text-[#f2f6fc]">
+								<p key={p.slice(0, 32)} className="w-full font-geist text-[15px] leading-[20px] text-[#f2f6fc]">
 									{p}
 								</p>
 							))}
 
-							<div className="flex h-[60px] w-[720px] items-start gap-[16px] overflow-clip">
+							<div className="flex h-[60px] w-full items-start gap-[16px] overflow-clip">
 								<div className="h-[56px] w-[3px] shrink-0 bg-[#5da8bf]" />
-								<p className="w-[660px] font-sora text-[19px] font-semibold leading-[24px] text-[#a6e4f7]">{a.quote}</p>
+								<p className="w-[calc(100%-60px)] font-sora text-[19px] font-semibold leading-[24px] text-[#a6e4f7]">{a.quote}</p>
 							</div>
 
 							<div className="flex h-[80px] w-full flex-col items-start gap-[8px] overflow-clip rounded-[12px] bg-[#181f30] px-[20px] py-[16px]">
 								<p className="whitespace-nowrap font-geist text-[13px] font-medium leading-[17px] text-[#5bd7e4]">{a.newToThis.title}</p>
-								<p className="w-[680px] font-geist text-[13px] leading-[17px] text-[#819abb]">{a.newToThis.body}</p>
+								<p className="w-full font-geist text-[13px] leading-[17px] text-[#819abb]">{a.newToThis.body}</p>
 							</div>
 
 							{a.paragraphs2.map((p) => (
-								<p key={p.slice(0, 32)} className="w-[720px] font-geist text-[15px] leading-[20px] text-[#f2f6fc]">
+								<p key={p.slice(0, 32)} className="w-full font-geist text-[15px] leading-[20px] text-[#f2f6fc]">
 									{p}
 								</p>
 							))}
@@ -110,7 +111,7 @@ function Hero({ saved, onSave }: { saved: boolean; onSave: () => void }) {
 			<img
 				alt=""
 				src={N.hero}
-				className="absolute left-[calc(50%-1px)] top-[calc(50%+33.18px)] h-[542.368px] w-[814px] max-w-none -translate-x-1/2 -translate-y-1/2 object-cover"
+				className="absolute left-[calc(50%-1px)] top-[calc(50%+33.18px)] h-auto w-[113.056%] max-w-none -translate-x-1/2 -translate-y-1/2"
 			/>
 			<div
 				className="absolute left-[18px] top-[350px] flex items-center overflow-clip rounded-[15.75px] bg-[rgba(36,43,61,0.25)] px-[14px]"
@@ -119,7 +120,7 @@ function Hero({ saved, onSave }: { saved: boolean; onSave: () => void }) {
 				<span className="whitespace-nowrap font-geist text-[20px] font-medium leading-[26px] text-white">{a.category}</span>
 			</div>
 			{saved && (
-				<div className="absolute left-[469px] top-[20px] flex items-center gap-[8px] overflow-clip rounded-[15.75px] bg-[rgba(36,43,61,0.25)] px-[14px] py-[10px]">
+				<div className="absolute left-[calc(100%-251px)] top-[20px] flex items-center gap-[8px] overflow-clip rounded-[15.75px] bg-[rgba(36,43,61,0.25)] px-[14px] py-[10px]">
 					<img alt="" src={N.bookmarkSaved} className="size-[25.25px]" />
 					<span className="whitespace-nowrap font-geist text-[20px] font-medium leading-[26px] text-white">{a.savedToast}</span>
 				</div>
@@ -134,7 +135,7 @@ function Hero({ saved, onSave }: { saved: boolean; onSave: () => void }) {
 				</div>
 			</div>
 			{!saved && (
-				<button type="button" aria-label="Save to My STAK" onClick={onSave} className="absolute left-[664px] top-[16px] size-[33.125px]">
+				<button type="button" aria-label="Save to My STAK" onClick={onSave} className="absolute left-[calc(100%-56px)] top-[16px] size-[33.125px]">
 					<span className="absolute inset-[0_0_-2.66%_0]">
 						<img alt="" src={N.bookmark} className="block size-full max-w-none" />
 					</span>
@@ -164,7 +165,7 @@ function TickerHead() {
 
 function TickerChart() {
 	return (
-		<div className="relative h-[72.8px] w-[270.4px]">
+		<div className="relative aspect-[270.4/72.8] w-[84.5%]">
 			<div className="absolute inset-[-4.29%_-1.15%]">
 				<img alt="" src={N.chart} className="block size-full max-w-none" />
 			</div>
@@ -176,18 +177,18 @@ function TickerChart() {
 function Rail({ saved, onSave }: { saved: boolean; onSave: () => void }) {
 	const a = article;
 	return (
-		<aside className="flex w-[360px] flex-col items-start gap-[16px] overflow-clip">
+		<aside className="flex min-w-0 flex-col items-start gap-[16px] overflow-clip" style={{ flex: "360 1 0" }}>
 			{saved ? (
 				<Link
 					to="/stocks/$symbol"
 					params={{ symbol: a.ticker.symbol }}
 					search={{ saved: true, from: "my-stak" }}
-					className="flex h-[296px] w-[360px] flex-col items-start overflow-clip rounded-[16px] bg-[#181f30] p-[20px]"
+					className="flex h-[296px] w-full flex-col items-start overflow-clip rounded-[16px] bg-[#181f30] p-[20px]"
 				>
 					<div className="flex w-full flex-col items-start gap-[27px]">
-						<div className="flex flex-col items-start gap-[10px]">
-							<div className="flex flex-col items-start gap-[10px]">
-								<div className="flex flex-col items-start gap-[10px]">
+						<div className="flex w-full flex-col items-start gap-[10px]">
+							<div className="flex w-full flex-col items-start gap-[10px]">
+								<div className="flex w-full flex-col items-start gap-[10px]">
 									<TickerHead />
 								</div>
 								<p className="whitespace-nowrap font-geist text-[13px] font-medium leading-[17px] text-[#2fd08a]">{a.ticker.change}</p>
@@ -224,7 +225,7 @@ function Rail({ saved, onSave }: { saved: boolean; onSave: () => void }) {
 				{a.keyStats.rows.map((row) => (
 					<div key={row[0].label} className="flex h-[34px] w-full items-start gap-[20px] overflow-clip">
 						{row.map((stat) => (
-							<div key={stat.label} className="flex h-[30px] w-[150px] flex-col items-start gap-[2px] overflow-clip">
+							<div key={stat.label} className="flex h-[30px] min-w-0 flex-1 flex-col items-start gap-[2px] overflow-clip">
 								<span className="font-geist text-[11px] leading-[14px] text-[#819abb]">{stat.label}</span>
 								<span className="font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{stat.value}</span>
 							</div>
@@ -255,7 +256,7 @@ function Rail({ saved, onSave }: { saved: boolean; onSave: () => void }) {
 						className="flex h-[60px] w-full flex-col items-start gap-[5px] overflow-clip rounded-[12px] bg-[#181f30] px-[16px] py-[14px]"
 					>
 						<span className="font-geist text-[10px] leading-[13px] text-[#819abb]">{item.source}</span>
-						<span className="w-[328px] font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{item.title}</span>
+						<span className="w-full font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{item.title}</span>
 					</Link>
 				))}
 			</div>

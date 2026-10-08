@@ -1,4 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
+import { colPlus } from "@/app/FitCanvas";
 import { cn } from "@/lib/utils";
 import { SA } from "./assets";
 import { pickDetail, stocks } from "./data";
@@ -17,7 +18,7 @@ export function PickDetail({ symbol, search }: { symbol: string; search: PickDet
 		navigate({ to: "/simulate/picks/$symbol", params: { symbol }, search: next, replace: true });
 
 	return (
-		<div className="flex w-[1157px] flex-col items-start gap-[14px]">
+		<div className="flex flex-col items-start gap-[14px]" style={{ width: colPlus(23) }}>
 			<div className="flex w-[222px] flex-col items-start gap-[24px]">
 				<BackHeader crumb={crumb} to="/simulate/portfolio" />
 				<div className="flex flex-col items-start gap-[4px] whitespace-nowrap">
@@ -33,7 +34,7 @@ export function PickDetail({ symbol, search }: { symbol: string; search: PickDet
 			</div>
 
 			<div className="flex w-full items-start gap-[23px]">
-				<div className="flex w-[744px] flex-col items-start gap-[30px]">
+				<div className="flex min-w-0 flex-col items-start gap-[30px]" style={{ flex: "744 1 0" }}>
 					<div className="flex w-full flex-col items-start gap-[14px]">
 						<section className="flex w-full flex-col items-start gap-[11px] overflow-clip rounded-[16px] bg-[#181f30] p-[18px]">
 							<div className="flex items-center gap-[9px] overflow-clip">
@@ -47,7 +48,7 @@ export function PickDetail({ symbol, search }: { symbol: string; search: PickDet
 							<p className="whitespace-nowrap font-geist text-[12px] font-light leading-[16px] text-[#819abb]">{d.hero.caption}</p>
 							<div className="flex w-full flex-col items-center gap-[40px]">
 								{/* "Chart line" 769.346x165; the export is 771.346x167 and overhangs 0.61% / 0.13% — the card clips the overflow */}
-								<div className="relative h-[165px] w-[769.346px] shrink-0">
+								<div className="relative h-[165px] w-[108.665%] shrink-0">
 									<div className="absolute" style={{ inset: "-0.61% -0.13%" }}>
 										<img alt="" src={SA.chartLine} className="block size-full max-w-none" />
 									</div>
@@ -75,7 +76,7 @@ export function PickDetail({ symbol, search }: { symbol: string; search: PickDet
 						</section>
 
 						<section className="flex w-full items-baseline overflow-clip rounded-[12px] bg-[#181f30] px-[12px] py-[10px]">
-							<div className="flex w-[720px] flex-col items-start gap-[8px]">
+							<div className="flex w-full flex-col items-start gap-[8px]">
 								<div className="flex items-start gap-[7px] overflow-clip">
 									<img alt="" src={SA.sparkle} className="size-[16px] shrink-0" />
 									<p className="whitespace-nowrap font-geist text-[10px] font-medium leading-[13px] tracking-[0.9px] text-[#5c6b85]">{d.insight.label}</p>
@@ -99,19 +100,19 @@ export function PickDetail({ symbol, search }: { symbol: string; search: PickDet
 					</div>
 				</div>
 
-				<div className="flex flex-col items-start overflow-clip">
+				<div className="flex min-w-0 flex-col items-start overflow-clip" style={{ flex: "390 1 0" }}>
 					<Card className="w-full">
 						<Eyebrow>{d.position.eyebrow}</Eyebrow>
 						<p className="whitespace-nowrap font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{d.position.line}</p>
-						<div className="flex flex-col items-start gap-[16px]">
-							<SellButton width={350} onClick={() => setSearch({ modal: "sell-confirm" })}>
+						<div className="flex w-full flex-col items-start gap-[16px]">
+							<SellButton onClick={() => setSearch({ modal: "sell-confirm" })}>
 								{d.position.sell}
 							</SellButton>
 							<GhostButton height={51} radius={6} fontSize={14} onClick={() => navigate({ to: "/simulate/portfolio" })}>
 								{d.position.back}
 							</GhostButton>
 						</div>
-						<p className="w-[320px] font-geist text-[11px] leading-[14px] text-[#819abb]">{d.position.note}</p>
+						<p className="w-[calc(100%-30px)] font-geist text-[11px] leading-[14px] text-[#819abb]">{d.position.note}</p>
 					</Card>
 				</div>
 			</div>

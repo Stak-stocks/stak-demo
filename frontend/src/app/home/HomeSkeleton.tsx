@@ -1,4 +1,5 @@
 import { A } from "@/app/assets";
+import { col } from "@/app/FitCanvas";
 import { Bar } from "@/app/SidebarSkeleton";
 
 /** Figma 2:1991 "Desktop · Home · Loading" (section 10 States): the Home layout with skeleton bars. */
@@ -13,10 +14,10 @@ export function HomeSkeleton() {
 				<Bar w={360} h={12} />
 			</div>
 
-			<div className="flex flex-col items-center gap-[55px]">
+			<div className="flex flex-col items-center gap-[55px]" style={{ width: col(885) }}>
 				<div className="flex w-full flex-col items-end gap-[19px]">
-					<section className="relative h-[470px] w-[885px] overflow-clip rounded-[16px] bg-[#171d2c]">
-						<div className="absolute left-[28px] top-[26px] flex items-start gap-[407px]">
+					<section className="relative h-[470px] w-full overflow-clip rounded-[16px] bg-[#171d2c]">
+						<div className="absolute left-[28px] right-[24.563px] top-[26px] flex items-start justify-between">
 							<div className="flex w-[360px] flex-col items-start gap-[4px]">
 								<Bar w={259.2} h={12} />
 								<Bar w={259.2} h={9.35} />
@@ -49,7 +50,7 @@ export function HomeSkeleton() {
 					</section>
 
 					<div className="flex w-full items-end justify-between">
-						<div className="relative h-[119px] w-[430px] overflow-clip rounded-[8.229px] bg-[#171d2c]">
+						<div className="relative h-[119px] w-[48.588%] overflow-clip rounded-[8.229px] bg-[#171d2c]">
 							<div className="absolute left-[calc(50%-0.17px)] top-[calc(50%+0.5px)] flex -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-[15px]">
 								<div className="h-[100px] w-[113px] shrink-0 rounded-[500px] bg-[#1b2640]" />
 								<div className="flex flex-col items-start gap-[6.171px]">
@@ -62,10 +63,10 @@ export function HomeSkeleton() {
 								</div>
 							</div>
 						</div>
-						<div className="relative h-[119px] w-[430px] overflow-clip rounded-[8.229px] bg-[#69b3ca]">
+						<div className="relative h-[119px] w-[48.588%] overflow-clip rounded-[8.229px] bg-[#69b3ca]">
 							{/* "Box" 137.138x113.852 at (35.86, 23.76); the export bleeds 0.35%/0.25% past the box */}
 							<img alt="" src={A.deckBoxDim} className="absolute left-[35.38px] top-[23.48px] h-[114.323px] w-[138.065px] max-w-none" />
-							<div className="absolute left-[235.39px] top-[calc(50%+0.67px)] flex w-[160.457px] -translate-y-1/2 flex-col items-start gap-[10.286px]">
+							<div className="absolute left-[54.742%] top-[calc(50%+0.67px)] flex w-[160.457px] -translate-y-1/2 flex-col items-start gap-[10.286px]">
 								<Bar w={115.529} h={12} />
 								<div className="flex h-[32.914px] w-[126.514px] items-center justify-center gap-[3.086px] rounded-[15.429px] bg-[#0a1020] py-[4.728px]">
 									<Bar w={44.64} h={8.25} />

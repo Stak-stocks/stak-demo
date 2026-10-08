@@ -3,6 +3,7 @@ import { D } from "@/app/discover/assets";
 import { BackCrumb } from "@/app/discover/BackCrumb";
 import { GhostButton, PrimaryButton } from "@/app/discover/Button";
 import { endOfDeck } from "@/app/discover/data";
+import { colCentre } from "@/app/FitCanvas";
 
 export const Route = createFileRoute("/_app/discover_/end")({
 	component: EndOfDeckPage,
@@ -14,7 +15,7 @@ function EndOfDeckPage() {
 	return (
 		<div className="relative h-[936px]">
 			<BackCrumb crumb={endOfDeck.crumb} onBack={() => navigate({ to: "/discover" })} className="absolute left-[38px] top-[-44px]" />
-			<div className="absolute left-[264px] top-[163px] flex w-[480px] flex-col items-center gap-[40px] overflow-clip">
+			<div className="absolute top-[163px] flex w-[480px] flex-col items-center gap-[40px] overflow-clip" style={{ left: colCentre(480, -63) }}>
 				<div className="relative size-[79.2px] overflow-clip">
 					<img alt="" src={D.ringDone} className="absolute left-0 top-0 size-[79.2px]" />
 					<p className="absolute left-[calc(50%-25.2px)] top-[28.48px] whitespace-nowrap font-sora text-[19.8px] leading-[25px] text-white">

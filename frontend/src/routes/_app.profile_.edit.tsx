@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { editProfile } from "@/app/profile/data";
 import { useAccountDisplay } from "@/app/useAccountDisplay";
 import { GradientButton, RowLabel, RowValue, SectionLabel, SettingsCard, SettingsRow } from "@/app/profile/ui";
+import { col } from "@/app/FitCanvas";
 import { PageHeader } from "@/app/PageHeader";
 
 export const Route = createFileRoute("/_app/profile_/edit")({
@@ -16,7 +17,7 @@ function EditProfilePage() {
 	return (
 		<div className="flex w-full flex-col items-start gap-[29px]">
 			<PageHeader title={editProfile.title} onBell={() => navigate({ to: "/home", search: { notifications: "1" } })} />
-			<div className="flex w-[640px] flex-col items-start gap-[16px]">
+			<div className="flex flex-col items-start gap-[16px]" style={{ width: col(640) }}>
 				<div className="flex w-full flex-col items-center gap-[8px] overflow-clip">
 					<button
 						type="button"

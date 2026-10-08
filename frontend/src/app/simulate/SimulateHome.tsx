@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
+import { colPlus } from "@/app/FitCanvas";
 import { cn } from "@/lib/utils";
 import { SA } from "./assets";
 import { cashAvailable, simulateEmpty, simulateHome, stocks } from "./data";
@@ -16,6 +17,8 @@ export type SimulateHomeSearch = {
 /** 2:634 "Desktop · Simulate home" (canonical) and 2:970 (alternate palette / spacing, ?variant=alt). */
 const CANON: Palette = { card: "#181f30", inner: "#181f30" };
 const ALT: Palette = { card: "#0e1a36", inner: "#12203e" };
+/** The 744 main card beside a 360 rail: its share of the row once the column gap is taken out. */
+const mainWidth = (gap: number) => `calc((100% - ${gap}px) * ${(744 / 1104).toFixed(6)})`;
 
 export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 	const navigate = useNavigate();
@@ -31,7 +34,7 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 	if (search.state === "empty") return <SimulateEmpty />;
 
 	return (
-		<div className="flex flex-col items-start gap-[22px]" style={{ width: alt ? 1144 : 1126, marginTop: alt ? 4 : 0 }}>
+		<div className="flex flex-col items-start gap-[22px]" style={{ width: colPlus(alt ? 10 : -8), marginTop: alt ? 4 : 0 }}>
 			<div className="flex h-[67px] flex-col items-start justify-between overflow-clip">
 				<p className="whitespace-nowrap font-sora text-[26px] font-semibold leading-[33px] text-[#f2f6fc]">{d.title}</p>
 				<div className="flex items-start overflow-clip rounded-[999px] bg-[rgba(255,255,255,0.08)] px-[12px] py-[5px]">
@@ -40,19 +43,19 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 			</div>
 
 			<div className="flex w-full flex-col items-start gap-[22px]">
-				<div className={cn("flex flex-col items-start gap-[22px]", alt && "w-full")}>
-					<div className={cn("flex items-start", alt && "w-full")} style={{ gap: colGap }}>
+				<div className="flex w-full flex-col items-start gap-[22px]">
+					<div className="flex w-full items-start" style={{ gap: colGap }}>
 						<PortfolioHero palette={p} />
-						<div className="flex w-[360px] flex-col items-start gap-[11px]">
+						<div className="flex min-w-0 flex-col items-start gap-[11px]" style={{ flex: "360 1 0" }}>
 							<Card palette={p} className="w-full">
 								<Eyebrow>{d.cash.eyebrow}</Eyebrow>
 								<p className="whitespace-nowrap font-sora text-[24px] font-semibold leading-[30px] text-[#f2f6fc]">{d.cash.value}</p>
-								<p className="w-[320px] font-geist text-[11px] leading-[14px] text-[#819abb]">{d.cash.note}</p>
+								<p className="w-full font-geist text-[11px] leading-[14px] text-[#819abb]">{d.cash.note}</p>
 							</Card>
 							<Card palette={p} className="w-full">
 								<CardTitle>{d.how.title}</CardTitle>
 								{d.how.lines.map((line) => (
-									<p key={line} className="w-[320px] font-geist text-[11px] leading-[14px] text-[#819abb]">
+									<p key={line} className="w-full font-geist text-[11px] leading-[14px] text-[#819abb]">
 										{line}
 									</p>
 								))}
@@ -61,7 +64,7 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 					</div>
 
 					<div className="flex w-full items-end" style={{ gap: colGap }}>
-						<Card palette={p} className="w-[744px]">
+						<Card palette={p} className="min-w-0" style={{ flex: "704 1 0" }}>
 							<div className="flex h-[24px] w-full items-center justify-between overflow-clip whitespace-nowrap">
 								<CardTitle>{d.saved.title}</CardTitle>
 								<Link to="/my-stak" className="font-geist text-[12px] font-medium leading-[16px] text-[#819abb]">
@@ -89,7 +92,7 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 							})}
 						</Card>
 
-						<Card palette={p} className="w-[360px]">
+						<Card palette={p} className="min-w-0" style={{ flex: "320 1 0" }}>
 							<CardTitle>{d.leaderboard.title}</CardTitle>
 							{d.leaderboard.rows.map(([name, pct]) => (
 								<div key={name} className="flex h-[20px] w-full items-start justify-between overflow-clip text-[12px]">
@@ -108,7 +111,7 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 					</div>
 				</div>
 
-				<Card palette={p} className="w-[744px] whitespace-nowrap">
+				<Card palette={p} className="whitespace-nowrap" style={{ width: mainWidth(colGap) }}>
 					<div className="flex h-[24px] w-full items-center justify-between overflow-clip">
 						<CardTitle>{d.picks.title}</CardTitle>
 						<Link to="/simulate/portfolio" className="font-geist text-[12px] font-medium leading-[16px] text-[#819abb]">
@@ -160,7 +163,7 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 function PortfolioHero({ palette }: { palette: Palette }) {
 	const d = simulateHome.hero;
 	return (
-		<Card palette={palette} className="w-[744px]">
+		<Card palette={palette} className="min-w-0" style={{ flex: "704 1 0" }}>
 			<Eyebrow>{d.eyebrow}</Eyebrow>
 			<p className="whitespace-nowrap font-sora text-[34px] font-semibold leading-[43px] text-[#f2f6fc]">{d.value}</p>
 			<div className="flex items-center gap-[14px] overflow-clip whitespace-nowrap text-[12px] leading-[16px]">
@@ -169,12 +172,12 @@ function PortfolioHero({ palette }: { palette: Palette }) {
 			</div>
 			<div className="relative h-[120px] w-full overflow-clip rounded-[12px]" style={{ backgroundColor: palette.inner }}>
 				{/* "Vector" 672x70 at (10,27); the export is 672.38x72.489 and sits 1.81% above / 1.75% below its box */}
-				<div className="absolute left-[10px] top-[27px] h-[70px] w-[672px]">
+				<div className="absolute left-[10px] top-[27px] h-[70px] w-[calc(100%-32px)]">
 					<div className="absolute" style={{ inset: "-1.81% 0 -1.75% 0" }}>
 						<img alt="" src={SA.miniChart} className="block size-full max-w-none" />
 					</div>
 				</div>
-				<div className="absolute left-[526px] top-[86px] flex items-start gap-[8px] overflow-clip">
+				<div className="absolute left-[calc(100%-178px)] top-[86px] flex items-start gap-[8px] overflow-clip">
 					{d.ranges.map((r) => {
 						const active = r === d.activeRange;
 						return (
@@ -205,14 +208,14 @@ function SimulateEmpty() {
 	const d = simulateHome;
 	const e = simulateEmpty;
 	return (
-		<div className="flex w-[1126px] flex-col items-start gap-[22px]">
+		<div className="flex flex-col items-start gap-[22px]" style={{ width: colPlus(-8) }}>
 			<div className="flex h-[67px] flex-col items-start justify-between overflow-clip">
 				<p className="whitespace-nowrap font-sora text-[26px] font-semibold leading-[33px] text-[#f2f6fc]">{d.title}</p>
 				<div className="flex items-start overflow-clip rounded-[999px] bg-[rgba(255,255,255,0.08)] px-[12px] py-[5px]">
 					<p className="whitespace-nowrap font-geist text-[11px] font-medium leading-[14px] text-[#819abb]">{d.badge}</p>
 				</div>
 			</div>
-			<Card className="w-[744px]">
+			<Card style={{ width: mainWidth(22) }}>
 				<Eyebrow>{e.hero.eyebrow}</Eyebrow>
 				<p className="whitespace-nowrap font-sora text-[34px] font-semibold leading-[43px] text-[#f2f6fc]">{e.hero.value}</p>
 				<div className="flex items-center gap-[14px] overflow-clip whitespace-nowrap text-[12px] leading-[16px] text-[#819abb]">
@@ -220,8 +223,8 @@ function SimulateEmpty() {
 					<p className="font-geist">{e.hero.rank}</p>
 				</div>
 				<div className="relative h-[120px] w-full overflow-clip rounded-[12px] bg-[#181f30]">
-					<div className="absolute left-[10px] top-[77px] h-px w-[672px] bg-[rgba(129,154,187,0.35)]" />
-					<div className="absolute left-[526px] top-[86px] flex items-start gap-[8px] overflow-clip">
+					<div className="absolute left-[10px] top-[77px] h-px w-[calc(100%-32px)] bg-[rgba(129,154,187,0.35)]" />
+					<div className="absolute left-[calc(100%-178px)] top-[86px] flex items-start gap-[8px] overflow-clip">
 						{d.hero.ranges.map((r) => {
 							const active = r === d.hero.activeRange;
 							return (
@@ -241,7 +244,7 @@ function SimulateEmpty() {
 					</div>
 				</div>
 			</Card>
-			<div className="flex w-[744px] flex-col items-center justify-center overflow-clip pt-[56px]">
+			<div className="flex flex-col items-center justify-center overflow-clip pt-[56px]" style={{ width: mainWidth(22) }}>
 				<div className="flex flex-col items-center overflow-clip">
 					<div className="relative h-[151px] w-[121.143px]">
 						<img alt="" src={SA.emptyBox} className="absolute left-[-5.26px] top-0 block h-[165.355px] w-[135.091px] max-w-none" />

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { col } from "@/app/FitCanvas";
 import { leaderboard } from "./data";
 import { BackHeader, FilterChip, PageTitle } from "./ui";
 
@@ -7,7 +8,7 @@ export function Leaderboard() {
 	const [chip, setChip] = useState(0);
 	const d = leaderboard;
 	return (
-		<div className="flex w-[956px] flex-col items-start gap-[24px]">
+		<div className="flex flex-col items-start gap-[24px]" style={{ width: col(956) }}>
 			<BackHeader crumb={d.crumb} to="/simulate" />
 			<div className="flex w-full flex-col items-start gap-[28px]">
 				<div className="flex w-[195px] flex-col items-start gap-[22px]">

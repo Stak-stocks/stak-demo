@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { A } from "@/app/assets";
+import { col } from "@/app/FitCanvas";
 import { PRIMARY_GRADIENT } from "@/app/auth/ui";
 import { GradientButton } from "@/app/simulate/ui";
 import { MS } from "@/app/mystak/assets";
@@ -25,7 +26,7 @@ const EMPTY = {
 /** Figma 2:1830 "Desktop · My STAK · Empty" (10 States): the header, then a 640px stage with the empty-box block. */
 function MyStakEmpty() {
 	return (
-		<div className="flex w-[932px] flex-col items-start gap-[38px]">
+		<div className="flex flex-col items-start gap-[38px]" style={{ width: col(932) }}>
 			<div className="flex flex-col items-start gap-[4px] overflow-clip whitespace-nowrap">
 				<h1 className="font-sora text-[26px] font-semibold leading-[33px] text-[#f2f6fc]">My STAK</h1>
 				<p className="font-geist text-[13px] leading-[17px] text-[#819abb]">Your living watchlist and learning hub</p>
@@ -58,13 +59,13 @@ function MyStakPage() {
 	const rows: Collection[][] = [];
 	for (let i = 0; i < COLLECTIONS.length; i += 2) rows.push(COLLECTIONS.slice(i, i + 2));
 	return (
-		<div className="flex w-[932px] flex-col items-start gap-[38px]">
+		<div className="flex flex-col items-start gap-[38px]" style={{ width: col(932) }}>
 			<div className="flex flex-col items-start gap-[4px] overflow-clip whitespace-nowrap">
 				<h1 className="font-sora text-[26px] font-semibold leading-[33px] text-[#f2f6fc]">My STAK</h1>
 				<p className="font-geist text-[13px] leading-[17px] text-[#819abb]">Your living watchlist and learning hub</p>
 			</div>
-			<div className="flex items-start gap-[35px]">
-				<div className="flex w-[547px] flex-col items-start gap-[20px]">
+			<div className="flex w-full items-start gap-[35px]">
+				<div className="flex min-w-0 flex-col items-start gap-[20px]" style={{ flex: "547 1 0" }}>
 					<div className="flex w-full flex-col items-end gap-[20px]">
 						<div className="flex w-full flex-col items-start gap-[13px]">
 							<SectionHeader title="Collections" size="sm" />
@@ -90,7 +91,7 @@ function MyStakPage() {
 					</div>
 				</div>
 
-				<div className="mt-[33px] flex w-[350px] flex-col items-end gap-[31px]">
+				<div className="mt-[33px] flex min-w-0 flex-col items-end gap-[31px]" style={{ flex: "350 1 0" }}>
 					<Link
 						to="/discover"
 						className="flex h-[52px] w-full items-center justify-center gap-[8px] rounded-[6px] border-[0.361px] border-solid border-[rgba(101,158,173,0.63)] drop-shadow-[0px_77.322px_10.839px_rgba(82,170,199,0),0px_49.862px_9.756px_rgba(82,170,199,0.01),0px_28.183px_8.31px_rgba(82,170,199,0.03)]"
@@ -206,7 +207,7 @@ function PortfolioSummary() {
 				</div>
 			</div>
 			<div className="h-[0.884px] w-full bg-[#2a3346]" />
-			<div className="flex w-[525.182px] items-center justify-between overflow-clip whitespace-nowrap">
+			<div className="flex w-[calc(100%-21.818px)] items-center justify-between overflow-clip whitespace-nowrap">
 				{[p.best, p.worst].map((m) => (
 					<div key={m.label} className="flex flex-col items-start gap-[3px] overflow-clip">
 						<span className="font-geist text-[9.722px] leading-[13px] text-[#5c6b85]">{m.label}</span>

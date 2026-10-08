@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { A } from "@/app/assets";
+import { colCentre } from "@/app/FitCanvas";
 import { Bar } from "@/app/SidebarSkeleton";
 import { GLOW_FILTER, GRADIENT, hairline } from "@/app/simulate/ui";
 
@@ -8,9 +9,9 @@ const L = A.loading;
 /** Figma 2:2305 "Desktop · Deck · Loading" (section 10 States): header at y 58, the card stack at 15% opacity, two button shells. */
 export function DeckSkeleton() {
 	return (
-		<div className="relative h-[936px] w-[1144px]" aria-busy="true">
+		<div className="relative h-[936px] w-full" aria-busy="true">
 			{/* header 2:2334 at (256, 58) */}
-			<div className="absolute left-0 top-[-30px] flex h-[92px] w-[1087px] items-center justify-between">
+			<div className="absolute left-0 right-0 top-[-30px] flex h-[92px] items-center justify-between pr-[47px]">
 				<div className="flex flex-col items-start gap-[6px] overflow-clip">
 					<Bar w={92.16} h={12} />
 					<Bar w={81.36} h={8} />
@@ -22,7 +23,7 @@ export function DeckSkeleton() {
 			</div>
 
 			{/* stack 2:2347 at (417, 196), 806.229 wide */}
-			<div className="absolute left-[161px] top-[108px] flex w-[806.229px] flex-col items-center gap-[64px]">
+			<div className="absolute top-[108px] flex w-[806.229px] flex-col items-center gap-[64px]" style={{ left: colCentre(812) }}>
 				<div className="flex w-full flex-col items-center gap-[35px]">
 					<div className="relative h-[458.231px] w-[690.509px]" style={{ opacity: 0.15 }}>
 						{/* right card (2:2350), -5deg */}
