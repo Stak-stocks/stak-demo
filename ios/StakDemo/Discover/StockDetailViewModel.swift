@@ -520,7 +520,8 @@ final class StockDetailViewModel: ObservableObject {
 	// MARK: - Building the page
 
 	private func buildDetail(_ parts: Parts) -> LiveDetail? {
-		guard let quote = parts.stock?.quote, let price = quote.price else { return nil }
+		// A $0 quote is no price: the page keeps "—" rather than show $0.00 and divide by it for the upside.
+		guard let quote = parts.stock?.quote, let price = quote.price, price > 0 else { return nil }
 		let pct = quote.changePercent ?? 0
 		// Yesterday's close as the server reports it - deriving it as price - change was wrong whenever the price came
 		// from an extended session and the change described the regular one.

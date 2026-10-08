@@ -109,7 +109,11 @@ class DiscoverViewModel @Inject constructor(
                 _swipedToday.value = swiped
                 // Set both ways: a deck reloaded at the 9am rollover starts under the limit again.
                 _hasReachedLimit.value = swiped >= limit
+                // Today's swipes anywhere (this phone or another): those cards are done for the day. The deck's cap
+                // already counts them; leaving the cards in showed the ones swiped elsewhere again and hid the last few.
+                var swipedIds = emptySet<String>()
                 statsDeferred.await()?.let { swipes ->
+                    swipedIds = swipes.map { it.brandId }.toSet()
                     val saved = swipes.filter { it.direction == "right" }.map { it.brandId }.toSet().size
                     val passed = swipes.filter { it.direction == "left" }.map { it.brandId }.toSet().size
                     _todayStats.value = saved to passed
@@ -134,15 +138,16 @@ class DiscoverViewModel @Inject constructor(
                             brandId = brand.id,
                             ticker = "${brand.ticker} · ${brand.name}",
                             headline = brand.bio,
-                            price = if (q != null) formatPrice(q.price) else "—",
-                            change = if (q != null) formatChange(q.changePercent) else "—",
+                            // A $0 quote (a halted or unknown symbol) is no price - "—", which the reprice pass retries.
+                            price = if (q != null && q.price > 0) formatPrice(q.price) else "—",
+                            change = if (q != null && q.price > 0) formatChange(q.changePercent) else "—",
                             tip = "",
                             cardTop = colors.first,
                             artBg = colors.second,
                             categories = brand.interestCategories,
                         )
                     }
-                    _deck.value = cards
+                    _deck.value = cards.filter { it.brandId !in swipedIds }
                     prefetchTips(cards)
                     prefetchQuickLooks(cards)
                 }.onFailure {
@@ -171,7 +176,11 @@ class DiscoverViewModel @Inject constructor(
         val byTicker = brands.associateBy { it.ticker }
         val key = todayKey()
         if (StakStore.getString(PICKS_DAY_KEY) == key && StakStore.getInt(PICKS_VERSION_KEY, 0) == PICKS_VERSION) {
+            // A stock saved since the deck was pinned (from a stock page, say) leaves it - undoing a swipe on it would
+            // have removed that earlier save (iOS's filter).
+            val held = MyStakHoldings.tickers
             val pinned = StakStore.getString(PICKS_KEY).orEmpty().split(",").mapNotNull { byTicker[it] }
+                .filter { it.ticker !in held }
             if (pinned.isNotEmpty()) {
                 _deckLabel.value = StakStore.getString(PICKS_LABEL_KEY) ?: deckLabelFor(pinned, categories)
                 return pinned

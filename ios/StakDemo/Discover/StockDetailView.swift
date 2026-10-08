@@ -407,7 +407,9 @@ struct StockDetailView: View {
 	}
 
 	private func save() {
-		saved = holdings.add(symbol)
+		// The price on screen goes with the save, so "Since you saved" measures from it (not +0.0% all day).
+		let priceNow = vm.liveDetail.flatMap { Double($0.price.replacingOccurrences(of: "$", with: "").replacingOccurrences(of: ",", with: "")) }
+		saved = holdings.add(symbol, priceNow: priceNow.flatMap { $0 > 0 ? $0 : nil })
 		if saved {
 			DeckSession.shared.saved.insert(symbol)
 			UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -1273,7 +1275,9 @@ private struct DetailCompareRow {
 /// from its live quote - another company's ticket once filled that company at its live price (audit, 2026-09-15). The
 /// sheet recomputes the amount, cash and shares itself, so the placeholders here never reach the screen.
 @MainActor private func liveBuySpec(_ symbol: String, live: LiveDetail?, f: DetailFacts) -> BuySpec {
-	if let authored = [nvdaBuy, aaplBuy, googlBuy].first(where: { $0.symbol == symbol }) { return authored }
+	// The authored tickets carry sample prices: the demo's only. A real account's ticket is the live price - a buy
+	// confirmed before the quote landed (or offline) once filled at the sample $122.10 / $229.35 / $178.90.
+	if Session.shared.demoAccount, let authored = [nvdaBuy, aaplBuy, googlBuy].first(where: { $0.symbol == symbol }) { return authored }
 	let price = live.flatMap { $0.price == "—" ? nil : $0.price } ?? "$0.00"
 	let change = live.flatMap { $0.change.isEmpty ? nil : $0.change } ?? "▲ 0.0% today"
 	return BuySpec(

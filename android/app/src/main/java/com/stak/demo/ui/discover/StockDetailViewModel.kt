@@ -477,7 +477,8 @@ class StockDetailViewModel @Inject constructor(
         peerMedians: PeerMetricsResponse? = null,
     ): LiveDetail? {
         val quote = stockData?.quote ?: return null
-        val price = quote.price ?: return null
+        // A $0 quote is no price: the page keeps "—" rather than show $0.00 and divide by it for the upside.
+        val price = quote.price?.takeIf { it > 0 } ?: return null
         val pct = quote.changePercent ?: 0.0
         // Yesterday's close as the server reports it. Deriving it as price - change was
         // wrong whenever the price came from an extended-hours session and the change

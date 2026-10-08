@@ -538,13 +538,15 @@ fun StockDetailScreen(
 			// The scrim dismiss is unauthored - it stays instant.
 			exit = ExitTransition.None,
 		) {
+			// The price on screen goes with the save, so "Since you saved" measures from it (not +0.0% all day).
+			val savePrice = liveDetail?.price?.removePrefix("$")?.replace(",", "")?.toDoubleOrNull()?.takeIf { it > 0 }
 			DetailSavedSheet(symbol = symbol, liveDetail = liveDetail,
 				f = f,
 				// The scrim dismiss saves like the two CTAs do (Codex review, PR #166) -
 				// dismissing without tapping either named action must not silently drop the save.
 				onDone = {
 					showSuccess = false
-					saved = com.stak.demo.data.MyStakHoldings.add(symbol)
+					saved = com.stak.demo.data.MyStakHoldings.add(symbol, priceNow = savePrice)
 					if (saved) DeckSession.saved = DeckSession.saved + symbol
 				},
 				// B7/B8: both CTAs mark the stock saved, then leave the page
@@ -552,14 +554,14 @@ fun StockDetailScreen(
 				onViewInMyStak = {
 					// add() is the authority: it refuses at capacity, and a refused save
 					// must not leave this page or the deck believing the stock is kept.
-					saved = com.stak.demo.data.MyStakHoldings.add(symbol)
+					saved = com.stak.demo.data.MyStakHoldings.add(symbol, priceNow = savePrice)
 					if (saved) DeckSession.saved = DeckSession.saved + symbol
 					if (onViewInMyStak != null) onViewInMyStak() else { showSuccess = false }
 				},
 				onKeepExploring = {
 					// add() is the authority: it refuses at capacity, and a refused save
 					// must not leave this page or the deck believing the stock is kept.
-					saved = com.stak.demo.data.MyStakHoldings.add(symbol)
+					saved = com.stak.demo.data.MyStakHoldings.add(symbol, priceNow = savePrice)
 					if (saved) DeckSession.saved = DeckSession.saved + symbol
 					if (onKeepExploring != null) onKeepExploring() else { showSuccess = false }
 				},
@@ -1593,7 +1595,9 @@ private data class DetailCompare(val label: String, val a: String, val b: String
  * sheet itself, so the placeholders here never reach the screen.
  */
 private fun liveBuySpec(symbol: String, live: LiveDetail?, f: DetailFacts): BuySpec {
-	listOf(NVDA_BUY, AAPL_BUY, GOOGL_BUY).firstOrNull { it.symbol == symbol }?.let { return it }
+	// The authored tickets carry sample prices: the demo's only. A real account's ticket is the live price - a buy
+	// confirmed before the quote landed (or offline) once filled at the sample $122.10 / $229.35 / $178.90.
+	if (com.stak.demo.data.Session.demoAccount) listOf(NVDA_BUY, AAPL_BUY, GOOGL_BUY).firstOrNull { it.symbol == symbol }?.let { return it }
 	return BuySpec(
 		title = "Buy $symbol?",
 		badge = symbol.take(1),

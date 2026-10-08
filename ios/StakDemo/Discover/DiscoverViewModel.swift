@@ -138,7 +138,11 @@ final class DiscoverViewModel: ObservableObject {
 		swipedToday = swiped
 		// Set both ways: a deck reloaded at the 9am rollover starts under the limit again.
 		hasReachedLimit = swiped >= limit
+		// Today's swipes anywhere (this phone or another): those cards are done for the day. The deck's cap already
+		// counts them; leaving the cards in showed the ones swiped elsewhere again and hid the last few.
+		var swipedIds: Set<String> = []
 		if let swipes = (await statsTask)?.swipes {
+			swipedIds = Set(swipes.map(\.brandId))
 			let saved = Set(swipes.filter { $0.direction == "right" }.map(\.brandId)).count
 			let passed = Set(swipes.filter { $0.direction == "left" }.map(\.brandId)).count
 			todayStats = (saved, passed)
@@ -163,8 +167,9 @@ final class DiscoverViewModel: ObservableObject {
 					art: cardArt[brand.ticker],
 					ticker: "\(brand.ticker) · \(brand.name)",
 					headline: brand.bio,
-					price: q.map { formatPrice($0.price) } ?? "—",
-					change: q.map { formatChange($0.changePercent) } ?? "—",
+					// A $0 quote (a halted or unknown symbol) is no price - "—", which the reprice pass retries.
+					price: q.flatMap { $0.price > 0 ? formatPrice($0.price) : nil } ?? "—",
+					change: q.flatMap { $0.price > 0 ? formatChange($0.changePercent) : nil } ?? "—",
 					tip: "",
 					cardTop: colors.top,
 					artBg: colors.art,
@@ -174,7 +179,7 @@ final class DiscoverViewModel: ObservableObject {
 					priceValue: q.flatMap { $0.price > 0 ? $0.price : nil }
 				)
 			}
-			deck = cards
+			deck = cards.filter { !swipedIds.contains($0.brandId) }
 			// A rollover reload resets today's run only now, with the new cards in place - resetting it first showed the
 			// previous day's swiped cards again for a moment.
 			if resetSessionOnLoad { DeckSession.shared.load(); resetSessionOnLoad = false }

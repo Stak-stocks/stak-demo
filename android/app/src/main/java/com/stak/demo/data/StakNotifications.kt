@@ -113,7 +113,9 @@ object StakNotifications {
 		val out = mutableListOf<Item>()
 		// Moves, largest first. The id carries the market day and direction, so a new
 		// day's move is a new, unread notification.
-		val day = StakClock.marketDay()
+		// The session the move belongs to, not today's date: Friday's move stays one notification (read once) until
+		// Monday's open, instead of coming back unread at every midnight.
+		val day = StakClock.sessionDay()
 		val session = StakClock.lastCloseRef()
 		moves.sortedByDescending { kotlin.math.abs(it.second) }.forEach { (ticker, pct) ->
 			val up = pct >= 0

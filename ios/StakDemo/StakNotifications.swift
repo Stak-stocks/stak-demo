@@ -103,7 +103,9 @@ final class StakNotifications: ObservableObject {
 		var out: [Item] = []
 		// Moves, largest first. The id carries the market day and direction, so a new day's move is a new, unread
 		// notification.
-		let day = StakClock.marketDay()
+		// The session the move belongs to, not today's date: Friday's move stays one notification (read once) until
+		// Monday's open, instead of coming back unread at every midnight.
+		let day = StakClock.sessionDay()
 		let session = StakClock.lastCloseRef()
 		let threshold = UserProfile.shared.priceThreshold
 		for (ticker, pct) in moves.sorted(by: { abs($0.1) > abs($1.1) }) {

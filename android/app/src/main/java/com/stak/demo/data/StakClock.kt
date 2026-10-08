@@ -35,6 +35,19 @@ object StakClock {
 		java.time.ZonedDateTime.now(java.time.ZoneId.of("America/New_York")).toLocalDate().toString()
 
 	/**
+	 * The US Eastern date of the session a quote's daily move belongs to: today from the
+	 * 9:30 open on a weekday, else the last weekday before (holidays not known). Friday's
+	 * move keeps one date through the weekend.
+	 */
+	fun sessionDay(now: java.time.ZonedDateTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("America/New_York"))): String {
+		val weekend = now.dayOfWeek == java.time.DayOfWeek.SATURDAY || now.dayOfWeek == java.time.DayOfWeek.SUNDAY
+		if (!weekend && now.hour * 60 + now.minute >= 570) return now.toLocalDate().toString()
+		var day = now.toLocalDate().minusDays(1)
+		while (day.dayOfWeek == java.time.DayOfWeek.SATURDAY || day.dayOfWeek == java.time.DayOfWeek.SUNDAY) day = day.minusDays(1)
+		return day.toString()
+	}
+
+	/**
 	 * Which session a quote's daily move belongs to, in US Eastern time: "today"
 	 * while the market is open, "at today's close" after 4pm, "at yesterday's close"
 	 * before a weekday open, and "at Friday's close" before Monday's open and over the
@@ -137,7 +150,8 @@ object StakClock {
 	 * the news list and the stock pages so one story can't be two ages at once.
 	 */
 	fun newsAge(datetime: Long): String {
-		val ageSeconds = System.currentTimeMillis() / 1000 - datetime
+		// A story stamped a moment ahead of this phone's clock reads as new, never "-2m".
+		val ageSeconds = (System.currentTimeMillis() / 1000 - datetime).coerceAtLeast(0)
 		return when {
 			ageSeconds < 3600 -> "${ageSeconds / 60}m"
 			ageSeconds < 86400 -> "${ageSeconds / 3600}h"

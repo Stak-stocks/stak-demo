@@ -46,6 +46,22 @@ enum StakClock {
 	/// Today's date in US Eastern time ("2026-09-16") - the market's own day, for dating saved prices.
 	static func marketDay() -> String { formatter("yyyy-MM-dd", zone: eastern).string(from: Date()) }
 
+	/// The US Eastern date of the session a quote's daily move belongs to: today from the 9:30 open on a weekday, else
+	/// the last weekday before (holidays not known). Friday's move keeps one date through the weekend.
+	static func sessionDay(now: Date = Date()) -> String {
+		let c = easternCalendar.dateComponents([.weekday, .hour, .minute], from: now)
+		let weekday = c.weekday ?? 2
+		let minutes = (c.hour ?? 0) * 60 + (c.minute ?? 0)
+		var day = now
+		if weekday == 1 || weekday == 7 || minutes < 570 {
+			day = easternCalendar.date(byAdding: .day, value: -1, to: now) ?? now
+			while [1, 7].contains(easternCalendar.component(.weekday, from: day)) {
+				day = easternCalendar.date(byAdding: .day, value: -1, to: day) ?? day
+			}
+		}
+		return formatter("yyyy-MM-dd", zone: eastern).string(from: day)
+	}
+
 	/// Which session a quote's daily move belongs to, in US Eastern time: "today" while the market is open, "at
 	/// today's close" after 4pm, "at yesterday's close" before a weekday open, and "at Friday's close" before Monday's
 	/// open and over the weekend. Mirrors the web's getLastCloseRef (frontend/src/lib/utils.ts). Holidays not known.
@@ -168,7 +184,8 @@ enum StakClock {
 	/// "13h" - a story's age in the largest unit that still reads small. Shared by the news list and the stock pages so
 	/// one story can't be two ages at once.
 	static func newsAge(_ datetime: Int64) -> String {
-		let ageSeconds = Int64(Date().timeIntervalSince1970) - datetime
+		// A story stamped a moment ahead of this phone's clock reads as new, never "-2m".
+		let ageSeconds = max(0, Int64(Date().timeIntervalSince1970) - datetime)
 		if ageSeconds < 3600 { return "\(ageSeconds / 60)m" }
 		if ageSeconds < 86_400 { return "\(ageSeconds / 3600)h" }
 		return "\(ageSeconds / 86_400)d"

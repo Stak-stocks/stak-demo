@@ -63,6 +63,9 @@ struct NotificationsView: View {
 			inbox.markAllRead()
 			inbox.refresh()
 		}
+		// What the refresh brings in while the inbox is open is seen too - otherwise the bell's dot came back for items
+		// read right here. (They keep their dot in this visit: readBefore was captured on the way in.)
+		.onChange(of: inbox.items) { _, _ in inbox.markAllRead() }
 	}
 }
 

@@ -329,7 +329,7 @@ private struct HelpSupportView: View {
 					FaqRow(question: "Is my data private?", answer: "STAK never sells your data.")
 				} else {
 					FaqRow(question: "Where do the prices come from?", answer: "Real prices from the US stock market. They update on their own while the market is open (9:30am to 4pm ET, weekdays). When it's closed, you see the last closing price.")
-					FaqRow(question: "Is my data private?", answer: "Your saved stocks and taste answers are stored with your STAK account, so they follow you to a new phone. Your paper portfolio stays on this phone for now. STAK never sells your data.")
+					FaqRow(question: "Is my data private?", answer: "Your saved stocks, taste answers and paper portfolio are stored with your STAK account, so they follow you to a new phone. STAK never sells your data.")
 				}
 				SettingsLinkRow(label: "Email support") {
 					if let url = URL(string: "mailto:support@thestak.org?subject=STAK%20support") { UIApplication.shared.open(url) }
@@ -544,7 +544,7 @@ private struct AppSettingsView: View {
 				}
 				if confirmDelete {
 					VStack(alignment: .leading, spacing: 10 * u) {
-						Text("This removes your saves, paper portfolio and settings from this phone and signs you out. It can\u{2019}t be undone.")
+						Text("This deletes your STAK account - your saves, paper portfolio and settings - and signs you out. It can\u{2019}t be undone.")
 							.font(StakFont.geist(12 * u))
 							.stakLineHeight(17 * u, size: 12 * u, face: .geist)
 							.foregroundStyle(bodyInk)
@@ -592,7 +592,7 @@ private struct AppSettingsView: View {
 			.padding(.vertical, 4 * u)
 			.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
 			// Only the demo persona's state survives a log out - a created account signs back in as a new one (review 2026-09-14).
-			Caption(text: Session.shared.demoAccount ? "Log out from the Profile page keeps your saves and paper portfolio for the next sign-in." : "Log out from the Profile page ends this account’s session; a new sign-up starts fresh.")
+			Caption(text: Session.shared.demoAccount ? "Log out from the Profile page keeps your saves and paper portfolio for the next sign-in." : "Log out from the Profile page ends this session; your saves and paper portfolio are kept with your account for the next sign-in.")
 		}
 	}
 }

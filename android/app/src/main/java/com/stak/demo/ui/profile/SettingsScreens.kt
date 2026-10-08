@@ -295,7 +295,7 @@ private fun HelpSupportScreen(onBack: () -> Unit) {
 			if (Session.demoAccount) {
 				FaqRow("Is my data private?", "STAK never sells your data.")
 			} else {
-				FaqRow("Is my data private?", "Your saved stocks and taste answers are stored with your STAK account, so they follow you to a new phone. Your paper portfolio stays on this phone for now. STAK never sells your data.")
+				FaqRow("Is my data private?", "Your saved stocks, taste answers and paper portfolio are stored with your STAK account, so they follow you to a new phone. STAK never sells your data.")
 			}
 			SettingsLinkRow(label = "Email support") {
 				val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@thestak.org")).putExtra(Intent.EXTRA_SUBJECT, "STAK support")
@@ -417,7 +417,7 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 			AnimatedVisibility(visible = confirmDelete) {
 				Column(verticalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.padding(start = (14 * u).dp, end = (14 * u).dp, bottom = (14 * u).dp)) {
 					Text(
-						"This removes your saves, paper portfolio and settings from this phone and signs you out. It can\u2019t be undone.",
+						"This deletes your STAK account - your saves, paper portfolio and settings - and signs you out. It can\u2019t be undone.",
 						style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 						color = Body,
 					)
@@ -466,7 +466,7 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 			}
 		}
 		// Account-aware (review 2026-09-14): Sign in always restores the demo persona; a created account's state is not re-enterable after log out.
-		Caption(if (Session.demoAccount) "Log out from the Profile page keeps your saves and paper portfolio for the next sign-in." else "Log out from the Profile page ends this account’s session; a new sign-up starts fresh.")
+		Caption(if (Session.demoAccount) "Log out from the Profile page keeps your saves and paper portfolio for the next sign-in." else "Log out from the Profile page ends this session; your saves and paper portfolio are kept with your account for the next sign-in.")
 	}
 }
 

@@ -59,6 +59,9 @@ fun NotificationsScreen(onBack: () -> Unit, onOpenSettings: () -> Unit) {
 		StakNotifications.markAllRead()
 		StakNotifications.refresh()
 	}
+	// What the refresh brings in while the inbox is open is seen too - otherwise the bell's dot came back for items
+	// read right here. (They keep their dot in this visit: readBefore was captured on the way in.)
+	LaunchedEffect(items) { StakNotifications.markAllRead() }
 	SettingsScaffold(title = "Notifications", onBack = onBack) {
 		Column(
 			verticalArrangement = Arrangement.spacedBy((14 * u).dp),
