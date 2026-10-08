@@ -816,7 +816,8 @@ async function deleteAccount(uid: string, supabaseUid: string, token: string | u
 const bearer = (req: AuthenticatedRequest) => req.headers.authorization?.replace(/^Bearer\s+/i, "") || undefined;
 
 // POST /api/me/eligibility { ageConfirmed: true, inUS: true, acceptTerms: true } - "Before we get started": three
-// boxes - 18 or older, living in the United States, and the Terms and Privacy Policy (Terms §2). No date of birth.
+// confirmations, given by one "Agree and continue" in the apps and on the web - 18 or older, living in the United
+// States, and the Terms and Privacy Policy (Terms §2). No date of birth.
 // What's kept: that each was confirmed, when, and which versions of the documents.
 meRouter.post("/eligibility", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
