@@ -86,6 +86,8 @@ private final class DeckDragState: ObservableObject {
 /// share it.
 struct HomeView: View {
 	let firstRun: Bool
+	/// No page is pushed over Home: its refresh loop runs only then (android's RefreshWhileVisible stops when covered).
+	var isTop = true
 	let onSeeTodaysPick: () -> Void
 	var onProfile: () -> Void = {}
 	/// The bell opens the inbox (product audit, 2026-09-05).
@@ -176,14 +178,14 @@ struct HomeView: View {
 		.background(StakColors.bg.ignoresSafeArea())
 		// Trending re-reads every 3 minutes while Home is showing (the backend caches its ranking that long), and on
 		// returning to the app - Android's RefreshWhileVisible(3 min, tickOnResume).
-		.task {
+		// Only while Home is actually showing: a page pushed over it or the app in the background stops the loop, and
+		// coming back restarts it with an immediate read (tickOnResume).
+		.task(id: isTop && scenePhase == .active) {
+			guard isTop, scenePhase == .active else { return }
 			while !Task.isCancelled {
 				await homeVM.refreshTrending()
-				try? await Task.sleep(nanoseconds: 180_000_000_000)
+				do { try await Task.sleep(nanoseconds: 180_000_000_000) } catch { return }
 			}
-		}
-		.onChange(of: scenePhase) { _, phase in
-			if phase == .active { Task { await homeVM.refreshTrending() } }
 		}
 	}
 }

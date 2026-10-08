@@ -225,6 +225,7 @@ struct MainTabsView: View {
 					case .home:
 						HomeView(
 							firstRun: homeFirstRun,
+							isTop: pushed.isEmpty,
 							// Authored (1:958/1:1097 Motion): the pill and the deck
 							// banner jump to the Discover deck ("first run" frame),
 							// the mood card to News, the why-card to My STAK — all
@@ -589,9 +590,11 @@ struct MainTabsView: View {
 		if all, pushed.count > 1 { pushed.removeFirst(pushed.count - 1) }
 		navStyle = style
 		parkedShift = style.parkedShift(pageWidth)
+		// Two Backs in one frame queue two of these: each removes only the page it was asked to.
+		let top = pushed.last?.id
 		DispatchQueue.main.async {
 			withAnimation(style.animation) {
-				if !pushed.isEmpty { pushed.removeLast() }
+				if !pushed.isEmpty, pushed.last?.id == top { pushed.removeLast() }
 			}
 		}
 	}

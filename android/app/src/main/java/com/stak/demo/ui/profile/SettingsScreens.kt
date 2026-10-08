@@ -585,11 +585,17 @@ private fun EditProfileScreen(onBack: () -> Unit) {
 		}
 	}
 
+	// Save waits for the copy, or the old photo would be stored (09 Profile setup's gate).
+	var copying by remember { mutableStateOf(false) }
 	val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
 		if (uri == null) return@rememberLauncherForActivityResult
+		copying = true
 		scope.launch {
-			val copy = withContext(Dispatchers.IO) { copyAvatarEdit(context, uri) }
+			// A fresh avatar_<time>.jpg per pick (09 Profile setup's copy): one rewritten "avatar.jpg" kept showing the
+			// previous photo from the image cache, overwrote the saved one before Save, and outlived log out.
+			val copy = withContext(Dispatchers.IO) { com.stak.demo.ui.onboarding.copyAvatar(context, uri) }
 			photoUri = copy ?: uri.toString()
+			copying = false
 		}
 	}
 
@@ -683,12 +689,14 @@ private fun EditProfileScreen(onBack: () -> Unit) {
 
 		AuthCta(
 			text = if (isSaving) "Saving…" else "Save changes",
-			enabled = name.isNotBlank() && !isSaving,
+			enabled = name.isNotBlank() && !isSaving && !copying,
 			onClick = {
 				isSaving = true
 				scope.launch {
 					UserProfile.displayName = name.trim().capitalizeWords()
 					UserProfile.photoUri = photoUri
+					// Only the photo kept survives; earlier picks' copies go.
+					com.stak.demo.ui.onboarding.pruneAvatars(context, keep = photoUri)
 					Session.saveProfile()
 					viewModel.updateProfile()
 					onBack()
@@ -698,8 +706,3 @@ private fun EditProfileScreen(onBack: () -> Unit) {
 	}
 }
 
-private fun copyAvatarEdit(context: android.content.Context, uri: Uri): String? = runCatching {
-	val file = File(context.filesDir, "avatar.jpg")
-	context.contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { input.copyTo(it) } } ?: return null
-	Uri.fromFile(file).toString()
-}.getOrNull()

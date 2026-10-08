@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 /// Screens of the auth + onboarding flow — mirrors the Android
 /// StakNavHost: splash → sign up (⇄ sign in) → 01 welcome →
@@ -210,6 +211,8 @@ struct RootFlowView: View {
 			}
 		}
 		.onChange(of: scenePhase) { _, next in
+			// Opening the app reads the notifications: the icon's badge (asked for when one arrives in front) clears.
+			if next == .active { UNUserNotificationCenter.current().setBadgeCount(0) }
 			// Leaving the active state locks a protected account at once - .inactive too
 			// (Control Center, the app switcher, a system interruption), so the promise
 			// "authenticate whenever you come back" holds (Codex review, PR #167). The
@@ -257,6 +260,9 @@ struct RootFlowView: View {
 	}
 
 	private func push(_ screen: FlowScreen, _ a: FlowAnim) {
+		// A double tap (Get started, Continue, Allow and continue's async completion) pushes once - a duplicate needed
+		// two Backs and gave the swipe layers duplicate ids.
+		guard stack.last != screen else { return }
 		anim = a
 		withAnimation(a.animation) { stack.append(screen) }
 		settleAuthState()

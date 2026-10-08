@@ -155,6 +155,9 @@ struct NewsDetailView: View {
 			}
 		}
 		.background(StakColors.bg.ignoresSafeArea())
+		// The saved sheet is up: swipe back waits for it to close, as android's Back closes it first - never the whole
+		// page out from under it.
+		.preference(key: PageOverlayOpenKey.self, value: successId != nil)
 	}
 
 	/// The save itself - the hero bookmark's direct save, the sheet's Back

@@ -50,6 +50,8 @@ final class StakAiViewModel: ObservableObject {
     private let decoder = JSONDecoder()
     /// The past conversation loading, and the wait for the count to free up - each replaced, never stacked.
     private var openTask: Task<Void, Never>? = nil
+    /// The question being answered - stopped when the chat closes (android's viewModelScope), not read to its end.
+    private var sendTask: Task<Void, Never>? = nil
     private var usageWait: Task<Void, Never>? = nil
     private var recheck: Task<Void, Never>? = nil
     /// Bumped by every reply: a count read started before one can't overwrite the newer count the reply carries.
@@ -64,7 +66,16 @@ final class StakAiViewModel: ObservableObject {
     var canAsk: Bool { !sending && !loading && !outOfQuestions }
 
     /// Nothing the chat started outlives it - Android's viewModelScope.
+    /// The chat closed: its stream, reopen and usage re-checks stop with it.
+    func cancelAll() {
+        sendTask?.cancel()
+        openTask?.cancel()
+        usageWait?.cancel()
+        recheck?.cancel()
+    }
+
     deinit {
+        sendTask?.cancel()
         openTask?.cancel()
         usageWait?.cancel()
         recheck?.cancel()
@@ -101,7 +112,10 @@ final class StakAiViewModel: ObservableObject {
         nextKey += 1
         notice = nil
         sending = true
-        Task { await ask(q, allowRestart: true, via: via); sending = false }
+        sendTask = Task { [weak self] in
+            await self?.ask(q, allowRestart: true, via: via)
+            self?.sending = false
+        }
     }
 
     func retry() { messages.last(where: { $0.failed }).map { send($0.text, via: "retry") } }

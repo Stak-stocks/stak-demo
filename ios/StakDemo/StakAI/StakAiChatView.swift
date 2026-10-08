@@ -48,6 +48,8 @@ struct StakAiChatView: View {
             vm.configure(context: context, question: question, conversationId: conversationId)
             await brands.ensure()
         }
+        // A pushed page stays mounted while covered, so this runs only when the chat is closed.
+        .onDisappear { vm.cancelAll() }
         .onChange(of: vm.returnedDraft) { _, draft in
             if let d = vm.consumeReturnedDraft(), self.draft.isEmpty { self.draft = d }
         }

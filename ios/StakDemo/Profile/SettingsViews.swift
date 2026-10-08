@@ -705,6 +705,10 @@ private struct EditProfileView: View {
 	@State private var pickedItem: PhotosPickerItem? = nil
 	@State private var loadGen = 0
 	@State private var saving = false
+	/// A picked photo still being shrunk: Save waits for it, or the old photo would be stored.
+	@State private var loadingPhoto = false
+	/// The save in flight - cancelled if the page is left first, so it never pops the page beneath (the Profile hub).
+	@State private var saveTask: Task<Void, Never>? = nil
 
 	var body: some View {
 		let u = figmaUnit
@@ -744,7 +748,9 @@ private struct EditProfileView: View {
 				guard let item else { return }
 				loadGen += 1
 				let gen = loadGen
+				loadingPhoto = true
 				Task {
+					defer { if gen == loadGen { loadingPhoto = false } }
 					// Only a 512px thumbnail survives the pick (ImageIO downsample, off the main thread) - the same path
 					// as 09 Profile setup.
 					guard let data = try? await item.loadTransferable(type: Data.self),
@@ -775,17 +781,19 @@ private struct EditProfileView: View {
 			.padding(16 * u)
 			.background(Color(argb: 0xFF181F30), in: RoundedRectangle(cornerRadius: 14 * u))
 
-			AuthCta(text: saving ? "Saving\u{2026}" : "Save changes", enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty && !saving, action: {
+			AuthCta(text: saving ? "Saving\u{2026}" : "Save changes", enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty && !saving && !loadingPhoto, action: {
 				saving = true
 				UserProfile.shared.displayName = name.trimmingCharacters(in: .whitespaces).capitalizedWords
 				UserProfile.shared.photoData = photoData
 				Session.shared.saveProfile()
-				Task {
+				saveTask = Task {
 					await authVM.updateProfile()
+					guard !Task.isCancelled else { return }
 					onBack()
 				}
 			})
 		}
+		.onDisappear { saveTask?.cancel(); saveTask = nil; saving = false }
 	}
 }
 

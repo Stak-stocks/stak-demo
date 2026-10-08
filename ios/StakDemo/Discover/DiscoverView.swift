@@ -414,13 +414,14 @@ struct DiscoverView: View {
 		// Prices move while the deck sits open: on showing, every 30s while visible, and on returning to the app - for
 		// the front card and the two peeking behind it only; swiped cards and the end screen show no price (Android
 		// RefreshWhileVisible). The loop stops when the tab is left.
-		.task {
+		// Paused in the background (the loop kept polling there); the return restarts it with an immediate tick.
+		.task(id: scenePhase == .active) {
+			guard scenePhase == .active else { return }
 			while !Task.isCancelled {
 				tick()
-				try? await Task.sleep(nanoseconds: 30_000_000_000)
+				do { try await Task.sleep(nanoseconds: 30_000_000_000) } catch { return }
 			}
 		}
-		.onChange(of: scenePhase) { _, phase in if phase == .active { tick() } }
 		.sensoryFeedback(.impact(weight: .light), trigger: decisionTick)
 		.sensoryFeedback(.warning, trigger: stakFullToken)
 		// Quick Look - a native sheet: drag down to dismiss. Its body scrolls inside the one detent.

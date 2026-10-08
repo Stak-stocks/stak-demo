@@ -299,7 +299,7 @@ fun ProfileSetupScreen(
 }
 
 /** Copies the picked image into app storage; its file URI, or null when the copy fails. */
-private fun copyAvatar(context: android.content.Context, uri: Uri): String? = runCatching {
+internal fun copyAvatar(context: android.content.Context, uri: Uri): String? = runCatching {
 	// A fresh file per pick: the hub's image loader keys its cache on the URI, so
 	// rewriting one "avatar.jpg" would keep showing the previous photo.
 	val file = File(context.filesDir, "avatar_${System.currentTimeMillis()}.jpg")
@@ -316,7 +316,7 @@ private fun deleteAvatarFile(stored: String) {
 }
 
 /** Drops every app-owned avatar copy except the one being kept. */
-private fun pruneAvatars(context: android.content.Context, keep: String?) {
+internal fun pruneAvatars(context: android.content.Context, keep: String?) {
 	val keepName = keep?.let { runCatching { File(Uri.parse(it).path ?: "").name }.getOrNull() }
 	context.filesDir.listFiles { f -> f.name.startsWith("avatar") && f.name.endsWith(".jpg") && f.name != keepName }?.forEach { it.delete() }
 }
