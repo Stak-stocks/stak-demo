@@ -14,7 +14,7 @@ struct PickSpec: Codable, Equatable {
 	var priceNow: String
 	let pickedLine: String
 	let priceThen: String
-	/// Signed dollars, e.g. "+$24.00" - the hero splits it at the point.
+	/// Signed dollars, e.g. "+$24.00" - the "Your gain" cell.
 	var gain: String
 	/// Unsigned, e.g. "24.0%" - `up` picks the up/down wording and the red.
 	var gainPct: String
@@ -32,9 +32,6 @@ struct PickSpec: Codable, Equatable {
 	var weekGain: String = "+$3.80"
 
 	var dayUp: Bool { !dayChange.hasPrefix("▼") }
-	/// "+$24.00" -> "+$24" (the 48 box) and ".00" (its own 16/20 box, 1:4654); "" when there are no cents.
-	var gainWhole: String { gain.components(separatedBy: ".").first ?? gain }
-	var gainCents: String { String(gain.dropFirst(gainWhole.count)) }
 }
 
 enum PickSpecs {
@@ -58,7 +55,7 @@ enum PickSpecs {
 }
 
 /// 07 · Simulate — "Pick detail · paper" (CHINEDU 1:4631). The NVDA
-/// position page: picked line, the +$24.00 gain hero, chart with range
+/// position page: picked line, the price hero, chart with range
 /// pills, the This-week / vs-the-market duo, Price then/now, the WHY?
 /// insight and the dark Sell CTA (raises the sell flow from here too).
 /// Codex parity audit (2026-09-04): serves the TAPPED pick (`symbol`)
@@ -190,7 +187,7 @@ struct PickDetailView: View {
 				ScrollView(showsIndicators: false) {
 					VStack(alignment: .leading, spacing: 16 * u) {
 						// Authored hero card (1:4654): 350x307 r16 with 18 padding - avatar row,
-						// +$24 in a 48-tall box with the .00 at 16/20, subtitle, the 343x73.5 chart
+						// the price in a 48-tall box with its cents at 16/20, the range's change line, the 343x73.5 chart
 						// line bleeding 14.5 past the padding, range tabs 40 below the line.
 						VStack(alignment: .leading, spacing: 0) {
 							HStack(spacing: 9 * u) {
@@ -205,14 +202,14 @@ struct PickDetailView: View {
 									.font(StakFont.geist(12 * u))
 									.foregroundStyle(Sim.muted)
 							}
+							// The stock's price now (user, 2026-10-08: the price, not the gain - that has its own tile below).
+							let priceParts = pick.priceNow.split(separator: ".", maxSplits: 1).map(String.init)
 							HStack(alignment: .bottom, spacing: 0) {
-								// A losing pick's figure takes the authored red (the
-								// frame's +$24 is white); the cents stay muted.
-								Text(pick.gainWhole)
+								Text(priceParts.first ?? pick.priceNow)
 									.font(StakFont.sora(38 * u, .semiBold))
 									// 1:4660 (exact-design audit 2026-09-04): no tracking - the -0.38 was never authored.
-									.foregroundStyle(pick.up ? Color.white : Sim.red)
-								Text(pick.gainCents)
+									.foregroundStyle(Color.white)
+								Text(priceParts.count > 1 ? "." + priceParts[1] : "")
 									.font(StakFont.sora(16 * u, .semiBold))
 									.foregroundStyle(Sim.muted)
 									.padding(.leading, 7 * u)
@@ -221,12 +218,14 @@ struct PickDetailView: View {
 							.frame(height: 48 * u * typeScale, alignment: .bottom)
 							.padding(.top, 11 * u)
 							.accessibilityElement(children: .ignore)
-							.accessibilityLabel("Gain, \(pick.gain)")
-							// Review (2026-09-04): the pick's own cost basis ("$100" authored).
-							Text("That is \(pick.up ? "up" : "down") \(pick.gainPct) on a \(pick.stakeBasis) paper stake")
-								// 1:4662 (exact-design audit 2026-09-04): Geist Light, like the hero's all-time line.
-								.font(StakFont.geist(12 * u, .light))
-								.foregroundStyle(Sim.muted)
+							.accessibilityLabel("Price, \(pick.priceNow)")
+							// The price's change over the selected range; the demo keeps its authored stake line.
+							let move = rangeMove(pick)
+							let moveText = portfolio.demo ? "That is \(pick.up ? "up" : "down") \(pick.gainPct) on a \(pick.stakeBasis) paper stake" : move?.text ?? "—"
+							Text(moveText)
+								.accessibilityLabel(PaperPortfolio.spokenMove(moveText))
+								.font(StakFont.geist(12 * u, portfolio.demo ? .light : .medium))
+								.foregroundStyle(portfolio.demo || move == nil ? Sim.muted : move!.up ? Sim.green : Sim.red)
 								.frame(height: 16 * u * typeScale) // Authored line box is 16 — pin it so the card sums to 271
 								.padding(.top, 11 * u)
 							// Compose `requiredSize`: the line measures as the 314-wide content
@@ -254,12 +253,13 @@ struct PickDetailView: View {
 								// week's first close, and its move against SPY's (both were fixed at "+$0.00" / "Even").
 								let week = weekStats(pick)
 								StatBox(label: "This week", value: week.gain, valueColor: week.gainColor)
-								StatBox(label: "vs the market", value: week.versus, valueColor: week.versusColor)
+								StatBox(label: "vs S&P 500 this week", value: week.versus, valueColor: week.versusColor)
 							}
 							HStack(spacing: 10 * u) {
 								// 1:4684 / 1:4687 (exact-design audit 2026-09-04): the prices are plain white, not #f2f6fc.
 								StatBox(label: "Price then", value: pick.priceThen, valueColor: Color.white)
-								StatBox(label: "Price now", value: pick.priceNow, valueColor: Color.white)
+								// The price is the hero's figure now; this cell carries what the stake has made.
+								StatBox(label: "Your gain", value: "\(pick.gain) (\(pick.up ? "+" : "-")\(pick.gainPct))", valueColor: pick.up ? Sim.green : Sim.red)
 							}
 						}
 						// WHY / insight card — teal-tinted like the deck tips.
@@ -368,7 +368,11 @@ struct PickDetailView: View {
 	/// "This week" and "vs the market" as shown: the demo's authored values, a real pick's from its week of closes
 	/// ("—", muted, until they're read).
 	private func weekStats(_ pick: PickSpec) -> (gain: String, gainColor: Color, versus: String, versusColor: Color) {
-		if portfolio.demo { return (pick.weekGain, Sim.green, pick.vsMarket, pick.ahead ? Sim.green : Sim.red) }
+		if portfolio.demo {
+			// The authored "+20.8% ahead" in the words the real figure uses ("20.8% ahead").
+			let versus = pick.vsMarket.hasPrefix("+") || pick.vsMarket.hasPrefix("-") ? String(pick.vsMarket.dropFirst()) : pick.vsMarket
+			return (pick.weekGain, Sim.green, versus, pick.ahead ? Sim.green : Sim.red)
+		}
 		let price = PaperPortfolio.amount(pick.priceNow)
 		let shares = Double(pick.shares) ?? 0
 		var gainText = "—", gainColor = Sim.muted, versusText = "—", versusColor = Sim.muted
@@ -386,12 +390,31 @@ struct PickDetailView: View {
 				let spyBase = boughtThisWeek ? (spy.last(where: { $0.at <= picked }) ?? spy[0]).close : spy[0].close
 				if spyBase > 0 {
 					let versus = (last.close - base) / base * 100 - (spyLast.close - spyBase) / spyBase * 100
-					versusText = abs(versus) < 0.05 ? "Even" : PaperPortfolio.signedPct(versus)
+					versusText = PaperPortfolio.versusWords(versus)
 					versusColor = versus > -0.05 ? Sim.green : Sim.red
 				}
 			}
 		}
 		return (gainText, gainColor, versusText, versusColor)
+	}
+
+	/// The price's change over the selected range: today's move from the quote for 1D, otherwise from the range's first
+	/// close to the live price. Nil until that's read.
+	private func rangeMove(_ pick: PickSpec) -> (up: Bool, text: String)? {
+		let price = PaperPortfolio.amount(pick.priceNow)
+		guard price > 0 else { return nil }
+		let change: Double, pct: Double
+		if range == "1D" {
+			guard let q = quotes.cached(symbol) else { return nil }
+			change = price - price / (1 + q.changePct / 100)
+			pct = q.changePct
+		} else {
+			guard case .line(let closes)? = charts[range], let first = closes.first, first > 0 else { return nil }
+			change = price - first
+			pct = change / first * 100
+		}
+		let up = change > -0.005
+		return (up, PaperPortfolio.rangeLine(PaperPortfolio.signedMoney(change), pct: pct, up: up, range: range))
 	}
 
 	/// The demo keeps its authored line - it has no live price behind its numbers. A real pick draws its own stock's
@@ -442,6 +465,7 @@ private struct StatBox: View {
 		// Geist Regular 14 - was r12 / #5c6b85 / Sora SemiBold 15.
 		VStack(alignment: .leading, spacing: 4 * u) {
 			Text(label)
+				.lineLimit(1)
 				.font(StakFont.geist(10 * u))
 				.foregroundStyle(Sim.muted)
 				.frame(height: 13 * u * typeScale) // Authored 10/13 line box — pin so the cell sums to 35

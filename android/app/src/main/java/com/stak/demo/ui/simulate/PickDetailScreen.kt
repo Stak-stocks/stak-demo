@@ -68,7 +68,7 @@ internal data class PickSpec(
 	val priceNow: String,
 	val pickedLine: String,
 	val priceThen: String,
-	/** Signed dollars, e.g. "+$24.00" - the hero splits it at the point. */
+	/** Signed dollars, e.g. "+$24.00" - the "Your gain" cell. */
 	val gain: String,
 	/** Unsigned, e.g. "24.0%" - `up` picks the up/down wording and the red. */
 	val gainPct: String,
@@ -107,7 +107,7 @@ internal fun pickSpec(symbol: String): PickSpec =
 /**
  * 07 · Simulate — "Pick detail · paper" (CHINEDU 1:4631). The position
  * page, templated on the tapped pick (NVDA is the frame): picked line,
- * the +$24.00 gain hero, chart with range pills, the This-week /
+ * the price hero, chart with range pills, the This-week /
  * vs-the-market duo, Price then/now, the WHY? insight and the dark Sell
  * CTA (raises the sell flow from here too).
  */
@@ -159,10 +159,10 @@ fun PickDetailScreen(
 		weekCloses = stock.await()
 		spyCloses = spy.await()
 	}
-	// "+$24.00" -> "+$24" in the 48 box and ".00" in its own 16/20 box (1:4654).
-	val gainWhole = p.gain.substringBefore('.')
-	// "" when a gain carries no cents, ".00" otherwise - never an index crash.
-	val gainCents = p.gain.removePrefix(p.gain.substringBefore('.'))
+	// The stock's price now (user, 2026-10-08: the price, not the gain - that has its own tile): "$332.85" -> "$332" in
+	// the 48 box and ".85" in its own 16/20 box (1:4654); "" when it carries no cents - never an index crash.
+	val priceWhole = p.priceNow.substringBefore('.')
+	val priceCents = p.priceNow.removePrefix(priceWhole)
 
 	Box(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(modifier = Modifier.fillMaxSize()) {
@@ -212,7 +212,7 @@ fun PickDetailScreen(
 					.padding(top = (6 * u).dp, bottom = (26 * u).dp), // 1:4653 pb 26 (exact-design audit 2026-09-04)
 			) {
 				// Authored hero card (1:4654): 350x307 r16 with 18 padding - avatar row,
-				// +$24 in a 48-tall box with the .00 at 16/20, subtitle, the 343x73.5 chart
+				// the price in a 48-tall box with its cents at 16/20, the range's change line, the 343x73.5 chart
 				// line bleeding 14.5 past the padding, range tabs 40 below the line.
 				Column(
 					modifier = Modifier
@@ -236,23 +236,42 @@ fun PickDetailScreen(
 					}
 					Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = (11 * u).dp).heightIn(min = (48 * u).dp)) {
 						Text(
-							gainWhole,
+							priceWhole,
 							style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (38 * u).sp, lineHeight = (48 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), // 1:4660 carries no tracking (exact-design audit 2026-09-04)
-							// A losing pick's figure takes the authored red (the rows' Sim.Red).
-							color = if (p.up) Color.White else Sim.Red,
+							color = Color.White,
 						)
 						Text(
-							gainCents,
+							priceCents,
 							style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (16 * u).sp, lineHeight = (20 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 							color = Sim.Muted,
 							modifier = Modifier.padding(start = (7 * u).dp, bottom = (6 * u).dp),
 						)
 					}
+					// A real pick's price history for the selected range (the chart below draws it too).
+					val pickChart = if (PaperPortfolio.demo) null else rememberPickChart(symbol, range)
+					// The price's change over the selected range: today's move from the quote for 1D, otherwise from the
+					// range's first close to the live price. The demo keeps its authored stake line.
+					val move: Pair<Boolean, String>? = if (PaperPortfolio.demo) null else run {
+						val price = p.priceNow.removePrefix("$").replace(",", "").toDoubleOrNull()?.takeIf { it > 0.0 } ?: return@run null
+						val (change, pct) = if (range == "1D") {
+							val dayPct = com.stak.demo.data.LiveQuotes.cached(symbol)?.second ?: return@run null
+							(price - price / (1 + dayPct / 100.0)) to dayPct
+						} else {
+							val first = (pickChart as? PickChartState.Line)?.closes?.firstOrNull()?.takeIf { it > 0.0 } ?: return@run null
+							(price - first) to (price - first) / first * 100.0
+						}
+						val up = change > -0.005
+						up to PaperPortfolio.rangeLine(PaperPortfolio.signedUsd(change), pct, up, range)
+					}
 					Text(
-						"That is ${if (p.up) "up" else "down"} ${p.gainPct} on a ${p.stakeBasis} paper stake",
-						// 1:4662 (exact-design audit 2026-09-04): Geist Light, like the hero's all-time line.
-						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Light, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-						color = Sim.Muted,
+						if (PaperPortfolio.demo) "That is ${if (p.up) "up" else "down"} ${p.gainPct} on a ${p.stakeBasis} paper stake" else move?.second ?: "—",
+						// 1:4662 (exact-design audit 2026-09-04): Geist Light for the authored line; the live change line is Medium, like Simulate's.
+						style = TextStyle(fontFamily = Geist, fontWeight = if (PaperPortfolio.demo) FontWeight.Light else FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+						color = when {
+							PaperPortfolio.demo || move == null -> Sim.Muted
+							move.first -> Sim.Green
+							else -> Sim.Red
+						},
 						modifier = Modifier.padding(top = (11 * u).dp),
 					)
 					val chartModifier = Modifier.padding(top = (11 * u).dp).requiredSize((343 * u).dp, (73.5 * u).dp)
@@ -273,7 +292,7 @@ fun PickDetailScreen(
 						if (PaperPortfolio.demo) {
 							RangeChart(series = series!!, tint = Sim.Teal, modifier = chartModifier)
 						} else {
-							when (val chart = rememberPickChart(symbol, range)) {
+							when (val chart = pickChart) {
 								is PickChartState.Line -> RangeChart(series = com.stak.demo.data.chartFractions(chart.closes), tint = Sim.Teal, modifier = chartModifier)
 								PickChartState.NoMovementYet -> Box(contentAlignment = Alignment.Center, modifier = chartModifier) {
 									Text(
@@ -325,7 +344,8 @@ fun PickDetailScreen(
 					Row(horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
 						// The demo's authored figures; a real pick's own week ("—", muted, until read).
 						var weekText = p.weekGain; var weekColor = Sim.Green
-						var vsText = p.vsMarket; var vsColor = if (p.ahead) Sim.Green else Sim.Red
+						// The authored "+20.8% ahead" in the words the real figure uses ("20.8% ahead").
+						var vsText = p.vsMarket.removePrefix("+").removePrefix("-"); var vsColor = if (p.ahead) Sim.Green else Sim.Red
 						if (!PaperPortfolio.demo) {
 							weekText = "—"; weekColor = Sim.Muted; vsText = "—"; vsColor = Sim.Muted
 							val closes = weekCloses
@@ -343,19 +363,20 @@ fun PickDetailScreen(
 									val spyBase = if (boughtThisWeek) (spy.lastOrNull { it.first <= picked } ?: spy.first()).second else spy.first().second
 									if (spyBase > 0.0) {
 										val versus = (closes.last().second - base) / base * 100.0 - (spy.last().second - spyBase) / spyBase * 100.0
-										vsText = if (kotlin.math.abs(versus) < 0.05) "Even" else PaperPortfolio.signedPct(versus)
+										vsText = PaperPortfolio.versusWords(versus)
 										vsColor = if (versus > -0.05) Sim.Green else Sim.Red
 									}
 								}
 							}
 						}
 						StatBox("This week", weekText, weekColor, Modifier.weight(1f))
-						StatBox("vs the market", vsText, vsColor, Modifier.weight(1f))
+						StatBox("vs S&P 500 this week", vsText, vsColor, Modifier.weight(1f))
 					}
 					Row(horizontalArrangement = Arrangement.spacedBy((10 * u).dp)) {
 						// 1:4684 / 1:4687 (exact-design audit 2026-09-04): the prices are plain white, not #f2f6fc.
 						StatBox("Price then", p.priceThen, Color.White, Modifier.weight(1f))
-						StatBox("Price now", p.priceNow, Color.White, Modifier.weight(1f))
+						// The price is the hero's figure now; this cell carries what the stake has made.
+						StatBox("Your gain", "${p.gain} (${if (p.up) "+" else "-"}${p.gainPct})", if (p.up) Sim.Green else Sim.Red, Modifier.weight(1f))
 					}
 				}
 				// WHY / insight card — teal-tinted like the deck tips.
@@ -482,7 +503,7 @@ private fun StatBox(label: String, value: String, valueColor: Color, modifier: M
 			.background(Sim.CardBg)
 			.padding(horizontal = (14 * u).dp, vertical = (13 * u).dp),
 	) {
-		Text(label, style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp, lineHeight = (13 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Sim.Muted)
+		Text(label, style = TextStyle(fontFamily = Geist, fontSize = (10 * u).sp, lineHeight = (13 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Sim.Muted, maxLines = 1)
 		Text(
 			value,
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (14 * u).sp, lineHeight = (18 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),

@@ -498,10 +498,21 @@ private fun ScoreHero() {
 				color = Sim.Bright,
 			)
 		}
+		// A real account's ledger value over the selected range (null for the demo, or until it's read).
+		val points = if (PaperPortfolio.demo) null else rememberPortfolioHistory(range)
+		// The line follows the pills: the change from the range's first value to today's. The demo (authored figures),
+		// or a range not read yet, keeps the all-time line.
+		val first = points?.firstOrNull()?.value?.takeIf { it > 0.0 }
+		val change = first?.let { PaperPortfolio.portfolioValue - it }
+		val lineUp = if (change != null) Math.round(change) >= 0 else PaperPortfolio.weekUp
 		Text(
-			text = "${if (PaperPortfolio.weekUp) "▲" else "▼"} ${PaperPortfolio.weekGainText} (${PaperPortfolio.weekPctText}) ${PaperPortfolio.gainPeriodLabel}",
+			text = if (change != null && first != null) {
+				PaperPortfolio.rangeLine(PaperPortfolio.signedWhole(change), change / first * 100.0, lineUp, range)
+			} else {
+				"${if (PaperPortfolio.weekUp) "▲" else "▼"} ${PaperPortfolio.weekGainText} (${PaperPortfolio.weekPctText}) ${PaperPortfolio.gainPeriodLabel}"
+			},
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-			color = if (PaperPortfolio.weekUp) Sim.Green else Sim.Red,
+			color = if (lineUp) Sim.Green else Sim.Red,
 			modifier = Modifier.padding(horizontal = (20 * u).dp),
 		)
 		val chartModifier = Modifier.align(Alignment.CenterHorizontally).size((343 * u).dp, (73.56 * u).dp)
@@ -522,7 +533,6 @@ private fun ScoreHero() {
 			if (PaperPortfolio.demo) {
 				RangeChart(series = series!!, tint = Sim.Teal, modifier = chartModifier)
 			} else {
-				val points = rememberPortfolioHistory(range)
 				if (points != null && points.size >= 2) {
 					RangeChart(series = PortfolioHistory.fractions(PortfolioHistory.endingToday(points, PaperPortfolio.portfolioValue)), tint = Sim.Teal, modifier = chartModifier)
 				} else {

@@ -987,6 +987,7 @@ private struct SaveSuccessOverlay: View {
 					.fill(News.cardBg)
 			}
 			.ignoresSafeArea(edges: .bottom)
+			.sheetDragToDismiss(onDismiss)
 		}
 	}
 }

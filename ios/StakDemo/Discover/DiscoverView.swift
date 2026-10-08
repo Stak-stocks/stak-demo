@@ -1027,6 +1027,7 @@ struct SheetScaffold<Content: View>: View {
 			.frame(maxWidth: .infinity)
 			.background(Disc.sheetBg, in: UnevenRoundedRectangle(topLeadingRadius: 24 * u, topTrailingRadius: 24 * u))
 			.ignoresSafeArea(edges: .bottom)
+			.sheetDragToDismiss(onDismiss)
 		}
 	}
 }

@@ -297,6 +297,15 @@ private struct ScoreHero: View {
 	@State private var range = "3M"
 	/// A real account's ledger value per range - kept while no trade lands, so switching pills doesn't re-fetch.
 	@State private var history: [String: [PortfolioHistory.Point]] = [:]
+
+	/// The change over the selected range - the line under the value follows the pills, from the range's first value to
+	/// today's. Nil for the demo (authored figures) or before the range is read: the all-time line shows meanwhile.
+	private var rangeMove: (up: Bool, text: String)? {
+		guard !portfolio.demo, let first = history[range]?.first?.value, first > 0 else { return nil }
+		let change = portfolio.portfolioValue - first
+		let up = change.rounded() >= 0
+		return (up, PaperPortfolio.rangeLine(PaperPortfolio.signedWhole(change), pct: change / first * 100, up: up, range: range))
+	}
 	@State private var historyKey = ""
 
 	/// "$10,240.00" split at the point: the 44 figure and the 18 cents.
@@ -346,10 +355,17 @@ private struct ScoreHero: View {
 						.foregroundStyle(Sim.bright)
 				}
 				.accessibilityElement(children: .combine)
-				Text("\(portfolio.weekUp ? "▲" : "▼") \(portfolio.weekGainText) (\(portfolio.weekPctText)) \(portfolio.gainPeriodLabel)")
-					.font(StakFont.geist(12 * u, .medium))
-					.foregroundStyle(portfolio.weekUp ? Sim.green : Sim.red)
-					.accessibilityLabel("\(portfolio.weekUp ? "Up" : "Down") \(portfolio.weekGainText), \(portfolio.weekPctText), \(portfolio.gainPeriodLabel)")
+				if let move = rangeMove {
+					Text(move.text)
+						.font(StakFont.geist(12 * u, .medium))
+						.foregroundStyle(move.up ? Sim.green : Sim.red)
+						.accessibilityLabel(PaperPortfolio.spokenMove(move.text))
+				} else {
+					Text("\(portfolio.weekUp ? "▲" : "▼") \(portfolio.weekGainText) (\(portfolio.weekPctText)) \(portfolio.gainPeriodLabel)")
+						.font(StakFont.geist(12 * u, .medium))
+						.foregroundStyle(portfolio.weekUp ? Sim.green : Sim.red)
+						.accessibilityLabel("\(portfolio.weekUp ? "Up" : "Down") \(portfolio.weekGainText), \(portfolio.weekPctText), \(portfolio.gainPeriodLabel)")
+				}
 			}
 			.padding(.horizontal, 20 * u)
 

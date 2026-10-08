@@ -1,5 +1,45 @@
 import SwiftUI
 
+/// A bottom sheet the finger can pull down to close - its handle says it can: the sheet follows the drag down, closes
+/// past a third of its height (or 120pt) or on a downward flick, and springs back otherwise. Controls inside keep their
+/// own gestures. Mirrors android ui/components/SheetDrag.kt.
+struct SheetDragToDismiss: ViewModifier {
+	let onDismiss: () -> Void
+	@State private var offset: CGFloat = 0
+	@State private var height: CGFloat = 0
+
+	func body(content: Content) -> some View {
+		content
+			.background(GeometryReader { g in
+				Color.clear
+					.onAppear { height = g.size.height }
+					.onChange(of: g.size.height) { _, h in height = h }
+			})
+			.offset(y: offset)
+			.gesture(
+				DragGesture(minimumDistance: 10)
+					.onChanged { v in
+						guard abs(v.translation.height) > abs(v.translation.width) else { return }
+						offset = max(0, v.translation.height)
+					}
+					.onEnded { v in
+						let flick = v.predictedEndTranslation.height - v.translation.height > 220
+						if offset > min(120, max(height, 1) / 3) || (flick && offset > 0) {
+							withAnimation(.easeOut(duration: 0.18)) { offset = max(height, 400) }
+							DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { onDismiss() }
+						} else {
+							withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { offset = 0 }
+						}
+					}
+			)
+	}
+}
+
+extension View {
+	/// See SheetDragToDismiss.
+	func sheetDragToDismiss(_ onDismiss: @escaping () -> Void) -> some View { modifier(SheetDragToDismiss(onDismiss: onDismiss)) }
+}
+
 /// iOS's swipe from the left edge to go back, for the app's custom page stacks (MainTabsView, RootFlowView). They are
 /// not NavigationStacks - each edge plays its authored Android motion - so they don't get the system gesture for free.
 ///

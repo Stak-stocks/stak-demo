@@ -781,6 +781,28 @@ internal object PaperPortfolio {
 
 	// The sign is the shown figure's: a gain that rounds to nothing reads "+$0", never a red "-$0" (cost rounding
 	// leaves a first buy a fraction of a cent down).
+	/** What a range pill covers, as the change line under a chart says it ("past 3 months"). */
+	fun rangeWord(range: String): String = when (range.uppercase(Locale.US)) {
+		"1D" -> "today"
+		"1W" -> "this week"
+		"1M" -> "past month"
+		"3M" -> "past 3 months"
+		"YTD" -> "this year"
+		"1Y" -> "past year"
+		else -> ""
+	}
+
+	/**
+	 * The change line under a chart for the selected range: "▲ +$12.30 (+3.8%) past 3 months". 1D's is the last
+	 * session's move before the open and at weekends - "on Friday", not "today" (StakClock.sessionChange).
+	 */
+	fun rangeLine(money: String, pct: Double, up: Boolean, range: String): String =
+		com.stak.demo.data.StakClock.sessionChange("${if (up) "▲" else "▼"} $money (${signedPct(pct)}) ${rangeWord(range)}")
+
+	/** "vs S&P 500": how far the stock's move was ahead of or behind SPY's, in words ("3.6% behind"). */
+	fun versusWords(versus: Double): String =
+		if (kotlin.math.abs(versus) < 0.05) "Even" else String.format(Locale.US, "%.1f%% %s", kotlin.math.abs(versus), if (versus > 0) "ahead" else "behind")
+
 	fun signedWhole(amount: Double): String = (if (Math.round(amount) < 0) "-$" else "+$") + String.format(Locale.US, "%,.0f", kotlin.math.abs(amount))
 	fun signedUsd(amount: Double): String = (if (Math.round(amount * 100) < 0) "-" else "+") + usd(kotlin.math.abs(amount))
 	fun signedPct(pct: Double): String {

@@ -767,6 +767,35 @@ final class PaperPortfolio: ObservableObject {
 
 	// The sign is the shown figure's: a gain that rounds to nothing reads "+$0", never a red "-$0" (cost rounding
 	// leaves a first buy a fraction of a cent down).
+	/// What a range pill covers, as the change line under a chart says it ("past 3 months").
+	nonisolated static func rangeWord(_ range: String) -> String {
+		switch range.uppercased() {
+		case "1D": return "today"
+		case "1W": return "this week"
+		case "1M": return "past month"
+		case "3M": return "past 3 months"
+		case "YTD": return "this year"
+		case "1Y": return "past year"
+		default: return ""
+		}
+	}
+
+	/// The change line under a chart for the selected range: "▲ +$12.30 (+3.8%) past 3 months". 1D's is the last
+	/// session's move before the open and at weekends - "on Friday", not "today" (StakClock.sessionChange).
+	nonisolated static func rangeLine(_ money: String, pct: Double, up: Bool, range: String) -> String {
+		StakClock.sessionChange("\(up ? "▲" : "▼") \(money) (\(signedPct(pct))) \(rangeWord(range))")
+	}
+
+	/// A change line as VoiceOver should say it - "Up", "Down", not the triangles.
+	nonisolated static func spokenMove(_ text: String) -> String {
+		text.replacingOccurrences(of: "▲", with: "Up").replacingOccurrences(of: "▼", with: "Down")
+	}
+
+	/// "vs S&P 500": how far the stock's move was ahead of or behind SPY's, in words ("3.6% behind").
+	nonisolated static func versusWords(_ versus: Double) -> String {
+		abs(versus) < 0.05 ? "Even" : String(format: "%.1f%% %@", abs(versus), versus > 0 ? "ahead" : "behind")
+	}
+
 	nonisolated static func signedWhole(_ value: Double) -> String { (value.rounded() < 0 ? "-$" : "+$") + wholeDollars(abs(value)).dropFirst() }
 	nonisolated static func signedMoney(_ value: Double) -> String { ((value * 100).rounded() < 0 ? "-" : "+") + money(abs(value)) }
 	nonisolated static func signedPct(_ pct: Double) -> String {

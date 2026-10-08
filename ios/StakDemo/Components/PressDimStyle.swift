@@ -7,6 +7,9 @@ import SwiftUI
 struct PressDimStyle: ButtonStyle {
 	func makeBody(configuration: Configuration) -> some View {
 		configuration.label
+			// The whole frame takes the tap - an outlined button with no fill (Pick detail's Back) otherwise only
+			// answered on its text.
+			.contentShape(Rectangle())
 			.opacity(configuration.isPressed ? 0.7 : 1)
 			.animation(.easeOut(duration: 0.08), value: configuration.isPressed)
 	}

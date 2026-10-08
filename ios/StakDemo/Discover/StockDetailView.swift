@@ -1246,6 +1246,7 @@ private struct DetailSavedSheet: View {
 			.frame(maxWidth: .infinity)
 			.background(card, in: UnevenRoundedRectangle(topLeadingRadius: 24 * u, topTrailingRadius: 24 * u))
 			.ignoresSafeArea(edges: .bottom)
+			.sheetDragToDismiss(onDismiss)
 			.accessibilityAddTraits(.isModal)
 		}
 	}

@@ -281,6 +281,7 @@ private struct SimSheet<Content: View>: View {
 			.frame(maxWidth: .infinity)
 			.background(Sim.cardBg, in: UnevenRoundedRectangle(topLeadingRadius: 24 * u, topTrailingRadius: 24 * u))
 			.ignoresSafeArea(edges: .bottom)
+			.sheetDragToDismiss(onDismiss)
 			// The page behind is out of reach while the sheet is up; the escape gesture closes it like the scrim.
 			.accessibilityAddTraits(.isModal)
 			.accessibilityAction(.escape, onDismiss)

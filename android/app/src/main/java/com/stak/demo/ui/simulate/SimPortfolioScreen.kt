@@ -46,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import com.stak.demo.ui.components.sheetDragToDismiss
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -322,6 +323,7 @@ private fun SimSheet(onDismiss: () -> Unit, content: @Composable () -> Unit) {
 			modifier = Modifier
 				.align(Alignment.BottomCenter)
 				.fillMaxWidth()
+				.sheetDragToDismiss(onDismiss)
 				.clip(RoundedCornerShape(topStart = (24 * u).dp, topEnd = (24 * u).dp))
 				.background(Sim.CardBg)
 				.padding(horizontal = (20 * u).dp)
