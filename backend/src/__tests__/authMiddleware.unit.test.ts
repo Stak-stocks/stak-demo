@@ -103,6 +103,15 @@ describe("authMiddleware", () => {
 
 		expect(res.status).toHaveBeenCalledWith(403);
 		expect(next).not.toHaveBeenCalled();
+
+		// Not remembered while unconfirmed: the next request reads the account again (a confirmation on another
+		// instance takes effect at once).
+		fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ id: "supabase-new", email: "kid@example.com", app_metadata: {} }) });
+		pgQueryMock.mockResolvedValueOnce({ rows: [{ firebase_uid: "uid-new" }] });
+		pgQueryMock.mockResolvedValueOnce({ rows: [{ onboarding_completed: false, eligible: true }] });
+		const next2 = vi.fn();
+		await authMiddleware(req as any, res as any, next2 as NextFunction);
+		expect(next2).toHaveBeenCalledTimes(1);
 	});
 
 	it("returns 401 when Supabase token verification fails", async () => {

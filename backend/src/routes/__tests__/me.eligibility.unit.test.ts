@@ -19,8 +19,8 @@ vi.mock("../../authMiddleware.js", () => ({
 }));
 const deleteUserMock = vi.fn().mockResolvedValue({ error: null });
 vi.mock("../../lib/supabaseAdmin.js", () => ({ getSupabaseAdmin: () => ({ auth: { admin: { deleteUser: deleteUserMock } } }) }));
-// Today, US Eastern, is fixed at 2026-10-09 for the age arithmetic.
-vi.mock("@stak/shared", async (importOriginal) => ({ ...(await importOriginal<object>()), getEasternDateKey: () => "2026-10-09" }));
+// Today (the latest U.S. date) is fixed at 2026-10-09 for the age arithmetic.
+vi.mock("@stak/shared", async (importOriginal) => ({ ...(await importOriginal<object>()), latestUsDate: () => ({ year: 2026, month: 10, day: 9 }) }));
 
 async function buildApp() {
 	vi.resetModules();
@@ -32,6 +32,14 @@ async function buildApp() {
 }
 
 const sqlOf = () => pgQueryMock.mock.calls.map((c) => String(c[0]));
+
+describe("latestUsDate", () => {
+	it("is Guam's date - a day ahead of the mainland late in the U.S. evening", async () => {
+		const { latestUsDate } = await vi.importActual<typeof import("@stak/shared")>("@stak/shared");
+		// 2026-10-08 20:00 Eastern = 2026-10-09 00:00 UTC = 2026-10-09 10:00 in Guam.
+		expect(latestUsDate(new Date("2026-10-09T00:00:00Z"))).toEqual({ year: 2026, month: 10, day: 9 });
+	});
+});
 
 describe("ageOn", () => {
 	const today = { year: 2026, month: 10, day: 9 };

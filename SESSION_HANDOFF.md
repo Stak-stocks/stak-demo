@@ -376,7 +376,15 @@ Android: `cd android && ./gradlew compileDebugKotlin` (needs `sdk.dir` in `local
   web + Android For You; American English system instruction on text-writing Gemini calls; vendor chunks (main
   847 -> ~290 kB); landing hero WebP + 60 unused images removed; GradientCta / sheetCard / darkCard; search overlay
   desktop-only (kept: it's the desktop top bar's search); tests for usePaperPortfolio, BuyFlow, SellFlow.
-- The 8.1 decisions below are answered except: browser smoke test, web deploy (Vercel), Terms/Privacy pages.
+- The 8.1 decisions below are answered except: browser smoke test, web deploy (Vercel). Terms/Privacy pages: built
+  (2026-10-08, /terms and /privacy from the founders' documents, `lib/legalText.ts`).
+- **Eligibility gate** (2026-10-08): "Before we get started" on web, Android and iOS - date of birth (the server works
+  out the age, `shared/src/eligibility.ts` ageOn on the latest U.S. date; the date is never stored), U.S. residence,
+  Terms / Privacy. Migration `20261009000000_eligibility.sql` (users columns, `signup_blocks`, and signed-in users may
+  update only deck_order / preferences / last_brief_date directly). POST /api/me/eligibility (403 = under 18 or a
+  blocked email: the account is deleted and its email hash blocked 30 days); GET /api/me returns `needsEligibility`;
+  authMiddleware refuses accounts created from `ELIGIBILITY_ENFORCED_FROM` until they confirm. Changing either
+  document means bumping TERMS_VERSION / PRIVACY_VERSION, which asks every account again.
 
 ### 8.1 Needs the user
 - **Browser smoke test** of everything (nothing but Discover's swipe has been exercised in a real browser).

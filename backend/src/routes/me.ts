@@ -2,7 +2,7 @@ import { getVapidPublicKey } from "../services/pushService.js";
 import { Router } from "express";
 import { authMiddleware, forgetVerifiedToken, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
-import { DAILY_SWIPE_LIMIT, NEW_ACCOUNT_WINDOW_MS, STAK_CAPACITY, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, isPriceThreshold, DEFAULT_PRICE_THRESHOLD, MIN_AGE, TERMS_VERSION, PRIVACY_VERSION, ELIGIBILITY_BLOCK_DAYS, ageOn, type StakStockTagConfig } from "@stak/shared";
+import { DAILY_SWIPE_LIMIT, NEW_ACCOUNT_WINDOW_MS, STAK_CAPACITY, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, isPriceThreshold, DEFAULT_PRICE_THRESHOLD, MIN_AGE, TERMS_VERSION, PRIVACY_VERSION, ELIGIBILITY_BLOCK_DAYS, ageOn, latestUsDate, type StakStockTagConfig } from "@stak/shared";
 import { createHash } from "node:crypto";
 import { brands } from "@stak/shared/brands";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
@@ -828,8 +828,7 @@ meRouter.post("/eligibility", authMiddleware, async (req: AuthenticatedRequest, 
 	try {
 		const uid = req.user!.uid;
 		const { dob, inUS, acceptTerms } = (req.body ?? {}) as { dob?: unknown; inUS?: unknown; acceptTerms?: unknown };
-		const [year, month, day] = getEasternDateKey().split("-").map(Number) as [number, number, number];
-		const age = typeof dob === "string" ? ageOn(dob, { year, month, day }) : null;
+		const age = typeof dob === "string" ? ageOn(dob, latestUsDate()) : null;
 		if (age === null) {
 			res.status(400).json({ error: "invalid_dob" });
 			return;

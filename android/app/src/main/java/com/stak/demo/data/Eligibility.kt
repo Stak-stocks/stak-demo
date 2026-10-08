@@ -1,7 +1,5 @@
 package com.stak.demo.data
 
-import android.content.Context
-import android.content.SharedPreferences
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -15,46 +13,49 @@ import kotlinx.coroutines.withContext
  * "Before we get started": the beta's 18+ / U.S. confirmation and the Terms / Privacy acceptance (Terms §2). While an
  * account hasn't confirmed, [required] is true and the gate covers the whole app - a new account right after it signs
  * up, an existing one the next time it opens. The age is worked out by the server, which keeps only that it was
- * confirmed; under 18 it deletes the account, and this phone can't try another date for 30 days. Mirrors
- * shared/src/eligibility.ts, web components/onboarding/EligibilityGate.tsx and iOS Onboarding/EligibilityView.swift.
+ * confirmed; under 18 it deletes the account and blocks the email for 30 days (any date it sends after that is
+ * refused too). Mirrors shared/src/eligibility.ts, web components/onboarding/EligibilityGate.tsx and iOS
+ * Core/Eligibility.swift.
  */
 object Eligibility {
 	const val TERMS_URL = "https://thestak.org/terms"
 	const val PRIVACY_URL = "https://thestak.org/privacy"
-	private const val BLOCK_MS = 30L * 24 * 60 * 60 * 1000
-	private const val BLOCKED_KEY = "eligibility.blockedUntil"
 
 	private var repository: StockRepository? = null
-	/** This phone's own settings - not the account's (StakStore's keys are per account, and a refused one is gone). */
-	private var device: SharedPreferences? = null
 	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+	/** The session last asked about - a rotation or a second launch path doesn't ask again for the same one. */
+	private var checkedFor: String? = null
 
 	/** The signed-in account hasn't confirmed: the gate is up. */
 	var required by mutableStateOf(false)
 		private set
 
-	fun init(context: Context, repo: StockRepository) {
+	fun init(repo: StockRepository) {
 		repository = repo
-		device = context.applicationContext.getSharedPreferences("stak_device", Context.MODE_PRIVATE)
 	}
-
-	/** This phone was refused (under 18) in the last 30 days: the gate shows only the answer, no form. */
-	val blockedHere: Boolean
-		get() = (device?.getLong(BLOCKED_KEY, 0L) ?: 0L) > System.currentTimeMillis()
 
 	/** From an account read (ProfileSync): the server says whether this account still has to confirm. */
 	fun apply(me: MeResponse) {
-		if (!Session.demoAccount) required = me.needsEligibility
+		if (Session.token != null) required = me.needsEligibility
 	}
 
-	/** Asks the server now - right after a sign-in or sign-up, before onboarding starts. */
+	/**
+	 * Asks the server - right after a sign-in or sign-up (the account isn't "signed in" to the app until onboarding
+	 * ends, so this goes by the session, not Session.signedIn) and when the app opens. Once per session; a failed read
+	 * is asked again next time.
+	 */
 	fun check() {
-		if (Session.demoAccount || Session.token == null) return
+		val token = Session.token ?: return
+		if (token == checkedFor) return
 		val repo = repository ?: return
-		val account = Session.accountGeneration
+		checkedFor = token
 		scope.launch {
-			val me = runCatching { repo.getMe() }.getOrNull() ?: return@launch
-			withContext(Dispatchers.Main) { if (Session.accountGeneration == account) apply(me) }
+			val me = runCatching { repo.getMe() }.getOrNull()
+			withContext(Dispatchers.Main) {
+				if (me == null) { if (checkedFor == token) checkedFor = null; return@withContext }
+				// A different session by now (signed out, or another account): this answer isn't its.
+				if (Session.token == token) required = me.needsEligibility
+			}
 		}
 	}
 
@@ -75,10 +76,7 @@ object Eligibility {
 			Outcome.Confirmed
 		} catch (e: retrofit2.HttpException) {
 			when (e.code()) {
-				403 -> {
-					device?.edit()?.putLong(BLOCKED_KEY, System.currentTimeMillis() + BLOCK_MS)?.apply()
-					Outcome.Refused
-				}
+				403 -> Outcome.Refused
 				400 -> Outcome.Failed(invalid = true)
 				else -> Outcome.Failed(invalid = false)
 			}
@@ -90,12 +88,14 @@ object Eligibility {
 	/** Signed out: nothing to ask until the next account says so. */
 	fun reset() {
 		required = false
+		checkedFor = null
 	}
 
-	/** "MMDDYYYY" as typed -> "YYYY-MM-DD", or null until it's a whole, real date (the server checks it again). */
+	/** "MMDDYYYY" as typed -> "YYYY-MM-DD", or null until it's a whole, real date from 1900 to today (the server checks again). */
 	fun isoDob(digits: String): String? {
 		if (digits.length != 8) return null
 		val (mm, dd, yyyy) = Triple(digits.substring(0, 2), digits.substring(2, 4), digits.substring(4))
-		return runCatching { java.time.LocalDate.of(yyyy.toInt(), mm.toInt(), dd.toInt()).toString() }.getOrNull()
+		val date = runCatching { java.time.LocalDate.of(yyyy.toInt(), mm.toInt(), dd.toInt()) }.getOrNull() ?: return null
+		return date.takeIf { it.year >= 1900 && !it.isAfter(java.time.LocalDate.now()) }?.toString()
 	}
 }

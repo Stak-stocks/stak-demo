@@ -160,7 +160,9 @@ export async function authMiddleware(
 			// No row yet (it's made on the first request) is a new account: not eligible until it confirms.
 			eligible: onboardingResult.rows[0]?.eligible ?? false,
 		};
-		rememberVerified(token, req.user);
+		// Not remembered while unconfirmed: the confirmation lands on one Cloud Run instance, and another that still
+		// remembered "not yet" would refuse this token for up to two minutes after it.
+		if (req.user.eligible) rememberVerified(token, req.user);
 		if (!req.user.eligible && !allowedBeforeEligibility(req)) {
 			res.status(403).json({ error: "eligibility_required" });
 			return;

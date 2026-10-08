@@ -1,106 +1,21 @@
 import SwiftUI
 
-/// "Before we get started": the beta's 18+ / U.S. confirmation and the Terms / Privacy acceptance (Terms §2). While an
-/// account hasn't confirmed, `required` is true and the gate covers the whole app - a new account right after it signs
-/// up, an existing one the next time it opens. The age is worked out by the server, which keeps only that it was
-/// confirmed; under 18 it deletes the account, and this phone can't try another date for 30 days. Mirrors
-/// shared/src/eligibility.ts, web components/onboarding/EligibilityGate.tsx and android data/Eligibility.kt.
-@MainActor
-final class EligibilityGate: ObservableObject {
-	static let shared = EligibilityGate()
-	static let termsURL = URL(string: "https://thestak.org/terms")!
-	static let privacyURL = URL(string: "https://thestak.org/privacy")!
-	private static let blockedKey = "eligibility.blockedUntil"
-	private static let blockSeconds: TimeInterval = 30 * 24 * 60 * 60
-
-	/// The signed-in account hasn't confirmed: the gate is up.
-	@Published private(set) var required = false
-
-	private init() {}
-
-	/// This phone was refused (under 18) in the last 30 days: the gate shows only the answer, no form. Kept in the
-	/// phone's own defaults - not StakStore, whose keys are per account (and a refused account is gone).
-	var blockedHere: Bool { UserDefaults.standard.double(forKey: Self.blockedKey) > Date().timeIntervalSince1970 }
-
-	/// From an account read (ProfileSync): the server says whether this account still has to confirm.
-	func apply(_ me: MeResponse) {
-		guard !StakStore.demoAccount else { return }
-		if required != me.needsEligibility { required = me.needsEligibility }
-	}
-
-	/// Asks the server now - right after a sign-in or sign-up, and when the app opens.
-	func check() {
-		guard !StakStore.demoAccount, Session.shared.token != nil else { return }
-		let account = Session.shared.accountGeneration
-		Task {
-			guard let me = try? await StockRepository.shared.getMe(), Session.shared.accountGeneration == account else { return }
-			apply(me)
-		}
-	}
-
-	enum Outcome: Equatable {
-		case confirmed
-		/// Not eligible: the server has deleted the account.
-		case refused
-		/// `invalid`: the server didn't accept the date or a box; otherwise a network or server failure.
-		case failed(invalid: Bool)
-	}
-
-	/// Sends the confirmation. `dob` is "YYYY-MM-DD".
-	func confirm(dob: String) async -> Outcome {
-		do {
-			_ = try await StockRepository.shared.confirmEligibility(dob: dob)
-			required = false
-			return .confirmed
-		} catch NetworkError.http(let code, _) {
-			switch code {
-			case 403:
-				UserDefaults.standard.set(Date().timeIntervalSince1970 + Self.blockSeconds, forKey: Self.blockedKey)
-				return .refused
-			case 400: return .failed(invalid: true)
-			default: return .failed(invalid: false)
-			}
-		} catch {
-			return .failed(invalid: false)
-		}
-	}
-
-	/// Signed out: nothing to ask until the next account says so.
-	func reset() { required = false }
-
-	/// "MMDDYYYY" as typed -> "YYYY-MM-DD", or nil until it's a whole, real date (the server checks it again).
-	nonisolated static func isoDob(_ digits: String) -> String? {
-		guard digits.count == 8, let mm = Int(digits.prefix(2)), let dd = Int(digits.dropFirst(2).prefix(2)), let yyyy = Int(digits.suffix(4)) else { return nil }
-		var cal = Calendar(identifier: .gregorian)
-		cal.timeZone = TimeZone(identifier: "UTC")!
-		guard let date = cal.date(from: DateComponents(year: yyyy, month: mm, day: dd)) else { return nil }
-		let back = cal.dateComponents([.year, .month, .day], from: date)
-		guard back.year == yyyy, back.month == mm, back.day == dd else { return nil }
-		return String(format: "%04d-%02d-%02d", yyyy, mm, dd)
-	}
-
-	/// Up to eight typed digits as MM/DD/YYYY.
-	nonisolated static func formatDob(_ digits: String) -> String {
-		let d = Array(digits.prefix(8))
-		if d.count > 4 { return String(d[0..<2]) + "/" + String(d[2..<4]) + "/" + String(d[4...]) }
-		if d.count > 2 { return String(d[0..<2]) + "/" + String(d[2...]) }
-		return String(d)
-	}
-}
-
-/// The gate's screen: date of birth, U.S. residence and the Terms / Privacy. The wording doesn't name the cutoff until
-/// someone's under it. `onRefused`: the server has deleted the account - sign out and start over.
+/// The screen for EligibilityGate (Core/Eligibility.swift): date of birth, U.S. residence and the Terms / Privacy. The
+/// wording doesn't name the cutoff until someone's under it. `onRefused`: the server has deleted the account - start
+/// over. `onSignOut`: leave without answering. Mirrors android ui/onboarding/EligibilityScreen.kt.
 struct EligibilityView: View {
 	let onRefused: () -> Void
+	let onSignOut: () -> Void
 	@State private var digits = ""
 	@State private var inUS = false
 	@State private var accepted = false
 	@State private var busy = false
 	@State private var error: String? = nil
-	@State private var refused = EligibilityGate.shared.blockedHere
+	@State private var refused = false
+	@Environment(\.openURL) private var openURL
 
 	private var dob: String? { EligibilityGate.isoDob(digits) }
-	private var dobError: String? { digits.count == 8 && dob == nil ? "Enter a real date" : nil }
+	private var dobError: String? { digits.count == 8 && dob == nil ? "Enter a valid date" : nil }
 	private var ready: Bool { dob != nil && inUS && accepted && !busy }
 
 	var body: some View {
@@ -108,6 +23,14 @@ struct EligibilityView: View {
 		ZStack {
 			AuthWatermark()
 			Artboard {
+				if !refused {
+					HStack {
+						link("Sign out", u: u, action: onSignOut)
+						Spacer()
+					}
+					.padding(.leading, 24 * u)
+					.padding(.top, 10 * u)
+				}
 				ScrollView {
 					VStack(alignment: .leading, spacing: 14 * u) {
 						if refused {
@@ -122,18 +45,26 @@ struct EligibilityView: View {
 							Text("Date of birth")
 								.font(StakFont.geist(12 * u, .medium))
 								.foregroundStyle(StakColors.muted)
+								.accessibilityHidden(true)
 							AuthInput("MM/DD/YYYY", text: Binding(
 								get: { EligibilityGate.formatDob(digits) },
 								set: { digits = String($0.filter(\.isNumber).prefix(8)); error = nil }
-							), keyboard: .numberPad, contentType: .dateTime)
+							), keyboard: .numberPad, contentType: .birthdate)
 							.error(dobError)
+							.accessibilityLabel("Date of birth")
 							check(inUS, "I confirm that I currently live in the United States.", u: u) { inUS.toggle() }
-							check(accepted, "I agree to the [Terms of Service](\(EligibilityGate.termsURL.absoluteString)) and [Privacy Policy](\(EligibilityGate.privacyURL.absoluteString)).", u: u) { accepted.toggle() }
+							check(accepted, "I agree to the Terms of Service and Privacy Policy.", u: u) { accepted.toggle() }
+							// The documents on their own row (as Android): a link inside the toggling label would only tick the box.
+							HStack(spacing: 16 * u) {
+								link("Terms of Service", u: u) { openURL(EligibilityGate.termsURL) }
+								link("Privacy Policy", u: u) { openURL(EligibilityGate.privacyURL) }
+							}
+							.padding(.leading, 30 * u)
 						}
 					}
 					.frame(maxWidth: .infinity, alignment: .topLeading)
 					.padding(.horizontal, 24 * u)
-					.padding(.top, 32 * u)
+					.padding(.top, 22 * u)
 				}
 				.scrollDismissesKeyboard(.interactively)
 
@@ -189,35 +120,45 @@ struct EligibilityView: View {
 			.foregroundStyle(Auth.subtitleGray)
 	}
 
-	/// A checkbox row. The label is Markdown, so its links open in the browser; tapping elsewhere on the row toggles.
+	/// A checkbox row - the whole row toggles, and VoiceOver hears one checkbox with its label and state.
 	private func check(_ checked: Bool, _ label: String, u: CGFloat, toggle: @escaping () -> Void) -> some View {
-		HStack(alignment: .top, spacing: 10 * u) {
-			Button(action: toggle) {
+		Button(action: toggle) {
+			HStack(alignment: .top, spacing: 10 * u) {
 				ZStack {
 					RoundedRectangle(cornerRadius: 5 * u)
 						.fill(checked ? StakColors.teal : Color.clear)
-					if !checked {
-						RoundedRectangle(cornerRadius: 5 * u).strokeBorder(StakColors.muted, lineWidth: 1.5 * u)
-					} else {
+					if checked {
 						Image(systemName: "checkmark")
 							.font(.system(size: 11 * u, weight: .bold))
 							.foregroundStyle(StakColors.bg)
+					} else {
+						RoundedRectangle(cornerRadius: 5 * u).strokeBorder(StakColors.muted, lineWidth: 1.5 * u)
 					}
 				}
 				.frame(width: 20 * u, height: 20 * u)
 				.padding(.top, 1 * u)
+				Text(label)
+					.font(StakFont.geist(13 * u))
+					.foregroundStyle(StakColors.textPrimary)
+					.multilineTextAlignment(.leading)
+					.frame(maxWidth: .infinity, alignment: .leading)
 			}
-			.buttonStyle(.pressDim)
-			.accessibilityLabel(Text(.init(label)))
-			.accessibilityValue(checked ? "Checked" : "Not checked")
-			.accessibilityAddTraits(.isToggle)
-			Text(.init(label))
-				.font(StakFont.geist(13 * u))
-				.foregroundStyle(StakColors.textPrimary)
-				.tint(StakColors.teal)
-				.frame(maxWidth: .infinity, alignment: .leading)
-				.contentShape(Rectangle())
-				.onTapGesture(perform: toggle)
 		}
+		.buttonStyle(.pressDim)
+		.accessibilityElement(children: .ignore)
+		.accessibilityLabel(label)
+		.accessibilityValue(checked ? "Checked" : "Not checked")
+		.accessibilityAddTraits(.isToggle)
+	}
+
+	private func link(_ text: String, u: CGFloat, action: @escaping () -> Void) -> some View {
+		Button(action: action) {
+			Text(text)
+				.font(StakFont.geist(12 * u, .medium))
+				.underline()
+				.foregroundStyle(StakColors.teal)
+				.frame(minHeight: 32 * u)
+		}
+		.buttonStyle(.pressDim)
 	}
 }

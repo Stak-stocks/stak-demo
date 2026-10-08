@@ -45,7 +45,7 @@ final class AuthViewModel: ObservableObject {
                 applyDisplayName(from: me)
                 UserProfile.shared.linkedGoogle = false; UserProfile.shared.linkedApple = false
                 Session.shared.saveProfile()
-                // Signed in: \"Before we get started\" goes up over whatever comes next if the account hasn't confirmed.
+                // Signed in: "Before we get started" goes up over whatever comes next if the account hasn't confirmed.
                 EligibilityGate.shared.check()
                 uiState = .success(onboardingComplete: me?.onboardingCompleted ?? true)
             } catch {
@@ -67,7 +67,7 @@ final class AuthViewModel: ObservableObject {
                 if let session = response.session {
                     Session.shared.setToken(session.accessToken)
                     UserProfile.shared.linkedGoogle = false; UserProfile.shared.linkedApple = false
-                    // Signed in: \"Before we get started\" goes up over whatever comes next if the account hasn't confirmed.
+                    // Signed in: "Before we get started" goes up over whatever comes next if the account hasn't confirmed.
                     EligibilityGate.shared.check()
                     uiState = .success(onboardingComplete: false)
                 } else {
@@ -106,7 +106,7 @@ final class AuthViewModel: ObservableObject {
                 guard let session = response.session else { throw AuthFlowError.noSession }
                 Session.shared.setToken(session.accessToken)
                 UserProfile.shared.linkedGoogle = false; UserProfile.shared.linkedApple = false
-                // Signed in: \"Before we get started\" goes up over whatever comes next if the account hasn't confirmed.
+                // Signed in: "Before we get started" goes up over whatever comes next if the account hasn't confirmed.
                 EligibilityGate.shared.check()
                 uiState = .success(onboardingComplete: false)
             } catch {
@@ -250,7 +250,7 @@ final class AuthViewModel: ObservableObject {
                 applyDisplayName(from: me, fallback: result.user.profile?.name)
                 UserProfile.shared.linkedGoogle = true; UserProfile.shared.linkedApple = false
                 Session.shared.saveProfile()
-                // Signed in: \"Before we get started\" goes up over whatever comes next if the account hasn't confirmed.
+                // Signed in: "Before we get started" goes up over whatever comes next if the account hasn't confirmed.
                 EligibilityGate.shared.check()
                 uiState = .success(onboardingComplete: me?.onboardingCompleted ?? true)
             } catch {
@@ -281,7 +281,7 @@ final class AuthViewModel: ObservableObject {
                 applyDisplayName(from: me, fallback: fullName)
                 UserProfile.shared.linkedApple = true; UserProfile.shared.linkedGoogle = false
                 Session.shared.saveProfile()
-                // Signed in: \"Before we get started\" goes up over whatever comes next if the account hasn't confirmed.
+                // Signed in: "Before we get started" goes up over whatever comes next if the account hasn't confirmed.
                 EligibilityGate.shared.check()
                 uiState = .success(onboardingComplete: me?.onboardingCompleted ?? true)
             } catch {

@@ -68,7 +68,7 @@ class AuthViewModel @Inject constructor(
                 onSuccess = { onboardingComplete ->
                     UserProfile.linkedGoogle = false
                     Session.saveProfile()
-                    // Signed in: \"Before we get started\" goes up over whatever comes next if the account hasn't confirmed.
+                    // Signed in: "Before we get started" goes up over whatever comes next if the account hasn't confirmed.
                     com.stak.demo.data.Eligibility.check()
                     _uiState.value = AuthUiState.Success(onboardingComplete)
                 },
@@ -94,7 +94,7 @@ class AuthViewModel @Inject constructor(
                         Session.setToken(token)
                         UserProfile.linkedGoogle = false
                         // New users always go through onboarding.
-                        // Signed in: \"Before we get started\" goes up over whatever comes next if the account hasn't confirmed.
+                        // Signed in: "Before we get started" goes up over whatever comes next if the account hasn't confirmed.
                         com.stak.demo.data.Eligibility.check()
                         _uiState.value = AuthUiState.Success(onboardingComplete = false)
                     } else {
@@ -143,7 +143,7 @@ class AuthViewModel @Inject constructor(
                     Session.setToken(token)
                     UserProfile.linkedGoogle = false
                     // New users always go through onboarding.
-                    // Signed in: \"Before we get started\" goes up over whatever comes next if the account hasn't confirmed.
+                    // Signed in: "Before we get started" goes up over whatever comes next if the account hasn't confirmed.
                     com.stak.demo.data.Eligibility.check()
                     _uiState.value = AuthUiState.Success(onboardingComplete = false)
                 },
@@ -316,7 +316,7 @@ class AuthViewModel @Inject constructor(
                 onSuccess = { onboardingComplete ->
                     UserProfile.linkedGoogle = true
                     Session.saveProfile()
-                    // Signed in: \"Before we get started\" goes up over whatever comes next if the account hasn't confirmed.
+                    // Signed in: "Before we get started" goes up over whatever comes next if the account hasn't confirmed.
                     com.stak.demo.data.Eligibility.check()
                     _uiState.value = AuthUiState.Success(onboardingComplete)
                 },

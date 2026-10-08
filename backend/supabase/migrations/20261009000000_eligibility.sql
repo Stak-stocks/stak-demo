@@ -22,23 +22,10 @@ create table if not exists signup_blocks (
 );
 alter table signup_blocks enable row level security;
 
--- Only the server sets these. A signed-in user can write parts of their own users row straight through Supabase (the
--- web saves its deck order that way), so without this they could mark themselves confirmed and skip the check.
-create or replace function users_eligibility_server_only() returns trigger language plpgsql as $$
-begin
-	if current_user in ('authenticated', 'anon') then
-		if tg_op = 'INSERT' then
-			new.age_confirmed := false; new.age_confirmed_at := null; new.country_confirmed := false;
-			new.terms_version := null; new.terms_accepted_at := null; new.privacy_version := null; new.privacy_accepted_at := null;
-		else
-			new.age_confirmed := old.age_confirmed; new.age_confirmed_at := old.age_confirmed_at;
-			new.country_confirmed := old.country_confirmed;
-			new.terms_version := old.terms_version; new.terms_accepted_at := old.terms_accepted_at;
-			new.privacy_version := old.privacy_version; new.privacy_accepted_at := old.privacy_accepted_at;
-		end if;
-	end if;
-	return new;
-end $$;
-drop trigger if exists users_eligibility_server_only on users;
-create trigger users_eligibility_server_only before insert or update on users
-	for each row execute function users_eligibility_server_only();
+-- Only the server sets these - or anything else on the account a user shouldn't choose for themselves. A signed-in
+-- user could update every column of their own users row straight through Supabase (grant in 20260629215924): mark
+-- themselves confirmed, backdate created_at past the date this check is enforced from, or set plan = 'plus'. The web
+-- writes only these three columns directly; everything else goes through the server, which connects as postgres and
+-- is unaffected.
+revoke update on users from authenticated;
+grant update (deck_order, preferences, last_brief_date) on users to authenticated;

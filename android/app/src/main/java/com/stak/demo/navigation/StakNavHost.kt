@@ -31,6 +31,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.stak.demo.ui.components.MainTab
@@ -125,10 +127,15 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 	// The persisted session (sign-in state + profile) is restored in
 	// StakApp.onCreate, before any composition - composition must not
 	// mutate app state (RememberReturnType lint, audit 2026-09-04).
+	// "Before we get started" is up (below): not over the splash or the Face ID lock - it waits until those have gone (as iOS).
+	val gateRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+	val eligibilityGateUp = com.stak.demo.data.Eligibility.required && gateRoute != null && gateRoute != StakRoutes.SPLASH && gateRoute != StakRoutes.LOCK
 	Box(modifier = Modifier.fillMaxSize()) {
 	NavHost(
 		navController = navController,
 		startDestination = StakRoutes.SPLASH,
+		// While the gate is up, TalkBack can't wander into the screens beneath it.
+		modifier = if (eligibilityGateUp) Modifier.clearAndSetSemantics {} else Modifier,
 		// Prototype house style (confirmed on the splash/sign-up/sign-in/
 		// 01 Welcome frames): forward = Push Right (in from the left),
 		// back = Push Left (in from the right), ease out 300ms. These are
@@ -748,17 +755,30 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 	// account right after it signs up, an existing one the next time the app opens. Asked when the UI starts, not at
 	// process start (a push can do that).
 	LaunchedEffect(Unit) { com.stak.demo.data.Eligibility.check() }
-	if (com.stak.demo.data.Eligibility.required) {
+	if (eligibilityGateUp) {
 		val gateAuthVm: AuthViewModel = hiltViewModel()
 		val gateScope = rememberCoroutineScope()
-		com.stak.demo.ui.onboarding.EligibilityScreen(onRefused = {
-			gateScope.launch {
-				// The server has deleted the account: its session goes, and sign-up starts over (as Delete account).
-				gateAuthVm.clearSession()
-				navController.navigate(StakRoutes.createAccount(via = "dissolve")) { popUpTo(0) { inclusive = true } }
-				com.stak.demo.data.Session.signOut()
-			}
-		})
+		com.stak.demo.ui.onboarding.EligibilityScreen(
+			onRefused = {
+				gateScope.launch {
+					// The server has deleted the account: everything this phone kept of it goes too, and sign-up starts
+					// over (as Delete account).
+					gateAuthVm.clearSession()
+					gateAuthVm.resetState()
+					navController.navigate(StakRoutes.createAccount(via = "dissolve")) { popUpTo(0) { inclusive = true } }
+					com.stak.demo.data.Session.deleteAccount()
+				}
+			},
+			onSignOut = {
+				gateScope.launch {
+					// As Log out on Profile.
+					gateAuthVm.clearSession()
+					navController.navigate(StakRoutes.SIGN_IN) { popUpTo(0) { inclusive = true } }
+					com.stak.demo.data.Session.signOut()
+					gateAuthVm.revokeSessionRemotely()
+				}
+			},
+		)
 	}
 	}
 }

@@ -3,15 +3,7 @@ import { PRIVACY_URL, TERMS_URL } from "@stak/shared";
 import { ApiError, confirmEligibility } from "@/lib/api";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { PRESS, f, focusRing } from "@/components/phone/phone";
-import { AuthCta, AuthHeader, AuthInput, AuthScreen, ErrorText } from "@/components/auth/AuthKit";
-
-/** This browser was refused (under 18): it doesn't get to try another date, for as long as the server blocks the email. */
-const BLOCKED_KEY = "stak.eligibility.blockedUntil";
-const BLOCK_MS = 30 * 24 * 60 * 60 * 1000;
-
-function blockedHere(): boolean {
-	try { return Number(localStorage.getItem(BLOCKED_KEY) ?? 0) > Date.now(); } catch { return false; }
-}
+import { AuthBackLink, AuthCta, AuthHeader, AuthInput, AuthScreen, ErrorText } from "@/components/auth/AuthKit";
 
 /** "MMDDYYYY" typed as digits -> "MM/DD/YYYY" as shown. */
 function formatDob(digits: string): string {
@@ -19,18 +11,19 @@ function formatDob(digits: string): string {
 	return d.length > 4 ? `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}` : d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
 }
 
-/** The typed date as "YYYY-MM-DD", or null until it's a whole, real date (the server checks it again). */
-function isoDob(digits: string): string | null {
+/** The typed date as "YYYY-MM-DD", or null until it's a whole, real date from 1900 to today (the server checks again). */
+function isoDob(digits: string, now = new Date()): string | null {
 	if (digits.length !== 8) return null;
-	const [mm, dd, yyyy] = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)];
-	const date = new Date(Date.UTC(Number(yyyy), Number(mm) - 1, Number(dd)));
-	if (date.getUTCFullYear() !== Number(yyyy) || date.getUTCMonth() !== Number(mm) - 1 || date.getUTCDate() !== Number(dd)) return null;
-	return `${yyyy}-${mm}-${dd}`;
+	const [mm, dd, yyyy] = [Number(digits.slice(0, 2)), Number(digits.slice(2, 4)), Number(digits.slice(4))];
+	const date = new Date(Date.UTC(yyyy, mm - 1, dd));
+	if (yyyy < 1900 || date.getUTCFullYear() !== yyyy || date.getUTCMonth() !== mm - 1 || date.getUTCDate() !== dd) return null;
+	if (date.getTime() > now.getTime()) return null;
+	return `${digits.slice(4)}-${digits.slice(0, 2)}-${digits.slice(2, 4)}`;
 }
 
 function CheckRow({ checked, onToggle, children }: { checked: boolean; onToggle: () => void; children: ReactNode }) {
 	return (
-		<label className={`flex cursor-pointer items-start ${PRESS}`} style={{ gap: cu(10) }}>
+		<label className="flex cursor-pointer items-start" style={{ gap: cu(10) }}>
 			<input type="checkbox" checked={checked} onChange={onToggle} className="sr-only peer" />
 			<span
 				aria-hidden="true"
@@ -46,70 +39,61 @@ function CheckRow({ checked, onToggle, children }: { checked: boolean; onToggle:
 }
 
 const link = (href: string, label: string) => (
-	<a href={href} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="underline focus-visible:outline focus-visible:outline-2" style={{ ...focusRing, color: DISC.teal }}>{label}</a>
+	<a href={href} target="_blank" rel="noopener noreferrer" className={`underline ${PRESS}`} style={{ ...focusRing, color: DISC.teal }}>{label}</a>
 );
 
 /**
  * "Before we get started" (as the apps): date of birth, U.S. residence, and the Terms / Privacy, before anything else -
  * shown over the whole app while the account hasn't confirmed. The age is worked out by the server, which keeps only
- * that it was confirmed. The wording doesn't name the cutoff until someone's under it. Under 18 the server deletes
- * the account; this browser then can't try again with another date.
+ * that it was confirmed. The wording doesn't name the cutoff until someone's under it. [onConfirmed] runs once the
+ * server has accepted; [onRefused] once it has refused (and deleted the account); [onSignOut] leaves without answering.
  */
-export function EligibilityGate({ onConfirmed, onRefused }: { onConfirmed: () => Promise<void>; onRefused: () => Promise<void> }) {
+export function EligibilityGate({ onConfirmed, onRefused, onSignOut }: { onConfirmed: () => void; onRefused: () => void; onSignOut: () => void }) {
 	const [digits, setDigits] = useState("");
 	const [inUS, setInUS] = useState(false);
 	const [accepted, setAccepted] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [refused, setRefused] = useState(blockedHere);
 
 	const dob = isoDob(digits);
-	const dobError = digits.length === 8 && !dob ? "Enter a real date" : null;
-
-	if (refused) {
-		return (
-			<AuthScreen nav={<span />} bottom={<AuthCta label="OK" onClick={() => { void onRefused(); }} />}>
-				<AuthHeader title="We can’t open STAK for you yet" subtitle="STAK is currently available only to users 18 and older." />
-			</AuthScreen>
-		);
-	}
+	const dobError = digits.length === 8 && !dob ? "Enter a valid date" : null;
+	const ready = !!dob && inUS && accepted && !busy;
 
 	const submit = async () => {
-		if (!dob || !inUS || !accepted || busy) return;
+		if (!dob || !ready) return;
 		setBusy(true);
 		setError(null);
+		let confirmed = false;
 		try {
 			await confirmEligibility({ dob, inUS: true, acceptTerms: true });
-			await onConfirmed();
+			confirmed = true;
 		} catch (e) {
-			if (e instanceof ApiError && e.status === 403) {
-				try { localStorage.setItem(BLOCKED_KEY, String(Date.now() + BLOCK_MS)); } catch { /* no storage */ }
-				setRefused(true);
-			} else {
-				setError(e instanceof ApiError && e.status === 400 ? "Check your date of birth and both boxes." : "Something went wrong. Try again.");
-			}
+			if (e instanceof ApiError && e.status === 403) { onRefused(); return; }
+			setError(e instanceof ApiError && e.status === 400 ? "Check your date of birth and both boxes." : "Something went wrong. Try again.");
 		} finally {
 			setBusy(false);
 		}
+		if (confirmed) onConfirmed();
 	};
 
 	return (
 		<AuthScreen
-			nav={<span />}
+			nav={<AuthBackLink label="Sign out" onClick={onSignOut} />}
 			bottom={<>
 				{error && <div style={{ padding: `0 ${cu(24)}` }}><ErrorText>{error}</ErrorText></div>}
-				<AuthCta label={busy ? "Checking…" : "Continue"} onClick={() => { void submit(); }} disabled={!dob || !inUS || !accepted || busy} />
+				<AuthCta label={busy ? "Checking…" : "Continue"} onClick={() => { void submit(); }} disabled={!ready} />
 			</>}
 		>
 			<AuthHeader title="Before we get started" subtitle="A couple of quick details first." />
 			<div style={{ display: "flex", flexDirection: "column", gap: cu(6) }}>
-				<span style={{ font: f(500, 12, 16), color: DISC.muted }}>Date of birth</span>
+				<span aria-hidden="true" style={{ font: f(500, 12, 16), color: DISC.muted }}>Date of birth</span>
 				<AuthInput
 					value={formatDob(digits)}
-					onChange={(v) => setDigits(v.replace(/\D/g, "").slice(0, 8))}
+					onChange={(v) => { setDigits(v.replace(/\D/g, "").slice(0, 8)); setError(null); }}
 					placeholder="MM/DD/YYYY"
+					label="Date of birth"
 					inputMode="numeric"
-					autoComplete="bday"
+					autoComplete="off"
 					maxLength={10}
 					error={dobError}
 					onEnter={() => { void submit(); }}
@@ -119,6 +103,15 @@ export function EligibilityGate({ onConfirmed, onRefused }: { onConfirmed: () =>
 			<CheckRow checked={accepted} onToggle={() => setAccepted((v) => !v)}>
 				I agree to the {link(TERMS_URL, "Terms of Service")} and {link(PRIVACY_URL, "Privacy Policy")}.
 			</CheckRow>
+		</AuthScreen>
+	);
+}
+
+/** After a refusal: the account is gone and this browser signed out. OK returns to the start (as the apps). */
+export function EligibilityRefused({ onDone }: { onDone: () => void }) {
+	return (
+		<AuthScreen nav={<span />} bottom={<AuthCta label="OK" onClick={onDone} />}>
+			<AuthHeader title="We can’t open STAK for you yet" subtitle="STAK is currently available only to users 18 and older." />
 		</AuthScreen>
 	);
 }

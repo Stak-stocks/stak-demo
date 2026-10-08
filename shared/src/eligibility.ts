@@ -17,6 +17,16 @@ export const ELIGIBILITY_ENFORCED_FROM = "2026-10-09";
 export const ELIGIBILITY_BLOCK_DAYS = 30;
 
 /**
+ * Today's date in Guam, the U.S. calendar that's furthest ahead: someone whose birthday it is anywhere in the U.S.
+ * already has it here, so nobody is refused on their 18th birthday because of their time zone.
+ */
+export function latestUsDate(now = new Date()): { year: number; month: number; day: number } {
+	const [year, month, day] = new Intl.DateTimeFormat("en-CA", { timeZone: "Pacific/Guam", year: "numeric", month: "2-digit", day: "2-digit" })
+		.format(now).split("-").map(Number) as [number, number, number];
+	return { year, month, day };
+}
+
+/**
  * Whole years old on `today` for a date of birth "YYYY-MM-DD", or null when it isn't a real past date (or is before
  * 1900). Calendar arithmetic only - no time zone enters it.
  */

@@ -16,6 +16,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -70,12 +77,11 @@ private object DateOfBirthTransformation : VisualTransformation {
 }
 
 /**
- * "Before we get started" (Eligibility): date of birth, U.S. residence and the Terms / Privacy, over the whole app until
- * the account confirms. The wording doesn't name the cutoff until someone's under it. [onRefused]: the server has
- * deleted the account - sign out and start over. Mirrors web EligibilityGate and iOS EligibilityView.
+ * The screen for Eligibility: see there. The wording doesn't name the cutoff until someone's under it. [onRefused]:
+ * the server has deleted the account - start over. [onSignOut]: leave without answering.
  */
 @Composable
-internal fun EligibilityScreen(onRefused: () -> Unit) {
+internal fun EligibilityScreen(onRefused: () -> Unit, onSignOut: () -> Unit) {
 	val u = figmaUnit()
 	val scope = rememberCoroutineScope()
 	val uriHandler = LocalUriHandler.current
@@ -84,12 +90,13 @@ internal fun EligibilityScreen(onRefused: () -> Unit) {
 	var accepted by rememberSaveable { mutableStateOf(false) }
 	var busy by remember { mutableStateOf(false) }
 	var error by remember { mutableStateOf<String?>(null) }
-	var refused by rememberSaveable { mutableStateOf(Eligibility.blockedHere) }
+	var refused by rememberSaveable { mutableStateOf(false) }
 	val dob = Eligibility.isoDob(digits)
-	val dobError = if (digits.length == 8 && dob == null) "Enter a real date" else null
+	val dobError = if (digits.length == 8 && dob == null) "Enter a valid date" else null
 	val ready = dob != null && inUS && accepted && !busy
-	// Nothing to go back to: the account can't be used until this is answered.
-	BackHandler(enabled = true) {}
+	// Back leaves the app (Sign out is on the screen): the account can't be used until this is answered.
+	val context = androidx.compose.ui.platform.LocalContext.current
+	BackHandler(enabled = true) { (context as? android.app.Activity)?.moveTaskToBack(true) }
 
 	val titleStyle = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp, lineHeight = (33 * u).sp, lineHeightStyle = FIGMA_LINE_BOX)
 	val subtitleStyle = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX)
@@ -98,14 +105,20 @@ internal fun EligibilityScreen(onRefused: () -> Unit) {
 		modifier = Modifier
 			.fillMaxSize()
 			.background(StakColors.Bg)
-			// The gate is the whole screen: taps never reach the app beneath it.
-			.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+			// The gate is the whole screen: taps never reach the app beneath it (and it adds no node for TalkBack).
+			.pointerInput(Unit) { detectTapGestures { } },
 	) {
 		AuthWatermark()
 		Artboard {
+			if (!refused) {
+				Row(modifier = Modifier.fillMaxWidth().padding(start = (24 * u).dp, top = (10 * u).dp)) {
+					LegalLink("Sign out", onClick = onSignOut)
+				}
+			}
 			Column(
 				verticalArrangement = Arrangement.spacedBy((14 * u).dp),
-				modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = (24 * u).dp).padding(top = (32 * u).dp),
+				// Scrolls: with the number pad up, or at a large font size, the boxes and links stay reachable.
+				modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = (24 * u).dp).padding(top = (22 * u).dp),
 			) {
 				if (refused) {
 					Text("We can’t open STAK for you yet", style = titleStyle, color = StakColors.TextPrimary)
@@ -124,6 +137,7 @@ internal fun EligibilityScreen(onRefused: () -> Unit) {
 						keyboardType = KeyboardType.Number,
 						error = dobError,
 						visualTransformation = DateOfBirthTransformation,
+						label = "Date of birth",
 					)
 					EligibilityCheck(inUS, "I confirm that I currently live in the United States.") { inUS = !inUS }
 					EligibilityCheck(accepted, "I agree to the Terms of Service and Privacy Policy.") { accepted = !accepted }
@@ -167,12 +181,13 @@ private fun EligibilityCheck(checked: Boolean, label: String, onToggle: () -> Un
 		horizontalArrangement = Arrangement.spacedBy((10 * u).dp),
 		modifier = Modifier
 			.fillMaxWidth()
-			.clickable(
+			// A checkbox to TalkBack: its label, and "checked" / "not checked".
+			.toggleable(
+				value = checked,
 				interactionSource = remember { MutableInteractionSource() },
 				indication = com.stak.demo.ui.theme.PressDim,
 				role = Role.Checkbox,
-				onClickLabel = label,
-				onClick = onToggle,
+				onValueChange = { onToggle() },
 			),
 	) {
 		Box(
@@ -210,11 +225,15 @@ private fun LegalLink(text: String, onClick: () -> Unit) {
 		text,
 		style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, textDecoration = TextDecoration.Underline),
 		color = StakColors.Teal,
-		modifier = Modifier.clickable(
-			interactionSource = remember { MutableInteractionSource() },
-			indication = com.stak.demo.ui.theme.PressDim,
-			role = Role.Button,
-			onClick = onClick,
-		),
+		modifier = Modifier
+			// A comfortable target for small text.
+			.heightIn(min = (32 * u).dp)
+			.clickable(
+				interactionSource = remember { MutableInteractionSource() },
+				indication = com.stak.demo.ui.theme.PressDim,
+				role = Role.Button,
+				onClick = onClick,
+			)
+			.wrapContentHeight(),
 	)
 }
