@@ -162,11 +162,16 @@ internal data class BuySpec(
 	 * `cash` is the live paper balance the ticket opened on (Simulate audit,
 	 * same day): "Cash available" before and after both follow it.
 	 */
-	fun withAmount(amount: Double, cash: Double): BuySpec = copy(
-		shares = String.format(java.util.Locale.US, "%.4f", if (price > 0.0) amount / price else 0.0),
-		cashBefore = "$" + String.format(java.util.Locale.US, "%,.2f", cash),
-		cashAfter = "$" + String.format(java.util.Locale.US, "%,.2f", cash - amount),
-	)
+	fun withAmount(amount: Double, cash: Double): BuySpec {
+		// The server's fill (sandbox.ts /buy): shares rounded down to a thousandth, the cost those shares to the cent.
+		val shares = if (price > 0.0) kotlin.math.floor(amount / price * 1000) / 1000 else 0.0
+		val cost = if (price > 0.0) Math.round(price * shares * 100) / 100.0 else amount
+		return copy(
+			shares = String.format(java.util.Locale.US, "%.3f", shares),
+			cashBefore = "$" + String.format(java.util.Locale.US, "%,.2f", cash),
+			cashAfter = "$" + String.format(java.util.Locale.US, "%,.2f", cash - cost),
+		)
+	}
 
 	/** The ticket re-priced from a live quote, so the paper order fills at today's price. */
 	fun withQuote(price: Double, changePct: Double): BuySpec = copy(

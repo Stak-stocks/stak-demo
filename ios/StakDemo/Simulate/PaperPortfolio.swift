@@ -299,7 +299,8 @@ final class PaperPortfolio: ObservableObject {
 		let value = price * p.shares
 		let gain = value - basisTotal
 		let pctAbs = basisTotal > 0 ? abs(gain / basisTotal * 100) : 0
-		let dayPct = quote?.changePct ?? 0
+		// No quote yet: the day's move is unknown ("—"), not "▲ 0.0%".
+		let dayChange = quote.map { moveText($0.changePct) } ?? "—"
 		let picked = dayLabel(p.addedAt)
 		let spec = PickSpec(
 			symbol: p.ticker, badge: badge, company: name,
@@ -307,7 +308,7 @@ final class PaperPortfolio: ObservableObject {
 			gain: signedMoney(gain), gainPct: String(format: "%.1f%%", pctAbs), up: gain > -0.005,
 			shares: shares(p.shares), stakeValue: money(value),
 			vsMarket: "Even", ahead: true,
-			dayChange: moveText(dayPct),
+			dayChange: dayChange,
 			stakeBasis: stakeLabel(basisTotal), weekGain: "+$0.00"
 		)
 		let row = SimPick(
@@ -414,18 +415,22 @@ final class PaperPortfolio: ObservableObject {
 		// adds it only once the server confirms the buy, so a rejected order can't leave a save with no position.
 		if demo { MyStakHoldings.shared.add(spec.symbol) }
 		let price = spec.price
-		let newShares = price > 0 ? amount / price : 0
-		cash -= amount
-		recordTrade(side: "BUY", symbol: spec.symbol, badge: spec.badge, amount: amount, shares: newShares, price: price)
+		// A real account's buy as the server fills it: shares rounded DOWN to a thousandth, the cost those shares at
+		// the price to the cent (sandbox.ts /buy) - the receipt and cash read the server's numbers, not the amount
+		// typed. The demo keeps its round stakes.
+		let newShares = price > 0 ? (demo ? amount / price : (amount / price * 1000).rounded(.down) / 1000) : 0
+		let cost = demo ? amount : (price * newShares * 100).rounded() / 100
+		cash -= cost
+		recordTrade(side: "BUY", symbol: spec.symbol, badge: spec.badge, amount: cost, shares: newShares, price: price)
 		if let i = positions.firstIndex(where: { $0.spec.symbol == spec.symbol }) {
 			// A top-up grows the cost basis by the money put in ($100 + $25 -> "$125"); the return is recomputed over it
 			// ($24 on $100 was 24%, on $200 it's 12%) while the dollar gain stands.
 			var held = positions[i]
-			let newBasis = held.costBasis + amount
+			let newBasis = held.costBasis + cost
 			let gainAmount = abs(PaperPortfolio.amount(held.spec.gain))
 			let pct = String(format: "%.1f%%", newBasis > 0 ? gainAmount / newBasis * 100 : 0)
 			held.spec.shares = PaperPortfolio.shares((Double(held.spec.shares) ?? 0) + newShares)
-			held.spec.stakeValue = PaperPortfolio.money(held.stake + amount)
+			held.spec.stakeValue = PaperPortfolio.money(held.stake + cost)
 			held.spec.stakeBasis = PaperPortfolio.stakeLabel(newBasis)
 			held.spec.gainPct = pct
 			held.row.pct = (held.spec.up ? "+" : "-") + pct
@@ -438,10 +443,10 @@ final class PaperPortfolio: ObservableObject {
 					symbol: spec.symbol, badge: spec.badge, company: spec.name,
 					priceNow: priceText, pickedLine: "Picked \(day) at \(priceText)", priceThen: priceText,
 					gain: "+$0.00", gainPct: "0.0%", up: true,
-					shares: PaperPortfolio.shares(newShares), stakeValue: PaperPortfolio.money(amount),
+					shares: PaperPortfolio.shares(newShares), stakeValue: PaperPortfolio.money(cost),
 					// Short on purpose: the stat's own label already says "vs the market".
 					vsMarket: "Even", ahead: true,
-					dayChange: spec.change, stakeBasis: PaperPortfolio.stakeLabel(amount), weekGain: "+$0.00"
+					dayChange: spec.change, stakeBasis: PaperPortfolio.stakeLabel(cost), weekGain: "+$0.00"
 				),
 				row: SimPick(badge: spec.badge, ticker: spec.symbol, sub: "Picked \(day) · just bought", amount: "+$0.00", pct: "+0.0%", up: true)
 			)
@@ -644,6 +649,11 @@ final class PaperPortfolio: ObservableObject {
 			out.amount = PaperPortfolio.signedMoney(gain)
 			out.pct = String(format: "%+.1f%%", costBasis > 0 ? gain / costBasis * 100 : 0)
 			out.up = gain > -0.005
+			// "Picked Sep 4 · up 40% since" moves with the amount beside it, not frozen at the last full read.
+			if let picked = row.sub.components(separatedBy: " · ").first, picked.hasPrefix("Picked") {
+				let pctAbs = costBasis > 0 ? abs(gain / costBasis * 100) : 0
+				out.sub = "\(picked) · \(out.up ? "up" : "down") \(String(format: "%.0f", pctAbs))% since"
+			}
 			return out
 		}
 
@@ -657,6 +667,7 @@ final class PaperPortfolio: ObservableObject {
 			out.gainPct = String(format: "%.1f%%", costBasis > 0 ? abs(gain / costBasis * 100) : 0)
 			out.up = gain > -0.005
 			out.stakeValue = PaperPortfolio.money(q.price * sharesCount)
+			out.dayChange = moveText(q.changePct)
 			return out
 		}
 

@@ -71,7 +71,11 @@ internal data class Position(val spec: PickSpec, val row: SimPick) {
 		val quote = liveQuote ?: return row
 		val gain = quote.first * sharesCount - costBasis
 		val pct = if (costBasis > 0.0) gain / costBasis * 100.0 else 0.0
-		return row.copy(amount = PaperPortfolio.signedUsd(gain), pct = String.format(Locale.US, "%+.1f%%", pct), up = gain > -0.005)
+		val up = gain > -0.005
+		// "Picked Sep 4 · up 40% since" moves with the amount beside it, not frozen at the last full read.
+		val picked = row.sub.substringBefore(" · ")
+		val sub = if (picked.startsWith("Picked")) "$picked · ${if (up) "up" else "down"} ${String.format(Locale.US, "%.0f", abs(pct))}% since" else row.sub
+		return row.copy(amount = PaperPortfolio.signedUsd(gain), pct = String.format(Locale.US, "%+.1f%%", pct), up = up, sub = sub)
 	}
 
 	/** [spec], re-priced off today's quote for a real position - Price now, the gain (dollars and percent), up/down and position value; the demo's authored spec unchanged. */
@@ -85,6 +89,7 @@ internal data class Position(val spec: PickSpec, val row: SimPick) {
 			gainPct = String.format(Locale.US, "%.1f%%", pct),
 			up = gain > -0.005,
 			stakeValue = PaperPortfolio.usd(quote.first * sharesCount),
+			dayChange = (if (quote.second >= 0.0) "▲ " else "▼ ") + String.format(Locale.US, "%.1f", abs(quote.second)) + "%",
 		)
 	}
 
@@ -544,7 +549,8 @@ internal object PaperPortfolio {
 			stakeValue = usd(currentValue),
 			vsMarket = "Even",
 			ahead = true,
-			dayChange = (if (dayChangePct >= 0.0) "▲ " else "▼ ") + String.format(Locale.US, "%.1f", abs(dayChangePct)) + "%",
+			// No quote yet: the day's move is unknown ("—"), not "▲ 0.0%".
+			dayChange = if (quote == null) "—" else (if (dayChangePct >= 0.0) "▲ " else "▼ ") + String.format(Locale.US, "%.1f", abs(dayChangePct)) + "%",
 			stakeBasis = stakeLabel(stakeBasisTotal),
 			weekGain = "+$0.00",
 		)
@@ -794,15 +800,19 @@ internal object PaperPortfolio {
 		// rejected order can't leave a saved stock with no position behind it.
 		if (demo) com.stak.demo.data.MyStakHoldings.add(spec.symbol)
 		val price = spec.price
-		val shares = if (price > 0.0) amount / price else 0.0
-		cash -= amount
-		recordTrade("BUY", spec.symbol, spec.badge, amount, shares, price)
+		// A real account's buy as the server fills it: shares rounded DOWN to a thousandth, the cost those shares at
+		// the price to the cent (sandbox.ts /buy) - the receipt and cash read the server's numbers, not the amount
+		// typed. The demo keeps its round stakes.
+		val shares = if (price > 0.0) (if (demo) amount / price else kotlin.math.floor(amount / price * 1000) / 1000) else 0.0
+		val cost = if (demo) amount else Math.round(price * shares * 100) / 100.0
+		cash -= cost
+		recordTrade("BUY", spec.symbol, spec.badge, cost, shares, price)
 		val held = positions.firstOrNull { it.spec.symbol == spec.symbol }
 		if (held != null) {
 			// A top-up grows the COST basis by the money put in ($100 + $25 ->
 			// "$125"), not the current value; weekGain stays. Mirrors ios.
 			val basis = held.spec.stakeBasis.removePrefix("$").replace(",", "").toDoubleOrNull() ?: 0.0
-			val newBasis = basis + amount
+			val newBasis = basis + cost
 			// The return is recomputed over the new basis: $24 on $100 was 24%, on
 			// $200 it is 12% (Codex review, PR #166). The dollar gain itself stands.
 			val gainAmt = held.spec.gain.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 0.0
@@ -810,7 +820,7 @@ internal object PaperPortfolio {
 			val grown = held.copy(
 				spec = held.spec.copy(
 					shares = String.format(Locale.US, "%.4f", (held.spec.shares.toDoubleOrNull() ?: 0.0) + shares),
-					stakeValue = usd(held.stake + amount),
+					stakeValue = usd(held.stake + cost),
 					stakeBasis = stakeLabel(newBasis),
 					gainPct = pctText,
 				),
@@ -833,14 +843,14 @@ internal object PaperPortfolio {
 					gainPct = "0.0%",
 					up = true,
 					shares = String.format(Locale.US, "%.4f", shares),
-					stakeValue = usd(amount),
+					stakeValue = usd(cost),
 					// Short on purpose (device report, 2026-09-18): the stat's own label already
 					// says "vs the market" - "Even with the market" wrapped inside the fixed-height
 					// cell and its second line got clipped, reading as the cut-off "Even with the".
 					vsMarket = "Even",
 					ahead = true,
 					dayChange = spec.change,
-					stakeBasis = stakeLabel(amount),
+					stakeBasis = stakeLabel(cost),
 					weekGain = "+$0.00",
 				),
 				row = SimPick(spec.badge, spec.symbol, "Picked $day · just bought", "+$0.00", "+0.0%", true),

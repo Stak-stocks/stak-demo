@@ -63,10 +63,13 @@ struct BuySpec {
 	/// after follow the amount, the cash before is `cash` (PaperPortfolio.shared.cash when the ticket opens).
 	/// Mirrors android ui/discover/DiscoverScreen.kt.
 	func withAmount(_ amount: Double, cash: Double) -> BuySpec {
-		BuySpec(
+		// The server's fill (sandbox.ts /buy): shares rounded down to a thousandth, the cost those shares to the cent.
+		let shares = price > 0 ? (amount / price * 1000).rounded(.down) / 1000 : 0
+		let cost = price > 0 ? (price * shares * 100).rounded() / 100 : amount
+		return BuySpec(
 			title: title, badge: badge, name: name, priceLine: priceLine, change: change,
-			cashBefore: PaperPortfolio.money(cash), cashAfter: PaperPortfolio.money(cash - amount),
-			shares: String(format: "%.4f", price > 0 ? amount / price : 0), symbol: symbol
+			cashBefore: PaperPortfolio.money(cash), cashAfter: PaperPortfolio.money(cash - cost),
+			shares: String(format: "%.3f", shares), symbol: symbol
 		)
 	}
 
