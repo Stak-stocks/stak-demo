@@ -825,10 +825,12 @@ private fun MainShell(
 	val _shellDailyBrief by newsViewModel.dailyBrief.collectAsStateWithLifecycle()
 	val _shellLiveNews by newsViewModel.liveNews.collectAsStateWithLifecycle()
 	val _shellLiveNewsFailed by newsViewModel.liveNewsFailed.collectAsStateWithLifecycle()
-	LaunchedEffect(_shellDailyBrief, _shellLiveNews, _shellLiveNewsFailed) {
+	val _shellLiveNewsSettled by newsViewModel.liveNewsSettled.collectAsStateWithLifecycle()
+	LaunchedEffect(_shellDailyBrief, _shellLiveNews, _shellLiveNewsFailed, _shellLiveNewsSettled) {
 		DailyBriefHolder.current = _shellDailyBrief
 		DailyBriefHolder.news = _shellLiveNews
 		DailyBriefHolder.newsFailed = _shellLiveNewsFailed
+		DailyBriefHolder.newsSettled = _shellLiveNewsSettled
 	}
 	// Kept current while the app is open: checked every minute and on returning to the app (refreshIfStale decides
 	// what is actually due - the news after 15 minutes, the brief when the market session turns).

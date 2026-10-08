@@ -61,6 +61,12 @@ sealed interface StakAiStreamEvent {
 /** A streamed answer that failed part-way (its `error` event): [code] is a StakAiErrorCode. */
 class StakAiStreamException(val code: String, message: String) : Exception(message)
 
+/**
+ * The stream ended without its done event - the server cut the answer short, not a lost connection. Still an
+ * IOException (an answer that showed text may have been counted), but never worded as "you're offline".
+ */
+class StakAiCutOffException(message: String) : java.io.IOException(message)
+
 /** How a question was asked, for the usage stats (shared STAK_AI_VIA). */
 object StakAiVia {
 	const val TYPED = "typed"

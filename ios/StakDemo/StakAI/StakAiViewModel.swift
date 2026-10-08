@@ -128,25 +128,28 @@ final class StakAiViewModel: ObservableObject {
     func open(_ id: String) {
         openTask?.cancel()
         openedId = id; loading = true; notice = nil
-        openTask = Task {
+        // Weak: the view model holds this task, and a strong capture kept the pair alive past the chat's close, so
+        // deinit's cancel never ran.
+        openTask = Task { [weak self] in
+            guard let self else { return }
             do {
-                let r = try await repo.stakAiMessages(id)
+                let r = try await self.repo.stakAiMessages(id)
                 guard !Task.isCancelled else { return }
-                conversationId = id; contextSent = true
+                self.conversationId = id; self.contextSent = true
                 var msgs: [AiMessage] = []
                 for m in r.messages {
-                    msgs.append(AiMessage(key: nextKey, fromUser: m.role == "user", text: m.content,
+                    msgs.append(AiMessage(key: self.nextKey, fromUser: m.role == "user", text: m.content,
                                          serverId: m.role == "assistant" ? m.id : nil,
                                          feedback: m.feedback, kind: m.kind))
-                    nextKey += 1
+                    self.nextKey += 1
                 }
-                messages = msgs
-                context = r.context
+                self.messages = msgs
+                self.context = r.context
             } catch {
                 guard !Task.isCancelled else { return }
-                notice = .loadFailed
+                self.notice = .loadFailed
             }
-            loading = false
+            self.loading = false
         }
     }
 

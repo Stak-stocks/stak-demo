@@ -358,7 +358,7 @@ private fun BoxScope.NewsDeck(
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	// Recomputed when the news changes, not on every drag frame (both deck copies
 	// recompose while a card moves).
-	val stories = remember(DailyBriefHolder.news, DailyBriefHolder.newsFailed) { NewsDeckFeed.stories() }
+	val stories = remember(DailyBriefHolder.news, DailyBriefHolder.newsFailed, DailyBriefHolder.newsSettled) { NewsDeckFeed.stories() }
 	// Per-slot authored styling; card bottoms sit at 397.4/527.2/602.7 in
 	// the 397 card, so the up-drag clamps at bottom-397.
 	val slots = listOf(

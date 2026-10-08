@@ -174,8 +174,24 @@ private fun NotificationSettingsScreen(onBack: () -> Unit) {
 	val u = figmaUnit()
 	val context = LocalContext.current
 	// Live OS check so the warning card appears if the user revoked the permission in phone Settings
-	// after onboarding, without relying on the stored preference (which is only written at grant time).
-	val osGranted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+	// after onboarding, without relying on the stored preference - re-read on every return to the page.
+	fun osEnabled() = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+	var osGranted by remember { mutableStateOf(osEnabled()) }
+	val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+	androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+		val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+			if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) osGranted = osEnabled()
+		}
+		lifecycleOwner.lifecycle.addObserver(observer)
+		onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+	}
+	val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { osGranted = osEnabled() }
+	// A switch turned on means notifications are wanted again: "Not now" in onboarding (or on a new phone, never
+	// asked) left them off for good while these switches read on. Android 13+ is asked when it isn't allowed yet.
+	fun turnedOn() {
+		UserProfile.notificationsOn = true
+		if (android.os.Build.VERSION.SDK_INT >= 33 && !osEnabled()) askPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+	}
 	SettingsPage(title = "Notifications", onBack = onBack) {
 		if (!osGranted) {
 			Column(
@@ -196,7 +212,7 @@ private fun NotificationSettingsScreen(onBack: () -> Unit) {
 			}
 		}
 		// Each switch is sent to the backend, which does the sending while STAK is closed.
-		PermissionCard("Price moves on your picks", "A nudge when a saved or bought stock moves more than ${UserProfile.priceThreshold}%.", UserProfile.priceAlerts) { UserProfile.priceAlerts = !UserProfile.priceAlerts; Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
+		PermissionCard("Price moves on your picks", "A nudge when a saved or bought stock moves more than ${UserProfile.priceThreshold}%.", UserProfile.priceAlerts) { UserProfile.priceAlerts = !UserProfile.priceAlerts; if (UserProfile.priceAlerts) turnedOn(); Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
 		// Price threshold (FigJam Profile board, 2026-09-14): how big a move earns the nudge.
 		Column(
 			verticalArrangement = Arrangement.spacedBy((10 * u).dp),
@@ -206,11 +222,11 @@ private fun NotificationSettingsScreen(onBack: () -> Unit) {
 			Text("Only moves at least this big get a nudge.", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = com.stak.demo.ui.onboarding.Auth.SubtitleGray)
 			Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp)) {
 				listOf(1, 3, 5, 10).forEach { pct ->
-					SettingsChip(label = "$pct%", selected = UserProfile.priceThreshold == pct) { UserProfile.priceThreshold = pct; Session.saveProfile() }
+					SettingsChip(label = "$pct%", selected = UserProfile.priceThreshold == pct) { UserProfile.priceThreshold = pct; Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
 				}
 			}
 		}
-		PermissionCard("Daily deck", "One reminder when a fresh deck lands each morning.", UserProfile.dailyDeck) { UserProfile.dailyDeck = !UserProfile.dailyDeck; Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
+		PermissionCard("Daily deck", "One reminder when a fresh deck lands each morning.", UserProfile.dailyDeck) { UserProfile.dailyDeck = !UserProfile.dailyDeck; if (UserProfile.dailyDeck) turnedOn(); Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
 		PermissionCard("Market news", "The stories behind the moves, a few times a week.", UserProfile.marketNews) { UserProfile.marketNews = !UserProfile.marketNews; Session.saveProfile() }
 		Caption("You can change these any time.")
 	}

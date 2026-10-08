@@ -72,7 +72,7 @@ class StakAiRepositoryImpl @Inject constructor(private val api: StockApiService)
 			}
 		}
 		// The connection dropped before the reply.
-		throw java.io.IOException("STAK AI's answer was cut off")
+		throw StakAiCutOffException("STAK AI's answer was cut off")
 	}.flowOn(Dispatchers.IO)
 
 	// Through the engagement log, so the demo account and signed-out sessions log nothing, like every other event.

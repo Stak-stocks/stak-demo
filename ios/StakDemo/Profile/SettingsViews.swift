@@ -191,7 +191,7 @@ private struct NotificationSettingsView: View {
 					.foregroundStyle(Auth.subtitleGray)
 				HStack(spacing: 8 * u) {
 					ForEach([1, 3, 5, 10], id: \.self) { pct in
-						SettingsChip(label: "\(pct)%", selected: profile.priceThreshold == pct) { profile.priceThreshold = pct; Session.shared.saveProfile() }
+						SettingsChip(label: "\(pct)%", selected: profile.priceThreshold == pct) { profile.priceThreshold = pct; Session.shared.saveProfile(); PushRegistration.sync() }
 					}
 				}
 			}
@@ -203,14 +203,32 @@ private struct NotificationSettingsView: View {
 			Caption(text: "You can change these any time.")
 		}
 		// Coming back from the phone's Settings re-reads it.
-		.task(id: scenePhase == .active) {
-			let settings = await UNUserNotificationCenter.current().notificationSettings()
-			osAllowed = settings.authorizationStatus != .denied
-		}
+		.task(id: scenePhase == .active) { await readOSPermission() }
 	}
 
+	private func readOSPermission() async {
+		let settings = await UNUserNotificationCenter.current().notificationSettings()
+		osAllowed = settings.authorizationStatus != .denied
+	}
+
+	/// A switch turned on means notifications are wanted again: "Not now" in onboarding (or on a new phone, never
+	/// asked) left them off for good while these switches read on. The phone is asked when it never has been.
 	private func binding(_ key: ReferenceWritableKeyPath<UserProfile, Bool>) -> Binding<Bool> {
-		Binding(get: { profile[keyPath: key] }, set: { profile[keyPath: key] = $0; Session.shared.saveProfile(); PushRegistration.sync() })
+		Binding(get: { profile[keyPath: key] }, set: { on in
+			profile[keyPath: key] = on
+			if on { profile.notificationsOn = true }
+			Session.shared.saveProfile()
+			PushRegistration.sync()
+			guard on else { return }
+			Task {
+				let center = UNUserNotificationCenter.current()
+				if await center.notificationSettings().authorizationStatus == .notDetermined,
+				   (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) == true {
+					UIApplication.shared.registerForRemoteNotifications()
+				}
+				await readOSPermission()
+			}
+		})
 	}
 }
 

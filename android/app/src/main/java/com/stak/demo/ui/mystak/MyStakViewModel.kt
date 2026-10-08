@@ -127,11 +127,32 @@ class MyStakViewModel @Inject constructor(
     private var loadJob: Job? = null
 
     /**
+     * The account this view model's data belongs to. It is shared across the activity, so it outlives a log out:
+     * the next account opened My STAK on the last one's collections, taste and updates (iOS rebuilds its own).
+     */
+    private var account = Session.accountGeneration
+
+    /** A new account starts from nothing: what's held here, and every freshness stamp, belonged to the last one. */
+    private fun resetIfAccountChanged() {
+        if (account == Session.accountGeneration) return
+        account = Session.accountGeneration
+        loadJob?.cancel()
+        chartJob?.cancel()
+        _ui.value = MyStakUi()
+        loadedFor = null
+        chartFor = null
+        tasteAtMs = 0L
+        updatesAtMs = 0L
+        loadedAtMs = 0L
+    }
+
+    /**
      * Loads when the saved set has changed, or its quotes are over a minute old. The
      * Overview and its Collection pages share one instance, so opening a collection
      * straight away shows what's already there rather than fetching it again.
      */
     fun loadIfNeeded() {
+        resetIfAccountChanged()
         // loadedFor is set when a load STARTS, so this skips one still in flight too.
         // Testing !loading here instead would let the second screen fire a duplicate
         // fetch while the first was still running - the very thing this prevents.
@@ -295,6 +316,7 @@ class MyStakViewModel @Inject constructor(
      * day on the server and shared; only whether they have been read is this account's.
      */
     fun loadUpdates(force: Boolean = false) {
+        resetIfAccountChanged()
         if (Session.demoAccount) {
             _ui.value = _ui.value.copy(updates = DemoUpdates.list, unreadUpdates = DemoUpdates.list.count { !it.read }, updatesFailed = false)
             return
@@ -304,6 +326,8 @@ class MyStakViewModel @Inject constructor(
         updatesAtMs = now
         viewModelScope.launch {
             val res = runCatching { repository.getUpdates() }.getOrNull()
+            // Read for an account that has since left.
+            if (account != Session.accountGeneration) return@launch
             if (res == null) {
                 // "Nothing new" is a claim about the world; a failed request can't make it.
                 updatesAtMs = 0L
@@ -349,6 +373,7 @@ class MyStakViewModel @Inject constructor(
      * for the session - a save made a moment ago should show up in it.
      */
     fun loadTaste(force: Boolean = false) {
+        resetIfAccountChanged()
         if (Session.demoAccount) {
             _ui.value = _ui.value.copy(taste = TasteGraph.demo(), tasteFailed = false)
             return
@@ -358,6 +383,8 @@ class MyStakViewModel @Inject constructor(
         tasteAtMs = now
         viewModelScope.launch {
             val dto = runCatching { repository.getTaste() }.getOrNull()
+            // Read for an account that has since left.
+            if (account != Session.accountGeneration) return@launch
             if (dto == null) {
                 // Said, not swallowed: an empty card would read as "you have no taste yet".
                 tasteAtMs = 0L

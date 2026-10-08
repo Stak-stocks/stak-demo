@@ -65,6 +65,8 @@ object DailyBriefHolder {
     var news: List<NewsArticleDto> by mutableStateOf(emptyList())
     /** The market news request failed; nothing more is coming this session. */
     var newsFailed: Boolean by mutableStateOf(false)
+    /** The market news request has finished (with stories or without). */
+    var newsSettled: Boolean by mutableStateOf(false)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
