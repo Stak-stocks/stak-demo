@@ -104,6 +104,23 @@ final class PaperPortfolio: ObservableObject {
 	var gainPeriodLabel: String { demo ? "this week" : "all time" }
 	var weekPctText: String { demo ? PaperPortfolio.weekPct : PaperPortfolio.signedPct(allTimeGain / paperStart * 100) }
 
+	/// Today's move on what's held: each position's value now against yesterday's close - or, bought today, against what
+	/// was paid (web's todaysMove). Nil until a quote has been read.
+	var todayMove: Double? {
+		let zone = TimeZone(identifier: "America/New_York") ?? .current
+		let today = MyStakHoldings.epochDay(Date(), in: zone)
+		var sum = 0.0, known = false
+		for p in positions {
+			let symbol = p.spec.symbol
+			if let at = pickedAt[symbol], MyStakHoldings.epochDay(at, in: zone) == today {
+				sum += p.gainDollars; known = true
+			} else if let q = LiveQuotes.shared.cached(symbol) {
+				sum += p.liveValue - p.liveValue / (1 + q.changePct / 100); known = true
+			}
+		}
+		return known ? sum : nil
+	}
+
 	// The share buttons' lines (pick page, portfolio page): the return in percent, never the dollars. The demo's
 	// authored numbers aren't anyone's, and an empty portfolio has nothing to tell - both share the invite.
 	/// A pick's line - "just picked" while its gain still reads 0.0%.
@@ -767,6 +784,23 @@ final class PaperPortfolio: ObservableObject {
 
 	// The sign is the shown figure's: a gain that rounds to nothing reads "+$0", never a red "-$0" (cost rounding
 	// leaves a first buy a fraction of a cent down).
+	/// The US Eastern epoch day a range pill starts on (1W a week back, 1M a month, YTD January 1...).
+	nonisolated static func rangeStartDay(_ range: String, now: Date = Date()) -> Int {
+		let zone = TimeZone(identifier: "America/New_York") ?? .current
+		var cal = Calendar(identifier: .gregorian)
+		cal.timeZone = zone
+		let start: Date
+		switch range.uppercased() {
+		case "1W": start = cal.date(byAdding: .day, value: -7, to: now) ?? now
+		case "1M": start = cal.date(byAdding: .month, value: -1, to: now) ?? now
+		case "3M": start = cal.date(byAdding: .month, value: -3, to: now) ?? now
+		case "YTD": start = cal.date(from: cal.dateComponents([.year], from: now)) ?? now
+		case "1Y": start = cal.date(byAdding: .year, value: -1, to: now) ?? now
+		default: start = now
+		}
+		return MyStakHoldings.epochDay(start, in: zone)
+	}
+
 	/// What a range pill covers, as the change line under a chart says it ("past 3 months").
 	nonisolated static func rangeWord(_ range: String) -> String {
 		switch range.uppercased() {

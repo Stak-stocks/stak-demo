@@ -17,6 +17,19 @@ export const signedPct = (pct: number) => `${Math.round(pct * 10) < 0 ? "-" : "+
 /** A gain counts as up unless it is down by at least half a cent (the apps' rule). */
 export const isUp = (gain: number) => gain > -0.005;
 
+/** When a range pill starts: midnight a week back for 1W, a month for 1M, January 1 for YTD... (as the apps). */
+export function rangeStartMs(range: string, now = new Date()): number {
+	const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+	switch (range.toLowerCase()) {
+		case "1w": d.setDate(d.getDate() - 7); break;
+		case "1m": d.setMonth(d.getMonth() - 1); break;
+		case "3m": d.setMonth(d.getMonth() - 3); break;
+		case "ytd": d.setMonth(0, 1); break;
+		case "1y": d.setFullYear(d.getFullYear() - 1); break;
+	}
+	return d.getTime();
+}
+
 const RANGE_WORDS: Record<string, string> = { "1d": "today", "1w": "this week", "1m": "past month", "3m": "past 3 months", ytd: "this year", "1y": "past year" };
 /** What a range pill covers, as the change line under a chart says it ("past 3 months"). */
 export const rangeWord = (range: string) => RANGE_WORDS[range.toLowerCase()] ?? "";

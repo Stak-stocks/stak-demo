@@ -466,6 +466,7 @@ private struct StatBox: View {
 		VStack(alignment: .leading, spacing: 4 * u) {
 			Text(label)
 				.lineLimit(1)
+				.minimumScaleFactor(0.8)
 				.font(StakFont.geist(10 * u))
 				.foregroundStyle(Sim.muted)
 				.frame(height: 13 * u * typeScale) // Authored 10/13 line box — pin so the cell sums to 35

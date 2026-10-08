@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -32,19 +33,26 @@ fun Modifier.sheetDragToDismiss(onDismiss: () -> Unit): Modifier {
 	val scope = rememberCoroutineScope()
 	val offset = remember { Animatable(0f) }
 	var height by remember { mutableIntStateOf(0) }
+	// Set once a close has begun: a second drag (or the close's own last events) can't call onDismiss again.
+	var dismissing by remember { mutableStateOf(false) }
 	val dismiss by rememberUpdatedState(onDismiss)
 	val thresholdPx = with(LocalDensity.current) { 120.dp.toPx() }
+	val flickPx = with(LocalDensity.current) { 1000.dp.toPx() }
 	return this
 		.onSizeChanged { height = it.height }
 		.offset { IntOffset(0, offset.value.roundToInt()) }
 		.pointerInput(Unit) {
 			val tracker = VelocityTracker()
+			// The finger's own travel since the drag began - the sheet moves under it, so its local position can't say.
+			var travel = 0f
 			detectVerticalDragGestures(
-				onDragStart = { tracker.resetTracking() },
+				onDragStart = { tracker.resetTracking(); travel = 0f },
 				onDragEnd = {
-					val flick = tracker.calculateVelocity().y > 1500f
+					if (dismissing) return@detectVerticalDragGestures
+					val flick = tracker.calculateVelocity().y > flickPx
 					scope.launch {
 						if (offset.value > minOf(thresholdPx, height / 3f) || (flick && offset.value > 0f)) {
+							dismissing = true
 							offset.animateTo(maxOf(height.toFloat(), offset.value), tween(180))
 							dismiss()
 						} else {
@@ -55,8 +63,9 @@ fun Modifier.sheetDragToDismiss(onDismiss: () -> Unit): Modifier {
 				onDragCancel = { scope.launch { offset.animateTo(0f, spring()) } },
 			) { change, dy ->
 				change.consume()
-				// The sheet moves with the finger, so the finger's own speed is its local motion plus the sheet's.
-				tracker.addPosition(change.uptimeMillis, change.position.copy(y = change.position.y + offset.value))
+				if (dismissing) return@detectVerticalDragGestures
+				travel += dy
+				tracker.addPosition(change.uptimeMillis, androidx.compose.ui.geometry.Offset(0f, travel))
 				scope.launch { offset.snapTo((offset.value + dy).coerceAtLeast(0f)) }
 			}
 		}

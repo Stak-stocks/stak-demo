@@ -500,14 +500,20 @@ private fun ScoreHero() {
 		}
 		// A real account's ledger value over the selected range (null for the demo, or until it's read).
 		val points = if (PaperPortfolio.demo) null else rememberPortfolioHistory(range)
-		// The line follows the pills: the change from the range's first value to today's. The demo (authored figures),
-		// or a range not read yet, keeps the all-time line.
-		val first = points?.firstOrNull()?.value?.takeIf { it > 0.0 }
-		val change = first?.let { PaperPortfolio.portfolioValue - it }
-		val lineUp = if (change != null) Math.round(change) >= 0 else PaperPortfolio.weekUp
+		// The line follows the pills: 1D is today's move on what's held; a range the account began inside counts from the
+		// money it started with; otherwise from the range's first value to today's. The demo (authored figures), or a
+		// range not read yet, keeps the all-time line.
+		val firstTrade = PaperPortfolio.trades.minOfOrNull { it.epochDay }
+		val rangeMove: Pair<Double, Double>? = when {
+			PaperPortfolio.demo -> null
+			range == "1D" -> PaperPortfolio.todayMove?.let { it to PaperPortfolio.portfolioValue - it }
+			firstTrade != null && firstTrade >= PaperPortfolio.rangeStartDay(range) -> PaperPortfolio.allTimeGain to PaperPortfolio.paperStart
+			else -> points?.firstOrNull()?.value?.let { (PaperPortfolio.portfolioValue - it) to it }
+		}?.takeIf { it.second > 0.0 }
+		val lineUp = if (rangeMove != null) Math.round(rangeMove.first) >= 0 else PaperPortfolio.weekUp
 		Text(
-			text = if (change != null && first != null) {
-				PaperPortfolio.rangeLine(PaperPortfolio.signedWhole(change), change / first * 100.0, lineUp, range)
+			text = if (rangeMove != null) {
+				PaperPortfolio.rangeLine(PaperPortfolio.signedWhole(rangeMove.first), rangeMove.first / rangeMove.second * 100.0, lineUp, range)
 			} else {
 				"${if (PaperPortfolio.weekUp) "▲" else "▼"} ${PaperPortfolio.weekGainText} (${PaperPortfolio.weekPctText}) ${PaperPortfolio.gainPeriodLabel}"
 			},

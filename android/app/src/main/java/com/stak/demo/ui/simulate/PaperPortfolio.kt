@@ -781,6 +781,40 @@ internal object PaperPortfolio {
 
 	// The sign is the shown figure's: a gain that rounds to nothing reads "+$0", never a red "-$0" (cost rounding
 	// leaves a first buy a fraction of a cent down).
+	/** The US Eastern epoch day a range pill starts on (1W a week back, 1M a month, YTD January 1...). */
+	fun rangeStartDay(range: String, now: java.time.LocalDate = java.time.LocalDate.now(java.time.ZoneId.of("America/New_York"))): Long =
+		when (range.uppercase(Locale.US)) {
+			"1W" -> now.minusDays(7)
+			"1M" -> now.minusMonths(1)
+			"3M" -> now.minusMonths(3)
+			"YTD" -> now.withDayOfYear(1)
+			"1Y" -> now.minusYears(1)
+			else -> now
+		}.toEpochDay()
+
+	/**
+	 * Today's move on what's held: each position's value now against yesterday's close - or, bought today, against what
+	 * was paid (web's todaysMove). Null until a quote has been read.
+	 */
+	val todayMove: Double?
+		get() {
+			val zone = java.time.ZoneId.of("America/New_York")
+			val today = java.time.LocalDate.now(zone).toEpochDay()
+			var sum = 0.0
+			var known = false
+			for (p in positions) {
+				val symbol = p.spec.symbol
+				val at = pickedAt[symbol]
+				val quote = com.stak.demo.data.LiveQuotes.cached(symbol)
+				if (at != null && java.time.Instant.ofEpochMilli(at).atZone(zone).toLocalDate().toEpochDay() == today) {
+					sum += p.gainDollars; known = true
+				} else if (quote != null) {
+					sum += p.liveValue - p.liveValue / (1 + quote.second / 100.0); known = true
+				}
+			}
+			return if (known) sum else null
+		}
+
 	/** What a range pill covers, as the change line under a chart says it ("past 3 months"). */
 	fun rangeWord(range: String): String = when (range.uppercase(Locale.US)) {
 		"1D" -> "today"

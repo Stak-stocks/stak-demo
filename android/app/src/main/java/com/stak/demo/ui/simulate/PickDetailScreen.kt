@@ -478,7 +478,8 @@ private fun rememberPickChart(symbol: String, range: String): PickChartState? {
 	var cache by remember(symbol) { mutableStateOf<Map<String, PickChartState>>(emptyMap()) }
 	LaunchedEffect(symbol, range) {
 		if (cache[range] == null) {
-			val points = com.stak.demo.data.StockCharts.points(symbol, range.lowercase())
+			// A $0 close is no price: left out, so the line and the range's change start from a real one (as iOS and web).
+			val points = com.stak.demo.data.StockCharts.points(symbol, range.lowercase())?.filter { it.close > 0.0 }
 			val state = when {
 				points == null || points.size < 2 -> null
 				range.equals("1D", ignoreCase = true) && com.stak.demo.data.allPreMarket(points) -> PickChartState.NoMovementYet

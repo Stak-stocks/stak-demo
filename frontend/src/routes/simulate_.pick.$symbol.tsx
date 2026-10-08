@@ -91,7 +91,7 @@ function PickPage() {
 			change = pick.price - pick.price / (1 + pick.dayChange / 100);
 			pct = pick.dayChange;
 		} else {
-			const first = values[0];
+			const first = values.length >= 2 ? values[0] : undefined;
 			if (!first || first <= 0) return null;
 			change = pick.price - first;
 			pct = (change / first) * 100;
@@ -136,6 +136,7 @@ function PickPage() {
 					prices={closes}
 					chartLoading={chartLoading}
 					flatToday={flatToday}
+					move={move}
 					weekGain={weekGain}
 					versus={versus}
 					trades={paper.trades.filter((t) => t.ticker.toUpperCase() === pick.ticker.toUpperCase())}
@@ -181,7 +182,7 @@ function PickPage() {
 					<div className="flex" style={{ gap: cu(10) }}>
 						<StatBox label="Price then" value={usd(pick.costPerShare)} />
 						{/* The price is the hero's figure now; this cell carries what the stake has made. */}
-						<StatBox label="Your gain" value={`${signedUsd(pick.gain)} (${signedPct(pick.gainPct)})`} color={up ? DISC.green : DISC.red} />
+						<StatBox label="Your gain" value={`${signedUsd(pick.gain)} (${up ? "+" : "-"}${Math.abs(pick.gainPct).toFixed(1)}%)`} color={up ? DISC.green : DISC.red} />
 					</div>
 				</div>
 

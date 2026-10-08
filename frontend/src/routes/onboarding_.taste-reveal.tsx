@@ -79,7 +79,7 @@ function TasteRevealPage() {
 			{!desk && <p className="text-center" style={{ font: f(400, 11), color: DISC.faint }}>Your deck adjusts as you swipe.</p>}
 
 			{pickingRisk && (
-				<SheetScaffold label="Risk style" onDismiss={() => setPickingRisk(false)} scrim="rgba(0,0,0,0.5)" draggable={false}>
+				<SheetScaffold label="Risk style" onDismiss={() => setPickingRisk(false)} scrim="rgba(0,0,0,0.5)">
 					<div style={{ display: "flex", flexDirection: "column", gap: cu(8), padding: `${cu(8)} 0 ${cu(18)}` }}>
 						<h2 style={{ font: f(600, 17, undefined, "heading"), color: "#fff" }}>Risk style</h2>
 						<p style={{ paddingBottom: cu(6), font: f(400, 12), color: "#ACAFB1" }}>How you’d react to a 10% overnight drop. Change it any time.</p>

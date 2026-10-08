@@ -93,6 +93,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stak.demo.R
 import com.stak.demo.ui.components.RefreshWhileVisible
+import com.stak.demo.ui.components.sheetDragToDismiss
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
 import com.stak.demo.ui.theme.StakColors
@@ -1065,7 +1066,7 @@ private fun GestureChevron(u: Float) {
 	}
 }
 
-/** Shared sheet scaffold — scrim + r24 sheet. Tap outside or drag handle down to dismiss. */
+/** Shared sheet scaffold — scrim + r24 sheet. Tap outside or pull the sheet down to dismiss. */
 @Composable
 private fun SheetScaffold(onDismiss: () -> Unit, content: @Composable () -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
@@ -1073,7 +1074,6 @@ private fun SheetScaffold(onDismiss: () -> Unit, content: @Composable () -> Unit
 	val yOffset = remember { Animatable(0f) }
 	val scope = rememberCoroutineScope()
 	val exitPx = with(density) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
-	val dismissThresholdPx = with(density) { 150.dp.toPx() }
 	// Slide the sheet fully off-screen before notifying, so closing reads as a
 	// motion instead of a pop.
 	fun closeSmoothly() {
@@ -1098,6 +1098,8 @@ private fun SheetScaffold(onDismiss: () -> Unit, content: @Composable () -> Unit
 			modifier = Modifier
 				.align(Alignment.BottomCenter)
 				.fillMaxWidth()
+				// The whole sheet pulls down to close (as iOS and the other sheets); the close slides it the rest of the way.
+				.sheetDragToDismiss { closeSmoothly() }
 				.offset { androidx.compose.ui.unit.IntOffset(0, yOffset.value.roundToInt().coerceAtLeast(0)) }
 				.clip(RoundedCornerShape(topStart = (24 * u).dp, topEnd = (24 * u).dp))
 				.background(Disc.SheetBg)
@@ -1106,28 +1108,13 @@ private fun SheetScaffold(onDismiss: () -> Unit, content: @Composable () -> Unit
 				.navigationBarsPadding()
 				.padding(bottom = (12 * u).dp),
 		) {
-			// Drag handle — tall hitbox so it's easy to grab; pill is visual only.
-			// Dragging this zone down > 80dp dismisses; releasing early snaps back.
+			// Drag handle - the pill is visual; the whole sheet drags (sheetDragToDismiss above).
 			Box(
 				contentAlignment = Alignment.Center,
 				modifier = Modifier
 					.align(Alignment.CenterHorizontally)
 					.fillMaxWidth()
-					.height((28 * u).dp)
-					.pointerInput(Unit) {
-						detectVerticalDragGestures(
-							onDragEnd = {
-								if (yOffset.value > dismissThresholdPx) {
-									closeSmoothly()
-								} else {
-									scope.launch { yOffset.animateTo(0f, tween(260, easing = EaseOut)) }
-								}
-							},
-						) { change, dragAmount ->
-							change.consume()
-							scope.launch { yOffset.snapTo((yOffset.value + dragAmount).coerceAtLeast(0f)) }
-						}
-					},
+					.height((28 * u).dp),
 			) {
 				Box(
 					modifier = Modifier

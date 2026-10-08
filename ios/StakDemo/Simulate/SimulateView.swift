@@ -298,13 +298,26 @@ private struct ScoreHero: View {
 	/// A real account's ledger value per range - kept while no trade lands, so switching pills doesn't re-fetch.
 	@State private var history: [String: [PortfolioHistory.Point]] = [:]
 
-	/// The change over the selected range - the line under the value follows the pills, from the range's first value to
-	/// today's. Nil for the demo (authored figures) or before the range is read: the all-time line shows meanwhile.
+	/// The change over the selected range - the line under the value follows the pills: 1D is today's move on what's
+	/// held; a range the account began inside counts from the money it started with; otherwise from the range's first
+	/// value to today's. Nil for the demo (authored figures) or before it's read: the all-time line shows meanwhile.
 	private var rangeMove: (up: Bool, text: String)? {
-		guard !portfolio.demo, let first = history[range]?.first?.value, first > 0 else { return nil }
-		let change = portfolio.portfolioValue - first
-		let up = change.rounded() >= 0
-		return (up, PaperPortfolio.rangeLine(PaperPortfolio.signedWhole(change), pct: change / first * 100, up: up, range: range))
+		guard !portfolio.demo else { return nil }
+		let value = portfolio.portfolioValue
+		let change: Double, base: Double
+		if range == "1D" {
+			guard let move = portfolio.todayMove else { return nil }
+			change = move; base = value - move
+		} else if let firstTrade = portfolio.trades.map(\.epochDay).min(), firstTrade >= PaperPortfolio.rangeStartDay(range) {
+			change = portfolio.allTimeGain; base = portfolio.paperStart
+		} else {
+			guard let first = history[range]?.first?.value else { return nil }
+			change = value - first; base = first
+		}
+		guard base > 0 else { return nil }
+		// Signed by the whole-dollar figure shown (as Android's and web's Math.round).
+		let up = change >= -0.5
+		return (up, PaperPortfolio.rangeLine(PaperPortfolio.signedWhole(change), pct: change / base * 100, up: up, range: range))
 	}
 	@State private var historyKey = ""
 

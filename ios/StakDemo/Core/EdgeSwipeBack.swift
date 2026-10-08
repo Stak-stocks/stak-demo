@@ -7,6 +7,8 @@ struct SheetDragToDismiss: ViewModifier {
 	let onDismiss: () -> Void
 	@State private var offset: CGFloat = 0
 	@State private var height: CGFloat = 0
+	/// Set once a close has begun: a second drag can't pull the sheet back or call onDismiss again.
+	@State private var dismissing = false
 
 	func body(content: Content) -> some View {
 		content
@@ -16,15 +18,19 @@ struct SheetDragToDismiss: ViewModifier {
 					.onChange(of: g.size.height) { _, h in height = h }
 			})
 			.offset(y: offset)
+			.allowsHitTesting(!dismissing)
 			.gesture(
-				DragGesture(minimumDistance: 10)
+				// Global: the sheet moves under the finger, so its own space would shift as it's dragged.
+				DragGesture(minimumDistance: 10, coordinateSpace: .global)
 					.onChanged { v in
-						guard abs(v.translation.height) > abs(v.translation.width) else { return }
+						guard !dismissing, abs(v.translation.height) > abs(v.translation.width) else { return }
 						offset = max(0, v.translation.height)
 					}
 					.onEnded { v in
+						guard !dismissing else { return }
 						let flick = v.predictedEndTranslation.height - v.translation.height > 220
 						if offset > min(120, max(height, 1) / 3) || (flick && offset > 0) {
+							dismissing = true
 							withAnimation(.easeOut(duration: 0.18)) { offset = max(height, 400) }
 							DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { onDismiss() }
 						} else {

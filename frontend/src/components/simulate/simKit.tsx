@@ -215,8 +215,8 @@ export function MoneyField({ prefix, value, onChange, placeholder, label, radius
 }
 
 /**
- * Android's SheetScaffold: a bottom sheet over a 60% scrim. Tap the scrim or drag the handle down 150 to close;
- * a shorter drag snaps back. Renders in the phone-width column, centred on wider screens.
+ * Android's SheetScaffold: a bottom sheet over a 60% scrim. Tap the scrim, or drag the handle down past a third of the
+ * sheet (at most 120) or flick it, to close; a shorter drag snaps back (the apps' rule). Renders in the phone-width column, centred on wider screens.
  */
 export function SheetScaffold({ children, onDismiss, label, scrim = "rgba(0,0,0,0.6)", draggable = true }: {
 	children: ReactNode;
@@ -230,6 +230,8 @@ export function SheetScaffold({ children, onDismiss, label, scrim = "rgba(0,0,0,
 	const [entered, setEntered] = useState(false);
 	const [dragY, setDragY] = useState(0);
 	const dragStart = useRef<number | null>(null);
+	/** The last two pointer samples - a fast release closes like a long drag. */
+	const lastMove = useRef<{ y: number; t: number; vy: number }>({ y: 0, t: 0, vy: 0 });
 	const sheetRef = useRef<HTMLDivElement>(null);
 	const onDismissRef = useRef(onDismiss);
 	useEffect(() => { onDismissRef.current = onDismiss; });
@@ -278,12 +280,23 @@ export function SheetScaffold({ children, onDismiss, label, scrim = "rgba(0,0,0,
 				<div
 					className={`flex items-center justify-center ${draggable ? "cursor-grab touch-none" : ""}`}
 					style={{ height: cu(28) }}
-					onPointerDown={draggable ? (e) => { dragStart.current = e.clientY; e.currentTarget.setPointerCapture(e.pointerId); } : undefined}
-					onPointerMove={draggable ? (e) => { if (dragStart.current !== null) setDragY(Math.max(0, e.clientY - dragStart.current)); } : undefined}
+					onPointerDown={draggable ? (e) => {
+						dragStart.current = e.clientY;
+						lastMove.current = { y: e.clientY, t: e.timeStamp, vy: 0 };
+						e.currentTarget.setPointerCapture(e.pointerId);
+					} : undefined}
+					onPointerMove={draggable ? (e) => {
+						if (dragStart.current === null) return;
+						const dt = e.timeStamp - lastMove.current.t;
+						if (dt > 0) lastMove.current = { y: e.clientY, t: e.timeStamp, vy: (e.clientY - lastMove.current.y) / dt };
+						setDragY(Math.max(0, e.clientY - dragStart.current));
+					} : undefined}
 					onPointerUp={draggable ? () => {
 						const dragged = dragY;
 						dragStart.current = null;
-						if (dragged > 150) onDismissRef.current(); else setDragY(0);
+						const height = sheetRef.current?.offsetHeight ?? 0;
+						const flick = lastMove.current.vy > 1 && dragged > 0; // px per ms - about 1000 px/s, down
+						if (dragged > Math.min(120 * unit, height / 3) || flick) onDismissRef.current(); else setDragY(0);
 					} : undefined}
 					onPointerCancel={draggable ? () => { dragStart.current = null; setDragY(0); } : undefined}
 				>
