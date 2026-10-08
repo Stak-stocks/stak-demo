@@ -1,6 +1,6 @@
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getCompanyNews } from "./finnhubService.js";
-import { GEMINI_MODEL, geminiUrl, getGeminiKeys, withGeminiConcurrencyLimit } from "./geminiService.js";
+import { GEMINI_MODEL, geminiUrl, getGeminiKeys, withGeminiConcurrencyLimit, AMERICAN_ENGLISH } from "./geminiService.js";
 
 /**
  * The stock page's Risk Snapshot and What to Watch Next (My STAK product spec, §7).
@@ -196,6 +196,7 @@ Never mention a share price, a price target, or what analysts think. Never say "
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
+						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.2, responseMimeType: "application/json" },
 					}),

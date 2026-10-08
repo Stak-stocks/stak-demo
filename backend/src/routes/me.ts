@@ -1,7 +1,8 @@
+import { getVapidPublicKey } from "../services/pushService.js";
 import { Router } from "express";
-import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
+import { authMiddleware, forgetVerifiedToken, type AuthenticatedRequest } from "../authMiddleware.js";
 import { checkAndIncrementSwipeLimit } from "../services/swipeLimitService.js";
-import { DAILY_SWIPE_LIMIT, STAK_CAPACITY, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "@stak/shared";
+import { DAILY_SWIPE_LIMIT, NEW_ACCOUNT_WINDOW_MS, STAK_CAPACITY, getEasternDateKey, STAK_WEIGHTED_STOCK_TAGS, isPriceThreshold, DEFAULT_PRICE_THRESHOLD, TERMS_VERSION, PRIVACY_VERSION, type StakStockTagConfig } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 import { planOf } from "../lib/entitlements.js";
@@ -67,11 +68,12 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 		const result = await pgQuery<{
 			uid: string; email: string | null; display_name: string | null; phone: string | null;
 			preferences: Record<string, unknown> | null; onboarding_completed: boolean;
-			created_at: string; updated_at: string | null; plan: string | null;
+			created_at: string; updated_at: string | null; plan: string | null; confirmed: boolean;
 		}>(
-			`select uid, email, display_name, phone, preferences, onboarding_completed, created_at, updated_at, plan
+			`select uid, email, display_name, phone, preferences, onboarding_completed, created_at, updated_at, plan,
+			        (age_confirmed and country_confirmed and terms_version = $2 and privacy_version = $3) as confirmed
 			from users where uid = $1`,
-			[uid],
+			[uid, TERMS_VERSION, PRIVACY_VERSION],
 		);
 
 		if (result.rows.length === 0) {
@@ -82,6 +84,7 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 				createdAt: new Date().toISOString(),
 				taste: null,
 				plan: "free",
+				needsEligibility: true,
 			};
 			res.json(defaultProfile);
 			return;
@@ -100,6 +103,8 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			updatedAt: row.updated_at,
 			taste: tasteOf(row.preferences),
 			plan: planOf(row.plan),
+			// The apps show "Before we get started" while this is true - every account, including those from before it.
+			needsEligibility: !row.confirmed,
 		});
 	} catch (error) {
 		console.error("Error fetching profile:", error);
@@ -586,16 +591,27 @@ meRouter.delete("/search-history/:query", authMiddleware, async (req: Authentica
 });
 
 // PUT /api/me/push-device — register (or update) this install for push notifications.
-// Body: { token, platform?, timezone?, priceAlerts?, dailyDeck? }. The alert switches are
-// the app's per-phone notification settings, so they live on the device row.
+// Body: { token, platform?, timezone?, priceAlerts?, dailyDeck?, priceThreshold? }. The alert switches and
+// the price threshold (1/3/5/10%) are the app's per-phone notification settings, so they live on the device row.
 meRouter.put("/push-device", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const { token, platform, timezone, priceAlerts, dailyDeck } = req.body as {
-			token?: unknown; platform?: unknown; timezone?: unknown; priceAlerts?: unknown; dailyDeck?: unknown;
+		const { token, platform, timezone, priceAlerts, dailyDeck, webKeys, priceThreshold } = req.body as {
+			token?: unknown; platform?: unknown; timezone?: unknown; priceAlerts?: unknown; dailyDeck?: unknown; webKeys?: unknown;
+			priceThreshold?: unknown;
 		};
+		// One of the four the apps offer; anything else (an older app that doesn't send it) keeps the row's own when the
+		// row is already this account's, otherwise gets the default.
+		const threshold = isPriceThreshold(priceThreshold) ? priceThreshold : null;
 		if (typeof token !== "string" || token.length < 20 || token.length > 4096) {
 			res.status(400).json({ error: "token is required" });
+			return;
+		}
+		// A browser subscription: the token is its endpoint URL, and the keys the payload is encrypted to must come with it.
+		const isWeb = platform === "web";
+		const keys = webKeys as { p256dh?: unknown; auth?: unknown } | undefined;
+		if (isWeb && !(typeof token === "string" && token.startsWith("https://") && typeof keys?.p256dh === "string" && typeof keys?.auth === "string")) {
+			res.status(400).json({ error: "a web subscription needs an https endpoint and its p256dh/auth keys" });
 			return;
 		}
 		// An unknown zone would make the morning reminder's local-time check throw.
@@ -605,19 +621,30 @@ meRouter.put("/push-device", authMiddleware, async (req: AuthenticatedRequest, r
 		}
 		await ensureUserRow(uid, req.user!.email);
 		// The token is the install; if it was registered to another account on this phone,
-		// it now belongs to whoever is signed in.
+		// it now belongs to whoever is signed in - and doesn't keep that account's threshold.
 		await pgQuery(
-			`insert into push_devices (token, uid, platform, timezone, price_alerts, daily_deck, updated_at)
-			values ($1, $2, $3, $4, $5, $6, now())
+			`insert into push_devices (token, uid, platform, timezone, price_alerts, daily_deck, web_keys, price_threshold, updated_at)
+			values ($1, $2, $3, $4, $5, $6, $7, coalesce($8::int, $9::int), now())
 			on conflict (token) do update set uid = excluded.uid, platform = excluded.platform, timezone = excluded.timezone,
-				price_alerts = excluded.price_alerts, daily_deck = excluded.daily_deck, updated_at = now()`,
-			[token, uid, platform === "ios" ? "ios" : "android", zone, priceAlerts !== false, dailyDeck !== false],
+				price_alerts = excluded.price_alerts, daily_deck = excluded.daily_deck, web_keys = excluded.web_keys,
+				price_threshold = coalesce($8::int, case when push_devices.uid = excluded.uid then push_devices.price_threshold else $9::int end),
+				updated_at = now()`,
+			[token, uid, isWeb ? "web" : platform === "ios" ? "ios" : "android", zone, priceAlerts !== false, dailyDeck !== false,
+				isWeb ? JSON.stringify({ p256dh: keys!.p256dh, auth: keys!.auth }) : null, threshold, DEFAULT_PRICE_THRESHOLD],
 		);
 		res.json({ ok: true });
 	} catch (error) {
 		console.error("Error registering push device:", error);
 		res.status(500).json({ error: "Failed to register push device" });
 	}
+});
+
+// GET /api/me/web-push-key — the VAPID public key a browser subscribes with. 503 when this server has
+// no keys configured, so the web app can say notifications aren't available instead of failing oddly.
+meRouter.get("/web-push-key", authMiddleware, (_req, res) => {
+	const publicKey = getVapidPublicKey();
+	if (!publicKey) { res.status(503).json({ error: "web push isn't configured" }); return; }
+	res.json({ publicKey });
 });
 
 // DELETE /api/me/push-device — stop pushing to this install (sign-out). Body: { token }.
@@ -766,32 +793,101 @@ meRouter.patch("/stak/:brandId/price", authMiddleware, async (req: Authenticated
 	}
 });
 
-// DELETE /api/me — delete account (Android's App settings -> Delete account).
-// `users` is the one row every save, swipe, event, taste snapshot and push device
-// FKs to with ON DELETE CASCADE, so removing it clears all of it in a single delete
-// (see the schema migration's own note on this). The Supabase Auth record is a
-// second, best-effort step: it needs the service-role admin API, not a plain
-// connection, and a failure there still leaves the promise kept - every save and
-// setting is gone and the session is over, just with a harmless auth shell left
-// behind for later cleanup, rather than a delete that half-succeeds and blocks logout.
+/** The caller's Supabase id: their mapping for an account carried over from Firebase, else their uid itself (every
+ *  Supabase-only account, which is every new one). */
+async function supabaseIdOf(uid: string): Promise<string> {
+	const mapped = await pgQuery<{ supabase_uid: string }>(`select supabase_uid from auth_identity_map where firebase_uid = $1`, [uid]);
+	return mapped.rows[0]?.supabase_uid ?? uid;
+}
+
+/**
+ * Deletes an account. The Supabase sign-in record goes first, so a request still carrying the old token can't quietly
+ * re-create the users row after it's gone; it's best-effort (it needs the service-role admin API, and a failure is
+ * logged, not fatal - the promise that every save and setting is gone is kept either way). Then the `users` row:
+ * every save, swipe, event, taste snapshot and push device FKs to it with ON DELETE CASCADE, so one delete clears all.
+ */
+async function deleteAccount(uid: string, supabaseUid: string, token: string | undefined): Promise<void> {
+	const { error } = await getSupabaseAdmin().auth.admin.deleteUser(supabaseUid).catch((e: unknown) => ({ error: e }));
+	if (error) console.error("[me] the Supabase auth record wasn't deleted (the account's data still is):", error);
+	if (token) forgetVerifiedToken(token);
+	await pgQuery(`delete from users where uid = $1`, [uid]);
+}
+
+const bearer = (req: AuthenticatedRequest) => req.headers.authorization?.replace(/^Bearer\s+/i, "") || undefined;
+
+// POST /api/me/eligibility { ageConfirmed: true, inUS: true, acceptTerms: true } - "Before we get started": three
+// boxes - 18 or older, living in the United States, and the Terms and Privacy Policy (Terms §2). No date of birth.
+// What's kept: that each was confirmed, when, and which versions of the documents.
+meRouter.post("/eligibility", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { ageConfirmed, inUS, acceptTerms } = (req.body ?? {}) as { ageConfirmed?: unknown; inUS?: unknown; acceptTerms?: unknown };
+		if (ageConfirmed !== true || inUS !== true || acceptTerms !== true) {
+			res.status(400).json({ error: "confirmation_required" });
+			return;
+		}
+		await ensureUserRow(uid, req.user!.email);
+		await pgQuery(
+			`update users set age_confirmed = true, age_confirmed_at = now(), country_confirmed = true,
+				terms_version = $2, terms_accepted_at = now(), privacy_version = $3, privacy_accepted_at = now()
+			where uid = $1`,
+			[uid, TERMS_VERSION, PRIVACY_VERSION],
+		);
+		// The token's cached "not yet" must not outlive the confirmation.
+		const token = bearer(req);
+		if (token) forgetVerifiedToken(token);
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error confirming eligibility:", error);
+		res.status(500).json({ error: "Failed to confirm" });
+	}
+});
+
+// POST /api/me/turned-away — early access: the web signs a brand-new Google account back out (Supabase made the
+// account before STAK could say no), then calls this so nothing of it stays behind. Only the caller's own account, and
+// only one that is truly brand new: made by Google sign-in under NEW_ACCOUNT_WINDOW_MS ago, never onboarded, with
+// nothing on the server - no saves, swipes, taste, push device or Android state (an Android sign-up mid-quiz has
+// those, and is refused). Anything else is refused (409) and left alone.
+meRouter.post("/turned-away", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const supabaseUid = await supabaseIdOf(uid);
+		const { data, error } = await getSupabaseAdmin().auth.admin.getUserById(supabaseUid);
+		const user = data?.user;
+		const created = user?.created_at ? Date.parse(user.created_at) : NaN;
+		const google = user?.app_metadata?.provider === "google" || (user?.app_metadata?.providers as string[] | undefined)?.includes("google");
+		if (error || !google || !Number.isFinite(created) || Date.now() - created > NEW_ACCOUNT_WINDOW_MS) {
+			res.status(409).json({ error: "Not a brand-new account" });
+			return;
+		}
+		const row = await pgQuery<{ onboarding_completed: boolean; has_data: boolean }>(
+			`select coalesce(u.onboarding_completed, false) as onboarding_completed,
+			        exists (select 1 from stak_brands where uid = $1)
+			     or exists (select 1 from swipes where uid = $1)
+			     or exists (select 1 from taste_snapshots where uid = $1)
+			     or exists (select 1 from push_devices where uid = $1)
+			     or exists (select 1 from android_device_state where uid = $1) as has_data
+			   from (select 1) one left join users u on u.uid = $1`,
+			[uid],
+		);
+		if (row.rows[0]?.onboarding_completed || row.rows[0]?.has_data) {
+			res.status(409).json({ error: "Not a brand-new account" });
+			return;
+		}
+
+		await deleteAccount(uid, supabaseUid, bearer(req));
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error removing a turned-away account:", error);
+		res.status(500).json({ error: "Failed to remove the account" });
+	}
+});
+
+// DELETE /api/me — delete account (Android's App settings -> Delete account): see deleteAccount.
 meRouter.delete("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-
-		const mapped = await pgQuery<{ supabase_uid: string }>(
-			`select supabase_uid from auth_identity_map where firebase_uid = $1`,
-			[uid],
-		);
-		const supabaseUid = mapped.rows[0]?.supabase_uid ?? null;
-
-		await pgQuery(`delete from users where uid = $1`, [uid]);
-
-		if (supabaseUid) {
-			await getSupabaseAdmin().auth.admin.deleteUser(supabaseUid).catch((e) => {
-				console.error("[me] account data deleted but the Supabase auth record wasn't:", e);
-			});
-		}
-
+		await deleteAccount(uid, await supabaseIdOf(uid), bearer(req));
 		res.json({ ok: true });
 	} catch (error) {
 		console.error("Error deleting account:", error);

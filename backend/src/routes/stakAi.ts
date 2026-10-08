@@ -1,69 +1,216 @@
-﻿import { Router } from "express";
-import { pgQuery } from "../lib/postgres.js";
+import { Router, type Response } from "express";
+import { pgQuery, pgPool } from "../lib/postgres.js";
 import { escapeRegExp } from "../lib/regex.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
-import { getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
-import { getCompanyNews } from "../services/finnhubService.js";
-import { getEasternDateKey } from "@stak/shared";
+import { getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiStreamUrl } from "../services/geminiService.js";
+import { getCompanyNews, type FinnhubArticle } from "../services/finnhubService.js";
+import { getStockSnapshot } from "./stock.js";
+import {
+	getEasternDateKey,
+	STAK_AI_WINDOW_HOURS,
+	STAK_AI_WINDOW_LIMIT,
+	STAK_AI_VIA,
+	type BrandProfile,
+	type StakAiAnswerKind,
+	type StakAiChatReply,
+	type StakAiContext,
+	type StakAiErrorCode,
+	type StakAiSource,
+	type StakAiUsage,
+} from "@stak/shared";
 import { brands } from "@stak/shared/brands";
-import type { BrandProfile } from "@stak/shared";
 
 export const stakAiRouter = Router();
 
-// Self-call to our own cached stock endpoint â€” works on both localhost and Cloud Run
-const INTERNAL_BASE = `http://localhost:${process.env.PORT ?? 3001}`;
+const CATALOG = brands as BrandProfile[];
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const TICKER_RE = /^[A-Z][A-Z0-9.-]{0,9}$/;
+const HISTORY_TURNS = 20;
+/** The whole answer, across every Gemini key, must land within this; a stuck call shouldn't hold the screen for minutes. */
+const GEMINI_DEADLINE_MS = 25_000;
+/** Longest a plain (not streamed) answer may take, all keys included: inside the apps' 45s read timeout. */
+const PLAIN_ANSWER_MS = 38_000;
+/** News is context, not the answer: past this, answer without it. */
+const NEWS_DEADLINE_MS = 3_000;
 
-function trimTitle(message: string): string {
-	const trimmed = message.trim().slice(0, 60);
-	const lastSpace = trimmed.lastIndexOf(" ");
-	return lastSpace > 20 ? trimmed.slice(0, lastSpace) : trimmed;
+/** Errors carry a stable `code` for the apps to word themselves; `error` is a readable fallback. */
+function fail(res: Response, status: number, code: StakAiErrorCode, error: string, extra: Record<string, unknown> = {}) {
+	res.status(status).json({ error, code, ...extra });
 }
 
-/** Detect which brands are mentioned in the message (by name or ticker).
- *  Tickers use word-boundary matching to avoid false positives from
- *  single-char tickers like "F", "T", "A" matching inside ordinary words. */
-function detectMentionedBrands(message: string, allBrands: BrandProfile[]): BrandProfile[] {
-	const lower = message.toLowerCase();
-	return allBrands
-		.filter((b) => {
-			// Word-boundary + regex-escaped match (case-insensitive) so "apple pie" still
-			// detects Apple â€” the AI ignores irrelevant context â€” but "snapple" doesn't,
-			// and "Amazon.com" isn't treated as a wildcard pattern.
-			const nameEscaped = escapeRegExp(b.name);
-			if (new RegExp(`\\b${nameEscaped}\\b`, "i").test(message)) return true;
-			// Only match tickers 2+ chars; require word boundaries so "F" doesn't
-			// fire inside "after", "the", etc.
-			if (b.ticker.length >= 2) {
-				const re = new RegExp(`\\b${b.ticker.toLowerCase()}\\b`);
-				if (re.test(lower)) return true;
-			}
-			return false;
-		})
-		.slice(0, 3);
+// ── Which companies a question is about ─────────────────────────────────────
+
+/**
+ * Tickers that are everyday words. Typed bare they're far more likely to be the word ("is that normal for it now?"),
+ * so they only count as a company written as a $cashtag.
+ */
+const WORD_TICKERS = new Set([
+	"A", "AI", "ALL", "AN", "ARE", "ARM", "AT", "BE", "BIG", "BY", "CAN", "CAR", "CAT", "COST", "DIS", "DO", "EAT", "EYE",
+	"FAST", "FIVE", "FLY", "FOR", "FUN", "GO", "GOOD", "HAS", "HE", "HOME", "IF", "IN", "IS", "IT", "KEY", "LIFE", "LIVE",
+	"LOVE", "LOW", "MA", "MAIN", "ME", "MORE", "MOST", "MS", "MY", "NET", "NEW", "NICE", "NO", "NOW", "OF", "OK", "ON",
+	"ONE", "OPEN", "OR", "OUT", "PATH", "PEAK", "PLAY", "PLUS", "REAL", "RUN", "SAFE", "SAVE", "SEE", "SHOP", "SO",
+	"TEAM", "TO", "TRUE", "UP", "UPS", "US", "VERY", "WE", "WELL", "WIN", "WORK", "YOU",
+]);
+/** Company names that are also everyday words: these only match when capitalized ("Target", not "price target"). */
+const WORD_NAMES = new Set(["target", "gap", "block", "square", "ring", "shell", "delta", "chase", "coach", "snap", "match", "zoom", "visa", "oracle", "unity"]);
+
+/** Built once: a name matcher (case-insensitive unless it's a word) and an UPPERCASE-only ticker matcher per brand. */
+const MATCHERS = CATALOG.map((b) => ({
+	brand: b,
+	name: new RegExp(`\\b${escapeRegExp(b.name)}\\b`, WORD_NAMES.has(b.name.toLowerCase()) ? "" : "i"),
+	ticker: b.ticker.length >= 2 && !WORD_TICKERS.has(b.ticker) ? new RegExp(`(?<![A-Za-z$])${escapeRegExp(b.ticker)}\\b`) : null,
+}));
+
+/** "$PLTR"-style cashtags: any ticker, catalog or not, word-like or not. */
+function detectCashtags(message: string): string[] {
+	return [...message.matchAll(/\$([A-Za-z][A-Za-z.-]{0,9})\b/g)].map((m) => m[1]!.toUpperCase()).filter((t) => TICKER_RE.test(t));
 }
 
-/** Fetch live stock data from our own cached /api/stock/:ticker endpoint. */
+/** Up to three tickers the question names: catalog companies by name or uppercase ticker, plus cashtags. */
+export function detectNamedTickers(message: string): string[] {
+	const fromCatalog = MATCHERS.filter((m) => m.name.test(message) || (m.ticker?.test(message) ?? false)).map((m) => m.brand.ticker);
+	return [...new Set([...detectCashtags(message), ...fromCatalog])].slice(0, 3);
+}
+
+/** The question points back at something earlier ("is that normal for it?", "what does this mean?"). */
+const REFERS_BACK = /\b(it|it's|its|they|them|their|this|that|these|those|the (stock|stocks|company|shares|article|story|news|brief))\b/i;
+
+const nameOf = (ticker: string) => CATALOG.find((b) => b.ticker === ticker)?.name ?? ticker;
+
+// ── Context: what the chat was opened from ──────────────────────────────────
+
+const clip = (v: unknown, max: number): string | undefined => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined);
+const tickerList = (v: unknown): string[] =>
+	Array.isArray(v)
+		? [...new Set(v.map((t) => (typeof t === "string" ? t.trim().toUpperCase() : "")).filter((t) => TICKER_RE.test(t)))].slice(0, 3)
+		: [];
+
+/** The request's `context`, validated and trimmed; null when absent or malformed (the chat still works without it). */
+export function parseContext(raw: unknown): StakAiContext | null {
+	if (!raw || typeof raw !== "object") return null;
+	const c = raw as Record<string, unknown>;
+	if (c.type === "stock") {
+		const ticker = clip(c.ticker, 10)?.toUpperCase();
+		return ticker && TICKER_RE.test(ticker) ? { type: "stock", ticker } : null;
+	}
+	if (c.type === "article") {
+		const headline = clip(c.headline, 300);
+		if (!headline) return null;
+		const url = clip(c.url, 500);
+		return { type: "article", headline, summary: clip(c.summary, 2000), source: clip(c.source, 80), url: url && /^https?:\/\//.test(url) ? url : undefined, tickers: tickerList(c.tickers) };
+	}
+	if (c.type === "brief") {
+		const points = Array.isArray(c.points) ? c.points.map((p) => clip(p, 400)).filter((p): p is string => !!p).slice(0, 8) : [];
+		return points.length > 0 ? { type: "brief", title: clip(c.title, 200), points } : null;
+	}
+	return null;
+}
+
+function contextTickers(ctx: StakAiContext | null): string[] {
+	if (ctx?.type === "stock") return [ctx.ticker];
+	if (ctx?.type === "article") return ctx.tickers ?? [];
+	return [];
+}
+
+/** The context as a note the model reads before the question. */
+function describeContext(ctx: StakAiContext): string {
+	if (ctx.type === "stock") return `The user opened STAK AI from the ${nameOf(ctx.ticker)} (${ctx.ticker}) stock page.`;
+	if (ctx.type === "article") {
+		const lines = [`The user opened STAK AI from a news article${ctx.source ? ` (${ctx.source})` : ""} they are reading.`, `Headline: ${ctx.headline}`];
+		if (ctx.summary) lines.push(`Summary: ${ctx.summary}`);
+		if (ctx.tickers?.length) lines.push(`Companies in the story: ${ctx.tickers.join(", ")}`);
+		return lines.join("\n");
+	}
+	return [`The user opened STAK AI from today's Daily Brief${ctx.title ? ` ("${ctx.title}")` : ""}. Its points:`, ...ctx.points.map((p) => `- ${p}`)].join("\n");
+}
+
+/** A history-list title: the article's headline, or the question (capitalized) labelled with the stock or the brief. */
+export function makeTitle(question: string, ctx: StakAiContext | null): string {
+	const q = question.replace(/\s+/g, " ").trim();
+	const capitalized = q.charAt(0).toUpperCase() + q.slice(1);
+	const full = ctx?.type === "article" ? ctx.headline : ctx?.type === "stock" ? `${nameOf(ctx.ticker)}: ${capitalized}` : ctx?.type === "brief" ? `Daily Brief: ${capitalized}` : capitalized;
+	if (full.length <= 60) return full;
+	const cut = full.lastIndexOf(" ", 59);
+	return `${full.slice(0, cut > 20 ? cut : 59).replace(/[\s,.:;!?-]+$/, "")}…`;
+}
+
+/** A short label for the history list: the stock's name, the article's headline or "Daily Brief". */
+function contextLabel(ctx: StakAiContext | null): string | null {
+	if (ctx?.type === "stock") return nameOf(ctx.ticker);
+	if (ctx?.type === "article") return ctx.headline;
+	if (ctx?.type === "brief") return "Daily Brief";
+	return null;
+}
+
+// ── Usage: STAK_AI_WINDOW_LIMIT questions per rolling window ────────────────
+// (or an account's own limit from stak_ai_limits - teammates testing, say - where a null limit means none)
+
+type UsageRow = { used: number; oldest: string | Date | null; own_limit: number | null; unlimited: boolean | null };
+/** What an unlimited account's `limit` and `remaining` say, for app versions that don't read `unlimited`. */
+const UNLIMITED_SHOWN = 999;
+const windowEnd = (from: Date | string) => new Date(new Date(from).getTime() + STAK_AI_WINDOW_HOURS * 3_600_000).toISOString();
+const USAGE_SQL = `SELECT COUNT(*)::int AS used, MIN(created_at) AS oldest,
+	(SELECT window_limit FROM stak_ai_limits WHERE uid = $1) AS own_limit,
+	EXISTS (SELECT 1 FROM stak_ai_limits WHERE uid = $1 AND window_limit IS NULL) AS unlimited
+	FROM stak_ai_usage WHERE uid = $1 AND created_at >= NOW() - INTERVAL '${STAK_AI_WINDOW_HOURS} hours'`;
+
+function toUsage(row: UsageRow | undefined): StakAiUsage {
+	const used = Number(row?.used ?? 0);
+	if (row?.unlimited) return { limit: UNLIMITED_SHOWN, used, remaining: UNLIMITED_SHOWN, resetsAt: null, unlimited: true };
+	const limit = row?.own_limit ?? STAK_AI_WINDOW_LIMIT;
+	return { limit, used, remaining: Math.max(0, limit - used), resetsAt: row?.oldest ? windowEnd(row.oldest) : null };
+}
+
+async function getUsage(uid: string): Promise<StakAiUsage> {
+	return toUsage((await pgQuery<UsageRow>(USAGE_SQL, [uid])).rows[0]);
+}
+
+/**
+ * Claims one question for this user, or reports the window full. Counting and claiming happen under a per-user lock,
+ * so ten requests fired at once can't all slip past the limit. A claim that ends up not counting (the AI failed or
+ * only declined or asked back) is handed back with releaseQuestion.
+ */
+async function reserveQuestion(uid: string): Promise<{ usageId: number | null; usage: StakAiUsage }> {
+	const client = await pgPool.connect();
+	try {
+		await client.query("BEGIN");
+		await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`stak-ai:${uid}`]);
+		const usage = toUsage((await client.query<UsageRow>(USAGE_SQL, [uid])).rows[0]);
+		let usageId: number | null = null;
+		if (usage.remaining > 0) {
+			usageId = (await client.query<{ id: number }>(`INSERT INTO stak_ai_usage (uid) VALUES ($1) RETURNING id::int AS id`, [uid])).rows[0]!.id;
+		}
+		await client.query("COMMIT");
+		return { usageId, usage };
+	} catch (e) {
+		await client.query("ROLLBACK").catch(() => {});
+		throw e;
+	} finally {
+		client.release();
+	}
+}
+
+function releaseQuestion(usageId: number) {
+	return pgQuery(`DELETE FROM stak_ai_usage WHERE id = $1`, [usageId]).catch((e) => console.warn("[STAK AI] usage release failed:", e));
+}
+
+// ── Research cohort ─────────────────────────────────────────────────────────
+
+/** Once 50 users are in the cohort, stop asking the database on every question (per instance; resets on deploy). */
+let cohortFull = false;
+
+// ── Live data ───────────────────────────────────────────────────────────────
+
+/** Today's move and key metrics for a ticker, as one line for the model; null when there's no quote. */
 async function fetchLiveStockContext(ticker: string): Promise<string | null> {
 	try {
-		const res = await fetch(
-			`${INTERNAL_BASE}/api/stock/${encodeURIComponent(ticker)}`,
-			{ signal: AbortSignal.timeout(5000) },
-		);
-		if (!res.ok) return null;
-		const data = await res.json() as {
-			quote: { price: number; changePercent: number; marketState?: string } | null;
-			metrics: { peRatio: number | null; marketCap: string | null; beta: number | null };
-		};
+		const data = await getStockSnapshot(ticker);
 		if (!data.quote) return null;
-
 		const { price, changePercent, marketState } = data.quote;
 		const isOpen = marketState === "REGULAR";
 		const direction = Math.abs(changePercent) < 0.1 ? "flat" : changePercent > 0 ? `up ${changePercent.toFixed(2)}%` : `down ${Math.abs(changePercent).toFixed(2)}%`;
 		const priceStr = `$${price.toFixed(2)}`;
-		const movement = isOpen
-			? `is ${direction} today, trading at ${priceStr}`
-			: `closed at ${priceStr}, ${direction === "flat" ? "flat" : direction} today`;
-		const parts = [movement];
+		const parts = [isOpen ? `is ${direction} today, trading at ${priceStr}` : `closed at ${priceStr}, ${direction} today`];
 		if (data.metrics.peRatio != null) parts.push(`P/E ${data.metrics.peRatio.toFixed(1)}`);
 		if (data.metrics.marketCap) parts.push(`mkt cap ${data.metrics.marketCap}`);
 		if (data.metrics.beta != null) parts.push(`beta ${data.metrics.beta.toFixed(2)}`);
@@ -73,180 +220,268 @@ async function fetchLiveStockContext(ticker: string): Promise<string | null> {
 	}
 }
 
-async function callGemini(contents: { role: string; parts: { text: string }[] }[], systemInstruction: string): Promise<string | null> {
+function withDeadline<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+	return Promise.race([p.catch(() => fallback), new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))]);
+}
+
+// ── Gemini ──────────────────────────────────────────────────────────────────
+
+/** No first words from a key by now: try the next. */
+const FIRST_CHUNK_MS = 20_000;
+/** Words stopped arriving for this long: give up on the answer. */
+const IDLE_MS = 15_000;
+
+/**
+ * Asks Gemini (streamGenerateContent, so text can be shown as it's written), trying each key in turn. The reply is
+ * the finished text - `refused` marks a canned refusal, shown as a decline - or null when there's no complete answer:
+ * every key failed, the prompt was blocked, or the answer was cut off (an error chunk, or a finish other than STOP).
+ * With [onText] (the streamed route), once words have been shown a failure is final: another key would start the
+ * answer over under them, and bill it twice. Each try must start within FIRST_CHUNK_MS (and the whole thing within
+ * GEMINI_DEADLINE_MS), and an answer that goes quiet for IDLE_MS is abandoned.
+ */
+async function askGemini(
+	contents: { role: string; parts: { text: string }[] }[],
+	systemInstruction: string,
+	onText?: (full: string) => void,
+): Promise<{ text: string; refused: boolean } | null> {
 	return withGeminiConcurrencyLimit(async () => {
-		const keys = getGeminiKeys();
-		if (keys.length === 0) return null;
-
-		let firstRefusal: string | null = null;
-
-		for (const key of keys) {
+		const started = Date.now();
+		let shownAny = false;
+		for (const key of getGeminiKeys()) {
+			if (shownAny) break;
+			const left = GEMINI_DEADLINE_MS - (Date.now() - started);
+			if (left < 2_000) break;
+			const tag = `key ...${key.slice(-4)}`;
+			const controller = new AbortController();
+			let timer = setTimeout(() => controller.abort(), Math.min(FIRST_CHUNK_MS, left));
+			// Without [onText] (plain /chat: older app versions, which give up after 45s) nothing reaches the person until
+			// the end, so the whole answer has to fit in PLAIN_ANSWER_MS, however steadily it's arriving.
+			const cap = onText ? undefined : setTimeout(() => controller.abort(), PLAIN_ANSWER_MS - (Date.now() - started));
+			const stillTalking = () => { clearTimeout(timer); timer = setTimeout(() => controller.abort(), IDLE_MS); };
 			try {
-				const res = await fetch(
-					geminiUrl(GEMINI_MODEL, key),
-					{
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							system_instruction: { parts: [{ text: systemInstruction }] },
-							contents,
-							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.5 },
-						}),
-						signal: AbortSignal.timeout(30000),
-					},
-				);
-				if (res.status === 429) {
-					console.warn(`[Stak AI] Gemini rate limited (429) on key ...${key.slice(-4)} â€” trying next`);
+				const res = await fetch(geminiStreamUrl(GEMINI_MODEL, key), {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						system_instruction: { parts: [{ text: systemInstruction }] },
+						contents,
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.5 },
+					}),
+					signal: controller.signal,
+				});
+				if (!res.ok || !res.body) {
+					const body = await res.text().catch(() => "");
+					console.warn(`[STAK AI] Gemini ${res.status} on ${tag}${res.status === 429 ? " — trying next" : `: ${body.slice(0, 300)}`}`);
 					continue;
 				}
-				if (!res.ok) {
-					const body = await res.text().catch(() => "(unreadable)");
-					console.warn(`[Stak AI] Gemini error ${res.status} on key ...${key.slice(-4)}: ${body.slice(0, 400)}`);
+				let full = "";
+				let finish: string | undefined;
+				let blocked: string | undefined;
+				let errored = false;
+				const take = (raw: string) => {
+					const line = raw.trim();
+					if (!line.startsWith("data:")) return;
+					let chunk: { error?: unknown; promptFeedback?: { blockReason?: string }; candidates?: { finishReason?: string; content?: { parts?: { text?: string }[] } }[] };
+					try { chunk = JSON.parse(line.slice(5)); } catch { return; }
+					if (chunk.error) errored = true;
+					if (chunk.promptFeedback?.blockReason) blocked = chunk.promptFeedback.blockReason;
+					const candidate = chunk.candidates?.[0];
+					const piece = candidate?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+					if (piece) {
+						full += piece;
+						stillTalking();
+						if (onText) {
+							onText(full);
+							shownAny ||= streamableText(full).length > 0;
+						}
+					}
+					if (candidate?.finishReason) finish = candidate.finishReason;
+				};
+				const reader = res.body.getReader();
+				const decoder = new TextDecoder();
+				let buffer = "";
+				for (;;) {
+					const { value, done } = await reader.read();
+					if (done) break;
+					buffer += decoder.decode(value, { stream: true });
+					let nl: number;
+					while ((nl = buffer.indexOf("\n")) >= 0) {
+						take(buffer.slice(0, nl));
+						buffer = buffer.slice(nl + 1);
+					}
+				}
+				// The last line, if the stream didn't end with a newline.
+				for (const line of (buffer + decoder.decode()).split("\n")) take(line);
+
+				if (blocked) {
+					// Every key would block the same prompt.
+					console.warn(`[STAK AI] Gemini blocked the prompt on ${tag}: ${blocked}`);
+					return null;
+				}
+				const text = full.trim();
+				if (errored || finish !== "STOP" || !text) {
+					console.warn(`[STAK AI] Gemini answer incomplete on ${tag} (finish: ${finish ?? "none"}${errored ? ", error chunk" : ""})`);
 					continue;
 				}
-				const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[]; promptFeedback?: { blockReason?: string } };
-				if (data?.promptFeedback?.blockReason) {
-					console.warn(`[Stak AI] Gemini blocked prompt on key ...${key.slice(-4)}: ${data.promptFeedback.blockReason}`);
-					continue;
-				}
-				const text = data?.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text ?? "";
-				if (!text) {
-					const finishReason = data?.candidates?.[0]?.finishReason ?? "unknown";
-					console.warn(`[Stak AI] Gemini empty response on key ...${key.slice(-4)}, finishReason: ${finishReason}`);
-					continue;
-				}
-				if (GEMINI_REFUSAL_RE.test(text.trim())) {
-					console.warn(`[Stak AI] Gemini refusal on key ...${key.slice(-4)}: "${text.trim().slice(0, 120)}"`);
-					firstRefusal ??= text.trim();
-					continue;
-				}
-				return text.trim();
+				return { text, refused: GEMINI_REFUSAL_RE.test(text) };
 			} catch (e) {
-				console.warn(`[Stak AI] Gemini error on key ...${key.slice(-4)}: ${(e as Error)?.message}`);
+				console.warn(`[STAK AI] Gemini error on ${tag}: ${(e as Error)?.message}`);
+			} finally {
+				clearTimeout(timer);
+				clearTimeout(cap);
 			}
 		}
-
-		// If every key refused (investment advice, out-of-scope), surface the refusal text
-		// so the user sees the actual explanation instead of a generic "AI unavailable" error.
-		if (firstRefusal) return firstRefusal;
-
-		console.warn("[Stak AI] All Gemini keys exhausted");
+		console.warn("[STAK AI] No complete Gemini answer");
 		return null;
 	});
 }
 
-function buildSystemContext(params: {
-	familiarity: string | null;
-	brandNames: string[];
-	topTags: string[];
-	easternDate: string;
-}): string {
-	const brandList = params.brandNames.length > 0 ? params.brandNames.join(", ") : "no brands yet";
+/**
+ * Splits the model's reply into the answer text and the signals it was asked to give: a leading [[DECLINED]] or
+ * [[CLARIFY]], and a closing "[[FOLLOWUPS]] a | b | c" line. Markers never reach the user or the stored history.
+ */
+export function parseAnswer(raw: string): { text: string; kind: StakAiAnswerKind; followUps: string[] } {
+	let text = raw.trim();
+	let kind: StakAiAnswerKind = "answer";
+	const lead = text.match(/^\[\[(DECLINED|CLARIFY)\]\]\s*/i);
+	if (lead) {
+		kind = lead[1]!.toUpperCase() === "DECLINED" ? "declined" : "clarify";
+		text = text.slice(lead[0].length);
+	}
+	let followUps: string[] = [];
+	const tail = text.match(/\[\[FOLLOWUPS\]\]([^\n]*)\s*$/i);
+	if (tail) {
+		followUps = tail[1]!.split("|").map((s) => s.trim().replace(/^[-*•]\s*/, "")).filter((s) => s.length > 0 && s.length <= 100).slice(0, 3);
+		text = text.slice(0, tail.index).trimEnd();
+	}
+	text = text.replace(/\[\[(DECLINED|CLARIFY|FOLLOWUPS)\]\]/gi, "").trim();
+	return { text, kind, followUps: kind === "answer" ? followUps : [] };
+}
+
+/** The fixed rules first and the per-user profile last, so the rules form a shared prefix Gemini can cache. */
+function buildSystemContext(params: { familiarity: string | null; brandNames: string[]; topTags: string[]; easternDate: string }): string {
+	const brandList = params.brandNames.length > 0 ? params.brandNames.join(", ") : "no stocks yet";
 	const topTagsList = params.topTags.length > 0 ? params.topTags.join(", ") : "none recorded";
-	const familiarity = params.familiarity ?? "not set";
+	const familiarity = params.familiarity ?? "not set — assume a beginner";
 
-	return `You are Stak AI, a financial education assistant inside the Stak app â€” an investing app for people who learn through brands they know and follow.
+	return `You are STAK AI, the learning assistant inside STAK — an app that helps people, many of them new to investing, understand stocks through brands they already know.
 
-USER PROFILE
+━━━ WHAT YOU DO ━━━
+You explain. Mostly why a stock moved and what a piece of news means, but also how a company makes money, what investing terms mean, how two companies differ, and what a company's numbers say about its financial health. Comparisons and financial-health questions are welcome as education: describe neutrally what each business does, how they differ, and what the numbers show and don't show.
+
+━━━ WHAT YOU NEVER DO ━━━
+Never tell someone what to do with their money, and never predict prices. No recommendations to buy, sell or hold; no "good time to buy", "undervalued", "overvalued" or "it will go up"; no picking which stock is the better investment; no buy checklists or timing advice. You may use words like "buy", "sell rating" or "buyback" to explain what happened or what a term means, never as advice.
+When someone asks for advice or a prediction, start your reply with [[DECLINED]], then in one or two friendly sentences say you can't give advice or predictions, and offer what you can explain instead (what's been moving it, how people weigh the trade-offs). End that reply with one sentence noting it isn't financial advice.
+
+━━━ "WHY DID IT MOVE?" ━━━
+- Lead with the answer in one or two sentences: the catalyst, or "There's no confirmed public reason for this move."
+- Then briefly: what happened, why it matters for the stock, and anything uncertain (competing explanations, unconfirmed reports).
+- Never invent a reason. A move under about 1% is normal day-to-day noise; say so.
+- If the question has a wrong premise (wrong direction, size or ticker), correct it first.
+- Separate company-specific news from a market- or sector-wide move.
+- Only credit news that is genuinely recent; if the timing is unclear, say so.
+- When live market data is provided, use those exact numbers. Never make up a price, percentage or figure. If you have no data for a company, say so plainly.
+- If they sound worried about a move, be calm first: swings are normal.
+
+━━━ UNCLEAR QUESTIONS ━━━
+Resolve "it", "they" or "this stock" from the conversation and stay on that company. If you genuinely can't tell what they mean or which company, start your reply with [[CLARIFY]] and ask one short question.
+If one message packs in more than two separate questions, answer the first (or the first two if they're related) and ask them to send the others one at a time.
+
+━━━ WHERE THE USER IS ━━━
+The conversation may include a note saying what the user opened STAK AI from: a news article, a stock page, or today's Daily Brief. When their question refers to "this", "the article", "this stock" or "the brief", it means that. Ground your answer in it, and say so if it doesn't cover what they asked.
+
+━━━ STYLE ━━━
+- Short, for a phone screen: lead with the answer, then one to three short paragraphs at most.
+- Match depth and vocabulary to their knowledge level, and explain any jargon you use.
+- If they ask about a stock in their STAK, acknowledge that personal angle.
+- Calm, factual and direct. No filler, no hype, no invented drama.
+- Formatting: plain sentences. Use **bold** sparingly for a key term or number, and "- " bullets only for a list of three or more items. No headings, tables, links, code or emojis.
+- Use American English spelling.
+- The app always shows an "educational, not financial advice" note, so don't add a disclaimer to normal answers.
+
+━━━ FOLLOW-UPS ━━━
+On a normal answer (not [[DECLINED]] or [[CLARIFY]]), end with one final line: [[FOLLOWUPS]] followed by two or three short questions they might naturally ask next, each under 60 characters, separated by " | ". Keep them educational, never advice.
+
+━━━ ABOUT THIS USER ━━━
 - Financial knowledge: ${familiarity}
-- Their Stak (watchlist): ${brandList}
+- Their STAK (saved stocks): ${brandList}
 - Top interests: ${topTagsList}
 - Today (US Eastern): ${params.easternDate}
-
-â”â”â” WHAT YOU DO â”â”â”
-Your primary job is answering "why did this stock move?" â€” explaining price moves clearly, accurately, and at the right depth for this user. You also answer general financial education questions (what is a P/E ratio, what is beta, how do earnings work, etc.).
-
-â”â”â” HOW TO ANSWER A "WHY DID X MOVE?" QUESTION â”â”â”
-Always follow this structure â€” every section, in this order:
-1. Direct answer â€” state the catalyst immediately. If there is no confirmed public catalyst, say so explicitly: "There is no confirmed public catalyst for this move." Never invent a reason to fill the gap.
-2. What changed â€” the specific event: earnings beat/miss vs. expectations, guidance revision, analyst action, macro data, news headline.
-3. Why it matters â€” briefly explain why that event affects the stock. Match depth and vocabulary to the user's financial knowledge level.
-4. What to check â€” point the user to where they can learn more (the stock page or news feed in the app). Never prescribe any action.
-5. Uncertainty â€” flag anything that is unconfirmed, speculative, or has multiple competing explanations.
-
-â”â”â” MULTIPLE QUESTIONS â”â”â”
-This rule applies ONLY when the user packs multiple questions into a single message â€” never across conversation turns. Each new message from the user is always a fresh, standalone question and must be answered fully.
-If the user's current message contains more than two distinct questions, answer only the first one (or first two if they are closely related), then say exactly: "I answered your first question â€” ask the others one at a time so I can give each a real answer." Do not apply this rule based on what was asked in earlier turns.
-
-━━━ PRONOUN & REFERENCE RESOLUTION ━━━
-When the user uses a pronoun (\`it\`, \`they\`, \`this\`, \`that\`) or a vague reference (\`the stock\`, \`the company\`, \`this one\`) without naming a company, resolve it from the most recent context in the conversation. If the last topic was IBM, then \`how do you think it will perform?\` means IBM — stay on that topic. Never drift to a different subject because the pronoun was ambiguous. If the context is genuinely unclear after checking the history, ask one short clarifying question: \`Just to confirm — are you still asking about [Company]?\`
-
-â”â”â” MOVE RULES (apply to every price question) â”â”â”
-- No catalyst: "There is no confirmed public catalyst for this move" is a complete, correct answer. Never speculate or fill silence with invented drama.
-- Flat day: A move under ~1% is normal daily volatility. Say so plainly. Do not manufacture a reason.
-- False premise: If the user's question contains wrong information (wrong direction, wrong magnitude, wrong ticker), correct it first â€” then explain.
-- Multiple causes: When several factors exist, name them all and explicitly flag that it is uncertain which dominated.
-- Macro vs. company: Always clearly distinguish between a company-specific catalyst and a broad market or sector-wide move.
-- Freshness: Only attribute a move to news that is genuinely from today or very recently. Never present old news as today's catalyst. If timing is unclear, say so.
-- Live data: When market data is provided in this conversation, use those exact numbers. Never invent a price, percentage, or figure.
-- Unknown ticker: If you cannot identify a ticker or have no reliable data for it, say so clearly. Never fabricate a price, story, or reason.
-- Malformed input: If the user sends a garbled or ambiguous ticker/name (e.g. "mvst???"), try to resolve it to the most likely company and confirm â€” or ask a short clarifying question. Never break or hallucinate.
-- Company names: If the user gives a company name instead of a ticker (e.g. "Apple"), resolve it to the correct ticker (AAPL) and answer normally.
-- If the user sounds panicked or emotional about a move, be calm first â€” normalize that volatility is normal â€” then explain.
-
-â”â”â” OUT OF SCOPE â€” DECLINE THESE CLEANLY â”â”â”
-The following are outside v0's scope. When asked, give a clean, short decline and redirect to what you CAN do (explain the move or educate):
-- Financial health / fundamentals analysis ("Is NVDA financially healthy?") â†’ "I can't assess financial health yet, but I can explain what moved the stock recently."
-- Stock comparisons ("How does NVDA compare to AMD?") â†’ "I can't compare stocks, but I can explain what's moved either one."
-- Buy/sell/hold recommendations ("Should I buy TSLA?") â†’ "I can't make buy or sell recommendations. I can explain what's been driving TSLA's moves."
-- Timing advice ("Is now a good time to load up on NVDA?") â†’ Decline, redirect to the move explanation.
-- Price predictions ("Where will NVDA go next week?") â†’ "I can't predict price direction. Here's what's driving it right now."
-- Buy checklists ("What should I check before buying NVDA?") â†’ "I can't build a buy checklist. I can explain what has been moving NVDA recently."
-Never use the words: buy, sell, hold, undervalued, overvalued, "good time to", or any directional recommendation. These are financial advice â€” decline every time, no exceptions.
-
-â”â”â” COMPLIANCE FLOOR â”â”â”
-Any response that touches investment decisions must include: "This is for educational purposes only, not financial advice."
-
-â”â”â” STYLE â”â”â”
-- 2â€“4 paragraphs for move explanations unless the user asks for more.
-- Match vocabulary and explanation depth to the user's financial knowledge level (${familiarity}).
-- When the user asks about a brand in their Stak, acknowledge their personal context first.
-- Be calm, factual, and direct. No hedging filler. No invented drama.
-
 `;
 }
 
-// POST /api/stak-ai/chat
-stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res) => {
-	const uid = req.user?.uid;
-	if (!uid) { res.status(401).json({ error: "Unauthorized" }); return; }
+// ── Routes ──────────────────────────────────────────────────────────────────
 
-	const { message, conversationId: existingConvId } = req.body as {
-		message?: string;
-		conversationId?: string;
-	};
+// POST /api/stak-ai/chat           → a StakAiChatReply as JSON.
+// POST /api/stak-ai/chat/stream    → the same answer as server-sent events: `delta` ({ text }) as it's written, then
+//                                     `done` (the StakAiChatReply, whose `response` is authoritative) or `error`.
+// Body: { message, conversationId?, context?, via? }. Send `context` (see StakAiContext) with the first question only;
+// `via` says how it was asked (typed, starter, followup, retry) for the usage stats. Errors found before the answer
+// starts (bad input, limit_reached with `usage`, not_found) are ordinary JSON responses on both routes.
 
-	if (!message?.trim()) {
-		res.status(400).json({ error: "message is required" });
-		return;
+const VIA = new Set<string>(STAK_AI_VIA);
+
+/** Everything a question needs before the model is called: its claim on the limit, the conversation and the prompt. */
+interface Prepared {
+	uid: string;
+	question: string;
+	via: string;
+	usageId: number;
+	usageBefore: StakAiUsage;
+	conversationId: string | null;
+	newContext: StakAiContext | null;
+	contextIsNew: boolean;
+	context: StakAiContext | null;
+	lastTickers: string[];
+	tickers: string[];
+	sources: StakAiSource[];
+	liveContextLog: Record<string, string>;
+	inCohort: boolean;
+	systemInstruction: string;
+	contents: { role: string; parts: { text: string }[] }[];
+	startedAt: number;
+}
+
+/** Validates the request and builds the prompt; answers the request itself (and returns null) when it can't go on. */
+async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Prepared | null> {
+	const uid = req.user!.uid;
+	const { message, conversationId: existingConvId, context: rawContext, via: rawVia } = (req.body ?? {}) as { message?: unknown; conversationId?: unknown; context?: unknown; via?: unknown };
+
+	if (typeof message !== "string" || !message.trim()) { fail(res, 400, "bad_request", "message is required"); return null; }
+	if (existingConvId != null && (typeof existingConvId !== "string" || !UUID_RE.test(existingConvId))) { fail(res, 404, "not_found", "Conversation not found"); return null; }
+	const question = message.trim().slice(0, 1000);
+	const newContext = parseContext(rawContext);
+	const via = typeof rawVia === "string" && VIA.has(rawVia) ? rawVia : "typed";
+	const startedAt = Date.now();
+
+	// Claim a question and load the conversation together.
+	const [reservation, convResult] = await Promise.all([
+		reserveQuestion(uid),
+		existingConvId
+			? pgQuery<{ id: string; context: StakAiContext | null; last_tickers: string[] | null }>(
+				`SELECT id, context, last_tickers FROM stak_ai_conversations WHERE id = $1 AND uid = $2`,
+				[existingConvId, uid],
+			)
+			: Promise.resolve(null),
+	]);
+	const usageId = reservation.usageId;
+	if (usageId === null) {
+		fail(res, 429, "limit_reached", `You've used your ${reservation.usage.limit} STAK AI questions for now.`, { usage: reservation.usage });
+		return null;
 	}
-
-	const WINDOW_LIMIT = 5;
-	const WINDOW_HOURS = 6;
+	if (convResult && convResult.rows.length === 0) {
+		void releaseQuestion(usageId);
+		fail(res, 404, "not_found", "Conversation not found");
+		return null;
+	}
 	try {
-		// Per-user rolling cap â€” 5 messages per 6-hour window
-		const countResult = await pgQuery<{ count: string }>(
-			`SELECT COUNT(*) as count FROM stak_ai_messages
-			 WHERE uid = $1 AND role = 'user'
-			 AND created_at >= NOW() - INTERVAL '${WINDOW_HOURS} hours'`,
-			[uid],
-		);
-		const windowCount = parseInt(countResult.rows[0]?.count ?? "0", 10);
-		if (windowCount >= WINDOW_LIMIT) {
-			res.status(429).json({ error: `You've used your ${WINDOW_LIMIT} Stak AI messages for this window. Try again in ${WINDOW_HOURS} hours!` });
-			return;
-		}
-		// Validate existing conversation ownership (don't create yet â€” wait for successful AI response)
-		let conversationId = existingConvId ?? null;
-		if (conversationId) {
-			const result = await pgQuery<{ id: string }>(
-				`SELECT id FROM stak_ai_conversations WHERE id = $1 AND uid = $2`,
-				[conversationId, uid],
-			);
-			if (result.rows.length === 0) { res.status(404).json({ error: "Conversation not found" }); return; }
-		}
+		const conversationId = (existingConvId as string | undefined) ?? null;
+		const storedContext = convResult?.rows[0]?.context ?? null;
+		const lastTickers = convResult?.rows[0]?.last_tickers ?? [];
+		// The app should send context once; if it re-sends the same page, that's not a new page.
+		const contextIsNew = !!newContext && JSON.stringify(newContext) !== JSON.stringify(storedContext);
+		const context = contextIsNew ? newContext : storedContext;
 
-		// Fetch user context + history in parallel
 		const [userResult, stakResult, historyResult] = await Promise.all([
 			pgQuery<{ tag_scores: Record<string, number> | null; preferences: Record<string, unknown> | null; research_cohort: boolean }>(
 				`SELECT tag_scores, preferences, research_cohort FROM users WHERE uid = $1`,
@@ -256,206 +491,357 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 				`SELECT brand_id, price_at_save FROM stak_brands WHERE uid = $1`,
 				[uid],
 			),
-			pgQuery<{ role: string; content: string }>(
-				`SELECT role, content FROM (SELECT role, content, created_at FROM stak_ai_messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 40) sub ORDER BY created_at ASC`,
-				[conversationId],
-			),
+			conversationId
+				? pgQuery<{ role: string; content: string }>(
+					`SELECT role, content FROM (SELECT role, content, created_at FROM stak_ai_messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT ${HISTORY_TURNS}) sub ORDER BY created_at ASC`,
+					[conversationId],
+				)
+				: Promise.resolve({ rows: [] as { role: string; content: string }[] }),
 		]);
 
 		const tagScores = userResult.rows[0]?.tag_scores ?? {};
-		const preferences = userResult.rows[0]?.preferences ?? {};
-		const familiarity = (preferences as { familiarity?: string }).familiarity ?? null;
-		const isResearchCohort = userResult.rows[0]?.research_cohort ?? false;
+		const familiarity = (userResult.rows[0]?.preferences as { familiarity?: string } | null)?.familiarity ?? null;
 
-		// Auto-flag first 50 Stak AI users atomically. Awaited (not fire-and-forget) so
-		// a newly-enrolled user's very first message still gets logged.
-		let justEnrolled = false;
-		if (!isResearchCohort) {
-			const enrollResult = await pgQuery<{ uid: string }>(
+		// The first 50 STAK AI users join the research cohort. Awaited so a new member's first question is logged.
+		let inCohort = userResult.rows[0]?.research_cohort ?? false;
+		if (!inCohort && !cohortFull) {
+			const enroll = await pgQuery<{ uid: string }>(
 				`UPDATE users SET research_cohort = true WHERE uid = $1
 				 AND (SELECT COUNT(*) FROM users WHERE research_cohort = true) < 50
 				 RETURNING uid`,
 				[uid],
-			).catch(() => ({ rows: [] as { uid: string }[] }));
-			justEnrolled = enrollResult.rows.length > 0;
+			).catch(() => null);
+			if (enroll?.rows.length) inCohort = true;
+			else if (enroll) cohortFull = true;
 		}
-		const effectiveCohort = isResearchCohort || justEnrolled;
 
-		// Resolve brand IDs â†’ full BrandProfile objects with purchase price
-		const stakBrands = stakResult.rows
-			.map((r) => {
-				const profile = (brands as BrandProfile[]).find((b) => b.id === r.brand_id);
-				if (!profile) return null;
-				return { profile, priceAtSave: r.price_at_save };
-			})
-			.filter((b): b is { profile: BrandProfile; priceAtSave: number | null } => !!b);
-
-		const brandNames = stakBrands.map(({ profile, priceAtSave }) => {
+		const brandNames = stakResult.rows.flatMap((r) => {
+			const profile = CATALOG.find((b) => b.id === r.brand_id);
+			if (!profile) return [];
 			const base = `${profile.name} (${profile.ticker})`;
-			return priceAtSave != null ? `${base} â€” added at $${Number(priceAtSave).toFixed(2)}` : base;
+			return [r.price_at_save != null ? `${base} — added at $${Number(r.price_at_save).toFixed(2)}` : base];
 		});
+		const topTags = Object.entries(tagScores).sort(([, a], [, b]) => b - a).slice(0, 3).map(([k]) => k);
 
-		// Top 3 interest tags by score
-		const topTags = Object.entries(tagScores)
-			.sort(([, a], [, b]) => b - a)
-			.slice(0, 3)
-			.map(([k]) => k);
+		// Which companies get live price + news: the ones this question names; else a page it was just opened from;
+		// else, if it points back ("is that normal for it?"), the ones the conversation was last about. A question
+		// that does neither ("what's a P/E?", or a company outside the catalog without a $) gets none, rather than
+		// the previous company's data.
+		const named = detectNamedTickers(question);
+		const refersBack = REFERS_BACK.test(question);
+		const tickers = named.length > 0 ? named
+			: contextIsNew ? contextTickers(newContext)
+			: refersBack ? (lastTickers.length > 0 ? lastTickers.slice(0, 3) : contextTickers(context))
+			: [];
 
-		const easternDate = getEasternDateKey();
-
-		// Detect mentioned brands from full catalog â€” not just Stak, so any brand works
-		const mentionedBrands = detectMentionedBrands(message.trim(), brands as BrandProfile[]);
 		const liveDataLines: string[] = [];
 		const newsLines: string[] = [];
 		const liveContextLog: Record<string, string> = {};
-		const newsHeadlinesLog: { ticker: string; headline: string }[] = [];
-		if (mentionedBrands.length > 0) {
-			const [priceResults, newsResults] = await Promise.all([
-				Promise.allSettled(mentionedBrands.map((b) => fetchLiveStockContext(b.ticker).then((ctx) => ({ brand: b, ctx })))),
-				Promise.allSettled(mentionedBrands.map((b) => getCompanyNews(b.ticker, 24, b.name).then((articles) => ({ brand: b, articles })))),
+		const sources: StakAiSource[] = [];
+		if (tickers.length > 0) {
+			const [prices, news] = await Promise.all([
+				Promise.all(tickers.map(async (t) => ({ ticker: t, ctx: await fetchLiveStockContext(t) }))),
+				Promise.all(tickers.map(async (t) => ({ ticker: t, articles: await withDeadline<FinnhubArticle[]>(getCompanyNews(t, 24, nameOf(t)), NEWS_DEADLINE_MS, []) }))),
 			]);
-			for (const f of priceResults) {
-				if (f.status === "fulfilled" && f.value.ctx) {
-					liveDataLines.push(`â€¢ ${f.value.brand.name} (${f.value.brand.ticker}): ${f.value.ctx}`);
-					liveContextLog[f.value.brand.ticker] = f.value.ctx;
-				}
+			for (const { ticker, ctx } of prices) {
+				if (!ctx) continue;
+				liveDataLines.push(`• ${nameOf(ticker)} (${ticker}): ${ctx}`);
+				liveContextLog[ticker] = ctx;
 			}
-			for (const f of newsResults) {
-				if (f.status === "fulfilled" && f.value.articles.length > 0) {
-					const headlines = f.value.articles.slice(0, 5).map((a) => `  - ${a.headline}`).join("\n");
-					newsLines.push(`${f.value.brand.name} (${f.value.brand.ticker}) recent headlines:\n${headlines}`);
-					for (const a of f.value.articles.slice(0, 5)) {
-						newsHeadlinesLog.push({ ticker: f.value.brand.ticker, headline: a.headline });
-					}
-				}
+			for (const { ticker, articles } of news) {
+				const top = articles.slice(0, 5);
+				if (top.length === 0) continue;
+				newsLines.push(`${nameOf(ticker)} (${ticker}) recent headlines:\n${top.map((a) => `  - ${a.headline}`).join("\n")}`);
+				for (const a of top) sources.push({ ticker, headline: a.headline, ...(a.url ? { url: a.url } : {}) });
 			}
 		}
 
-		// System rules go in system_instruction (not in contents) so the model
-		// never confuses them with conversation turns or prior user questions.
-		const systemInstruction = buildSystemContext({ familiarity, brandNames, topTags, easternDate });
-		const contents: { role: string; parts: { text: string }[] }[] = [
-			...historyResult.rows.map((m) => ({
-				role: m.role === "assistant" ? "model" : "user",
-				parts: [{ text: m.content }],
-			})),
-		];
+		const systemInstruction = buildSystemContext({ familiarity, brandNames, topTags, easternDate: getEasternDateKey() });
+		const contents: { role: string; parts: { text: string }[] }[] = historyResult.rows.map((m) => ({
+			role: m.role === "assistant" ? "model" : "user",
+			parts: [{ text: m.content }],
+		}));
 
-		// Inject live price + recent news headlines before the user's question
-		if (liveDataLines.length > 0 || newsLines.length > 0) {
-			const parts: string[] = [];
-			if (liveDataLines.length > 0) parts.push(`Live market data:\n${liveDataLines.join("\n")}`);
-			if (newsLines.length > 0) parts.push(`Recent news signals:\n${newsLines.join("\n\n")}`);
-			contents.push({
-				role: "user",
-				parts: [{ text: `${parts.join("\n\n")}\n\nUse this context when answering the question below.` }],
-			});
-			contents.push({
-				role: "model",
-				parts: [{ text: "Got it â€” I have the live data and recent news and will use them in my answer." }],
-			});
+		// Where the user is (when they've just opened it, or point back at it), then live price + news, then the question.
+		const notes: string[] = [];
+		if (context && (contextIsNew || (named.length === 0 && refersBack))) notes.push(describeContext(context));
+		if (liveDataLines.length > 0) notes.push(`Live market data:\n${liveDataLines.join("\n")}`);
+		if (newsLines.length > 0) notes.push(`Recent news signals:\n${newsLines.join("\n\n")}`);
+		if (notes.length > 0) {
+			contents.push({ role: "user", parts: [{ text: `${notes.join("\n\n")}\n\nUse this context when answering the question below.` }] });
+			contents.push({ role: "model", parts: [{ text: "Got it — I'll use this context in my answer." }] });
 		}
+		contents.push({ role: "user", parts: [{ text: question }] });
 
-		contents.push({ role: "user", parts: [{ text: message.trim() }] });
+		return {
+			uid, question, via, usageId, usageBefore: reservation.usage, conversationId, newContext, contextIsNew, context,
+			lastTickers, tickers, sources, liveContextLog, inCohort, systemInstruction, contents, startedAt,
+		};
+	} catch (e) {
+		void releaseQuestion(usageId);
+		throw e;
+	}
+}
 
-		const aiResponse = await callGemini(contents, systemInstruction);
-		if (!aiResponse) {
-			res.status(503).json({ error: "AI unavailable, please try again" });
+/**
+ * Saves the exchange (as one unit: conversation, both messages, what it's now about), settles the limit (only real
+ * answers count), and logs it - the research cohort's log and the usage event. Hands the question back if it throws.
+ */
+async function saveChat(p: Prepared, ai: { text: string; refused: boolean }, streamed: boolean): Promise<StakAiChatReply | null> {
+	const parsed = ai.refused ? { text: ai.text, kind: "declined" as const, followUps: [] } : parseAnswer(ai.text);
+	if (!parsed.text) {
+		void releaseQuestion(p.usageId);
+		return null;
+	}
+	const client = await pgPool.connect();
+	let savedConversationId: string;
+	let messageId: number | null;
+	try {
+		await client.query("BEGIN");
+		if (p.conversationId) {
+			await client.query(
+				`UPDATE stak_ai_conversations SET updated_at = now(), last_tickers = $2, context = COALESCE($3::jsonb, context) WHERE id = $1`,
+				[p.conversationId, p.tickers.length > 0 ? p.tickers : p.lastTickers, p.contextIsNew ? JSON.stringify(p.newContext) : null],
+			);
+			savedConversationId = p.conversationId;
+		} else {
+			savedConversationId = (await client.query<{ id: string }>(
+				`INSERT INTO stak_ai_conversations (uid, title, context, last_tickers) VALUES ($1, $2, $3, $4) RETURNING id`,
+				[p.uid, makeTitle(p.question, p.context), p.context ? JSON.stringify(p.context) : null, p.tickers],
+			)).rows[0]!.id;
+		}
+		const inserted = await client.query<{ id: number; role: string }>(
+			`INSERT INTO stak_ai_messages (conversation_id, uid, role, content, kind) VALUES ($1, $2, 'user', $3, 'answer'), ($1, $2, 'assistant', $4, $5) RETURNING id::int AS id, role`,
+			[savedConversationId, p.uid, p.question, parsed.text, parsed.kind],
+		);
+		messageId = inserted.rows.find((r) => r.role === "assistant")?.id ?? null;
+		await client.query("COMMIT");
+	} catch (e) {
+		await client.query("ROLLBACK").catch(() => {});
+		void releaseQuestion(p.usageId);
+		throw e;
+	} finally {
+		client.release();
+	}
+
+	// Only real answers count against the limit; a decline or a question back is handed back.
+	const counts = parsed.kind === "answer";
+	if (!counts) void releaseQuestion(p.usageId);
+	const before = p.usageBefore;
+	const usage: StakAiUsage = counts
+		? { ...before, used: before.used + 1, remaining: Math.max(0, before.remaining - 1), resetsAt: before.resetsAt ?? windowEnd(new Date()) }
+		: before;
+
+	// Research cohort: what the AI saw vs. what it said (fire-and-forget — never blocks the response).
+	if (p.inCohort) {
+		pgQuery(
+			`INSERT INTO stak_ai_research_log
+			 (uid, conversation_id, user_message, brands_detected, news_headlines, live_context, ai_response, context)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+			[p.uid, savedConversationId, p.question, p.tickers, JSON.stringify(p.sources.map(({ ticker, headline }) => ({ ticker, headline }))), JSON.stringify(p.liveContextLog), parsed.text, p.context ? JSON.stringify(p.context) : null],
+		).catch((e) => console.warn("[STAK AI] research log write failed:", e));
+	}
+	// Usage stats (the events table, read by /api/admin/analytics/stak-ai): how it was asked, from where, and how it went.
+	pgQuery(
+		`INSERT INTO events (uid, type, params) VALUES ($1, 'stak_ai_ask', $2)`,
+		[p.uid, JSON.stringify({ via: p.via, context: p.context?.type ?? null, kind: parsed.kind, streamed, ms: Date.now() - p.startedAt, live: p.tickers.length > 0 })],
+	).catch((e) => console.warn("[STAK AI] usage event write failed:", e));
+
+	return {
+		response: parsed.text,
+		conversationId: savedConversationId,
+		messageId,
+		answerKind: parsed.kind,
+		followUps: parsed.followUps,
+		sources: p.sources.slice(0, 4),
+		usage,
+	};
+}
+
+const UNAVAILABLE = "STAK AI couldn't answer just now. That one didn't count — try again in a moment.";
+const SERVER_ERROR = "Something went wrong on our side. That one didn't count.";
+
+stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	let p: Prepared | null = null;
+	try {
+		p = await prepareChat(req, res);
+		if (!p) return;
+		const ai = await askGemini(p.contents, p.systemInstruction);
+		if (!ai) {
+			void releaseQuestion(p.usageId);
+			fail(res, 503, "ai_unavailable", UNAVAILABLE);
 			return;
 		}
-
-		// Create conversation now that we have a successful exchange (both sides exist).
-		// Track whether we just created it so we can clean up if the message insert fails.
-		let newlyCreated = false;
-		if (!conversationId) {
-			const result = await pgQuery<{ id: string }>(
-				`INSERT INTO stak_ai_conversations (uid, title) VALUES ($1, $2) RETURNING id`,
-				[uid, trimTitle(message)],
-			);
-			conversationId = result.rows[0]?.id ?? null;
-			if (!conversationId) { res.status(500).json({ error: "Failed to create conversation" }); return; }
-			newlyCreated = true;
-		}
-
-		try {
-			await pgQuery(
-				`INSERT INTO stak_ai_messages (conversation_id, uid, role, content) VALUES ($1, $2, 'user', $3), ($1, $2, 'assistant', $4)`,
-				[conversationId, uid, message.trim(), aiResponse],
-			);
-		} catch (e) {
-			if (newlyCreated) {
-				pgQuery(`DELETE FROM stak_ai_conversations WHERE id = $1`, [conversationId]).catch(() => {});
-			}
-			throw e;
-		}
-		await pgQuery(
-			`UPDATE stak_ai_conversations SET updated_at = now() WHERE id = $1`,
-			[conversationId],
-		);
-
-		// Log context for research cohort users (fire-and-forget â€” never blocks the response)
-		if (effectiveCohort && conversationId) {
-			pgQuery(
-				`INSERT INTO stak_ai_research_log
-				 (uid, conversation_id, user_message, brands_detected, news_headlines, live_context, ai_response)
-				 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-				[
-					uid,
-					conversationId,
-					message.trim(),
-					mentionedBrands.map((b) => b.ticker),
-					JSON.stringify(newsHeadlinesLog),
-					JSON.stringify(liveContextLog),
-					aiResponse,
-				],
-			).catch((e) => console.warn("[Stak AI] research log write failed:", e));
-		}
-
-		res.json({ response: aiResponse, conversationId });
+		const reply = await saveChat(p, ai, false);
+		if (!reply) { fail(res, 503, "ai_unavailable", UNAVAILABLE); return; }
+		res.json(reply);
 	} catch (e) {
-		console.error("[Stak AI] chat error:", e);
-		res.status(500).json({ error: "Internal server error" });
+		console.error("[STAK AI] chat error:", e);
+		if (!res.headersSent) fail(res, 500, "server_error", SERVER_ERROR);
 	}
 });
 
-// GET /api/stak-ai/conversations
-stakAiRouter.get("/conversations", authMiddleware, async (req: AuthenticatedRequest, res) => {
-	const uid = req.user?.uid;
-	if (!uid) { res.status(401).json({ error: "Unauthorized" }); return; }
+/**
+ * What of the model's text so far can be shown: the leading [[DECLINED]]/[[CLARIFY]] marker is dropped, and nothing
+ * from the first "[[" on (the closing [[FOLLOWUPS]] line) - or a lone trailing "[" - goes out until the end, when
+ * the `done` event's clean `response` replaces the streamed text anyway.
+ */
+export function streamableText(full: string): string {
+	const t = full.trimStart();
+	// Might still be reading a leading [[DECLINED]] / [[CLARIFY]]: wait until it's complete or clearly isn't one.
+	if (t.startsWith("[") && !t.includes("]]") && t.length < 14) return "";
+	const lead = t.match(/^\[\[(DECLINED|CLARIFY)\]\]\s*/i);
+	const body = lead ? t.slice(lead[0].length) : t;
+	const cut = body.indexOf("[[");
+	const end = cut >= 0 ? cut : body.endsWith("[") ? body.length - 1 : body.length;
+	return body.slice(0, end);
+}
 
+stakAiRouter.post("/chat/stream", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	let p: Prepared | null = null;
 	try {
-		const result = await pgQuery<{ id: string; title: string; created_at: string; updated_at: string }>(
-			`SELECT id, title, created_at, updated_at FROM stak_ai_conversations WHERE uid = $1 ORDER BY updated_at DESC LIMIT 20`,
-			[uid],
-		);
-		res.json({ conversations: result.rows });
+		p = await prepareChat(req, res);
+		if (!p) return;
 	} catch (e) {
-		console.error("[Stak AI] conversations error:", e);
-		res.status(500).json({ error: "Internal server error" });
+		console.error("[STAK AI] stream prepare error:", e);
+		if (!res.headersSent) fail(res, 500, "server_error", SERVER_ERROR);
+		return;
+	}
+	res.status(200).set({ "Content-Type": "text/event-stream", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no" });
+	res.flushHeaders();
+	const send = (event: string, data: unknown) => {
+		if (res.writableEnded) return;
+		res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+	};
+	let shown = 0;
+	try {
+		const ai = await askGemini(p.contents, p.systemInstruction, (full) => {
+			const safe = streamableText(full);
+			if (safe.length > shown) {
+				send("delta", { text: safe.slice(shown) });
+				shown = safe.length;
+			}
+		});
+		if (!ai) {
+			void releaseQuestion(p.usageId);
+			send("error", { code: "ai_unavailable", error: UNAVAILABLE });
+		} else {
+			// Saved even if the person has gone: the answer is in their history, and it counted.
+			const reply = await saveChat(p, ai, true);
+			if (reply) send("done", reply);
+			else send("error", { code: "ai_unavailable", error: UNAVAILABLE });
+		}
+	} catch (e) {
+		console.error("[STAK AI] stream error:", e);
+		send("error", { code: "server_error", error: SERVER_ERROR });
+	}
+	res.end();
+});
+
+// GET /api/stak-ai/usage — questions left in the current window, for the counter in the chat.
+stakAiRouter.get("/usage", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		res.json(await getUsage(req.user!.uid));
+	} catch (e) {
+		console.error("[STAK AI] usage error:", e);
+		fail(res, 500, "server_error", "Couldn't load your STAK AI usage.");
+	}
+});
+
+// GET /api/stak-ai/conversations?before=<updated_at> — 20 at a time, newest first, each with a label for what it was
+// opened from and a preview of its latest answer. `nextBefore` pages further back (null at the end).
+stakAiRouter.get("/conversations", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	const before = typeof req.query.before === "string" && !Number.isNaN(Date.parse(req.query.before)) ? req.query.before : null;
+	try {
+		const result = await pgQuery<{ id: string; title: string; context: StakAiContext | null; preview: string | null; created_at: string; updated_at: string }>(
+			`SELECT c.id, c.title, c.context, c.created_at, c.updated_at,
+			   (SELECT left(m.content, 140) FROM stak_ai_messages m
+			    WHERE m.conversation_id = c.id AND m.role = 'assistant' ORDER BY m.created_at DESC LIMIT 1) AS preview
+			 FROM stak_ai_conversations c
+			 WHERE c.uid = $1 AND ($2::timestamptz IS NULL OR c.updated_at < $2::timestamptz)
+			 ORDER BY c.updated_at DESC LIMIT 20`,
+			[req.user!.uid, before],
+		);
+		const conversations = result.rows.map(({ context, ...c }) => ({ ...c, context_type: context?.type ?? null, context_label: contextLabel(context) }));
+		const last = result.rows.at(-1);
+		res.json({ conversations, nextBefore: result.rows.length === 20 && last ? new Date(last.updated_at).toISOString() : null });
+	} catch (e) {
+		console.error("[STAK AI] conversations error:", e);
+		fail(res, 500, "server_error", "Couldn't load your conversations.");
 	}
 });
 
 // GET /api/stak-ai/conversations/:id/messages
 stakAiRouter.get("/conversations/:id/messages", authMiddleware, async (req: AuthenticatedRequest, res) => {
-	const uid = req.user?.uid;
-	if (!uid) { res.status(401).json({ error: "Unauthorized" }); return; }
-
-	const { id } = req.params;
-
+	const uid = req.user!.uid;
+	const id = String(req.params.id);
+	if (!UUID_RE.test(id)) { fail(res, 404, "not_found", "Conversation not found"); return; }
 	try {
-		const convResult = await pgQuery<{ id: string }>(
-			`SELECT id FROM stak_ai_conversations WHERE id = $1 AND uid = $2`,
+		const convResult = await pgQuery<{ id: string; title: string; context: StakAiContext | null }>(
+			`SELECT id, title, context FROM stak_ai_conversations WHERE id = $1 AND uid = $2`,
 			[id, uid],
 		);
-		if (convResult.rows.length === 0) { res.status(404).json({ error: "Conversation not found" }); return; }
-
-		const msgResult = await pgQuery<{ id: number; role: string; content: string; created_at: string }>(
-			`SELECT id, role, content, created_at FROM stak_ai_messages WHERE conversation_id = $1 AND uid = $2 ORDER BY created_at ASC`,
+		if (convResult.rows.length === 0) { fail(res, 404, "not_found", "Conversation not found"); return; }
+		const msgResult = await pgQuery<{ id: number; role: string; content: string; kind: StakAiAnswerKind; feedback: number | null; created_at: string }>(
+			`SELECT id::int AS id, role, content, kind, feedback, created_at FROM stak_ai_messages WHERE conversation_id = $1 AND uid = $2 ORDER BY created_at ASC`,
 			[id, uid],
 		);
-		res.json({ messages: msgResult.rows });
+		const conv = convResult.rows[0]!;
+		res.json({ title: conv.title, context: conv.context, messages: msgResult.rows });
 	} catch (e) {
-		console.error("[Stak AI] messages error:", e);
-		res.status(500).json({ error: "Internal server error" });
+		console.error("[STAK AI] messages error:", e);
+		fail(res, 500, "server_error", "Couldn't load this conversation.");
+	}
+});
+
+// PATCH /api/stak-ai/conversations/:id — rename. Body: { title }
+stakAiRouter.patch("/conversations/:id", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	const id = String(req.params.id);
+	const title = clip((req.body as { title?: unknown } | undefined)?.title, 80);
+	if (!title) { fail(res, 400, "bad_request", "title is required"); return; }
+	if (!UUID_RE.test(id)) { fail(res, 404, "not_found", "Conversation not found"); return; }
+	try {
+		const r = await pgQuery<{ id: string }>(`UPDATE stak_ai_conversations SET title = $3 WHERE id = $1 AND uid = $2 RETURNING id`, [id, req.user!.uid, title]);
+		if (r.rows.length === 0) { fail(res, 404, "not_found", "Conversation not found"); return; }
+		res.json({ ok: true, title });
+	} catch (e) {
+		console.error("[STAK AI] rename error:", e);
+		fail(res, 500, "server_error", "Couldn't rename this conversation.");
+	}
+});
+
+// DELETE /api/stak-ai/conversations/:id — its messages and research-log rows go with it (ON DELETE CASCADE). Its
+// questions still count against the window: that's kept in stak_ai_usage, which deleting a chat doesn't touch.
+stakAiRouter.delete("/conversations/:id", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	const id = String(req.params.id);
+	if (!UUID_RE.test(id)) { fail(res, 404, "not_found", "Conversation not found"); return; }
+	try {
+		const r = await pgQuery<{ id: string }>(`DELETE FROM stak_ai_conversations WHERE id = $1 AND uid = $2 RETURNING id`, [id, req.user!.uid]);
+		if (r.rows.length === 0) { fail(res, 404, "not_found", "Conversation not found"); return; }
+		res.json({ ok: true });
+	} catch (e) {
+		console.error("[STAK AI] delete error:", e);
+		fail(res, 500, "server_error", "Couldn't delete this conversation.");
+	}
+});
+
+// POST /api/stak-ai/messages/:id/feedback — thumbs on an answer. Body: { value: 1 | -1 | null } (null clears it).
+stakAiRouter.post("/messages/:id/feedback", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	const value = (req.body as { value?: unknown } | undefined)?.value ?? null;
+	const id = Number(req.params.id);
+	if (!Number.isSafeInteger(id) || id < 1 || id > 2_147_483_647 || !(value === 1 || value === -1 || value === null)) {
+		fail(res, 400, "bad_request", "value must be 1, -1 or null");
+		return;
+	}
+	try {
+		const r = await pgQuery<{ id: number }>(
+			`UPDATE stak_ai_messages SET feedback = $3 WHERE id = $1 AND uid = $2 AND role = 'assistant' RETURNING id::int AS id`,
+			[id, req.user!.uid, value],
+		);
+		if (r.rows.length === 0) { fail(res, 404, "not_found", "Message not found"); return; }
+		res.json({ ok: true });
+	} catch (e) {
+		console.error("[STAK AI] feedback error:", e);
+		fail(res, 500, "server_error", "Couldn't save that.");
 	}
 });

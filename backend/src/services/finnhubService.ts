@@ -166,7 +166,7 @@ const COMMON_FIRST_WORDS = new Set([
  */
 const WORD_TICKERS = new Set([
 	"ALL", "AMP", "APP", "ARM", "BEN", "BILL", "BROS", "CAKE", "CART", "CAT", "COIN", "COST",
-	"DASH", "EAT", "FIZZ", "HAL", "HOOD", "ICE", "JACK", "KEY", "LOW", "MAR", "MET", "NET",
+	"DASH", "EAT", "ELF", "FIZZ", "HAL", "HOOD", "ICE", "JACK", "KEY", "LOW", "MAR", "MET", "NET",
 	"NOW", "PATH", "PLUG", "RIOT", "SAM", "SNOW", "SPOT", "TEAM", "WING",
 ]);
 
@@ -199,7 +199,7 @@ function nameVariants(name: string): string[] {
 /** Headlines mix straight and curly apostrophes; the catalogue writes straight ones. */
 const normaliseQuotes = (s: string) => s.replace(/[‘’ʼ]/g, "'");
 
-function mentionsName(headline: string, name: string): boolean {
+export function mentionsName(headline: string, name: string): boolean {
 	const text = normaliseQuotes(headline);
 	return nameVariants(normaliseQuotes(name)).some((n) => {
 		// An all-capitals name ("UPS", "IBM") is a symbol-like word: match it in capitals
@@ -209,7 +209,7 @@ function mentionsName(headline: string, name: string): boolean {
 	});
 }
 
-function mentionsTicker(headline: string, ticker: string): boolean {
+export function mentionsTicker(headline: string, ticker: string): boolean {
 	const upper = ticker.trim().toUpperCase();
 	const t = escapeRegExp(upper);
 	if (!t) return false;
@@ -330,9 +330,13 @@ async function getNewsApiArticles(companyName: string, limit: number): Promise<F
 	const quotedName = encodeURIComponent('"' + companyName + '"');
 	const url = `https://newsapi.org/v2/everything?q=${quotedName}&language=en&sortBy=publishedAt&pageSize=${limit}&from=${sevenDaysAgo}&apiKey=${apiKey}`;
 
-	const res = await fetch(url);
-	if (!res.ok) {
-		console.warn(`NewsAPI error: ${res.status}`);
+	// A slow NewsAPI mustn't hold up the page (or STAK AI) behind it.
+	const res = await fetch(url, { signal: AbortSignal.timeout(6000) }).catch((e: Error) => {
+		console.warn(`NewsAPI request failed: ${e.message}`);
+		return null;
+	});
+	if (!res?.ok) {
+		if (res) console.warn(`NewsAPI error: ${res.status}`);
 		return [];
 	}
 
@@ -374,7 +378,7 @@ async function getGeopoliticalEnergyNews(): Promise<FinnhubArticle[]> {
 	const url = `https://newsapi.org/v2/everything?q=${q}&language=en&sortBy=publishedAt&pageSize=10&from=${sevenDaysAgo}&apiKey=${apiKey}`;
 
 	try {
-		const res = await fetch(url);
+		const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
 		if (!res.ok) return [];
 		const data = await res.json();
 		const articles: FinnhubArticle[] = (data.articles ?? [])

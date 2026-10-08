@@ -5,18 +5,22 @@ import { BottomNav } from "@/components/BottomNav";
 import { Toaster, toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import { useAccount } from "../context/AccountContext";
+import { useOnboarding } from "../context/OnboardingContext";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useTheme } from "@/components/ThemeProvider";
 import { SearchView } from "@/components/SearchView";
-import { DailyBriefModal } from "@/components/DailyBriefModal";
-import { StakAiChat } from "@/components/StakAiChat";
+import { PaperTradeErrorBanner } from "@/components/simulate/PaperTradeErrorBanner";
+import { SideNav } from "@/components/SideNav";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { BrandProfile } from "@stak/shared";
-import { getEasternDateKey } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
-import { getMarketEarnings, getStockData } from "@/lib/api";
+import { getMarketEarnings, getStockData, removeTurnedAwayAccount } from "@/lib/api";
+import { NAV_ITEMS } from "@/lib/navItems";
 import { useStakTickers } from "@/hooks/useStakTickers";
 import { useSwipeLimit } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
+import { JOIN_WAITLIST, WEB_GOOGLE_SIGN_IN_KEY, WEB_SIGNUP_OPEN, isBrandNewAccount } from "@/lib/earlyAccess";
+import { useFirstRunPending } from "@/lib/firstRun";
+import { EligibilityGate } from "@/components/onboarding/EligibilityGate";
 
 export const Route = createRootRoute({
 	component: Root,
@@ -27,48 +31,53 @@ function PageTransition({ children }: { pathname: string; children: React.ReactN
 }
 
 function Root() {
-	const { appUser, loading } = useAuth();
+	const { appUser, loading, logout } = useAuth();
 	const isLoggedIn = !!appUser;
-	const { account, accountLoading, saveToStak, updateLastBriefDate } = useAccount();
+	const { account, accountLoading, saveToStak, refreshAccount } = useAccount();
+	const queryClient = useQueryClient();
+	// Confirmed in this tab: the gate stays down even before the account's next read says so (until a sign-out).
+	const [eligibilityConfirmed, setEligibilityConfirmed] = useState(false);
+	useEffect(() => { if (!appUser) setEligibilityConfirmed(false); }, [appUser]);
+	const { reset: resetOnboarding } = useOnboarding();
 	const { hasReachedLimit: stakLimitReached, increment: incrementStakSwipe } = useSwipeLimit(appUser?.uid ?? "guest", !!appUser);
-	const { resolvedTheme, setTheme, reapplyTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
-	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding"].includes(location.pathname);
-	const isSubPage = location.pathname.startsWith("/profile/") || location.pathname.startsWith("/brand/");
+	// Like Android, the whole /onboarding/* flow comes AFTER the account exists (Create account -> confirm code -> Intro
+	// -> quiz -> Permissions -> Profile), so every onboarding route needs a session. They render without nav chrome.
+	const isOnboardingRoute = location.pathname === "/onboarding" || location.pathname.startsWith("/onboarding/");
+	const needsAuthForOnboardingStep = isOnboardingRoute;
+	// The Terms and Privacy pages open for anyone, signed in or not - the gate below links to them.
+	const isLegalPage = location.pathname === "/terms" || location.pathname === "/privacy";
+	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password"].includes(location.pathname) || isOnboardingRoute || isLegalPage;
 	const [searchOpen, setSearchOpen] = useState(false);
-	const [briefOpen, setBriefOpen] = useState(false);
-	const [briefSource, setBriefSource] = useState<"auto" | "mystak">("auto");
-	const briefShownRef = useRef(false);
 	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
-	const themeAppliedForUid = useRef<string | null>(null);
+	const isMobile = useIsMobile();
+	// Android shows its tab bar only on the five tab pages; every detail page is full-screen. Home's first run swaps it
+	// for the "See Today's Pick" scrim.
+	const firstRun = useFirstRunPending(appUser?.uid);
+	const showTabBar = isMobile && !(firstRun && location.pathname === "/") && NAV_ITEMS.some((item) => (item.to === "/" ? location.pathname === "/" : location.pathname.replace(/\/$/, "") === item.to));
 
-	// Apply theme from Postgres (users.preferences) once per login — light by default, dark if user explicitly set it
+	// Signing out clears what the last person left behind: their half-finished quiz would
+	// otherwise pre-fill (and be saved as) the next account's taste in this tab.
+	const wasLoggedInRef = useRef(false);
 	useEffect(() => {
-		if (!account?.uid || themeAppliedForUid.current === account.uid) return;
-		themeAppliedForUid.current = account.uid;
-		setTheme(account.preferences?.theme ?? "light");
-	}, [account?.uid, account?.preferences?.theme, setTheme]);
-
-	// Auth/landing pages are always dark regardless of user theme preference
-	useEffect(() => {
-		if (isAuthPage) {
-			document.documentElement.classList.add("dark");
-		} else {
-			// Restore user's actual theme by triggering ThemeProvider re-apply
-			reapplyTheme();
+		if (loading) return;
+		if (isLoggedIn) {
+			wasLoggedInRef.current = true;
+		} else if (wasLoggedInRef.current) {
+			wasLoggedInRef.current = false;
+			resetOnboarding();
 		}
-	}, [isAuthPage, reapplyTheme]);
+	}, [isLoggedIn, loading, resetOnboarding]);
 
 	// Reset scroll to top and clear any body overflow lock on every route change
 	useEffect(() => {
 		scrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
-		if (!briefOpen) document.body.style.overflow = "";
-	}, [location.pathname, briefOpen]);
+		document.body.style.overflow = "";
+	}, [location.pathname]);
 
 	// Prefetch earnings calendar as soon as account loads so modal opens instantly
-	const queryClient = useQueryClient();
 	const stakTickers = useStakTickers();
 	useEffect(() => {
 		if (!appUser || stakTickers.length === 0) return;
@@ -119,44 +128,39 @@ function Root() {
 	// All sessions are now Supabase — onboarding completion is stored in Postgres and
 	// reflected in account.onboardingCompleted via the Supabase Realtime subscription.
 	const onboardingCheckApplies = !!appUser;
+	// Early access: a brand-new account (a first Google sign-in) is signed back out rather than onboarded.
+	const turningAway = isLoggedIn && !loading && !accountLoading && isBrandNewAccount(appUser?.createdAt, account?.onboardingCompleted);
 	useEffect(() => {
 		if (!loading && !accountLoading && !isLoggedIn && !isAuthPage) {
 			navigate({ to: "/welcome" });
 		}
-		if (!loading && !accountLoading && isLoggedIn && !isAuthPage && onboardingCheckApplies && account?.onboardingCompleted !== true) {
+		if (!loading && !accountLoading && !isLoggedIn && needsAuthForOnboardingStep) {
+			navigate(WEB_SIGNUP_OPEN ? { to: "/signup" } : JOIN_WAITLIST);
+		}
+		if (!loading && !accountLoading && isLoggedIn && !isAuthPage && onboardingCheckApplies && !turningAway && account?.onboardingCompleted !== true) {
 			navigate({ to: "/onboarding" });
 		}
-	}, [isLoggedIn, loading, accountLoading, account, isAuthPage, onboardingCheckApplies, navigate]);
+	}, [isLoggedIn, loading, accountLoading, account, isAuthPage, needsAuthForOnboardingStep, onboardingCheckApplies, turningAway, navigate]);
 
-	// Show Daily Brief once per day — only from 10am ET onwards, deliberately AFTER
-	// the 9:30am ET open (not before): the brief is sourced from real trading
-	// activity and news coverage of the session, which doesn't exist yet right at
-	// open. "today" is ET too (getEasternDateKey), matching the brief content's own
-	// day boundary -- comparing against the browser's local date here instead would
-	// let this gate disagree with when the content itself actually refreshes.
-	// Stored in Postgres, reflected cross-device via Realtime.
+	// Sign the brand-new account back out (once - the ref clears only when the session is actually gone) and offer
+	// the waitlist with the form open.
+	const turnedAway = useRef(false);
 	useEffect(() => {
-		if (!appUser || !account?.onboardingCompleted || isAuthPage) return;
-		const d = new Date();
-		const today = getEasternDateKey(d);
-		if (account.lastBriefDate === today) return;
-		const etHour = parseInt(d.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/New_York" }), 10);
-		if (etHour < 10) return; // too early — will re-check when user re-opens app
-		// Open immediately (next tick) so Discover never flashes before the brief
-		const t = setTimeout(() => {
-			// Force "auto" -- briefSource is page-lifetime state, not reset on sign-out/
-			// sign-in, so without this an account that previously opened the brief from
-			// My Stak (source: "mystak") would leave that value stuck, making the next
-			// auto-popup (this account's tomorrow, or a different account signing in on
-			// the same device) wrongly show the My Stak back-button view and hide the
-			// "Start Today's Deck" CTA.
-			setBriefSource("auto");
-			setBriefOpen(true);
-			briefShownRef.current = true;
-			updateLastBriefDate(today).catch(() => {});
-		}, 0);
-		return () => clearTimeout(t);
-	}, [appUser, account?.onboardingCompleted, account?.lastBriefDate, isAuthPage, updateLastBriefDate]);
+		if (!isLoggedIn) { turnedAway.current = false; return; }
+		if (!turningAway || turnedAway.current) return;
+		turnedAway.current = true;
+		const who = appUser?.email ? ` for ${appUser.email}` : "";
+		// Only an account this tab's own Google sign-in just made is removed (the server checks again); any other
+		// brand-new account - say an Android sign-up still in its quiz - is only signed out of the web.
+		let mine = false;
+		try { mine = sessionStorage.getItem(WEB_GOOGLE_SIGN_IN_KEY) === "1"; sessionStorage.removeItem(WEB_GOOGLE_SIGN_IN_KEY); } catch { /* no storage */ }
+		void (mine ? removeTurnedAwayAccount().catch(() => {}) : Promise.resolve())
+			.then(() => logout().catch(() => {}))
+			.finally(() => {
+				navigate(JOIN_WAITLIST);
+				toast("STAK is in early access", { description: `We couldn't create a STAK account${who} yet. Join the waitlist and we'll let you know when it opens.`, duration: 8000 });
+			});
+	}, [isLoggedIn, turningAway, appUser?.email, logout, navigate]);
 
 	// Prevent browser from restoring scroll positions
 	useEffect(() => {
@@ -179,21 +183,35 @@ function Root() {
 		return () => window.removeEventListener("open-search", handler);
 	}, []);
 
-	// Listen for custom event to open daily brief from child pages
+	// Desktop: Ctrl+K / Cmd+K opens search from any page with the app shell (the top bar's search field shows the hint).
 	useEffect(() => {
-		const handler = (e: Event) => {
-			const source = (e as CustomEvent<{ source?: string }>).detail?.source;
-			setBriefSource(source === "mystak" ? "mystak" : "auto");
-			setBriefOpen(true);
+		if (isMobile || isAuthPage) return;
+		const onKey = (e: KeyboardEvent) => {
+			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+				e.preventDefault();
+				setSearchOpen(true);
+			}
 		};
-		window.addEventListener("open-brief", handler);
-		return () => window.removeEventListener("open-brief", handler);
-	}, []);
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [isMobile, isAuthPage]);
 
-	if (loading || accountLoading) {
+	// Turning a brand-new account away: nothing of the app shows on its way out.
+	if (turningAway) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
-				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+				<div className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
+			</div>
+		);
+	}
+
+	// Auth pages stay mounted while auth/account (re)load: verifying a code or a recovery code
+	// creates a session, which flips `loading`, and unmounting the page then threw away the
+	// step, email and code it was in the middle of (a password reset had to start over).
+	if ((loading || accountLoading) && !isAuthPage) {
+		return (
+			<div className="flex items-center justify-center h-full bg-background">
+				<div className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
 	}
@@ -202,66 +220,69 @@ function Root() {
 	if (!isLoggedIn && !isAuthPage) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
-				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+				<div className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
 			</div>
+		);
+	}
+	if (!isLoggedIn && needsAuthForOnboardingStep) {
+		return (
+			<div className="flex items-center justify-center h-full bg-background">
+				<div className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
+			</div>
+		);
+	}
+	// "Before we get started" (18+, U.S., Terms / Privacy - three boxes) over everything until the account confirms - new and
+	// existing accounts alike (as the apps); an account with no row yet hasn't confirmed either. The server refuses a
+	// new account's other requests until then too.
+	if (isLoggedIn && !accountLoading && !turningAway && !isLegalPage && !eligibilityConfirmed && (account === null || account.needsEligibility === true)) {
+		return (
+			<EligibilityGate
+				onConfirmed={() => {
+					// The server has it: the gate goes now, not when the account is next read.
+					setEligibilityConfirmed(true);
+					void refreshAccount().catch(() => {});
+				}}
+				onSignOut={() => { void logout().catch(() => {}); }}
+			/>
 		);
 	}
 	if (isLoggedIn && !isAuthPage && onboardingCheckApplies && account?.onboardingCompleted !== true) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
-				<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+				<div className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
 			</div>
 		);
-	}
-
-	// If a brief is about to open (pending but not yet set), hold the spinner so Discover never flashes.
-	// briefShownRef guards against a race where the brief was shown but account.lastBriefDate hasn't
-	// updated in React state yet (Supabase realtime lag), which would otherwise re-trigger this spinner.
-	if (!briefOpen && !briefShownRef.current && !isAuthPage && appUser && account?.onboardingCompleted) {
-		const d = new Date();
-		const today = getEasternDateKey(d);
-		const etHour = parseInt(d.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "America/New_York" }), 10);
-		if (account.lastBriefDate !== today && etHour >= 10) {
-			return (
-				<div className="flex items-center justify-center h-full bg-background">
-					<div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-				</div>
-			);
-		}
 	}
 
 	return (
 		<div className="fixed inset-0 flex flex-col bg-background">
 
-			<div ref={scrollRef} data-scroll-root className={`flex-1 overflow-y-auto overscroll-y-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${isAuthPage ? "" : "pb-[calc(4rem+env(safe-area-inset-bottom))]"}`}>
+			<div ref={scrollRef} data-scroll-root className={`flex-1 overflow-y-auto overscroll-y-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${isAuthPage ? "" : isMobile ? (showTabBar ? "pb-[calc(96px+env(safe-area-inset-bottom))]" : "") : "pl-[220px]"}`}>
 				<ErrorBoundary tagName="main" className="min-h-full">
 					<PageTransition pathname={location.pathname}>
 						<Outlet />
 					</PageTransition>
 				</ErrorBoundary>
 			</div>
-			{!isAuthPage && <BottomNav onSearchClose={() => setSearchOpen(false)} searchActive={searchOpen} />}
+			{!isAuthPage && (isMobile ? (showTabBar ? <BottomNav /> : null) : <SideNav />)}
 			<Toaster
 				position="top-center"
-				theme={resolvedTheme}
+				theme="dark"
 				richColors
 				toastOptions={{
-					style: resolvedTheme === "dark"
-						? { background: "#1a2744", border: "1px solid rgba(99,102,241,0.35)", color: "#f1f5f9", fontWeight: 600 }
-						: { background: "#ffffff", border: "1px solid rgba(99,102,241,0.2)", color: "#0f172a", fontWeight: 600 },
+					style: { background: "#181F30", border: "1px solid rgba(105,179,202,0.35)", color: "#f1f5f9", fontWeight: 600 },
 				}}
 			/>
 			<TanStackRouterDevtools position="bottom-right" />
 
+		{/* Search is desktop-only (the top bar's field and Ctrl/Cmd+K); the phone, like Android, has none. */}
 		<SearchView
-			open={searchOpen}
+			open={searchOpen && !isMobile}
 			onClose={() => setSearchOpen(false)}
 			onSwipeRight={handleAddToStak}
 		/>
 
-		{briefOpen && <DailyBriefModal onClose={() => setBriefOpen(false)} source={briefSource} />}
-
-		{isLoggedIn && !isAuthPage && <StakAiChat />}
+		{isLoggedIn && !isAuthPage && <PaperTradeErrorBanner />}
 
 		</div>
 	);

@@ -12,6 +12,7 @@ vi.mock("@tanstack/react-router", () => ({
 		return { options, update: () => ({ options }) };
 	},
 	lazyRouteComponent: (fn: any) => fn,
+	useNavigate: () => vi.fn(),
 	Link: ({ children, to, className, ...props }: any) => (
 		<a href={to} className={className} {...props}>
 			{children}
@@ -27,26 +28,16 @@ vi.mock("@tanstack/react-query", () => ({
 	}),
 }));
 
-vi.mock("@/data/intelCards", () => ({
-	INTEL_CARDS: [],
+vi.mock("@/components/discover/DiscoverDeck", () => ({
+	DiscoverDeck: () => <div data-testid="discover-deck">Deck</div>,
 }));
 
-vi.mock("@/components/SwipeableCardStack", () => ({
-	SwipeableCardStack: () => <div data-testid="swipeable-stack">Stack</div>,
-}));
-
-vi.mock("@/components/BrandContextModal", () => ({
-	BrandContextModal: () => null,
-}));
-
-vi.mock("@/components/IntelCardModal", () => ({
-	IntelCardModal: () => null,
+vi.mock("@/components/discover/QuickLookSheet", () => ({
+	QuickLookSheet: () => null,
 }));
 
 vi.mock("@/lib/api", () => ({
-	getIntelCards: vi.fn(),
 	recordEngagement: vi.fn(),
-	trackEvent: vi.fn(),
 	getMarketEarnings: vi.fn(),
 	getDailyBrief: vi.fn(),
 	getRecommendationFreshness: vi.fn(),
@@ -57,7 +48,6 @@ vi.mock("@/hooks/useSwipeLimit", () => ({
 	useSwipeLimit: () => ({
 		count: 0,
 		hasReachedLimit: false,
-		increment: vi.fn().mockResolvedValue(true),
 		bumpOptimistic: vi.fn(),
 		reportSwipeResult: vi.fn(),
 	}),
@@ -65,7 +55,7 @@ vi.mock("@/hooks/useSwipeLimit", () => ({
 }));
 
 vi.mock("@/context/AuthContext", () => ({
-	useAuth: () => ({ user: { uid: "test" } }),
+	useAuth: () => ({ appUser: { uid: "test" } }),
 }));
 
 vi.mock("@/context/AccountContext", () => ({
@@ -74,19 +64,19 @@ vi.mock("@/context/AccountContext", () => ({
 			stakBrandIds: [],
 			passedBrands: [],
 			deckOrder: null,
-			intelState: {},
-			interests: [],
-			streakDays: 0,
-			streakLastDate: null,
 			tagScores: {},
-			streak: { date: "", count: 0 },
 		},
-		updateStak: vi.fn().mockResolvedValue(undefined),
+		saveToStak: vi.fn().mockResolvedValue(undefined),
+		removeFromStak: vi.fn().mockResolvedValue(undefined),
+		removePassedBrand: vi.fn().mockResolvedValue(undefined),
 		updatePassedBrands: vi.fn().mockResolvedValue(undefined),
 		updateDeckOrder: vi.fn().mockResolvedValue(undefined),
-		updateIntelState: vi.fn().mockResolvedValue(undefined),
-		updateStreak: vi.fn().mockResolvedValue(undefined),
 	}),
+}));
+
+// These tests cover the phone (Android) layout; desktop Discover is a separate branch of the page.
+vi.mock("@/hooks/use-mobile", () => ({
+	useIsMobile: () => true,
 }));
 
 vi.mock("@/data/onboarding", () => ({
@@ -97,38 +87,26 @@ vi.mock("sonner", () => ({
 	toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 
-vi.mock("@/components/ui/sheet", () => ({
-	Sheet: ({ children }: any) => <div>{children}</div>,
-	SheetContent: ({ children }: any) => <div>{children}</div>,
-	SheetHeader: ({ children }: any) => <div>{children}</div>,
-	SheetTitle: ({ children }: any) => <div>{children}</div>,
-}));
-
 describe("Discover Page Layout", () => {
 	beforeAll(async () => {
-		await import("../../routes/index");
+		await import("../../routes/discover");
 	});
 
-	it("renders Search button pinned to the top-left", () => {
+	it("shows Android's header (title, count/limit ring, deck label) while the deck loads", () => {
 		expect(capturedComponent).toBeDefined();
 		render(createElement(capturedComponent));
 
-		const searchBtn = screen.getByLabelText("Search");
-		expect(searchBtn).toBeInTheDocument();
-		expect(searchBtn.tagName).toBe("BUTTON");
-
-		// Pinned to the top-left via absolute positioning (header uses a centered
-		// title with the search button absolutely positioned to the left, not a
-		// flex justify-start layout).
-		const container = searchBtn.closest("div");
-		expect(container?.className).toContain("absolute");
-		expect(container?.className).toContain("left-");
+		expect(screen.getByRole("heading", { name: "Discover" })).toBeInTheDocument();
+		expect(screen.getByText("1/20")).toBeInTheDocument();
+		expect(screen.getByText("TODAY'S DECK")).toBeInTheDocument();
+		expect(screen.getByRole("status", { name: "Loading today's deck" })).toBeInTheDocument();
 	});
 
-	it("renders STAK title", () => {
-		expect(capturedComponent).toBeDefined();
+	it("has no search button, STAK wordmark or streak chip (Android's Discover has none)", () => {
 		render(createElement(capturedComponent));
 
-		expect(screen.getByText("STAK")).toBeInTheDocument();
+		expect(screen.queryByLabelText("Search")).not.toBeInTheDocument();
+		expect(screen.queryByText("STAK")).not.toBeInTheDocument();
+		expect(screen.queryByText(/streak/i)).not.toBeInTheDocument();
 	});
 });

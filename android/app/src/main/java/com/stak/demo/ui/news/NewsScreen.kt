@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -91,6 +92,7 @@ fun NewsScreen(
 	onOpenArticle: (String) -> Unit,
 	onOpenLiveArticle: (com.stak.demo.data.NewsArticleDto) -> Unit = {},
 	onOpenDailyBrief: () -> Unit = {},
+	onAskAi: () -> Unit = {},
 	viewModel: NewsViewModel = hiltViewModel(),
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
@@ -151,6 +153,9 @@ fun NewsScreen(
 						)
 					}
 					Spacer(modifier = Modifier.weight(1f))
+					// STAK AI (2026-10-01): beside search, as on Home beside the bell.
+					com.stak.demo.ui.ai.AskAiHeaderButton(size = (40 * u).dp, background = News.CardBg, onClick = onAskAi)
+					Spacer(modifier = Modifier.width((8 * u).dp))
 					Box(
 						contentAlignment = Alignment.Center,
 						modifier = Modifier

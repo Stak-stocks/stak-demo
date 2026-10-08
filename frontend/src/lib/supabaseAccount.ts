@@ -17,26 +17,28 @@
  * correct over maximally efficient, which is the right tradeoff at one user's data
  * volume (a handful of rows per table, not a bulk dataset).
  */
+import { PRIVACY_VERSION, TERMS_VERSION } from "@stak/shared";
 import { supabase } from "./supabase";
 import type {
-	UserDoc, PassedEntry, SearchEntry, StakSaveEntry, SandboxEntry,
+	UserDoc, PassedEntry, SearchEntry, StakSaveEntry, SandboxEntry, SandboxOrder,
 	LessonProgress, EarningsProgress, ActivityProgress, IntelCardState,
 } from "../context/AccountContext";
 
 const REALTIME_TABLES = [
 	"users", "stak_brands", "passed_brands", "search_history",
-	"intel_card_state", "sandbox_portfolio", "activity_progress", "playground_state",
+	"intel_card_state", "sandbox_portfolio", "sandbox_orders", "activity_progress", "playground_state",
 	"practice_skills",
 ] as const;
 
 export async function fetchSupabaseAccount(): Promise<UserDoc | null> {
-	const [usersRes, stakRes, passedRes, searchRes, intelRes, sandboxRes, activityRes, playgroundRes, practiceRes] = await Promise.all([
+	const [usersRes, stakRes, passedRes, searchRes, intelRes, sandboxRes, ordersRes, activityRes, playgroundRes, practiceRes] = await Promise.all([
 		supabase.from("users").select("*").maybeSingle(),
 		supabase.from("stak_brands").select("*"),
 		supabase.from("passed_brands").select("*"),
 		supabase.from("search_history").select("*"),
 		supabase.from("intel_card_state").select("*").maybeSingle(),
 		supabase.from("sandbox_portfolio").select("*"),
+		supabase.from("sandbox_orders").select("*").eq("status", "open"),
 		supabase.from("activity_progress").select("*"),
 		supabase.from("playground_state").select("*").maybeSingle(),
 		supabase.from("practice_skills").select("*"),
@@ -72,6 +74,10 @@ export async function fetchSupabaseAccount(): Promise<UserDoc | null> {
 		};
 	}
 
+	const sandboxOpenOrders: SandboxOrder[] = (ordersRes.data ?? []).map((r) => ({
+		id: r.id, ticker: r.ticker, amount: Number(r.amount), limitPrice: Number(r.limit_price), createdAt: r.created_at,
+	}));
+
 	const lessonProgress: Record<string, LessonProgress> = {};
 	const earningsProgress: Record<string, EarningsProgress> = {};
 	const battlesProgress: Record<string, ActivityProgress> = {};
@@ -97,6 +103,7 @@ export async function fetchSupabaseAccount(): Promise<UserDoc | null> {
 		phone: u.phone ?? undefined,
 		preferences: u.preferences ?? undefined,
 		onboardingCompleted: u.onboarding_completed,
+		needsEligibility: !(u.age_confirmed && u.country_confirmed && u.terms_version === TERMS_VERSION && u.privacy_version === PRIVACY_VERSION),
 		stakBrandIds,
 		stakSavedAt,
 		passedBrands,
@@ -125,6 +132,11 @@ export async function fetchSupabaseAccount(): Promise<UserDoc | null> {
 		sandboxPortfolio,
 		sandboxCash: pg?.sandbox_cash != null ? Number(pg.sandbox_cash) : undefined,
 		sandboxTier: pg?.sandbox_tier,
+		sandboxName: pg?.sandbox_name ?? undefined,
+		sandboxStrategy: pg?.sandbox_strategy ?? undefined,
+		sandboxStart: pg?.sandbox_start != null ? Number(pg.sandbox_start) : undefined,
+		sandboxCashSource: pg?.sandbox_cash_source ?? "tier",
+		sandboxOpenOrders,
 		dailyProgress: pg?.daily_progress,
 		allTimeCompletedActivityIds: pg?.all_time_completed_activity_ids ?? [],
 		sandboxMilestones: pg?.sandbox_milestones ?? [],
@@ -195,6 +207,14 @@ export async function updateStakSupabase(brandIds: string[]): Promise<void> {
 	}
 }
 
+/** Removes exactly one saved brand (Undo of a save) - unlike updateStakSupabase, never touches other rows. */
+// supabase-js reports a refused write as { error } instead of throwing; these throw it, so callers' catch (a "Couldn't
+// save" toast, an undo that puts the card back) actually runs.
+export async function removeFromStakSupabase(brandId: string): Promise<void> {
+	const { error } = await supabase.from("stak_brands").delete().eq("brand_id", brandId);
+	if (error) throw error;
+}
+
 export async function patchStakPriceSupabase(brandId: string, price: number): Promise<void> {
 	await supabase.from("stak_brands")
 		.update({ price_at_save: price })
@@ -205,18 +225,26 @@ export async function patchStakPriceSupabase(brandId: string, price: number): Pr
 export async function saveToStakSupabase(brandId: string, priceAtSave?: number | null): Promise<void> {
 	// ignoreDuplicates matches the Firestore version's explicit "already saved? do
 	// nothing" check -- a repeat save must not overwrite the original saved_at/price.
-	await supabase.from("stak_brands").upsert(
+	const { error } = await supabase.from("stak_brands").upsert(
 		{ brand_id: brandId, saved_at: new Date().toISOString(), price_at_save: priceAtSave ?? null },
 		{ onConflict: "uid,brand_id", ignoreDuplicates: true },
 	);
+	if (error) throw error;
 }
 
 export async function updatePassedBrandsSupabase(entries: PassedEntry[]): Promise<void> {
 	if (entries.length === 0) return;
-	await supabase.from("passed_brands").upsert(
+	const { error } = await supabase.from("passed_brands").upsert(
 		entries.map((e) => ({ brand_id: e.id, last_passed_at: new Date(e.at).toISOString(), pass_count: e.count })),
 		{ onConflict: "uid,brand_id" },
 	);
+	if (error) throw error;
+}
+
+/** Forgets one pass (Undo of a pass, or saving a brand that was passed) - the upsert above can't remove rows. */
+export async function deletePassedBrandSupabase(brandId: string): Promise<void> {
+	const { error } = await supabase.from("passed_brands").delete().eq("brand_id", brandId);
+	if (error) throw error;
 }
 
 // PostgREST hard-rejects a bare .update()/.delete() with no filter at all ("UPDATE

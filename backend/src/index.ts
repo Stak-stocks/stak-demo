@@ -1,6 +1,7 @@
 // dotenv MUST be first -- postgres.ts creates its pool at module-init time using
 // process.env.SUPABASE_DB_URL. If dotenv loads after, the pool gets undefined and
 // falls back to localhost:5432, causing ECONNREFUSED on every pgQuery.
+import compression from "compression";
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
@@ -56,6 +57,10 @@ app.use(cors({
 		}
 	},
 }));
+// Cloud Run doesn't compress responses. The brand catalog alone is a few hundred KB of JSON that every
+// visitor downloads on load, and it shrinks roughly 5-8x gzipped.
+// …except event streams (STAK AI's streamed answers), which compression would hold back until the end.
+app.use(compression({ filter: (req, res) => !String(res.getHeader("Content-Type") ?? "").includes("text/event-stream") && compression.filter(req, res) }));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "../public")));
 

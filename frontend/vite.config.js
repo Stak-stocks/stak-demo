@@ -42,5 +42,19 @@ export default defineConfig({
 	},
 	build: {
 		chunkSizeWarningLimit: 1500,
+		rollupOptions: {
+			output: {
+				// Libraries in long-lived chunks of their own: a deploy that only changes STAK's code leaves them cached, so a
+				// returning visitor re-downloads the app, not React, the router or Supabase. (Radix stays with the code that
+				// uses it: grouped, its dialogs and menus would load on every first visit.)
+				manualChunks(id) {
+					if (!id.includes("node_modules")) return undefined;
+					if (/node_modules[\/](react|react-dom|scheduler)[\/]/.test(id)) return "vendor-react";
+					if (id.includes("@tanstack")) return "vendor-tanstack";
+					if (id.includes("@supabase")) return "vendor-supabase";
+					return undefined;
+				},
+			},
+		},
 	},
 });

@@ -71,6 +71,8 @@ object DailyBriefHolder {
 fun DailyBriefDetailScreen(
     onBack: () -> Unit,
     onOpenLiveArticle: (NewsArticleDto) -> Unit,
+    /** STAK AI with today's brief as its context (null hides the card). */
+    onAskAi: (() -> Unit)? = null,
 ) {
     val u = figmaUnit()
     val brief = DailyBriefHolder.current ?: run { onBack(); return }
@@ -139,6 +141,15 @@ fun DailyBriefDetailScreen(
                 // Need context? (AI-suggested question)
                 if (brief.contextQuestion.isNotBlank()) {
                     BriefContextCard(question = brief.contextQuestion, u = u)
+                }
+                // STAK AI (2026-10-01): follow-ups on today's brief, with the brief as context.
+                if (onAskAi != null) {
+                    com.stak.demo.ui.ai.AskAiCard(
+                        title = "Ask a follow-up",
+                        subtitle = "STAK AI answers questions about today's brief in plain English.",
+                        context = { com.stak.demo.data.StakAiContext.brief(brief) },
+                        onOpen = onAskAi,
+                    )
                 }
             }
         }

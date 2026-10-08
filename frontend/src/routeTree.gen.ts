@@ -10,23 +10,65 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as StakAiRouteImport } from './routes/stak-ai'
+import { Route as SimulateRouteImport } from './routes/simulate'
 import { Route as SignupRouteImport } from './routes/signup'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as MyStakRouteImport } from './routes/my-stak'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as FeedRouteImport } from './routes/feed'
+import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as StockSymbolRouteImport } from './routes/stock.$symbol'
+import { Route as StakAiHistoryRouteImport } from './routes/stak-ai_.history'
+import { Route as SimulatePortfolioRouteImport } from './routes/simulate_.portfolio'
+import { Route as ProfileSignInRouteImport } from './routes/profile_.sign-in'
 import { Route as ProfileSecurityRouteImport } from './routes/profile_.security'
 import { Route as ProfilePersonalDetailsRouteImport } from './routes/profile_.personal-details'
+import { Route as ProfileNotificationsRouteImport } from './routes/profile_.notifications'
 import { Route as ProfileHelpSupportRouteImport } from './routes/profile_.help-support'
+import { Route as ProfileAppearanceRouteImport } from './routes/profile_.appearance'
+import { Route as ProfileAppSettingsRouteImport } from './routes/profile_.app-settings'
+import { Route as OnboardingTasteRevealRouteImport } from './routes/onboarding_.taste-reveal'
+import { Route as OnboardingSwipeTutorialRouteImport } from './routes/onboarding_.swipe-tutorial'
+import { Route as OnboardingRiskRouteImport } from './routes/onboarding_.risk'
+import { Route as OnboardingProfileSetupRouteImport } from './routes/onboarding_.profile-setup'
+import { Route as OnboardingPreparingRouteImport } from './routes/onboarding_.preparing'
+import { Route as OnboardingPermissionsRouteImport } from './routes/onboarding_.permissions'
+import { Route as OnboardingGoalRouteImport } from './routes/onboarding_.goal'
+import { Route as OnboardingBrandPicksRouteImport } from './routes/onboarding_.brand-picks'
+import { Route as MyStakUpdatesRouteImport } from './routes/my-stak_.updates'
+import { Route as MyStakTasteRouteImport } from './routes/my-stak_.taste'
+import { Route as MyStakCollectionsRouteImport } from './routes/my-stak_.collections'
+import { Route as FeedDailyBriefRouteImport } from './routes/feed_.daily-brief'
+import { Route as FeedArticleRouteImport } from './routes/feed_.article'
+import { Route as SimulatePickSymbolRouteImport } from './routes/simulate_.pick.$symbol'
+import { Route as MyStakCollectionIdRouteImport } from './routes/my-stak_.collection.$id'
 
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
   path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StakAiRoute = StakAiRouteImport.update({
+  id: '/stak-ai',
+  path: '/stak-ai',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SimulateRoute = SimulateRouteImport.update({
+  id: '/simulate',
+  path: '/simulate',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -34,14 +76,14 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlaygroundRoute = PlaygroundRouteImport.update({
@@ -52,6 +94,11 @@ const PlaygroundRoute = PlaygroundRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MyStakRoute = MyStakRouteImport.update({
@@ -74,9 +121,34 @@ const FeedRoute = FeedRouteImport.update({
   path: '/feed',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DiscoverRoute = DiscoverRouteImport.update({
+  id: '/discover',
+  path: '/discover',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StockSymbolRoute = StockSymbolRouteImport.update({
+  id: '/stock/$symbol',
+  path: '/stock/$symbol',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StakAiHistoryRoute = StakAiHistoryRouteImport.update({
+  id: '/stak-ai_/history',
+  path: '/stak-ai/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SimulatePortfolioRoute = SimulatePortfolioRouteImport.update({
+  id: '/simulate_/portfolio',
+  path: '/simulate/portfolio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileSignInRoute = ProfileSignInRouteImport.update({
+  id: '/profile_/sign-in',
+  path: '/profile/sign-in',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileSecurityRoute = ProfileSecurityRouteImport.update({
@@ -89,126 +161,406 @@ const ProfilePersonalDetailsRoute = ProfilePersonalDetailsRouteImport.update({
   path: '/profile/personal-details',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileNotificationsRoute = ProfileNotificationsRouteImport.update({
+  id: '/profile_/notifications',
+  path: '/profile/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileHelpSupportRoute = ProfileHelpSupportRouteImport.update({
   id: '/profile_/help-support',
   path: '/profile/help-support',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileAppearanceRoute = ProfileAppearanceRouteImport.update({
+  id: '/profile_/appearance',
+  path: '/profile/appearance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileAppSettingsRoute = ProfileAppSettingsRouteImport.update({
+  id: '/profile_/app-settings',
+  path: '/profile/app-settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingTasteRevealRoute = OnboardingTasteRevealRouteImport.update({
+  id: '/onboarding_/taste-reveal',
+  path: '/onboarding/taste-reveal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingSwipeTutorialRoute = OnboardingSwipeTutorialRouteImport.update({
+  id: '/onboarding_/swipe-tutorial',
+  path: '/onboarding/swipe-tutorial',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRiskRoute = OnboardingRiskRouteImport.update({
+  id: '/onboarding_/risk',
+  path: '/onboarding/risk',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingProfileSetupRoute = OnboardingProfileSetupRouteImport.update({
+  id: '/onboarding_/profile-setup',
+  path: '/onboarding/profile-setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingPreparingRoute = OnboardingPreparingRouteImport.update({
+  id: '/onboarding_/preparing',
+  path: '/onboarding/preparing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingPermissionsRoute = OnboardingPermissionsRouteImport.update({
+  id: '/onboarding_/permissions',
+  path: '/onboarding/permissions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingGoalRoute = OnboardingGoalRouteImport.update({
+  id: '/onboarding_/goal',
+  path: '/onboarding/goal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingBrandPicksRoute = OnboardingBrandPicksRouteImport.update({
+  id: '/onboarding_/brand-picks',
+  path: '/onboarding/brand-picks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyStakUpdatesRoute = MyStakUpdatesRouteImport.update({
+  id: '/my-stak_/updates',
+  path: '/my-stak/updates',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyStakTasteRoute = MyStakTasteRouteImport.update({
+  id: '/my-stak_/taste',
+  path: '/my-stak/taste',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyStakCollectionsRoute = MyStakCollectionsRouteImport.update({
+  id: '/my-stak_/collections',
+  path: '/my-stak/collections',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeedDailyBriefRoute = FeedDailyBriefRouteImport.update({
+  id: '/feed_/daily-brief',
+  path: '/feed/daily-brief',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeedArticleRoute = FeedArticleRouteImport.update({
+  id: '/feed_/article',
+  path: '/feed/article',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SimulatePickSymbolRoute = SimulatePickSymbolRouteImport.update({
+  id: '/simulate_/pick/$symbol',
+  path: '/simulate/pick/$symbol',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyStakCollectionIdRoute = MyStakCollectionIdRouteImport.update({
+  id: '/my-stak_/collection/$id',
+  path: '/my-stak/collection/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/discover': typeof DiscoverRoute
   '/feed': typeof FeedRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/my-stak': typeof MyStakRoute
+  '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/playground': typeof PlaygroundRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
-  '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/simulate': typeof SimulateRoute
+  '/stak-ai': typeof StakAiRoute
+  '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
+  '/feed/article': typeof FeedArticleRoute
+  '/feed/daily-brief': typeof FeedDailyBriefRoute
+  '/my-stak/collections': typeof MyStakCollectionsRoute
+  '/my-stak/taste': typeof MyStakTasteRoute
+  '/my-stak/updates': typeof MyStakUpdatesRoute
+  '/onboarding/brand-picks': typeof OnboardingBrandPicksRoute
+  '/onboarding/goal': typeof OnboardingGoalRoute
+  '/onboarding/permissions': typeof OnboardingPermissionsRoute
+  '/onboarding/preparing': typeof OnboardingPreparingRoute
+  '/onboarding/profile-setup': typeof OnboardingProfileSetupRoute
+  '/onboarding/risk': typeof OnboardingRiskRoute
+  '/onboarding/swipe-tutorial': typeof OnboardingSwipeTutorialRoute
+  '/onboarding/taste-reveal': typeof OnboardingTasteRevealRoute
+  '/profile/app-settings': typeof ProfileAppSettingsRoute
+  '/profile/appearance': typeof ProfileAppearanceRoute
   '/profile/help-support': typeof ProfileHelpSupportRoute
+  '/profile/notifications': typeof ProfileNotificationsRoute
   '/profile/personal-details': typeof ProfilePersonalDetailsRoute
   '/profile/security': typeof ProfileSecurityRoute
+  '/profile/sign-in': typeof ProfileSignInRoute
+  '/simulate/portfolio': typeof SimulatePortfolioRoute
+  '/stak-ai/history': typeof StakAiHistoryRoute
+  '/stock/$symbol': typeof StockSymbolRoute
+  '/my-stak/collection/$id': typeof MyStakCollectionIdRoute
+  '/simulate/pick/$symbol': typeof SimulatePickSymbolRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/discover': typeof DiscoverRoute
   '/feed': typeof FeedRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/my-stak': typeof MyStakRoute
+  '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/playground': typeof PlaygroundRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
-  '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/simulate': typeof SimulateRoute
+  '/stak-ai': typeof StakAiRoute
+  '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
+  '/feed/article': typeof FeedArticleRoute
+  '/feed/daily-brief': typeof FeedDailyBriefRoute
+  '/my-stak/collections': typeof MyStakCollectionsRoute
+  '/my-stak/taste': typeof MyStakTasteRoute
+  '/my-stak/updates': typeof MyStakUpdatesRoute
+  '/onboarding/brand-picks': typeof OnboardingBrandPicksRoute
+  '/onboarding/goal': typeof OnboardingGoalRoute
+  '/onboarding/permissions': typeof OnboardingPermissionsRoute
+  '/onboarding/preparing': typeof OnboardingPreparingRoute
+  '/onboarding/profile-setup': typeof OnboardingProfileSetupRoute
+  '/onboarding/risk': typeof OnboardingRiskRoute
+  '/onboarding/swipe-tutorial': typeof OnboardingSwipeTutorialRoute
+  '/onboarding/taste-reveal': typeof OnboardingTasteRevealRoute
+  '/profile/app-settings': typeof ProfileAppSettingsRoute
+  '/profile/appearance': typeof ProfileAppearanceRoute
   '/profile/help-support': typeof ProfileHelpSupportRoute
+  '/profile/notifications': typeof ProfileNotificationsRoute
   '/profile/personal-details': typeof ProfilePersonalDetailsRoute
   '/profile/security': typeof ProfileSecurityRoute
+  '/profile/sign-in': typeof ProfileSignInRoute
+  '/simulate/portfolio': typeof SimulatePortfolioRoute
+  '/stak-ai/history': typeof StakAiHistoryRoute
+  '/stock/$symbol': typeof StockSymbolRoute
+  '/my-stak/collection/$id': typeof MyStakCollectionIdRoute
+  '/simulate/pick/$symbol': typeof SimulatePickSymbolRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/discover': typeof DiscoverRoute
   '/feed': typeof FeedRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/my-stak': typeof MyStakRoute
+  '/notifications': typeof NotificationsRoute
   '/onboarding': typeof OnboardingRoute
   '/playground': typeof PlaygroundRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
-  '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/simulate': typeof SimulateRoute
+  '/stak-ai': typeof StakAiRoute
+  '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
+  '/feed_/article': typeof FeedArticleRoute
+  '/feed_/daily-brief': typeof FeedDailyBriefRoute
+  '/my-stak_/collections': typeof MyStakCollectionsRoute
+  '/my-stak_/taste': typeof MyStakTasteRoute
+  '/my-stak_/updates': typeof MyStakUpdatesRoute
+  '/onboarding_/brand-picks': typeof OnboardingBrandPicksRoute
+  '/onboarding_/goal': typeof OnboardingGoalRoute
+  '/onboarding_/permissions': typeof OnboardingPermissionsRoute
+  '/onboarding_/preparing': typeof OnboardingPreparingRoute
+  '/onboarding_/profile-setup': typeof OnboardingProfileSetupRoute
+  '/onboarding_/risk': typeof OnboardingRiskRoute
+  '/onboarding_/swipe-tutorial': typeof OnboardingSwipeTutorialRoute
+  '/onboarding_/taste-reveal': typeof OnboardingTasteRevealRoute
+  '/profile_/app-settings': typeof ProfileAppSettingsRoute
+  '/profile_/appearance': typeof ProfileAppearanceRoute
   '/profile_/help-support': typeof ProfileHelpSupportRoute
+  '/profile_/notifications': typeof ProfileNotificationsRoute
   '/profile_/personal-details': typeof ProfilePersonalDetailsRoute
   '/profile_/security': typeof ProfileSecurityRoute
+  '/profile_/sign-in': typeof ProfileSignInRoute
+  '/simulate_/portfolio': typeof SimulatePortfolioRoute
+  '/stak-ai_/history': typeof StakAiHistoryRoute
+  '/stock/$symbol': typeof StockSymbolRoute
+  '/my-stak_/collection/$id': typeof MyStakCollectionIdRoute
+  '/simulate_/pick/$symbol': typeof SimulatePickSymbolRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/discover'
     | '/feed'
     | '/forgot-password'
     | '/login'
     | '/my-stak'
+    | '/notifications'
     | '/onboarding'
     | '/playground'
+    | '/privacy'
     | '/profile'
-    | '/reset-password'
     | '/signup'
+    | '/simulate'
+    | '/stak-ai'
+    | '/terms'
     | '/welcome'
+    | '/feed/article'
+    | '/feed/daily-brief'
+    | '/my-stak/collections'
+    | '/my-stak/taste'
+    | '/my-stak/updates'
+    | '/onboarding/brand-picks'
+    | '/onboarding/goal'
+    | '/onboarding/permissions'
+    | '/onboarding/preparing'
+    | '/onboarding/profile-setup'
+    | '/onboarding/risk'
+    | '/onboarding/swipe-tutorial'
+    | '/onboarding/taste-reveal'
+    | '/profile/app-settings'
+    | '/profile/appearance'
     | '/profile/help-support'
+    | '/profile/notifications'
     | '/profile/personal-details'
     | '/profile/security'
+    | '/profile/sign-in'
+    | '/simulate/portfolio'
+    | '/stak-ai/history'
+    | '/stock/$symbol'
+    | '/my-stak/collection/$id'
+    | '/simulate/pick/$symbol'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/discover'
     | '/feed'
     | '/forgot-password'
     | '/login'
     | '/my-stak'
+    | '/notifications'
     | '/onboarding'
     | '/playground'
+    | '/privacy'
     | '/profile'
-    | '/reset-password'
     | '/signup'
+    | '/simulate'
+    | '/stak-ai'
+    | '/terms'
     | '/welcome'
+    | '/feed/article'
+    | '/feed/daily-brief'
+    | '/my-stak/collections'
+    | '/my-stak/taste'
+    | '/my-stak/updates'
+    | '/onboarding/brand-picks'
+    | '/onboarding/goal'
+    | '/onboarding/permissions'
+    | '/onboarding/preparing'
+    | '/onboarding/profile-setup'
+    | '/onboarding/risk'
+    | '/onboarding/swipe-tutorial'
+    | '/onboarding/taste-reveal'
+    | '/profile/app-settings'
+    | '/profile/appearance'
     | '/profile/help-support'
+    | '/profile/notifications'
     | '/profile/personal-details'
     | '/profile/security'
+    | '/profile/sign-in'
+    | '/simulate/portfolio'
+    | '/stak-ai/history'
+    | '/stock/$symbol'
+    | '/my-stak/collection/$id'
+    | '/simulate/pick/$symbol'
   id:
     | '__root__'
     | '/'
+    | '/discover'
     | '/feed'
     | '/forgot-password'
     | '/login'
     | '/my-stak'
+    | '/notifications'
     | '/onboarding'
     | '/playground'
+    | '/privacy'
     | '/profile'
-    | '/reset-password'
     | '/signup'
+    | '/simulate'
+    | '/stak-ai'
+    | '/terms'
     | '/welcome'
+    | '/feed_/article'
+    | '/feed_/daily-brief'
+    | '/my-stak_/collections'
+    | '/my-stak_/taste'
+    | '/my-stak_/updates'
+    | '/onboarding_/brand-picks'
+    | '/onboarding_/goal'
+    | '/onboarding_/permissions'
+    | '/onboarding_/preparing'
+    | '/onboarding_/profile-setup'
+    | '/onboarding_/risk'
+    | '/onboarding_/swipe-tutorial'
+    | '/onboarding_/taste-reveal'
+    | '/profile_/app-settings'
+    | '/profile_/appearance'
     | '/profile_/help-support'
+    | '/profile_/notifications'
     | '/profile_/personal-details'
     | '/profile_/security'
+    | '/profile_/sign-in'
+    | '/simulate_/portfolio'
+    | '/stak-ai_/history'
+    | '/stock/$symbol'
+    | '/my-stak_/collection/$id'
+    | '/simulate_/pick/$symbol'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DiscoverRoute: typeof DiscoverRoute
   FeedRoute: typeof FeedRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   MyStakRoute: typeof MyStakRoute
+  NotificationsRoute: typeof NotificationsRoute
   OnboardingRoute: typeof OnboardingRoute
   PlaygroundRoute: typeof PlaygroundRoute
+  PrivacyRoute: typeof PrivacyRoute
   ProfileRoute: typeof ProfileRoute
-  ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  SimulateRoute: typeof SimulateRoute
+  StakAiRoute: typeof StakAiRoute
+  TermsRoute: typeof TermsRoute
   WelcomeRoute: typeof WelcomeRoute
+  FeedArticleRoute: typeof FeedArticleRoute
+  FeedDailyBriefRoute: typeof FeedDailyBriefRoute
+  MyStakCollectionsRoute: typeof MyStakCollectionsRoute
+  MyStakTasteRoute: typeof MyStakTasteRoute
+  MyStakUpdatesRoute: typeof MyStakUpdatesRoute
+  OnboardingBrandPicksRoute: typeof OnboardingBrandPicksRoute
+  OnboardingGoalRoute: typeof OnboardingGoalRoute
+  OnboardingPermissionsRoute: typeof OnboardingPermissionsRoute
+  OnboardingPreparingRoute: typeof OnboardingPreparingRoute
+  OnboardingProfileSetupRoute: typeof OnboardingProfileSetupRoute
+  OnboardingRiskRoute: typeof OnboardingRiskRoute
+  OnboardingSwipeTutorialRoute: typeof OnboardingSwipeTutorialRoute
+  OnboardingTasteRevealRoute: typeof OnboardingTasteRevealRoute
+  ProfileAppSettingsRoute: typeof ProfileAppSettingsRoute
+  ProfileAppearanceRoute: typeof ProfileAppearanceRoute
   ProfileHelpSupportRoute: typeof ProfileHelpSupportRoute
+  ProfileNotificationsRoute: typeof ProfileNotificationsRoute
   ProfilePersonalDetailsRoute: typeof ProfilePersonalDetailsRoute
   ProfileSecurityRoute: typeof ProfileSecurityRoute
+  ProfileSignInRoute: typeof ProfileSignInRoute
+  SimulatePortfolioRoute: typeof SimulatePortfolioRoute
+  StakAiHistoryRoute: typeof StakAiHistoryRoute
+  StockSymbolRoute: typeof StockSymbolRoute
+  MyStakCollectionIdRoute: typeof MyStakCollectionIdRoute
+  SimulatePickSymbolRoute: typeof SimulatePickSymbolRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -220,6 +572,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WelcomeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stak-ai': {
+      id: '/stak-ai'
+      path: '/stak-ai'
+      fullPath: '/stak-ai'
+      preLoaderRoute: typeof StakAiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/simulate': {
+      id: '/simulate'
+      path: '/simulate'
+      fullPath: '/simulate'
+      preLoaderRoute: typeof SimulateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup': {
       id: '/signup'
       path: '/signup'
@@ -227,18 +600,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/profile': {
       id: '/profile'
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/playground': {
@@ -253,6 +626,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/my-stak': {
@@ -283,11 +663,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FeedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/discover': {
+      id: '/discover'
+      path: '/discover'
+      fullPath: '/discover'
+      preLoaderRoute: typeof DiscoverRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stock/$symbol': {
+      id: '/stock/$symbol'
+      path: '/stock/$symbol'
+      fullPath: '/stock/$symbol'
+      preLoaderRoute: typeof StockSymbolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stak-ai_/history': {
+      id: '/stak-ai_/history'
+      path: '/stak-ai/history'
+      fullPath: '/stak-ai/history'
+      preLoaderRoute: typeof StakAiHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/simulate_/portfolio': {
+      id: '/simulate_/portfolio'
+      path: '/simulate/portfolio'
+      fullPath: '/simulate/portfolio'
+      preLoaderRoute: typeof SimulatePortfolioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile_/sign-in': {
+      id: '/profile_/sign-in'
+      path: '/profile/sign-in'
+      fullPath: '/profile/sign-in'
+      preLoaderRoute: typeof ProfileSignInRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile_/security': {
@@ -304,6 +719,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfilePersonalDetailsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile_/notifications': {
+      id: '/profile_/notifications'
+      path: '/profile/notifications'
+      fullPath: '/profile/notifications'
+      preLoaderRoute: typeof ProfileNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile_/help-support': {
       id: '/profile_/help-support'
       path: '/profile/help-support'
@@ -311,24 +733,170 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfileHelpSupportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile_/appearance': {
+      id: '/profile_/appearance'
+      path: '/profile/appearance'
+      fullPath: '/profile/appearance'
+      preLoaderRoute: typeof ProfileAppearanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile_/app-settings': {
+      id: '/profile_/app-settings'
+      path: '/profile/app-settings'
+      fullPath: '/profile/app-settings'
+      preLoaderRoute: typeof ProfileAppSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding_/taste-reveal': {
+      id: '/onboarding_/taste-reveal'
+      path: '/onboarding/taste-reveal'
+      fullPath: '/onboarding/taste-reveal'
+      preLoaderRoute: typeof OnboardingTasteRevealRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding_/swipe-tutorial': {
+      id: '/onboarding_/swipe-tutorial'
+      path: '/onboarding/swipe-tutorial'
+      fullPath: '/onboarding/swipe-tutorial'
+      preLoaderRoute: typeof OnboardingSwipeTutorialRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding_/risk': {
+      id: '/onboarding_/risk'
+      path: '/onboarding/risk'
+      fullPath: '/onboarding/risk'
+      preLoaderRoute: typeof OnboardingRiskRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding_/profile-setup': {
+      id: '/onboarding_/profile-setup'
+      path: '/onboarding/profile-setup'
+      fullPath: '/onboarding/profile-setup'
+      preLoaderRoute: typeof OnboardingProfileSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding_/preparing': {
+      id: '/onboarding_/preparing'
+      path: '/onboarding/preparing'
+      fullPath: '/onboarding/preparing'
+      preLoaderRoute: typeof OnboardingPreparingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding_/permissions': {
+      id: '/onboarding_/permissions'
+      path: '/onboarding/permissions'
+      fullPath: '/onboarding/permissions'
+      preLoaderRoute: typeof OnboardingPermissionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding_/goal': {
+      id: '/onboarding_/goal'
+      path: '/onboarding/goal'
+      fullPath: '/onboarding/goal'
+      preLoaderRoute: typeof OnboardingGoalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding_/brand-picks': {
+      id: '/onboarding_/brand-picks'
+      path: '/onboarding/brand-picks'
+      fullPath: '/onboarding/brand-picks'
+      preLoaderRoute: typeof OnboardingBrandPicksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/my-stak_/updates': {
+      id: '/my-stak_/updates'
+      path: '/my-stak/updates'
+      fullPath: '/my-stak/updates'
+      preLoaderRoute: typeof MyStakUpdatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/my-stak_/taste': {
+      id: '/my-stak_/taste'
+      path: '/my-stak/taste'
+      fullPath: '/my-stak/taste'
+      preLoaderRoute: typeof MyStakTasteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/my-stak_/collections': {
+      id: '/my-stak_/collections'
+      path: '/my-stak/collections'
+      fullPath: '/my-stak/collections'
+      preLoaderRoute: typeof MyStakCollectionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/feed_/daily-brief': {
+      id: '/feed_/daily-brief'
+      path: '/feed/daily-brief'
+      fullPath: '/feed/daily-brief'
+      preLoaderRoute: typeof FeedDailyBriefRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/feed_/article': {
+      id: '/feed_/article'
+      path: '/feed/article'
+      fullPath: '/feed/article'
+      preLoaderRoute: typeof FeedArticleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/simulate_/pick/$symbol': {
+      id: '/simulate_/pick/$symbol'
+      path: '/simulate/pick/$symbol'
+      fullPath: '/simulate/pick/$symbol'
+      preLoaderRoute: typeof SimulatePickSymbolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/my-stak_/collection/$id': {
+      id: '/my-stak_/collection/$id'
+      path: '/my-stak/collection/$id'
+      fullPath: '/my-stak/collection/$id'
+      preLoaderRoute: typeof MyStakCollectionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DiscoverRoute: DiscoverRoute,
   FeedRoute: FeedRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   MyStakRoute: MyStakRoute,
+  NotificationsRoute: NotificationsRoute,
   OnboardingRoute: OnboardingRoute,
   PlaygroundRoute: PlaygroundRoute,
+  PrivacyRoute: PrivacyRoute,
   ProfileRoute: ProfileRoute,
-  ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  SimulateRoute: SimulateRoute,
+  StakAiRoute: StakAiRoute,
+  TermsRoute: TermsRoute,
   WelcomeRoute: WelcomeRoute,
+  FeedArticleRoute: FeedArticleRoute,
+  FeedDailyBriefRoute: FeedDailyBriefRoute,
+  MyStakCollectionsRoute: MyStakCollectionsRoute,
+  MyStakTasteRoute: MyStakTasteRoute,
+  MyStakUpdatesRoute: MyStakUpdatesRoute,
+  OnboardingBrandPicksRoute: OnboardingBrandPicksRoute,
+  OnboardingGoalRoute: OnboardingGoalRoute,
+  OnboardingPermissionsRoute: OnboardingPermissionsRoute,
+  OnboardingPreparingRoute: OnboardingPreparingRoute,
+  OnboardingProfileSetupRoute: OnboardingProfileSetupRoute,
+  OnboardingRiskRoute: OnboardingRiskRoute,
+  OnboardingSwipeTutorialRoute: OnboardingSwipeTutorialRoute,
+  OnboardingTasteRevealRoute: OnboardingTasteRevealRoute,
+  ProfileAppSettingsRoute: ProfileAppSettingsRoute,
+  ProfileAppearanceRoute: ProfileAppearanceRoute,
   ProfileHelpSupportRoute: ProfileHelpSupportRoute,
+  ProfileNotificationsRoute: ProfileNotificationsRoute,
   ProfilePersonalDetailsRoute: ProfilePersonalDetailsRoute,
   ProfileSecurityRoute: ProfileSecurityRoute,
+  ProfileSignInRoute: ProfileSignInRoute,
+  SimulatePortfolioRoute: SimulatePortfolioRoute,
+  StakAiHistoryRoute: StakAiHistoryRoute,
+  StockSymbolRoute: StockSymbolRoute,
+  MyStakCollectionIdRoute: MyStakCollectionIdRoute,
+  SimulatePickSymbolRoute: SimulatePickSymbolRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,11 +1,24 @@
 import { supabase } from "./supabase";
 import { getTodayKey } from "./utils";
+import type { StakAiChatReply, StakAiContext, StakAiEntry, StakAiStoredMessage, StakAiUsage, StakAiVia } from "@stak/shared";
+export type { StakAiChatReply, StakAiContext, StakAiEntry, StakAiErrorCode, StakAiSource, StakAiStoredMessage, StakAiUsage, StakAiVia } from "@stak/shared";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
 async function getAuthToken(): Promise<string | null> {
 	const { data } = await supabase.auth.getSession();
 	return data.session?.access_token ?? null;
+}
+
+/**
+ * A failed API call. `status` lets callers tell the server refusing a request (4xx, with its own reason) from an outage;
+ * `body` is the server's JSON reply, when it sent one (e.g. STAK AI's `usage` with a 429).
+ */
+export class ApiError extends Error {
+	constructor(message: string, readonly status: number, readonly body?: unknown) {
+		super(message);
+		this.name = "ApiError";
+	}
 }
 
 async function apiRequest<T>(
@@ -30,11 +43,13 @@ async function apiRequest<T>(
 
 	if (!response.ok) {
 		let message = `API error: ${response.status} ${response.statusText}`;
+		let body: unknown;
 		try {
-			const body = await response.json() as { error?: string };
-			if (body.error) message = body.error;
+			body = await response.json();
+			const error = (body as { error?: unknown } | null)?.error;
+			if (typeof error === "string" && error) message = error;
 		} catch { /* ignore parse failure */ }
-		throw new Error(message);
+		throw new ApiError(message, response.status, body);
 	}
 
 	return response.json();
@@ -47,10 +62,75 @@ export function joinWaitlist(email: string) {
 
 // User profile
 export function getProfile() {
-	return apiRequest<{ uid: string; email: string; displayName: string; phone?: string; preferences: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean }>("/api/me");
+	return apiRequest<{ uid: string; email: string; displayName: string; phone?: string; preferences: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean; createdAt?: string; plan?: string; taste?: { goal: number; risk: number; riskStyle: string; picks: string[] } | null }>("/api/me");
 }
 
-export function updateProfile(data: { displayName?: string; phone?: string; preferences?: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean }) {
+/** Early access: remove the brand-new account just turned away (the server only does it for a Google account minutes
+ *  old, never onboarded, with nothing saved), so nothing of it stays in Supabase. Given 4 seconds, so a slow server
+ *  never holds the person on the spinner. */
+export function removeTurnedAwayAccount() {
+	return apiRequest<{ ok: true }>("/api/me/turned-away", { method: "POST", signal: AbortSignal.timeout(4000) });
+}
+
+/** Deletes the account and every saved row (and, best-effort, the Supabase auth record). */
+export function deleteMe() {
+	return apiRequest<{ ok: boolean }>("/api/me", { method: "DELETE" });
+}
+
+// Browser push (Web Push): the VAPID public key to subscribe with, and this browser's registration
+export function getWebPushKey() {
+	return apiRequest<{ publicKey: string }>("/api/me/web-push-key");
+}
+
+export function putPushDevice(body: {
+	token: string;
+	platform: "web";
+	webKeys: { p256dh: string; auth: string };
+	timezone: string;
+	priceAlerts: boolean;
+	dailyDeck: boolean;
+	/** The "Price threshold" setting (1 / 3 / 5 / 10%) - the server alerts this browser at it. */
+	priceThreshold: number;
+}) {
+	return apiRequest<{ ok: boolean }>("/api/me/push-device", { method: "PUT", body: JSON.stringify(body) });
+}
+
+export function deletePushDevice(token: string) {
+	return apiRequest<{ ok: boolean }>("/api/me/push-device", { method: "DELETE", body: JSON.stringify({ token }) });
+}
+
+// Cross-device inbox/saved-news state (the endpoint is named for Android, its first client; the
+// web reads/writes the same ids so read state follows the account). Omitted fields on PUT are left alone.
+export interface DeviceState {
+	portfolio: unknown;
+	notifRead: string[];
+	newsSaved: string[];
+}
+
+export function getDeviceState() {
+	return apiRequest<DeviceState>("/api/me/android-state");
+}
+
+export function putDeviceState(patch: { notifRead?: string[]; newsSaved?: string[] }) {
+	return apiRequest<{ ok: boolean }>("/api/me/android-state", {
+		method: "PUT",
+		body: JSON.stringify(patch),
+	});
+}
+
+export interface AndroidTaste {
+	goal: number;
+	risk: number;
+	riskStyle: string;
+	picks: string[];
+}
+
+/** "Before we get started": 18 or older, U.S. residence and the Terms / Privacy - all three, or 400. */
+export function confirmEligibility(data: { ageConfirmed: true; inUS: true; acceptTerms: true }) {
+	return apiRequest<{ ok: boolean }>("/api/me/eligibility", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateProfile(data: { displayName?: string; phone?: string; preferences?: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean; taste?: AndroidTaste }) {
 	return apiRequest("/api/me", {
 		method: "PUT",
 		body: JSON.stringify(data),
@@ -71,6 +151,25 @@ export function getBrandDetail(id: string) {
 	return apiRequest<import("@stak/shared").BrandProfile>(`/api/brands/${encodeURIComponent(id)}`);
 }
 
+/** Gemini-written two-sentence tip for a Discover card ("" when generation isn't available). */
+export function getBrandTip(id: string) {
+	return apiRequest<{ tip: string }>(`/api/brands/${encodeURIComponent(id)}/tip`);
+}
+
+export interface QuickLook {
+	in10Seconds: string;
+	whyNow: string;
+	setup: string;
+	catch: string;
+	whatToWatch: string;
+	keyThemes: string[];
+}
+
+/** The Quick Look sheet's 30-second overview; `quickLook` is null when generation isn't available. */
+export function getQuickLook(id: string) {
+	return apiRequest<{ quickLook: QuickLook | null }>(`/api/brands/${encodeURIComponent(id)}/quick-look`);
+}
+
 export function getPopularBrands() {
 	return apiRequest<{ brandIds: string[] }>("/api/brands/popular");
 }
@@ -85,6 +184,67 @@ export function saveStak(brandIds: string[]) {
 		method: "PUT",
 		body: JSON.stringify({ brandIds }),
 	});
+}
+
+// Investing Taste — GET /api/me/taste
+export interface TasteThemeDto {
+	category: string;
+	score: number;
+	share: number;
+	saves: number;
+	learnMores: number;
+	opens: number;
+	passes: number;
+	savedNames: string[];
+	lastSavedAt: string | null;
+}
+
+export interface TasteApiResponse {
+	themes: TasteThemeDto[];
+	otherShare: number;
+	/** The themes behind otherShare, one by one (newer backends only). */
+	otherThemes?: TasteThemeDto[];
+	totalSaves: number;
+	signals: number;
+	learning: boolean;
+}
+
+export function getTaste() {
+	return apiRequest<TasteApiResponse>("/api/me/taste");
+}
+
+// What Changed — GET /api/me/updates, POST /api/me/updates/:id/read
+export interface UpdateSourceDto {
+	source: string;
+	url: string;
+	headline: string;
+	datetime: number;
+}
+
+export interface StockUpdateDto {
+	id: number;
+	ticker: string;
+	company: string;
+	kind: string;
+	title: string;
+	body: string;
+	watch: string | null;
+	sources: UpdateSourceDto[];
+	occurredAt: string;
+	read: boolean;
+}
+
+export interface UpdatesApiResponse {
+	updates: StockUpdateDto[];
+	unread: number;
+}
+
+export function getUpdates() {
+	return apiRequest<UpdatesApiResponse>("/api/me/updates");
+}
+
+export function markUpdateRead(id: number) {
+	return apiRequest<{ ok: true }>(`/api/me/updates/${id}/read`, { method: "POST" });
 }
 
 // Passed brands (left-swiped)
@@ -112,16 +272,20 @@ export function recordSwipe(
 	brandId: string,
 	direction: "left" | "right",
 	meta?: { ticker?: string; categories?: string[]; stakSize?: number; timeOnCardMs?: number; swipeVelocity?: number },
+	options?: { keepalive?: boolean },
 ) {
 	return apiRequest<RecordSwipeResponse>("/api/swipe", {
 		method: "POST",
+		keepalive: options?.keepalive,
 		body: JSON.stringify({ brandId, direction, todayKey: getTodayKey(), ...meta }),
 	});
 }
 
+/** Engagement events. Investing Taste counts `learn_more` (Quick Looks read) and `stock_detail_open` (company pages
+ *  opened) per ticker, the same events Android sends. */
 export function recordEngagement(
-	type: "learn_more" | "removed_from_stak",
-	brandId: string,
+	type: "learn_more" | "removed_from_stak" | "stock_detail_open",
+	brandId: string | undefined,
 	meta?: { ticker?: string; categories?: string[] },
 ) {
 	return apiRequest("/api/swipe/event", {
@@ -158,6 +322,15 @@ export function getCompanyNews(symbol: string, name?: string) {
 	}>(`/api/news/company/${symbol}${query}`);
 }
 
+/** Every saved company's news for For You in one request (the same cached entries getCompanyNews reads). */
+export function getForYouNews(tickers: string[]) {
+	// `pending`: companies the server was still writing up when it answered - ask again shortly for them.
+	return apiRequest<{ results: { ticker: string; articles: import("@stak/shared").NewsArticle[] }[]; pending?: string[] }>("/api/news/for-you", {
+		method: "POST",
+		body: JSON.stringify({ tickers }),
+	});
+}
+
 export function getMarketNews() {
 	return apiRequest<{ articles: import("@stak/shared").NewsArticle[] }>("/api/news/market");
 }
@@ -184,10 +357,6 @@ export function saveIntelState(lastDate: string, queue: string[], readIds: strin
 }
 
 // Sandbox portfolio
-export function sandboxInit() {
-	return apiRequest<{ ok: boolean }>("/api/sandbox/init", { method: "POST" });
-}
-
 export interface SandboxBuyResult {
 	price: number;
 	shares: number;
@@ -200,6 +369,14 @@ export function sandboxBuy(ticker: string, shares: number, thesis?: string) {
 	return apiRequest<SandboxBuyResult>("/api/sandbox/buy", {
 		method: "POST",
 		body: JSON.stringify({ ticker, shares, thesis }),
+	});
+}
+
+/** Android's wire format: dollars to spend; the server prices the fill. */
+export function sandboxBuyAmount(ticker: string, amount: number) {
+	return apiRequest<SandboxBuyResult>("/api/sandbox/buy", {
+		method: "POST",
+		body: JSON.stringify({ ticker, amount }),
 	});
 }
 
@@ -217,8 +394,18 @@ export function sandboxSell(ticker: string, shares?: number) {
 	});
 }
 
+/** Android's wire format: the fraction of the position to sell (1 = all). */
+export function sandboxSellPortion(ticker: string, portion: number) {
+	return apiRequest<SandboxSellResult>("/api/sandbox/sell", {
+		method: "POST",
+		body: JSON.stringify({ ticker, portion }),
+	});
+}
+
 export function sandboxReset() {
-	return apiRequest<{ ok: boolean; cash: number; tier: number }>("/api/sandbox/reset", { method: "POST" });
+	return apiRequest<{ ok: boolean; cash: number; tier: number | null; name: string | null; strategy: string | null }>(
+		"/api/sandbox/reset", { method: "POST" },
+	);
 }
 
 export function sandboxMilestone(value: number) {
@@ -228,8 +415,52 @@ export function sandboxMilestone(value: number) {
 	});
 }
 
-export function sandboxTierUpgrade() {
-	return apiRequest<{ ok: boolean; increase?: number; newTier?: number }>("/api/sandbox/tier-upgrade", { method: "POST" });
+
+// Free-choice setup (Android's model, now on web too): user picks a starting balance,
+// name and strategy, opting out of XP-tier top-ups.
+export function sandboxSetup(startingBalance: number, name: string, strategy: string) {
+	return apiRequest<{ ok: boolean; cash: number; name: string; strategy: string }>("/api/sandbox/setup", {
+		method: "POST",
+		body: JSON.stringify({ startingBalance, name, strategy }),
+	});
+}
+
+export interface SandboxOrderResult {
+	id: number;
+	ticker: string;
+	amount: number;
+	limitPrice: number;
+	status: "open";
+	createdAt: string;
+	remainingCash: number;
+}
+
+export function sandboxPlaceOrder(ticker: string, amount: number, limitPrice: number) {
+	return apiRequest<SandboxOrderResult>("/api/sandbox/orders", {
+		method: "POST",
+		body: JSON.stringify({ ticker, amount, limitPrice }),
+	});
+}
+
+export function sandboxCancelOrder(id: number) {
+	return apiRequest<{ ok: boolean }>(`/api/sandbox/orders/${id}/cancel`, { method: "POST" });
+}
+
+export interface SandboxTrade {
+	id: number;
+	ticker: string;
+	side: "buy" | "sell";
+	shares: number;
+	price: number;
+	amount: number;
+	/** A sale's average cost when it sold (null on buys and older sales) - its realized gain needs no buy in the ledger. */
+	costBasis?: number | null;
+	source: "market" | "limit";
+	executedAt: string;
+}
+
+export function getSandboxTrades(limit = 50) {
+	return apiRequest<{ trades: SandboxTrade[] }>(`/api/sandbox/trades?limit=${limit}`);
 }
 
 export function getDeckOrder() {
@@ -395,6 +626,17 @@ export function getDailyMove(symbol: string, changePercent?: number, name?: stri
 	return apiRequest<DailyMoveData>(`/api/stock/${encodeURIComponent(symbol)}/daily-move${qs}`);
 }
 
+/** The stock page's Risk snapshot and What to watch next (503 when it can't be built). */
+export interface RiskWatch {
+	risks: Array<{ label: string; level: string | null; note: string }>;
+	watch: Array<{ title: string; note: string }>;
+	rated?: boolean;
+}
+
+export function getRiskWatch(symbol: string) {
+	return apiRequest<RiskWatch>(`/api/stock/${encodeURIComponent(symbol)}/risk-watch`);
+}
+
 export function getKeyRisk(symbol: string, name?: string, beta?: string, pe?: string) {
 	const params = new URLSearchParams();
 	if (name) params.set("name", name);
@@ -446,6 +688,12 @@ export interface DailyBriefResponse {
 	moodExplanation: string;
 	plainEnglish: string;
 	personalizedImpact: string;
+	/** The Daily Brief page's "What actually happened" items (three at most). */
+	whatHappened?: Array<{ title: string; body: string }>;
+	/** "Why can the Dow rise while the Nasdaq falls?" - shown in the Ask STAK AI card. */
+	contextQuestion?: string;
+	/** "What to watch next" rows; `icon` is an emoji the app ignores in favour of its own glyphs. */
+	watchItems?: Array<{ icon: string; label: string; body: string }>;
 	decks: DailyBriefDeck[];
 	featuredLesson?: FeaturedLesson;
 	marketSnapshot: {
@@ -527,34 +775,98 @@ export function getRecommendationDebug(limit = 50) {
 	}>(`/api/recommendations/debug?limit=${limit}`);
 }
 
-// Stak AI
+// Stak AI — the contract (context shapes, usage, the reply, error codes) lives in @stak/shared/stakAi.
 export interface StakAiConversation {
 	id: string;
 	title: string;
+	context_type: StakAiContext["type"] | null;
+	/** The stock's name, the article's headline or "Daily Brief"; null for a chat started from the header. */
+	context_label: string | null;
+	/** The start of the latest answer. */
+	preview: string | null;
 	created_at: string;
 	updated_at: string;
 }
 
-export interface StakAiMessage {
-	id: number;
-	role: "user" | "assistant";
-	content: string;
-	created_at: string;
-}
+/** A stored message (with `kind` and `feedback`), as reopening a conversation returns it. */
+export type StakAiMessage = StakAiStoredMessage;
 
-export function sendStakAiMessage(message: string, conversationId?: string) {
-	return apiRequest<{ response: string; conversationId: string }>("/api/stak-ai/chat", {
+/**
+ * Ask with the answer streamed: [onText] gets the answer so far as it's written, and the promise resolves with the
+ * finished reply (whose `response` replaces the streamed text). Errors before the answer starts (out of questions,
+ * not found…) come back as an ApiError with the server's body (`code`, and `usage` when out of questions); one mid-answer
+ * is an ApiError with that event's code. (The backend's plain POST /chat stays for older app versions.)
+ */
+export async function streamStakAiMessage(
+	message: string,
+	opts: { conversationId?: string; context?: StakAiContext; via?: StakAiVia; onText: (soFar: string) => void; signal?: AbortSignal },
+): Promise<StakAiChatReply> {
+	const token = await getAuthToken();
+	const res = await fetch(`${API_BASE_URL}/api/stak-ai/chat/stream`, {
 		method: "POST",
-		body: JSON.stringify({ message, conversationId }),
+		headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+		body: JSON.stringify({ message, conversationId: opts.conversationId, context: opts.context, via: opts.via }),
+		signal: opts.signal,
 	});
+	if (!res.ok || !res.body) {
+		let body: unknown;
+		try { body = await res.json(); } catch { /* not JSON */ }
+		const error = (body as { error?: unknown } | undefined)?.error;
+		throw new ApiError(typeof error === "string" ? error : `API error: ${res.status}`, res.status, body);
+	}
+	const reader = res.body.getReader();
+	const decoder = new TextDecoder();
+	let buffer = "";
+	let soFar = "";
+	for (;;) {
+		const { value, done } = await reader.read();
+		if (done) break;
+		buffer += decoder.decode(value, { stream: true });
+		let gap: number;
+		while ((gap = buffer.indexOf("\n\n")) >= 0) {
+			const block = buffer.slice(0, gap);
+			buffer = buffer.slice(gap + 2);
+			const event = /^event: (.*)$/m.exec(block)?.[1];
+			const data = /^data: (.*)$/m.exec(block)?.[1];
+			if (!event || !data) continue;
+			const payload = JSON.parse(data) as { text?: string; code?: string; error?: string } & StakAiChatReply;
+			if (event === "delta" && payload.text) { soFar += payload.text; opts.onText(soFar); }
+			else if (event === "done") return payload;
+			else if (event === "error") throw new ApiError(payload.error ?? "STAK AI couldn't answer", 503, { code: payload.code ?? "ai_unavailable" });
+		}
+	}
+	// The stream ended without a reply (the connection dropped).
+	throw new TypeError("STAK AI's answer was cut off");
 }
 
-export function getStakAiConversations() {
-	return apiRequest<{ conversations: StakAiConversation[] }>("/api/stak-ai/conversations");
+/** Where STAK AI was opened from, for the usage stats (the backend logs the questions themselves). */
+export function trackStakAiOpen(entry: StakAiEntry) {
+	return trackEvent("stak_ai_open", { entry, platform: "web" }).catch(() => {});
+}
+
+export function getStakAiUsage() {
+	return apiRequest<StakAiUsage>("/api/stak-ai/usage");
+}
+
+/** 20 at a time, newest first; pass the previous page's `nextBefore` for older ones (null when there are no more). */
+export function getStakAiConversations(before?: string) {
+	return apiRequest<{ conversations: StakAiConversation[]; nextBefore: string | null }>(`/api/stak-ai/conversations${before ? `?before=${encodeURIComponent(before)}` : ""}`);
 }
 
 export function getStakAiMessages(conversationId: string) {
-	return apiRequest<{ messages: StakAiMessage[] }>(`/api/stak-ai/conversations/${conversationId}/messages`);
+	return apiRequest<{ title: string; context: StakAiContext | null; messages: StakAiMessage[] }>(`/api/stak-ai/conversations/${conversationId}/messages`);
+}
+
+export function renameStakAiConversation(conversationId: string, title: string) {
+	return apiRequest<{ ok: true; title: string }>(`/api/stak-ai/conversations/${conversationId}`, { method: "PATCH", body: JSON.stringify({ title }) });
+}
+
+export function deleteStakAiConversation(conversationId: string) {
+	return apiRequest<{ ok: true }>(`/api/stak-ai/conversations/${conversationId}`, { method: "DELETE" });
+}
+
+export function sendStakAiFeedback(messageId: number, value: 1 | -1 | null) {
+	return apiRequest<{ ok: true }>(`/api/stak-ai/messages/${messageId}/feedback`, { method: "POST", body: JSON.stringify({ value }) });
 }
 
 export async function generatePlaygroundQuestions(
@@ -607,6 +919,19 @@ export function getBatchQuotes(tickers: string[]) {
 	return apiRequest<{ quotes: Record<string, { price: number; change: number; changePercent: number }> }>(
 		`/api/stock/batch-quotes?tickers=${encodeURIComponent(tickers.join(","))}`,
 	);
+}
+
+export interface TrendingStock {
+	ticker: string;
+	name: string;
+	price: number;
+	change: number;
+	changePercent: number;
+}
+
+/** Home's Trending strip — top movers, public, 3-min server cache. */
+export function getTrending() {
+	return apiRequest<{ trending: TrendingStock[] }>("/api/stock/trending");
 }
 
 // Search history — server manages dedup/cap (replaces 4 Supabase round-trips per add)

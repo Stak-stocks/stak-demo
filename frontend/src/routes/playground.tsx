@@ -1,28 +1,29 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { toast } from "sonner";
+import { DISC } from "@/components/discover/discoverTheme";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import {
 	BookOpen, Zap, Swords, FlaskConical, ShieldAlert,
-	Brain, TrendingUp, Wallet, ChevronRight, Star, Lock,
+	Brain, TrendingUp, ChevronRight, Star, Lock,
 	DollarSign, BarChart2, LineChart,
 } from "lucide-react";
 import { useAccount } from "@/context/AccountContext";
 import {
 	LESSON_CATEGORIES, getDailyPack, getTodayKey,
 	PRACTICE_TICKERS, WATCHLIST_SLOTS, WATCHLIST_BRANDS,
-	xpToTier, TIER_THRESHOLDS, SHARED_TIER_XP, SANDBOX_BUDGETS, ACTIVITY_XP_CAP,
+	xpToTier, TIER_THRESHOLDS, SHARED_TIER_XP, ACTIVITY_XP_CAP,
 	type TierNumber, type WatchlistSlotType, type DailyActivity,
 	type Lesson, type LessonCategory,
 	type BattleMatchup, type EarningsScenario, type RiskScenario, type MoodScenario,
 } from "@/data/playgroundData";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
-import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions, getStockChart, getFeaturedLesson, getDrillSeen, saveDrillSeen, type ChartRange } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { getStockData, getDailyBrief, trackEvent, generatePlaygroundQuestions, getFeaturedLesson, getDrillSeen, saveDrillSeen } from "@/lib/api";
 // getTodayKey here is aliased -- @/data/playgroundData also exports a (different,
 // no-9am-offset) getTodayKey already imported above for daily-content resets; this
 // one is specifically the 9am-local-reset version used for streak display.
-import { marketSessionBucket, getLocalDateKey, getTodayKey as getStreakTodayKey, getYesterdayKey, getEasternDateKey, roundShares } from "@/lib/utils";
+import { marketSessionBucket, getLocalDateKey, getTodayKey as getStreakTodayKey, getYesterdayKey, getEasternDateKey } from "@/lib/utils";
 import { parseFinancialValue } from "@/lib/financial";
 import { getMarketDayKey } from "@stak/shared";
-import { AreaChart, Area, ResponsiveContainer, Tooltip, YAxis, ReferenceLine } from "recharts";
 import { useDailyContent } from "@/hooks/useDailyContent";
 import { useBrandsList } from "@/hooks/useBrandsList";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -30,25 +31,28 @@ import { StakLogo } from "@/components/StakLogo";
 
 export const Route = createFileRoute("/playground")({
 	component: PlaygroundPage,
+	// Off until v2 (user, 2026-10-05): nothing links here, and an old link goes Home. The page is kept as it was.
+	beforeLoad: () => {
+		throw redirect({ to: "/" });
+	},
 });
 
 // ── Section card colours ──────────────────────────────────────────────────────
 
 const SECTION_COLORS: Record<string, { bg: string; border: string; icon: string; badge: string }> = {
-	lessons:      { bg: "bg-blue-500/10",   border: "border-blue-500/25",   icon: "text-blue-400",   badge: "bg-blue-500/15 text-blue-400"   },
+	lessons:      { bg: "bg-[#69B3CA]/10",   border: "border-[#69B3CA]/25",   icon: "text-[#69B3CA]",   badge: "bg-[#69B3CA]/15 text-[#69B3CA]"   },
 	daily:        { bg: "bg-amber-500/10",  border: "border-amber-500/25",  icon: "text-amber-400",  badge: "bg-amber-500/15 text-amber-400"  },
 	battles:      { bg: "bg-rose-500/10",   border: "border-rose-500/25",   icon: "text-rose-400",   badge: "bg-rose-500/15 text-rose-400"    },
-	earnings:     { bg: "bg-purple-500/10", border: "border-purple-500/25", icon: "text-purple-400", badge: "bg-purple-500/15 text-purple-400" },
+	earnings:     { bg: "bg-[#9E8CE5]/10", border: "border-[#9E8CE5]/25", icon: "text-[#9E8CE5]", badge: "bg-[#9E8CE5]/15 text-[#9E8CE5]" },
 	risk:         { bg: "bg-orange-500/10", border: "border-orange-500/25", icon: "text-orange-400", badge: "bg-orange-500/15 text-orange-400" },
-	mood:         { bg: "bg-cyan-500/10",   border: "border-cyan-500/25",   icon: "text-cyan-400",   badge: "bg-cyan-500/15 text-cyan-400"    },
+	mood:         { bg: "bg-[#69B3CA]/10",   border: "border-[#69B3CA]/25",   icon: "text-[#69B3CA]",   badge: "bg-[#69B3CA]/15 text-[#69B3CA]"    },
 	practice:     { bg: "bg-emerald-500/10",border: "border-emerald-500/25",icon: "text-emerald-400",badge: "bg-emerald-500/15 text-emerald-400"},
-	sandbox:      { bg: "bg-violet-500/10", border: "border-violet-500/25", icon: "text-violet-400", badge: "bg-violet-500/15 text-violet-400" },
 };
 
 const CATEGORY_COLORS: Record<LessonCategory, string> = {
-	"Stock Basics":  "text-blue-400 bg-blue-500/10 border-blue-500/20",
-	"Market Basics": "text-purple-400 bg-purple-500/10 border-purple-500/20",
-	"Valuation":     "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
+	"Stock Basics":  "text-[#69B3CA] bg-[#69B3CA]/10 border-[#69B3CA]/20",
+	"Market Basics": "text-[#9E8CE5] bg-[#9E8CE5]/10 border-[#9E8CE5]/20",
+	"Valuation":     "text-[#69B3CA] bg-[#69B3CA]/10 border-[#69B3CA]/20",
 	"Earnings":      "text-amber-400 bg-amber-500/10 border-amber-500/20",
 	"Risk":          "text-rose-400 bg-rose-500/10 border-rose-500/20",
 	"Dividends":     "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
@@ -56,9 +60,9 @@ const CATEGORY_COLORS: Record<LessonCategory, string> = {
 };
 
 const CATEGORY_BAR: Record<LessonCategory, string> = {
-	"Stock Basics":  "from-blue-500 to-blue-400",
-	"Market Basics": "from-purple-500 to-violet-400",
-	"Valuation":     "from-cyan-500 to-teal-400",
+	"Stock Basics":  "from-[#69B3CA]/60 to-[#69B3CA]",
+	"Market Basics": "from-[#9E8CE5]/60 to-[#9E8CE5]",
+	"Valuation":     "from-[#69B3CA]/60 to-[#69B3CA]",
 	"Earnings":      "from-amber-500 to-yellow-400",
 	"Risk":          "from-rose-500 to-red-400",
 	"Dividends":     "from-emerald-500 to-green-400",
@@ -131,7 +135,7 @@ function OptionBtn({
 }) {
 	const cfg: Record<OptionState, { card: string; badge: string }> = {
 		idle:          { card: "border-foreground/10 bg-surface-1",             badge: "bg-foreground/[0.08] text-foreground/60" },
-		selected:      { card: "border-blue-500/50 bg-blue-500/[0.07]",         badge: "bg-blue-500 text-white" },
+		selected:      { card: "border-[#69B3CA]/50 bg-[#69B3CA]/[0.07]",         badge: "bg-[#69B3CA] text-[#0A1020]" },
 		correct:       { card: "border-emerald-500/50 bg-emerald-500/[0.08]",   badge: "bg-emerald-500 text-white" },
 		wrong:         { card: "border-rose-500/50 bg-rose-500/[0.08]",         badge: "bg-rose-500 text-white" },
 		"correct-other": { card: "border-emerald-500/25 bg-emerald-500/[0.04]", badge: "bg-emerald-500/20 text-emerald-400" },
@@ -225,8 +229,7 @@ type ActiveView =
 	| "mood-simulator"
 	| "practice"
 
-	| "watchlist"
-	| "sandbox";
+	| "watchlist";
 
 const PLAYGROUND_SS_KEY = "playground-state";
 
@@ -481,16 +484,13 @@ function PlaygroundPage() {
 	if (activeView === "watchlist") {
 		return <WatchlistGameView onBack={goHome} />;
 	}
-	if (activeView === "sandbox") {
-		return <SandboxView onBack={goHome} />;
-	}
 
 	// ── Level system ─────────────────────────────────────────────────────────
 	const LEVEL_STYLES: Record<TierNumber, { color: string; bg: string; bar: string }> = {
 		1: { color: "text-slate-400",  bg: "bg-slate-400/15",  bar: "from-slate-400 to-slate-500"   },
-		2: { color: "text-blue-400",   bg: "bg-blue-400/15",   bar: "from-blue-400 to-blue-500"     },
-		3: { color: "text-cyan-400",   bg: "bg-cyan-400/15",   bar: "from-cyan-400 to-blue-400"     },
-		4: { color: "text-violet-400", bg: "bg-violet-400/15", bar: "from-violet-400 to-purple-500" },
+		2: { color: "text-[#69B3CA]",   bg: "bg-[#69B3CA]/15",   bar: "from-[#69B3CA]/60 to-[#69B3CA]"     },
+		3: { color: "text-[#69B3CA]",   bg: "bg-[#69B3CA]/15",   bar: "from-[#69B3CA]/60 to-[#69B3CA]"     },
+		4: { color: "text-[#9E8CE5]", bg: "bg-[#9E8CE5]/15", bar: "from-[#9E8CE5]/60 to-[#9E8CE5]" },
 		5: { color: "text-amber-400",  bg: "bg-amber-400/15",  bar: "from-amber-400 to-orange-500"  },
 	};
 	const LEVELS = ([1, 2, 3, 4, 5] as const).map(t => ({
@@ -571,10 +571,10 @@ function PlaygroundPage() {
 					const isMarketDay = featuredLessonData?.isMarketDay !== false;
 					const isTradingDay = featuredLessonData?.isTradingDay !== false;
 					const accent = isMarketDay ? "violet" : "amber";
-					const borderCls = isMarketDay ? "border-violet-500/30" : "border-amber-500/30";
-					const bgCls = isMarketDay ? "bg-violet-500/[0.07]" : "bg-amber-500/[0.07]";
-					const textCls = isMarketDay ? "text-violet-400" : "text-amber-400";
-					const iconBgCls = isMarketDay ? "bg-violet-500/15 text-violet-400" : "bg-amber-500/15 text-amber-400";
+					const borderCls = isMarketDay ? "border-[#9E8CE5]/30" : "border-amber-500/30";
+					const bgCls = isMarketDay ? "bg-[#9E8CE5]/[0.07]" : "bg-amber-500/[0.07]";
+					const textCls = isMarketDay ? "text-[#9E8CE5]" : "text-amber-400";
+					const iconBgCls = isMarketDay ? "bg-[#9E8CE5]/15 text-[#9E8CE5]" : "bg-amber-500/15 text-amber-400";
 					// Compare the viewer's own local calendar date (not a fixed timezone) against
 					// the ET-anchored day this lesson was generated for. Using the viewer's own
 					// date — rather than a fixed "before 9:30am ET" check — means someone on, say,
@@ -701,7 +701,6 @@ function PlaygroundPage() {
 				</div>
 				<div className="space-y-[10px]">
 					<SectionCard colorKey="lessons" icon={<Star size={22} />} title="Build Your Watchlist" subtitle="Pick 7 stocks for a balanced portfolio" onClick={() => goToView("watchlist")} />
-					<SectionCard colorKey="sandbox" icon={<Wallet size={22} />} title="Sandbox Portfolio" subtitle={`$${sandboxBudgetForXp(totalXp).toLocaleString()} budget · real prices, real shares`} onClick={() => goToView("sandbox")} />
 				</div>
 
 			</div>
@@ -912,20 +911,20 @@ function LessonPlayer({
 			const prevXp = account?.totalXp ?? 0;
 			const newXp = prevXp + lesson.xp;
 			const LEVEL_UP_UI: Record<2|3|4|5, { emoji: string; bar: string }> = {
-				2: { emoji: "📚", bar: "from-blue-400 to-blue-500"     },
-				3: { emoji: "📈", bar: "from-cyan-400 to-blue-400"     },
-				4: { emoji: "🔬", bar: "from-violet-400 to-purple-500" },
+				2: { emoji: "📚", bar: "from-[#69B3CA]/60 to-[#69B3CA]"     },
+				3: { emoji: "📈", bar: "from-[#69B3CA]/60 to-[#69B3CA]"     },
+				4: { emoji: "🔬", bar: "from-[#9E8CE5]/60 to-[#9E8CE5]" },
 				5: { emoji: "🏆", bar: "from-amber-400 to-orange-500"  },
 			};
 			const crossedTier = ([2, 3, 4, 5] as const).find(t => prevXp < TIER_THRESHOLDS[t] && newXp >= TIER_THRESHOLDS[t]);
 			if (crossedTier) {
 				const lv = { name: SHARED_TIER_XP[crossedTier].label, ...LEVEL_UP_UI[crossedTier] };
 				import("sonner").then(({ toast }) => toast.custom(() => (
-					<div className="flex items-center gap-[12px] rounded-[14px] border border-violet-500/30 bg-violet-500/[0.1] px-[14px] py-[12px] shadow-lg overflow-hidden relative">
+					<div className="flex items-center gap-[12px] rounded-[14px] border border-[#9E8CE5]/30 bg-[#9E8CE5]/[0.1] px-[14px] py-[12px] shadow-lg overflow-hidden relative">
 						<div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${lv.bar}`} />
 						<span className="text-[28px] shrink-0">{lv.emoji}</span>
 						<div>
-							<p className="text-[11px] font-semibold uppercase tracking-wide text-violet-400 mb-[1px]">Level Up!</p>
+							<p className="text-[11px] font-semibold uppercase tracking-wide text-[#9E8CE5] mb-[1px]">Level Up!</p>
 							<p className="text-[14px] font-extrabold text-foreground">You're now a {lv.name}</p>
 							<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">New challenges unlocked in Playground</p>
 						</div>
@@ -960,7 +959,7 @@ function LessonPlayer({
 
 				{/* Progress bar */}
 				<div className="h-[4px] rounded-full bg-foreground/10 mb-[24px]">
-					<div className="h-full rounded-full bg-blue-400 transition-all duration-300" style={{ width: `${progressPct}%` }} />
+					<div className="h-full rounded-full bg-[#69B3CA] transition-all duration-300" style={{ width: `${progressPct}%` }} />
 				</div>
 
 				{phase === "done" ? (
@@ -968,11 +967,11 @@ function LessonPlayer({
 						{/* CSS confetti pieces */}
 						{[
 							{ color: "bg-amber-400",   left: "20%", delay: "0s"    },
-							{ color: "bg-blue-400",    left: "35%", delay: "0.1s"  },
+							{ color: "bg-[#69B3CA]",    left: "35%", delay: "0.1s"  },
 							{ color: "bg-emerald-400", left: "50%", delay: "0.05s" },
 							{ color: "bg-rose-400",    left: "65%", delay: "0.15s" },
-							{ color: "bg-violet-400",  left: "80%", delay: "0.08s" },
-							{ color: "bg-cyan-400",    left: "10%", delay: "0.12s" },
+							{ color: "bg-[#9E8CE5]",  left: "80%", delay: "0.08s" },
+							{ color: "bg-[#69B3CA]",    left: "10%", delay: "0.12s" },
 							{ color: "bg-pink-400",    left: "90%", delay: "0.2s"  },
 						].map((c, i) => (
 							<div key={i} className={`confetti-piece ${c.color}`} style={{ left: c.left, animationDelay: c.delay, top: "10%" }} />
@@ -1005,7 +1004,7 @@ function LessonPlayer({
 								{/* Dot indicators + counter */}
 								<div className="flex items-center gap-[6px] mb-[18px]">
 									{lesson.cards.map((_, i) => (
-										<div key={i} className={`h-[4px] rounded-full transition-all duration-200 ${i === cardIndex ? "w-[18px]" : "w-[4px]"} ${i === cardIndex ? "bg-blue-400" : i < cardIndex ? "bg-blue-400/40" : "bg-foreground/15"}`} />
+										<div key={i} className={`h-[4px] rounded-full transition-all duration-200 ${i === cardIndex ? "w-[18px]" : "w-[4px]"} ${i === cardIndex ? "bg-[#69B3CA]" : i < cardIndex ? "bg-[#69B3CA]/40" : "bg-foreground/15"}`} />
 									))}
 									<div className="ml-auto text-[11px] dark:text-slate-400 text-slate-500 font-medium">{cardIndex + 1} / {lesson.cards.length}</div>
 								</div>
@@ -1017,7 +1016,7 @@ function LessonPlayer({
 							type="button"
 							onClick={handleNext}
 							className="mt-[16px] w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white shadow-lg active:opacity-80"
-							style={{ background: "linear-gradient(90deg,#3b82f6,#6366f1)" }}
+							style={{ background: DISC.cta }}
 						>
 							{isLastCard ? "Take the Quiz →" : "Next →"}
 						</button>
@@ -1052,7 +1051,7 @@ function LessonPlayer({
 									type="button"
 									onClick={handleFinish}
 									className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white shadow-lg active:opacity-80"
-									style={{ background: isCorrect ? "linear-gradient(90deg,#10b981,#3b82f6)" : "linear-gradient(90deg,#3b82f6,#6366f1)" }}
+									style={{ background: isCorrect ? "linear-gradient(90deg,#2FD08A,#69B3CA)" : DISC.cta }}
 								>
 									{isCorrect ? "Finish ✓" : "Got it — finish lesson"}
 								</button>
@@ -1182,9 +1181,9 @@ function BattleDetail({ battleId, onBack, onResult, battlesPool, alreadyWon }: {
 								else cls = "border-foreground/10 bg-surface-1 opacity-50";
 							} else {
 								// Live data unavailable — highlight selected, dim the other
-								cls = isSelected ? "border-blue-500/60 bg-blue-500/10" : "border-foreground/10 bg-surface-1 opacity-50";
+								cls = isSelected ? "border-[#69B3CA]/60 bg-[#69B3CA]/10" : "border-foreground/10 bg-surface-1 opacity-50";
 							}
-						} else if (isSelected) cls = "border-blue-500/60 bg-blue-500/10";
+						} else if (isSelected) cls = "border-[#69B3CA]/60 bg-[#69B3CA]/10";
 						return (
 							<button key={side} type="button" onClick={() => handlePick(side)}
 								className={`rounded-[14px] border px-[16px] py-[18px] text-center transition-all relative ${cls}`}>
@@ -1198,7 +1197,7 @@ function BattleDetail({ battleId, onBack, onResult, battlesPool, alreadyWon }: {
 									<p className="text-[14px] font-bold text-foreground/50 mt-[8px]">?</p>
 								) : null}
 								{selected && isWinner && <p className="text-[10px] text-emerald-400 font-semibold mt-[4px]">Winner ✓</p>}
-								{isSelected && !selected && <p className="text-[11px] text-blue-400 mt-[4px]">My pick</p>}
+								{isSelected && !selected && <p className="text-[11px] text-[#69B3CA] mt-[4px]">My pick</p>}
 							</button>
 						);
 					})}
@@ -1308,7 +1307,7 @@ function BattlesView({ onBack, dayKey, dailyCompleted, onDailyComplete, dailyBat
 				<h2 className="text-[22px] font-extrabold mb-[2px]">Stock Battles</h2>
 				<div className="flex items-center gap-[8px] mb-[16px]">
 					<p className="text-[13px] dark:text-slate-400 text-slate-500">Pick the winner. See the real numbers.</p>
-					{dayLabel && <span className="text-[10px] font-bold bg-violet-500/15 text-violet-400 px-[7px] py-[2px] rounded-full">{dayLabel}</span>}
+					{dayLabel && <span className="text-[10px] font-bold bg-[#9E8CE5]/15 text-[#9E8CE5] px-[7px] py-[2px] rounded-full">{dayLabel}</span>}
 				</div>
 
 
@@ -1446,19 +1445,19 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 
 					{/* Company */}
 					<div className="flex items-center gap-[10px] mb-[16px]">
-						<div className="grid h-[36px] w-[36px] shrink-0 place-items-center rounded-[9px] bg-purple-500/10">
-							<FlaskConical size={16} className="text-purple-400" />
+						<div className="grid h-[36px] w-[36px] shrink-0 place-items-center rounded-[9px] bg-[#9E8CE5]/10">
+							<FlaskConical size={16} className="text-[#9E8CE5]" />
 						</div>
 						<h2 className="text-[18px] font-extrabold leading-snug">{scenario.company} <span className="font-normal dark:text-slate-400 text-slate-500">({scenario.ticker})</span></h2>
 					</div>
 
 					{/* Earnings report card */}
 					<div className="rounded-[14px] border border-foreground/10 overflow-hidden mb-[16px]">
-						<div className="h-[3px] bg-gradient-to-r from-purple-500 to-violet-500" />
+						<div className="h-[3px] bg-gradient-to-r from-[#9E8CE5]/60 to-[#9E8CE5]" />
 						<div className="px-[14px] py-[10px] border-b border-foreground/[0.07] flex items-center justify-between">
 							<div className="flex items-center gap-[6px]">
-								<FlaskConical size={11} className="text-purple-400 shrink-0" />
-								<p className="text-[11px] font-bold uppercase tracking-wider text-purple-400">The earnings report</p>
+								<FlaskConical size={11} className="text-[#9E8CE5] shrink-0" />
+								<p className="text-[11px] font-bold uppercase tracking-wider text-[#9E8CE5]">The earnings report</p>
 							</div>
 							<span className="text-[11px] font-semibold dark:text-slate-500 text-slate-400 bg-foreground/[0.05] px-[7px] py-[2px] rounded-full">{scenario.ticker}</span>
 						</div>
@@ -1511,7 +1510,7 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 
 					{/* Question */}
 					<div className="flex items-start gap-[10px] mb-[12px]">
-						<div className="grid h-[28px] w-[28px] shrink-0 place-items-center rounded-full bg-purple-500/10 mt-[1px]">
+						<div className="grid h-[28px] w-[28px] shrink-0 place-items-center rounded-full bg-[#9E8CE5]/10 mt-[1px]">
 							<span className="text-[13px]">🎯</span>
 						</div>
 						<p className="text-[15px] font-bold leading-snug">{scenario.question}</p>
@@ -1558,8 +1557,8 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 							{/* What actually happened — always visible */}
 							<div className="rounded-[12px] border border-foreground/10 p-[14px]">
 								<div className="flex items-center gap-[7px] mb-[10px]">
-									<TrendingUp size={13} className="text-purple-400 shrink-0" />
-									<p className="text-[11px] font-bold uppercase tracking-wider text-purple-400">What actually happened</p>
+									<TrendingUp size={13} className="text-[#9E8CE5] shrink-0" />
+									<p className="text-[11px] font-bold uppercase tracking-wider text-[#9E8CE5]">What actually happened</p>
 								</div>
 								<div className="flex items-start gap-[12px]">
 									{scenario.stockMove && (
@@ -1633,7 +1632,7 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 								{nextScenario && (
 									<button type="button" onClick={() => openScenario(nextScenario.id)}
 										className="flex-1 h-[44px] rounded-[12px] font-semibold text-[14px] text-white active:opacity-80 flex items-center justify-center gap-[5px]"
-										style={{ background: "linear-gradient(90deg,#8b5cf6,#6366f1)" }}>
+										style={{ background: DISC.cta }}>
 										Next Scenario <ChevronRight size={15} />
 									</button>
 								)}
@@ -1654,7 +1653,7 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 				<h2 className="text-[22px] font-extrabold mb-[2px]">Earnings Lab</h2>
 				<div className="flex items-center gap-[8px] mb-[16px]">
 					<p className="text-[13px] dark:text-slate-400 text-slate-500">Learn why stocks react after earnings.</p>
-					{dayLabel && <span className="text-[10px] font-bold bg-purple-500/15 text-purple-400 px-[7px] py-[2px] rounded-full">{dayLabel}</span>}
+					{dayLabel && <span className="text-[10px] font-bold bg-[#9E8CE5]/15 text-[#9E8CE5] px-[7px] py-[2px] rounded-full">{dayLabel}</span>}
 				</div>
 
 
@@ -1665,7 +1664,7 @@ function EarningsLabView({ onBack, dayKey, dailyCompleted, onDailyComplete, dail
 						return (
 							<button key={s.id} type="button" onClick={() => openScenario(s.id)}
 								className={`w-full flex items-center gap-[14px] rounded-[13px] border px-[14px] py-[12px] text-left active:opacity-80 ${done ? "border-emerald-500/25 bg-emerald-500/[0.04]" : "border-foreground/10 bg-surface-1"}`}>
-								<div className={`grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[10px] ${done ? "bg-emerald-500/15 text-emerald-400" : "bg-purple-500/10 text-purple-400"}`}>
+								<div className={`grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[10px] ${done ? "bg-emerald-500/15 text-emerald-400" : "bg-[#9E8CE5]/10 text-[#9E8CE5]"}`}>
 									{done ? <span className="text-[18px] font-bold">✓</span> : <FlaskConical size={18} />}
 								</div>
 								<div className="flex-1 min-w-0">
@@ -1889,9 +1888,9 @@ function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, da
 		// Use dailyIdsMood.length (full pack size) not visibleMood.length — same reason as Risk Lab.
 		const total = dailyIdsMood.length;
 		const pct = Math.round((correct / total) * 100);
-		const tier = pct >= 80 ? { emoji: "🧠", label: "Macro Mind", msg: "You understand how global events ripple through markets. That's a rare edge most investors never develop.", color: "text-cyan-400", border: "border-cyan-500/25", bg: "bg-cyan-500/[0.07]" }
-			: pct >= 50 ? { emoji: "📊", label: "Getting There", msg: "Solid macro awareness. The tricky ones usually involve second-order effects — practice makes these intuitive.", color: "text-blue-400", border: "border-blue-500/25", bg: "bg-blue-500/[0.07]" }
-			: { emoji: "🌍", label: "Macro is Hard", msg: "Macro is genuinely complex — professional investors get it wrong constantly. Keep going through the scenarios.", color: "text-violet-400", border: "border-violet-500/25", bg: "bg-violet-500/[0.07]" };
+		const tier = pct >= 80 ? { emoji: "🧠", label: "Macro Mind", msg: "You understand how global events ripple through markets. That's a rare edge most investors never develop.", color: "text-[#69B3CA]", border: "border-[#69B3CA]/25", bg: "bg-[#69B3CA]/[0.07]" }
+			: pct >= 50 ? { emoji: "📊", label: "Getting There", msg: "Solid macro awareness. The tricky ones usually involve second-order effects — practice makes these intuitive.", color: "text-[#69B3CA]", border: "border-[#69B3CA]/25", bg: "bg-[#69B3CA]/[0.07]" }
+			: { emoji: "🌍", label: "Macro is Hard", msg: "Macro is genuinely complex — professional investors get it wrong constantly. Keep going through the scenarios.", color: "text-[#9E8CE5]", border: "border-[#9E8CE5]/25", bg: "bg-[#9E8CE5]/[0.07]" };
 		return (
 			<div className="min-h-full bg-background text-foreground">
 			{XPFloat}
@@ -1905,7 +1904,7 @@ function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, da
 						<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed max-w-[280px] mx-auto">{tier.msg}</p>
 					</div>
 					<div className="space-y-[8px]">
-						<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: "linear-gradient(90deg,#06b6d4,#6366f1)" }}>Back to Playground</button>
+						<button type="button" onClick={onBack} className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80" style={{ background: DISC.cta }}>Back to Playground</button>
 					</div>
 				</div>
 			</div>
@@ -1930,7 +1929,7 @@ function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, da
 							<div className="space-y-[10px]">
 								{completedMood.map(m => (
 									<div key={m.id} className="rounded-[14px] border border-foreground/10 bg-surface-1 p-[14px]">
-										<p className="text-[12px] font-bold text-cyan-400 mb-[4px]">{m.event}</p>
+										<p className="text-[12px] font-bold text-[#69B3CA] mb-[4px]">{m.event}</p>
 										<p className="text-[13px] font-semibold mb-[8px]">{m.question}</p>
 										<div className="space-y-[5px] mb-[10px]">
 											{m.options.map((opt, i) => {
@@ -1990,17 +1989,17 @@ function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, da
 				<BackBtn onClick={onBack} />
 				<div className="flex items-center justify-between mb-[20px]">
 					<div>
-						<p className="text-[12px] dark:text-slate-400 text-slate-500 uppercase tracking-wide">Market Mood {dayLabel && <span className="text-[10px] font-bold bg-cyan-500/15 text-cyan-400 px-[6px] py-[1px] rounded-full ml-[6px]">{dayLabel}</span>}</p>
+						<p className="text-[12px] dark:text-slate-400 text-slate-500 uppercase tracking-wide">Market Mood {dayLabel && <span className="text-[10px] font-bold bg-[#69B3CA]/15 text-[#69B3CA] px-[6px] py-[1px] rounded-full ml-[6px]">{dayLabel}</span>}</p>
 						<h2 className="text-[18px] font-extrabold">Simulator</h2>
 					</div>
 					<p className="text-[12px] dark:text-slate-400 text-slate-500">{index + 1} / {visibleMood.length}</p>
 				</div>
 
 				<div className="h-[4px] rounded-full bg-foreground/10 mb-[24px]">
-					<div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${((index + 1) / visibleMood.length) * 100}%` }} />
+					<div className="h-full rounded-full bg-[#69B3CA] transition-all" style={{ width: `${((index + 1) / visibleMood.length) * 100}%` }} />
 				</div>
 
-				<div className="rounded-[14px] border border-cyan-500/25 bg-cyan-500/[0.07] px-[16px] py-[14px] mb-[16px]">
+				<div className="rounded-[14px] border border-[#69B3CA]/25 bg-[#69B3CA]/[0.07] px-[16px] py-[14px] mb-[16px]">
 					<p className="text-[18px] font-bold">{scenario.event}</p>
 				</div>
 
@@ -2028,7 +2027,7 @@ function MoodSimulatorView({ onBack, dayKey, dailyCompleted, onDailyComplete, da
 						</div>
 						<button type="button" onClick={next}
 							className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
-							style={{ background: "linear-gradient(90deg,#06b6d4,#6366f1)" }}>
+							style={{ background: DISC.cta }}>
 							{index < visibleMood.length - 1 ? "Next →" : "Done"}
 						</button>
 					</>
@@ -2636,8 +2635,8 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 		const tier = pct >= 80
 			? { emoji: "🏆", label: "Sharp Analyst", msg: "You read market signals well. Your instincts are grounded in the data.", color: "text-amber-400", border: "border-amber-500/25", bg: "bg-amber-500/[0.07]" }
 			: pct >= 50
-			? { emoji: "📈", label: "Getting There", msg: "Solid fundamentals awareness. Keep practicing — pattern recognition compounds over time.", color: "text-blue-400", border: "border-blue-500/25", bg: "bg-blue-500/[0.07]" }
-			: { emoji: "📚", label: "Keep Practicing", msg: "Stock analysis takes time to click. Every round builds new intuition.", color: "text-violet-400", border: "border-violet-500/25", bg: "bg-violet-500/[0.07]" };
+			? { emoji: "📈", label: "Getting There", msg: "Solid fundamentals awareness. Keep practicing — pattern recognition compounds over time.", color: "text-[#69B3CA]", border: "border-[#69B3CA]/25", bg: "bg-[#69B3CA]/[0.07]" }
+			: { emoji: "📚", label: "Keep Practicing", msg: "Stock analysis takes time to click. Every round builds new intuition.", color: "text-[#9E8CE5]", border: "border-[#9E8CE5]/25", bg: "bg-[#9E8CE5]/[0.07]" };
 
 		// Top 2 skills by XP earned this session
 		const topSkills = Object.entries(sessionSkillXp)
@@ -2686,7 +2685,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 					<div className="space-y-[8px]">
 						<button type="button" onClick={onBack}
 							className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
-							style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}>
+							style={{ background: "linear-gradient(90deg,#2FD08A,#69B3CA)" }}>
 							Back to Playground
 						</button>
 					</div>
@@ -2708,7 +2707,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 						type="button"
 						onClick={() => setSessionStarted(true)}
 						className="w-full h-[52px] rounded-[14px] font-bold text-[16px] text-white active:opacity-80"
-						style={{ background: "linear-gradient(90deg,#10b981,#3b82f6)" }}
+						style={{ background: "linear-gradient(90deg,#2FD08A,#69B3CA)" }}
 					>
 						Start Drills →
 					</button>
@@ -2763,8 +2762,8 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 								{stockIdx + 1} / {stockList.length}
 							</span>
 						</div>
-						<div className="rounded-[14px] border border-blue-500/25 bg-blue-500/[0.07] px-[14px] py-[12px] mb-[14px]">
-							<p className="text-[11px] font-bold uppercase tracking-wide text-blue-400 mb-[4px]">News / Earnings</p>
+						<div className="rounded-[14px] border border-[#69B3CA]/25 bg-[#69B3CA]/[0.07] px-[14px] py-[12px] mb-[14px]">
+							<p className="text-[11px] font-bold uppercase tracking-wide text-[#69B3CA] mb-[4px]">News / Earnings</p>
 							<p className="text-[14px] font-semibold leading-relaxed">{sc.scenario}</p>
 						</div>
 						<p className="text-[14px] font-bold mb-[10px]">How would you read this?</p>
@@ -2831,7 +2830,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 							advanceRound(next, undefined);
 						}}
 						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
-						style={{ background: "linear-gradient(90deg,#3b82f6,#6366f1)" }}>
+						style={{ background: DISC.cta }}>
 						{stockIdx + 1 >= stockList.length ? "See Results" : "Next Round →"}
 					</button>
 				</div>
@@ -2858,8 +2857,8 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 								{stockIdx + 1} / {stockList.length}
 							</span>
 						</div>
-						<div className="rounded-[14px] border border-violet-500/25 bg-violet-500/[0.07] px-[14px] py-[12px] mb-[14px]">
-							<p className="text-[11px] font-bold uppercase tracking-wide text-violet-400 mb-[4px]">Situation</p>
+						<div className="rounded-[14px] border border-[#9E8CE5]/25 bg-[#9E8CE5]/[0.07] px-[14px] py-[12px] mb-[14px]">
+							<p className="text-[11px] font-bold uppercase tracking-wide text-[#9E8CE5] mb-[4px]">Situation</p>
 							<p className="text-[14px] font-semibold leading-relaxed">{sc.scenario}</p>
 						</div>
 						<p className="text-[14px] font-bold mb-[10px]">{sc.question}</p>
@@ -2926,7 +2925,7 @@ function PracticeModeView({ onBack }: { onBack: () => void }) {
 							advanceRound(undefined, next);
 						}}
 						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
-						style={{ background: "linear-gradient(90deg,#8b5cf6,#3b82f6)" }}>
+						style={{ background: DISC.cta }}>
 						{stockIdx + 1 >= stockList.length ? "See Results" : "Next Round →"}
 					</button>
 				</div>
@@ -3191,7 +3190,7 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 									setSaved(false);
 									setPhase("building");
 								}}
-								className={`rounded-[14px] border px-[14px] py-[14px] text-left active:opacity-80 transition-colors ${selectedGoal === g.id ? "border-violet-500/40 bg-violet-500/[0.06]" : "border-foreground/10 bg-surface-1"}`}
+								className={`rounded-[14px] border px-[14px] py-[14px] text-left active:opacity-80 transition-colors ${selectedGoal === g.id ? "border-[#9E8CE5]/40 bg-[#9E8CE5]/[0.06]" : "border-foreground/10 bg-surface-1"}`}
 							>
 								<p className="text-[28px] mb-[6px]">{g.emoji}</p>
 								<p className="text-[13px] font-bold mb-[2px]">{g.label}</p>
@@ -3245,8 +3244,8 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 									{logo ? (
 										<img src={logo} alt={b.ticker} className="w-[36px] h-[36px] rounded-[8px] object-contain shrink-0 bg-white" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
 									) : (
-										<div className="w-[36px] h-[36px] rounded-[8px] bg-violet-500/20 flex items-center justify-center shrink-0">
-											<span className="text-[11px] font-bold text-violet-400">{tickerInitials(b.ticker)}</span>
+										<div className="w-[36px] h-[36px] rounded-[8px] bg-[#9E8CE5]/20 flex items-center justify-center shrink-0">
+											<span className="text-[11px] font-bold text-[#9E8CE5]">{tickerInitials(b.ticker)}</span>
 										</div>
 									)}
 									<div className="flex-1 min-w-0">
@@ -3275,7 +3274,7 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 					<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[4px]">{goalLabel}</p>
 					<p className="text-[12px] dark:text-slate-400 text-slate-500 mb-[8px]">{filledCount}/7 slots filled</p>
 					<div className="h-[4px] rounded-full bg-foreground/10 mb-[12px]">
-						<div className="h-full rounded-full bg-violet-500 transition-all" style={{ width: `${(filledCount / TOTAL_SLOTS) * 100}%` }} />
+						<div className="h-full rounded-full bg-[#9E8CE5] transition-all" style={{ width: `${(filledCount / TOTAL_SLOTS) * 100}%` }} />
 					</div>
 
 					{/* Feedback bar */}
@@ -3302,11 +3301,11 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 									</div>
 									{brand ? (
 										<div className="flex items-center gap-[6px]">
-											<button type="button" onClick={() => { setSearchSlot(i); setSearchQuery(""); }} className="text-[11px] text-violet-400 font-medium px-[8px] py-[4px] rounded-full border border-violet-500/30 bg-violet-500/[0.06]">Change</button>
+											<button type="button" onClick={() => { setSearchSlot(i); setSearchQuery(""); }} className="text-[11px] text-[#9E8CE5] font-medium px-[8px] py-[4px] rounded-full border border-[#9E8CE5]/30 bg-[#9E8CE5]/[0.06]">Change</button>
 											<button type="button" onClick={() => clearPick(i)} className="text-[11px] text-rose-400 font-bold">✕</button>
 										</div>
 									) : (
-										<button type="button" onClick={() => { setSearchSlot(i); setSearchQuery(""); }} className="shrink-0 text-[12px] font-semibold px-[10px] py-[5px] rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-400">Pick</button>
+										<button type="button" onClick={() => { setSearchSlot(i); setSearchQuery(""); }} className="shrink-0 text-[12px] font-semibold px-[10px] py-[5px] rounded-full border border-[#9E8CE5]/30 bg-[#9E8CE5]/10 text-[#9E8CE5]">Pick</button>
 									)}
 								</div>
 							);
@@ -3318,7 +3317,7 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 							type="button"
 							onClick={() => setPhase("diagnosis")}
 							className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
-							style={{ background: "linear-gradient(90deg,#8b5cf6,#6366f1)" }}
+							style={{ background: DISC.cta }}
 						>
 							See Diagnosis →
 						</button>
@@ -3333,9 +3332,9 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 	if (!d) return null;
 
 	const dimBars = [
-		{ label: "Growth",          score: d.growthScore,      color: "bg-blue-500"    },
+		{ label: "Growth",          score: d.growthScore,      color: "bg-[#69B3CA]"    },
 		{ label: "Stability",       score: d.stabilityScore,   color: "bg-emerald-500" },
-		{ label: "Familiarity",     score: d.familiarityScore, color: "bg-violet-500"  },
+		{ label: "Familiarity",     score: d.familiarityScore, color: "bg-[#9E8CE5]"  },
 		{ label: "Speculative Risk",score: d.speculativeRisk,  color: "bg-rose-500"    },
 		{ label: "Income",          score: d.incomeScore,      color: "bg-amber-500"   },
 	];
@@ -3345,11 +3344,14 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 		setSaving(true);
 		const existing = new Set(account?.stakBrandIds ?? []);
 		const toAdd = d.pickedBrands.filter(b => !existing.has(b.id));
-		for (const b of toAdd) {
-			await saveToStak(b.id, null);
+		try {
+			for (const b of toAdd) await saveToStak(b.id, null);
+			setSaved(true);
+		} catch {
+			toast.error("Couldn't add them all. Try again.");
+		} finally {
+			setSaving(false);
 		}
-		setSaving(false);
-		setSaved(true);
 	};
 
 	return (
@@ -3360,7 +3362,7 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 				</button>
 
 				{/* Personality */}
-				<div className="rounded-[16px] border border-violet-500/25 bg-violet-500/[0.06] px-[18px] py-[16px] mb-[14px]">
+				<div className="rounded-[16px] border border-[#9E8CE5]/25 bg-[#9E8CE5]/[0.06] px-[18px] py-[16px] mb-[14px]">
 					<p className="text-[32px] mb-[6px]">{d.personality.emoji}</p>
 					<p className="text-[18px] font-extrabold mb-[4px]">{d.personality.type}</p>
 					<p className="text-[13px] dark:text-slate-400 text-slate-500 leading-relaxed">{d.personality.tagline}</p>
@@ -3415,8 +3417,8 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 				)}
 
 				{/* Next best move */}
-				<div className="rounded-[14px] border border-blue-500/20 bg-blue-500/[0.05] px-[14px] py-[12px] mb-[14px]">
-					<p className="text-[11px] font-bold uppercase tracking-wide text-blue-400 mb-[4px]">Next Best Move</p>
+				<div className="rounded-[14px] border border-[#69B3CA]/20 bg-[#69B3CA]/[0.05] px-[14px] py-[12px] mb-[14px]">
+					<p className="text-[11px] font-bold uppercase tracking-wide text-[#69B3CA] mb-[4px]">Next Best Move</p>
 					<p className="text-[13px] dark:text-slate-300 text-slate-600 leading-relaxed">{d.nextMove}</p>
 				</div>
 
@@ -3439,7 +3441,7 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 						onClick={handleAddToStak}
 						disabled={saving || saved}
 						className="w-full h-[48px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80 disabled:opacity-60"
-						style={{ background: "linear-gradient(90deg,#8b5cf6,#6366f1)" }}
+						style={{ background: DISC.cta }}
 					>
 						{saved ? "Added to STAK ✓" : saving ? "Saving…" : "Add These to My STAK"}
 					</button>
@@ -3465,996 +3467,6 @@ function WatchlistGameView({ onBack }: { onBack: () => void }) {
 	);
 }
 
-// ── Sparkline ─────────────────────────────────────────────────
-function Sparkline({ prices, positive }: { prices: number[]; positive: boolean }) {
-	if (prices.length < 2) return null;
-	const min = Math.min(...prices);
-	const max = Math.max(...prices);
-	const range = max - min || 1;
-	const W = 60, H = 26;
-	const pts = prices
-		.map((p, i) => `${(i / (prices.length - 1)) * W},${H - ((p - min) / range) * H}`)
-		.join(" ");
-	const color = positive ? "#34d399" : "#f87171";
-	return (
-		<svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="overflow-visible shrink-0">
-			<polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-		</svg>
-	);
-}
-
-// ── Sandbox Portfolio ─────────────────────────────────────────
-
-const sandboxBudgetForXp = (xp: number) => SANDBOX_BUDGETS[xpToTier(xp)];
-const SANDBOX_MAX_POSITIONS = 10;
-
-// Category display config for portfolio themes
-const SANDBOX_CAT_CONFIG: Record<string, { label: string; color: string; bar: string }> = {
-	tech:        { label: "Tech",       color: "text-blue-400",    bar: "bg-blue-500"    },
-	gaming:      { label: "Gaming",     color: "text-violet-400",  bar: "bg-violet-500"  },
-	streaming:   { label: "Streaming",  color: "text-pink-400",    bar: "bg-pink-500"    },
-	finance:     { label: "Finance",    color: "text-emerald-400", bar: "bg-emerald-500" },
-	food_drink:  { label: "Consumer",   color: "text-amber-400",   bar: "bg-amber-500"   },
-	energy:      { label: "Energy",     color: "text-orange-400",  bar: "bg-orange-500"  },
-	travel:      { label: "Travel",     color: "text-cyan-400",    bar: "bg-cyan-500"    },
-	fitness:     { label: "Health",     color: "text-teal-400",    bar: "bg-teal-500"    },
-	fashion:     { label: "Fashion",    color: "text-rose-400",    bar: "bg-rose-500"    },
-	shopping:    { label: "Retail",     color: "text-indigo-400",  bar: "bg-indigo-500"  },
-};
-
-function SandboxView({ onBack }: { onBack: () => void }) {
-	const { account, addToSandbox, sellFromSandbox, initSandboxCash, resetSandbox, markSandboxMilestone } = useAccount();
-	const queryClient = useQueryClient();
-	const { data: allBrandsList } = useBrandsList();
-	const allBrands = useMemo(() => allBrandsList ?? [], [allBrandsList]);
-
-	// Screen state: null = portfolio list, string = stock detail ticker
-	const [activeStock, setActiveStock] = useState<string | null>(null);
-	// Order sheet: "buy" | "sell" | null
-	const [orderAction, setOrderAction] = useState<"buy" | "sell" | null>(null);
-	// Search overlay
-	const [showSearch, setShowSearch] = useState(false);
-	const [searchQuery, setSearchQuery] = useState("");
-	// Order quantity
-	const [orderQty, setOrderQty] = useState<number>(0);
-	const [orderQtyStr, setOrderQtyStr] = useState<string>(""); // raw input text — keeps "0." alive while typing decimals
-	const [orderMode, setOrderMode] = useState<"shares" | "amount">("shares");
-	const [orderAmount, setOrderAmount] = useState<number>(0); // 0 shows greyed placeholder
-	// Reset confirm
-	const [confirmReset, setConfirmReset] = useState(false);
-
-	const sandbox = account?.sandboxPortfolio ?? {};
-	const tickers = Object.keys(sandbox);
-
-	// Brand lookup map
-	const brandMap = useMemo(() => new Map(allBrands.map(b => [b.ticker?.toUpperCase(), b])), [allBrands]);
-
-	// Initialise cash on first open
-	useEffect(() => { initSandboxCash(); }, [initSandboxCash]);
-
-	const sandboxTotalXp = account?.totalXp ?? 0;
-	const sandboxCash = account?.sandboxCash ?? sandboxBudgetForXp(sandboxTotalXp);
-
-	// Queries for all held tickers
-	const stockQueries = tickers.map(ticker => ({
-		queryKey: ["stock", ticker],
-		queryFn: () => getStockData(ticker),
-		staleTime: 60 * 1000,
-		retry: 1,
-	}));
-	const results = useQueries({ queries: stockQueries });
-
-	const holdings = tickers.map((ticker, i) => {
-		const entry = sandbox[ticker]!;
-		const quote = (results[i] as { data?: { quote?: { price?: number; changePercent?: number } } })?.data?.quote;
-		const currentPrice = quote?.price ?? null;
-		const shares = entry.shares ?? 0; // 0 = malformed legacy entry, skips P&L calculation
-		const costBasis = entry.priceAtAdd != null ? entry.priceAtAdd * shares : 0;
-		const currentValue = currentPrice != null ? currentPrice * shares : costBasis;
-		const pricePct = entry.priceAtAdd && currentPrice
-			? ((currentPrice - entry.priceAtAdd) / entry.priceAtAdd) * 100 : null;
-		const priceDollar = pricePct !== null ? costBasis * (pricePct / 100) : null;
-		const brand = brandMap.get(ticker.toUpperCase());
-		return { ticker, entry, currentPrice, currentValue, costBasis, shares, pricePct, priceDollar, changePercent: quote?.changePercent ?? null, brand };
-	});
-
-	// Sparkline data for each holding (1-month, batched)
-	const sparklineResults = useQueries({
-		queries: tickers.map(ticker => ({
-			queryKey: ["stock-chart", ticker, "1m"],
-			queryFn: () => getStockChart(ticker, "1m"),
-			staleTime: 4 * 60 * 60 * 1000,
-			retry: 1,
-		})),
-	});
-	const sparklineMap = useMemo(() => {
-		const map = new Map<string, number[]>();
-		tickers.forEach((ticker, i) => {
-			const pts = (sparklineResults[i]?.data?.prices ?? []).map(p => p.close);
-			if (pts.length > 1) map.set(ticker, pts);
-		});
-		return map;
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [tickers, sparklineResults.length, sparklineResults.filter(r => r.isSuccess).length]);
-
-	// Portfolio totals
-	const investedTotal = holdings.reduce((sum, h) => sum + h.costBasis, 0);
-	const totalValue = holdings.reduce((sum, h) => sum + h.currentValue, 0);
-	const totalDollarPnl = totalValue - investedTotal;
-	const totalPct = investedTotal > 0 ? (totalDollarPnl / investedTotal) * 100 : 0;
-
-	// Total portfolio value for milestone detection
-	const totalPortfolioValue = totalValue + sandboxCash;
-	useEffect(() => {
-		if (tickers.length === 0) return;
-		const MILESTONES = [10500, 11000, 12000, 15000, 20000];
-		const celebrated = account?.sandboxMilestones ?? [];
-		const crossed = MILESTONES.find(m => totalPortfolioValue >= m && !celebrated.includes(m));
-		if (!crossed) return;
-		markSandboxMilestone(crossed).catch(() => {});
-		import("sonner").then(({ toast }) => toast.custom(() => (
-			<div className="flex items-center gap-[12px] rounded-[14px] border border-emerald-500/30 bg-emerald-500/[0.1] px-[14px] py-[12px] shadow-lg">
-				<span className="text-[28px] shrink-0">🚀</span>
-				<div>
-					<p className="text-[11px] font-bold uppercase tracking-wide text-emerald-400 mb-[1px]">Portfolio Milestone</p>
-					<p className="text-[14px] font-extrabold text-foreground">Portfolio crossed ${crossed.toLocaleString()}!</p>
-					<p className="text-[11px] dark:text-slate-400 text-slate-500 mt-[1px]">Your picks are paying off 📈</p>
-				</div>
-			</div>
-		), { duration: 5000 }));
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [totalPortfolioValue, account?.sandboxMilestones]);
-
-	// Live price query for the active stock detail screen
-	const { data: activeStockData } = useQuery({
-		queryKey: ["stock", activeStock ?? ""],
-		queryFn: () => getStockData(activeStock!),
-		staleTime: 60 * 1000,
-		retry: 1,
-		enabled: activeStock !== null,
-	});
-	const activePrice = activeStockData?.quote?.price ?? null;
-	const activeTodayPct = activeStockData?.quote?.changePercent ?? null;
-	const activeTodayChange = activeStockData?.quote?.change ?? null;
-
-	const [chartRange, setChartRange] = useState<ChartRange>("1d");
-	const { data: chartData, isLoading: chartLoading } = useQuery({
-		queryKey: ["stock-chart", activeStock ?? "", chartRange],
-		queryFn: () => getStockChart(activeStock!, chartRange),
-		staleTime: 4 * 60 * 60 * 1000,
-		retry: 1,
-		enabled: activeStock !== null,
-	});
-
-	// Handle add (buy) — accepts ticker, shares, price directly
-	// Portfolio-level chart
-	const [portfolioChartRange, setPortfolioChartRange] = useState<ChartRange>("1d");
-
-	// The portfolio "started" when the earliest holding was added. After a reset holdings are empty,
-	// so startMs returns Date.now() and any historical data is filtered out automatically.
-	const portfolioStartMs = useMemo(
-		() => holdings.length > 0 ? Math.min(...holdings.map(h => h.entry.addedAt)) : Date.now(),
-		[holdings],
-	);
-
-	const portfolioChartQueries = useQueries({
-		queries: tickers.map(ticker => ({
-			queryKey: ["stock-chart", ticker, portfolioChartRange],
-			queryFn: () => getStockChart(ticker, portfolioChartRange),
-			staleTime: 4 * 60 * 60 * 1000,
-			retry: 1,
-			enabled: investedTotal > 0,
-		})),
-	});
-	const portfolioChartLoading = portfolioChartQueries.some(q => q.isLoading);
-
-	const portfolioChartData = useMemo(() => {
-		const now = new Date().toISOString();
-
-		// No investments → single flat point (triggers "buy first stock" state)
-		if (investedTotal <= 0) return [{ ts: now, value: totalPortfolioValue, pnl: 0 }];
-
-		const tickerPts = tickers.map((t, i) => ({ ticker: t, points: portfolioChartQueries[i]?.data?.prices ?? [] }));
-		const base = tickerPts.reduce((best, t) => t.points.length > best.points.length ? t : best, { ticker: "", points: [] as { ts: string; close: number }[] });
-
-		if (base.points.length === 0) return [{ ts: now, value: totalPortfolioValue, pnl: 0 }];
-
-		// Cost-basis total = what the portfolio was worth at first purchase (flat before that)
-		const flatStartVal = Math.round((sandboxCash + investedTotal) * 100) / 100;
-
-		const mapped = base.points.map(point => {
-			const pointMs = new Date(point.ts).getTime();
-			if (pointMs < portfolioStartMs) return { ts: point.ts, value: flatStartVal, pnl: 0 };
-			let value = sandboxCash;
-			tickers.forEach((ticker, i) => {
-				const h = holdings.find(h => h.ticker === ticker);
-				if (!h) return;
-				const pts = tickerPts[i]!.points;
-				let price: number | null = null;
-				for (let j = pts.length - 1; j >= 0; j--) {
-					if (pts[j]!.ts <= point.ts) { price = pts[j]!.close; break; }
-				}
-				value += h.shares * (price ?? h.entry.priceAtAdd ?? h.currentPrice ?? 0);
-			});
-			const rounded = Math.round(value * 100) / 100;
-			return { ts: point.ts, value: rounded, pnl: Math.round((rounded - flatStartVal) * 100) / 100 };
-		});
-		// Always append the live portfolio value so the chart ends at the current price,
-		// not at the last closed bar (which can be hours old for 1W/1M ranges).
-		mapped.push({ ts: now, value: Math.round(totalPortfolioValue * 100) / 100, pnl: Math.round(totalDollarPnl * 100) / 100 });
-		return mapped;
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [tickers, sandboxCash, investedTotal, totalPortfolioValue, portfolioChartRange, portfolioChartLoading, portfolioStartMs]);
-
-	const handleAdd = async (ticker: string, shares: number, _price: number | null) => {
-		await addToSandbox(ticker.toUpperCase(), shares);
-	};
-
-	// Close order sheet helper
-	const closeOrder = () => {
-		setOrderAction(null);
-		setOrderQty(0);
-		setOrderQtyStr("");
-		setOrderAmount(0);
-		setOrderMode("shares");
-	};
-
-	// Confirm buy — uses effectiveShares which accounts for amount mode
-	const confirmBuy = async () => {
-		if (!activeStock || !activePrice) return;
-		const qty = orderMode === "amount"
-			? roundShares(orderAmount / activePrice)
-			: orderQty;
-		const cost = activePrice * qty;
-		if (cost > sandboxCash || qty <= 0) return;
-		try {
-			await handleAdd(activeStock, qty, activePrice);
-			closeOrder();
-		} catch (e) {
-			const msg = e instanceof Error ? e.message : "Order failed";
-			import("sonner").then(({ toast }) => toast.error(msg));
-		}
-	};
-
-	// Confirm sell
-	const confirmSellOrder = async () => {
-		if (!activeStock) return;
-		const holding = holdings.find(h => h.ticker === activeStock);
-		if (!holding) return;
-		const totalShares = holding.shares;
-		const sellShares = orderQty;
-		let result: { sellValue: number; price: number; sharesToSell: number; remaining: number };
-		try {
-			result = await sellFromSandbox(activeStock, sellShares);
-		} catch (e) {
-			const msg = e instanceof Error ? e.message : "Sell failed";
-			import("sonner").then(({ toast }) => toast.error(msg));
-			return;
-		}
-		closeOrder();
-		const remainingShares = roundShares(totalShares - sellShares);
-		if (remainingShares <= 0) {
-			setActiveStock(null);
-		}
-		const sellValue = result.sellValue;
-		const sellPnl = sellValue - (holding.entry.priceAtAdd ?? 0) * sellShares;
-		const won = sellPnl >= 0;
-		import("sonner").then(({ toast }) => toast.custom(() => (
-			<div className={`flex items-center gap-[12px] rounded-[14px] border px-[14px] py-[12px] shadow-lg ${won ? "border-emerald-500/30 bg-emerald-500/[0.1]" : "border-rose-500/30 bg-rose-500/[0.1]"}`}>
-				<span className="text-[28px] shrink-0">{won ? "💰" : "📉"}</span>
-				<div>
-					<p className={`text-[11px] font-bold uppercase tracking-wide mb-[1px] ${won ? "text-emerald-400" : "text-rose-400"}`}>{won ? "Profitable Trade" : "Loss Taken"}</p>
-					<p className="text-[14px] font-extrabold text-foreground">Sold {holding.brand?.name ?? activeStock}</p>
-					<p className={`text-[12px] font-semibold mt-[1px] ${won ? "text-emerald-400" : "text-rose-400"}`}>{won ? "+" : ""}${sellPnl.toFixed(2)}</p>
-				</div>
-			</div>
-		), { duration: 4000 }));
-	};
-
-	// ── Render: Order Sheet ──────────────────────────────────────────────────────
-	const renderOrderSheet = () => {
-		if (!orderAction || !activeStock) return null;
-		const holding = holdings.find(h => h.ticker === activeStock);
-		const price = activePrice ?? holding?.currentPrice ?? null;
-		const sharesOwned = holding?.shares ?? 0;
-		const brand = brandMap.get(activeStock.toUpperCase());
-		const name = brand?.name ?? activeStock;
-
-		// In amount mode, derive shares from dollar amount
-		const sharesFromAmount = (orderMode === "amount" && price != null && price > 0)
-			? roundShares(orderAmount / price)
-			: null;
-		const effectiveShares = orderMode === "amount" ? (sharesFromAmount ?? 0) : orderQty;
-		const cost = price != null ? price * effectiveShares : null;
-
-		const canAffordBuy = cost != null && cost <= sandboxCash;
-		const buyError = cost != null && cost > sandboxCash
-			? `Not enough buying power ($${(cost - sandboxCash).toFixed(2)} short)`
-			: null;
-
-		// Fractional sell allowed — can sell up to full position
-		const canSell = orderAction === "sell" && effectiveShares > 0 && effectiveShares <= sharesOwned;
-		const sellProceeds = price != null ? price * effectiveShares : null;
-
-		const isValid = orderAction === "buy"
-			? (cost != null && canAffordBuy && effectiveShares > 0)
-			: canSell;
-
-		// Max buy = buying power ÷ price (supports fractions)
-		const maxBuyQty = price != null && price > 0 ? Math.floor((sandboxCash / price) * 1000) / 1000 : 0;
-		const step = orderQty < 1 ? 0.01 : 1;
-
-		return (
-			<>
-				<div className="fixed inset-0 z-40 bg-[#0d0d0d]/70" onClick={closeOrder} />
-				<div className="fixed left-0 right-0 z-50 rounded-t-[24px] bg-background border border-foreground/10 px-[20px] pt-[20px] max-w-lg mx-auto shadow-2xl" style={{ bottom: "calc(4rem + env(safe-area-inset-bottom))", paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" }}>
-					<div className="w-[40px] h-[4px] rounded-full bg-foreground/15 mx-auto mb-[18px]" />
-					<div className="flex items-center justify-between mb-[18px]">
-						<h3 className="text-[18px] font-extrabold">
-							{orderAction === "buy" ? "Buy" : "Sell"} {activeStock}
-						</h3>
-						<button type="button" onClick={closeOrder}
-							className="w-[32px] h-[32px] rounded-full bg-foreground/[0.07] flex items-center justify-center text-[16px] dark:text-slate-400 text-slate-500 active:opacity-70">
-							✕
-						</button>
-					</div>
-
-					{/* Shares / Amount toggle (buy only) */}
-					{orderAction === "buy" && (
-						<div className="flex rounded-[10px] border border-foreground/10 p-[3px] mb-[20px]">
-							{(["shares", "amount"] as const).map(m => (
-								<button key={m} type="button" onClick={() => setOrderMode(m)}
-									className={`flex-1 text-[13px] font-semibold py-[7px] rounded-[8px] transition-colors ${orderMode === m ? "bg-foreground text-background" : "dark:text-slate-400 text-slate-500"}`}>
-									{m === "shares" ? "Shares" : "$ Amount"}
-								</button>
-							))}
-						</div>
-					)}
-
-					{orderMode === "shares" || orderAction === "sell" ? (
-						<>
-							<div className="flex items-center justify-center mb-[8px]">
-								<input
-									type="text"
-									inputMode="decimal"
-									autoFocus
-									placeholder="0"
-									value={orderQtyStr}
-									onChange={e => {
-										const raw = e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
-										setOrderQtyStr(raw);
-										if (raw === "" || raw === ".") { setOrderQty(0); return; }
-										const v = parseFloat(raw);
-										if (!isNaN(v)) setOrderQty(roundShares(v));
-									}}
-									className="w-[160px] text-center text-[40px] font-extrabold bg-transparent text-foreground outline-none border-b-2 border-foreground/15 pb-[2px] placeholder:text-foreground/25"
-								/>
-							</div>
-							<p className="text-[13px] dark:text-slate-400 text-slate-500 text-center mb-[16px]">shares</p>
-						</>
-					) : (
-						<>
-							<div className="flex items-center justify-center gap-[10px] mb-[8px]">
-								<span className={`text-[36px] font-extrabold ${orderAmount > 0 ? "dark:text-slate-400 text-slate-400" : "text-foreground/25"}`}>$</span>
-								<input
-									type="text"
-									inputMode="decimal"
-									autoFocus
-									placeholder="0"
-									value={orderAmount > 0 ? String(orderAmount) : ""}
-									onChange={e => {
-										// Allow clearing — only digits and one decimal point
-										const raw = e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
-										if (raw === "" || raw === ".") { setOrderAmount(0); return; }
-										const v = parseFloat(raw);
-										if (!isNaN(v)) setOrderAmount(Math.round(v * 100) / 100);
-									}}
-									className="w-[160px] text-center text-[40px] font-extrabold bg-transparent text-foreground outline-none border-b-2 border-foreground/15 pb-[2px] placeholder:text-foreground/25"
-								/>
-							</div>
-							{/* Quick amount buttons */}
-							<div className="flex justify-center gap-[8px] mb-[16px]">
-								{[25, 50, 100, 500].map(amt => (
-									<button key={amt} type="button" onClick={() => setOrderAmount(Math.min(amt, sandboxCash))}
-										className={`text-[12px] font-bold px-[10px] py-[5px] rounded-full border transition-colors active:opacity-70 ${orderAmount === amt ? "bg-violet-500/15 border-violet-500/40 text-violet-400" : "border-foreground/15 dark:text-slate-400 text-slate-500"}`}>
-										${amt}
-									</button>
-								))}
-							</div>
-							{price != null && sharesFromAmount != null && (
-								<p className="text-[12px] dark:text-slate-400 text-slate-500 text-center mb-[4px]">
-									≈ {sharesFromAmount} shares at ${price.toFixed(2)}
-								</p>
-							)}
-						</>
-					)}
-
-					{/* Sell All shortcut */}
-					{orderAction === "sell" && sharesOwned > 0 && (
-						<button type="button" onClick={() => setOrderQty(sharesOwned)}
-							className={`mx-auto block text-[12px] font-bold px-[14px] py-[6px] rounded-full border mb-[8px] active:opacity-70 transition-all ${orderQty === sharesOwned ? "border-rose-500/40 bg-rose-500/15 text-rose-400" : "border-foreground/15 dark:text-slate-400 text-slate-500"}`}>
-							Sell All ({sharesOwned} shares)
-						</button>
-					)}
-					<div className="rounded-[14px] border border-foreground/10 bg-surface-1 px-[16px] py-[14px] mb-[16px] text-center">
-						{price != null ? (
-							<>
-								<p className="text-[13px] dark:text-slate-400 text-slate-500 mb-[4px]">
-									{orderAction === "buy"
-										? orderMode === "amount"
-											? `$${orderAmount.toFixed(2)} ÷ $${price.toFixed(2)}/share`
-											: `${effectiveShares} shares × $${price.toFixed(2)}`
-										: `${effectiveShares} shares → proceeds`}
-								</p>
-								<p className="text-[28px] font-extrabold">
-									${orderAction === "buy" ? (cost ?? 0).toFixed(2) : (sellProceeds ?? 0).toFixed(2)}
-								</p>
-							</>
-						) : (
-							<p className="text-[14px] dark:text-slate-400 text-slate-500">Loading price…</p>
-						)}
-					</div>
-					{orderAction === "buy" && (
-						<div className="flex items-center justify-between mb-[6px]">
-							<p className="text-[12px] dark:text-slate-400 text-slate-500">Buying power</p>
-							<p className={`text-[13px] font-semibold ${sandboxCash < 1 ? "text-rose-400" : "text-emerald-400"}`}>
-								${sandboxCash.toFixed(2)}
-							</p>
-						</div>
-					)}
-					{orderAction === "sell" && (
-						<div className="flex items-center justify-between mb-[6px]">
-							<p className="text-[12px] dark:text-slate-400 text-slate-500">Shares you own</p>
-							<p className="text-[13px] font-semibold">{sharesOwned} shares</p>
-						</div>
-					)}
-					{buyError && (
-						<p className="text-[12px] text-rose-400 text-center mb-[10px]">{buyError}</p>
-					)}
-					{orderAction === "sell" && orderQty > sharesOwned && (
-						<p className="text-[12px] text-rose-400 text-center mb-[10px]">
-							You only own {sharesOwned} shares
-						</p>
-					)}
-					<button
-						type="button"
-						disabled={!isValid}
-						onClick={orderAction === "buy" ? confirmBuy : confirmSellOrder}
-						className={`w-full h-[52px] rounded-[14px] font-bold text-[16px] text-white transition-opacity active:opacity-80 mt-[8px] ${
-							!isValid
-								? "opacity-40 cursor-not-allowed bg-foreground/20"
-								: orderAction === "sell"
-									? "bg-rose-500/80 border border-rose-500/40"
-									: ""
-						}`}
-						style={isValid && orderAction === "buy" ? { background: "linear-gradient(90deg,#7c3aed,#6366f1)" } : undefined}
-					>
-						{orderAction === "buy"
-							? orderMode === "amount"
-								? `Invest $${orderAmount.toFixed(2)} in ${name}`
-								: `Buy ${effectiveShares} share${effectiveShares !== 1 ? "s" : ""} · $${cost?.toFixed(2) ?? "—"}`
-							: `Sell ${effectiveShares} share${effectiveShares !== 1 ? "s" : ""} · $${sellProceeds?.toFixed(2) ?? "—"}`}
-					</button>
-				</div>
-			</>
-		);
-	};
-
-	// ── Render: Stock Detail ─────────────────────────────────────────────────────
-	if (activeStock !== null) {
-		const holding = holdings.find(h => h.ticker === activeStock);
-		const brand = brandMap.get(activeStock.toUpperCase());
-		const name = brand?.name ?? activeStock;
-		const inPortfolio = !!holding;
-
-		return (
-			<div className="min-h-full bg-background text-foreground">
-				<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[120px]">
-					<BackBtn onClick={() => { setActiveStock(null); setOrderAction(null); }} label="Portfolio" />
-					<div className="flex items-center gap-[14px] mb-[24px]">
-						{brand ? (
-							<BrandLogo brand={brand} className="w-[52px] h-[52px] rounded-full" />
-						) : (
-							<div className="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-full bg-white shadow-md overflow-hidden">
-								<img src={`https://financialmodelingprep.com/image-stock/${activeStock}.png`} alt="" className="w-[38px] h-[38px] object-contain"
-									onError={e => {
-										const img = e.target as HTMLImageElement;
-										img.style.display = "none";
-										(img.parentElement as HTMLElement).innerHTML = `<span class="text-[14px] font-bold text-slate-600">${activeStock.slice(0, 2)}</span>`;
-									}} />
-							</div>
-						)}
-						<div>
-							<p className="text-[20px] font-extrabold leading-tight">{name}</p>
-							<p className="text-[13px] dark:text-slate-400 text-slate-500">{activeStock}</p>
-						</div>
-					</div>
-					<div className="mb-[20px]">
-						{activePrice != null ? (
-							<>
-								<p className="text-[44px] font-extrabold leading-none mb-[4px]">
-									${activePrice.toFixed(2)}
-								</p>
-								{chartRange === "1d" ? (
-									<>
-										{activeTodayPct != null && (
-											<p className={`text-[15px] font-semibold ${activeTodayPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-												{activeTodayPct >= 0 ? "▲" : "▼"} {activeTodayChange != null ? `$${Math.abs(activeTodayChange).toFixed(2)} (` : ""}{activeTodayPct >= 0 ? "+" : ""}{activeTodayPct.toFixed(2)}%{activeTodayChange != null ? ")" : ""} today
-											</p>
-										)}
-										{(() => {
-											const q = activeStockData?.quote;
-											const ms = q?.marketState;
-											const ep = q?.extendedPrice;
-											const ec = q?.extendedChange;
-											const ecp = q?.extendedChangePercent;
-											if (!ep || (!ec && ec !== 0)) return null;
-											const label = ms === "PRE" || ms === "PREPRE" ? "Pre-market" : "After-hours";
-											const up = ec >= 0;
-											return (
-												<p className={`text-[13px] font-semibold mt-[2px] ${up ? "text-emerald-400/80" : "text-rose-400/80"}`}>
-													{up ? "▲" : "▼"} ${Math.abs(ec).toFixed(2)} ({ecp != null ? `${(ecp * 100).toFixed(2)}%` : ""}) {label}
-												</p>
-											);
-										})()}
-									</>
-								) : (() => {
-									const prices = chartData?.prices ?? [];
-									const first = prices[0]?.close;
-									const last = prices[prices.length - 1]?.close;
-									if (!first || !last) return null;
-									const rd = last - first;
-									const rp = ((last - first) / first) * 100;
-									const RLABELS: Record<ChartRange, string> = { "1d": "Today", "1w": "Past week", "1m": "Past month", "3m": "Past 3 months", "ytd": "Year to date", "1y": "Past year" };
-									return (
-										<p className={`text-[15px] font-semibold ${rp >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-											{rp >= 0 ? "▲" : "▼"} ${Math.abs(rd).toFixed(2)} ({rp >= 0 ? "+" : ""}{rp.toFixed(2)}%) <span className="text-[13px] font-normal dark:text-slate-400 text-slate-500">{RLABELS[chartRange]}</span>
-										</p>
-									);
-								})()}
-							</>
-						) : (
-							<p className="text-[20px] font-bold dark:text-slate-400 text-slate-500">Loading…</p>
-						)}
-					</div>
-
-					{/* Price chart */}
-					{(() => {
-						const prices = chartData?.prices ?? [];
-						const isUp = prices.length >= 2 && prices[prices.length - 1]!.close >= prices[0]!.close;
-						const color = isUp ? "#34d399" : "#f87171";
-
-						const RANGE_LABELS: Record<ChartRange, string> = { "1d": "Today", "1w": "Past week", "1m": "Past month", "3m": "Past 3 months", "ytd": "Year to date", "1y": "Past year" };
-
-						const fmtLabel = (ts: string) => {
-							const d = new Date(ts);
-							if (chartRange === "1d") {
-								const s = prices.find(p => p.ts === ts)?.session;
-								const sfx = s === "pre" ? " · Pre-market" : s === "post" ? " · After-hours" : "";
-								return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) + sfx;
-							}
-							if (chartRange === "1w") return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-							return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-						};
-
-						// Session boundary reference lines (still useful on 1d/1w even without color difference)
-						const sessionBoundaries: string[] = [];
-						if (chartRange === "1d" || chartRange === "1w") {
-							for (let i = 1; i < prices.length; i++) {
-								const prev = prices[i - 1]!.session ?? "regular";
-								const curr = prices[i]!.session ?? "regular";
-								if (prev !== curr) sessionBoundaries.push(prices[i]!.ts);
-							}
-						}
-
-						const RANGES: ChartRange[] = ["1d", "1w", "1m", "3m", "ytd", "1y"];
-
-						return (
-							<div className="mb-[20px]">
-								{chartLoading ? (
-									<div className="h-[140px] rounded-[14px] bg-surface-1 animate-pulse" />
-								) : prices.length > 1 ? (
-									<div className="rounded-[14px] overflow-hidden bg-surface-1 px-[2px] pt-[10px] pb-[2px]">
-										<ResponsiveContainer width="100%" height={130}>
-											<AreaChart data={prices} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-												<defs>
-													<linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
-														<stop offset="5%" stopColor={color} stopOpacity={0.2} />
-														<stop offset="95%" stopColor={color} stopOpacity={0} />
-													</linearGradient>
-												</defs>
-												<YAxis domain={["auto", "auto"]} hide />
-												<Tooltip
-													contentStyle={{ background: "var(--surface-2,#1e293b)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 11, padding: "6px 10px" }}
-													labelStyle={{ color: "var(--foreground)", fontWeight: 600, marginBottom: 2 }}
-													formatter={(v: number) => [`$${v.toFixed(2)}`, ""]}
-													labelFormatter={(_, payload) => payload?.[0]?.payload?.ts ? fmtLabel(payload[0].payload.ts) : ""}
-												/>
-												{sessionBoundaries.map(ts => (
-													<ReferenceLine key={ts} x={ts} stroke="rgba(148,163,184,0.2)" strokeDasharray="3 3" strokeWidth={1} />
-												))}
-												<Area type="monotone" dataKey="close" stroke={color} strokeWidth={2} fill="url(#chartFill)" dot={false} activeDot={{ r: 4, fill: color }} />
-											</AreaChart>
-										</ResponsiveContainer>
-									</div>
-								) : (
-									<div className="h-[130px] flex items-center justify-center rounded-[14px] bg-surface-1">
-										<p className="text-[12px] dark:text-slate-500 text-slate-400">No chart data</p>
-									</div>
-								)}
-								{/* Range selector */}
-								<div className="flex justify-between mt-[10px] px-[2px]">
-									{RANGES.map(r => (
-										<button
-											key={r}
-											type="button"
-											onClick={() => setChartRange(r)}
-											className={`flex-1 py-[5px] text-[11px] font-bold rounded-full transition-colors ${chartRange === r ? "bg-violet-500/20 text-violet-400" : "dark:text-slate-500 text-slate-400"}`}
-										>
-											{r.toUpperCase()}
-										</button>
-									))}
-								</div>
-							</div>
-						);
-					})()}
-					{inPortfolio && holding ? (
-						<div className="rounded-[16px] border border-foreground/10 bg-surface-1 px-[18px] py-[16px] mb-[20px]">
-							<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[14px] font-semibold">Your Position</p>
-							<div className="grid grid-cols-2 gap-[14px]">
-								<div>
-									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Shares</p>
-									<p className="text-[18px] font-extrabold">{holding.shares}</p>
-								</div>
-								<div>
-									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Avg cost</p>
-									<p className="text-[18px] font-extrabold">
-										{holding.entry.priceAtAdd != null ? `$${holding.entry.priceAtAdd.toFixed(2)}` : "—"}
-									</p>
-								</div>
-								<div>
-									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Market value</p>
-									<p className="text-[18px] font-extrabold">${holding.currentValue.toFixed(2)}</p>
-								</div>
-								<div>
-									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Portfolio diversity</p>
-									<p className="text-[18px] font-extrabold">
-										{totalPortfolioValue > 0 ? `${((holding.currentValue / totalPortfolioValue) * 100).toFixed(1)}%` : "—"}
-									</p>
-								</div>
-								<div>
-									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Total return</p>
-									{(() => {
-										const d = holding.priceDollar ?? 0;
-										const p = holding.pricePct;
-										const up = d >= 0;
-										return (
-											<p className={`text-[15px] font-extrabold ${up ? "text-emerald-400" : "text-rose-400"}`}>
-												{up ? "+" : "-"}${Math.abs(d).toFixed(2)}{p != null ? ` (${up ? "+" : ""}${p.toFixed(2)}%)` : ""}
-											</p>
-										);
-									})()}
-								</div>
-								<div>
-									<p className="text-[11px] dark:text-slate-500 text-slate-400 mb-[2px]">Today's return</p>
-									{(() => {
-										// Robinhood style: always (current price - previous close) × shares
-										const d = activeTodayChange != null ? holding.shares * activeTodayChange : null;
-										const p = activeTodayPct;
-										if (d == null) return <p className="text-[15px] font-extrabold dark:text-slate-400 text-slate-500">—</p>;
-										const up = d >= 0;
-										return (
-											<p className={`text-[15px] font-extrabold ${up ? "text-emerald-400" : "text-rose-400"}`}>
-												{up ? "+" : "-"}${Math.abs(d).toFixed(2)}{p != null ? ` (${up ? "+" : ""}${p.toFixed(2)}%)` : ""}
-											</p>
-										);
-									})()}
-								</div>
-							</div>
-						</div>
-					) : (
-						<div className="rounded-[16px] border border-dashed border-foreground/20 px-[18px] py-[14px] mb-[20px] text-center">
-							<p className="text-[13px] dark:text-slate-400 text-slate-500">Not in your portfolio</p>
-						</div>
-					)}
-				</div>
-				<div className="fixed left-0 right-0 z-30 max-w-lg mx-auto px-[18px] pt-[12px] bg-background/95 backdrop-blur-sm border-t border-foreground/[0.06]" style={{ bottom: "calc(4rem + env(safe-area-inset-bottom))", paddingBottom: "12px" }}>
-					<div className={`grid gap-[10px] ${inPortfolio ? "grid-cols-2" : "grid-cols-1"}`}>
-						<button
-							type="button"
-							disabled={tickers.length >= SANDBOX_MAX_POSITIONS && !inPortfolio}
-							onClick={() => { setOrderQty(0); setOrderAction("buy"); }}
-							className="h-[52px] rounded-[14px] font-bold text-[16px] text-white active:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-							style={{ background: "linear-gradient(90deg,#7c3aed,#6366f1)" }}
-						>
-							Buy
-						</button>
-						{inPortfolio && (
-							<button
-								type="button"
-								onClick={() => { setOrderQty(0); setOrderAction("sell"); }}
-								className="h-[52px] rounded-[14px] font-bold text-[16px] border border-rose-500/30 bg-rose-500/[0.07] text-rose-400 active:opacity-80 transition-opacity"
-							>
-								Sell
-							</button>
-						)}
-					</div>
-				</div>
-				{renderOrderSheet()}
-			</div>
-		);
-	}
-
-	// ── Render: Portfolio List ───────────────────────────────────────────────────
-
-	// Search overlay brand results
-	const searchResults = searchQuery.trim()
-		? allBrands
-			.filter(b => b.ticker && (
-				b.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				b.ticker.toLowerCase().includes(searchQuery.toLowerCase())
-			))
-			.slice(0, 40)
-		: allBrands.filter(b => !!b.ticker).slice(0, 40);
-
-	return (
-		<div className="min-h-full bg-background text-foreground">
-			<div className="max-w-lg mx-auto px-[18px] pt-[20px] pb-[120px]">
-				<BackBtn onClick={onBack} />
-				<div className="mb-[6px]">
-					<h2 className="text-[24px] font-extrabold">Sandbox</h2>
-					<p className="text-[13px] dark:text-slate-400 text-slate-500">Practice mode</p>
-				</div>
-				{/* Portfolio overview + chart */}
-				{(() => {
-					const firstVal = portfolioChartData[0]?.value;
-					const lastVal = portfolioChartData[portfolioChartData.length - 1]?.value;
-					const chartPct = firstVal && lastVal ? ((lastVal - firstVal) / firstVal) * 100 : null;
-					const chartDollar = firstVal && lastVal ? lastVal - firstVal : null;
-					// Color based on range performance (like Robinhood), not all-time P&L
-					const chartColor = (chartDollar ?? totalDollarPnl) >= 0 ? "#34d399" : "#f87171";
-					const PRANGES: ChartRange[] = ["1d", "1w", "1m", "3m", "ytd", "1y"];
-					const fmtLabel = (ts: string) => {
-						const d = new Date(ts);
-						if (portfolioChartRange === "1d") return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-						if (portfolioChartRange === "1w") return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-						return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-					};
-					return (
-						<div className="mt-[16px] mb-[20px]">
-							<p className="text-[11px] uppercase tracking-wide dark:text-slate-400 text-slate-500 mb-[2px] font-medium">Total P/L</p>
-							<p className={`text-[38px] font-extrabold leading-none mb-[2px] ${totalDollarPnl > 0 ? "text-emerald-400" : totalDollarPnl < 0 ? "text-rose-400" : "text-foreground"}`}>
-								{totalDollarPnl > 0 ? `+$${totalDollarPnl.toFixed(2)}` : totalDollarPnl < 0 ? `-$${Math.abs(totalDollarPnl).toFixed(2)}` : "$0.00"}
-							</p>
-							{(() => {
-								const PLABELS: Record<ChartRange, string> = { "1d": "Today", "1w": "Past week", "1m": "Past month", "3m": "Past 3 months", "ytd": "Year to date", "1y": "Past year" };
-								if (investedTotal <= 0) return <p className="text-[14px] font-semibold mb-[10px] text-emerald-400">$0.00 (0.00%) <span className="dark:text-slate-400 text-slate-500 font-normal">{PLABELS[portfolioChartRange]}</span></p>;
-								if (chartPct == null || chartDollar == null) return <div className="mb-[10px]" />;
-								return (
-									<p className={`text-[14px] font-semibold mb-[10px] ${chartPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-										{chartPct >= 0 ? "▲" : "▼"} ${Math.abs(chartDollar).toFixed(2)} ({chartPct >= 0 ? "+" : ""}{chartPct.toFixed(2)}%) <span className="dark:text-slate-400 text-slate-500 font-normal">{PLABELS[portfolioChartRange]}</span>
-									</p>
-								);
-							})()}
-							{/* Chart — always shown, flat line when no holdings */}
-							{portfolioChartLoading && investedTotal > 0 ? (
-								<div className="h-[150px] rounded-[14px] bg-surface-1 animate-pulse mb-[6px]" />
-							) : portfolioChartData.length > 1 ? (
-								<div className="rounded-[14px] overflow-hidden bg-surface-1 px-[2px] pt-[10px] pb-[2px] mb-[4px]">
-									<ResponsiveContainer width="100%" height={140}>
-										<AreaChart data={portfolioChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-											<defs>
-												<linearGradient id="portfolioFill" x1="0" y1="0" x2="0" y2="1">
-													<stop offset="5%" stopColor={chartColor} stopOpacity={0.2} />
-													<stop offset="95%" stopColor={chartColor} stopOpacity={0} />
-												</linearGradient>
-											</defs>
-											<YAxis domain={["auto", "auto"]} hide />
-											<Tooltip
-												contentStyle={{ background: "var(--surface-2,#1e293b)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, fontSize: 11, padding: "6px 10px" }}
-												labelStyle={{ color: "var(--foreground)", fontWeight: 600, marginBottom: 2 }}
-												formatter={(v: number) => [<span style={{ color: v >= 0 ? "#34d399" : "#f87171" }}>{v >= 0 ? `+$${v.toFixed(2)}` : `-$${Math.abs(v).toFixed(2)}`}</span>, "P/L"]}
-												labelFormatter={(_, payload) => payload?.[0]?.payload?.ts ? fmtLabel(payload[0].payload.ts) : ""}
-											/>
-											<Area type="monotone" dataKey="pnl" stroke={chartColor} strokeWidth={2} fill="url(#portfolioFill)" dot={false} activeDot={{ r: 4, fill: chartColor }} />
-										</AreaChart>
-									</ResponsiveContainer>
-								</div>
-							) : (
-								/* Flat line — no investments yet or just reset */
-								<div className="h-[80px] flex flex-col items-center justify-center rounded-[14px] bg-surface-1 mb-[4px]">
-									<div className="w-full h-[2px] bg-emerald-400/40 mx-[16px]" style={{ width: "calc(100% - 32px)" }} />
-									<p className="text-[11px] dark:text-slate-500 text-slate-400 mt-[10px]">
-										{investedTotal <= 0 ? "Buy your first stock to see your chart" : "Not enough data for this range yet"}
-									</p>
-								</div>
-							)}
-							<div className="flex justify-between px-[2px] mb-[16px]">
-								{PRANGES.map(r => (
-									<button key={r} type="button" onClick={() => setPortfolioChartRange(r)}
-										className={`flex-1 py-[5px] text-[11px] font-bold rounded-full transition-colors ${portfolioChartRange === r ? "bg-violet-500/20 text-violet-400" : "dark:text-slate-500 text-slate-400"}`}>
-										{r.toUpperCase()}
-									</button>
-								))}
-							</div>
-							<div className="grid grid-cols-2 gap-[10px]">
-								<div className="rounded-[12px] bg-foreground/[0.04] px-[12px] py-[10px]">
-									<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[3px]">Buying Power</p>
-									<p className={`text-[18px] font-extrabold ${sandboxCash < 1 ? "text-rose-400" : "text-emerald-400"}`}>
-										${sandboxCash.toFixed(2)}
-									</p>
-								</div>
-								<div className="rounded-[12px] bg-foreground/[0.04] px-[12px] py-[10px]">
-									<p className="text-[10px] dark:text-slate-500 text-slate-400 mb-[3px]">Cost Basis</p>
-									<p className="text-[18px] font-extrabold">${investedTotal.toFixed(2)}</p>
-								</div>
-							</div>
-						</div>
-					);
-				})()}
-				{/* Holdings list */}
-				{tickers.length > 0 ? (
-					<div className="space-y-[8px] mb-[24px]">
-						{holdings.map(h => {
-							return (
-								<button
-									key={h.ticker}
-									type="button"
-									onClick={() => { setActiveStock(h.ticker); setChartRange("1d"); }}
-									className="w-full flex items-center gap-[12px] rounded-[16px] border border-foreground/10 bg-surface-1 px-[14px] py-[13px] text-left active:opacity-80 transition-opacity"
-								>
-									{h.brand ? (
-										<BrandLogo brand={h.brand} className="w-[40px] h-[40px] rounded-full" />
-									) : (
-										<div className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-full bg-white shadow-sm overflow-hidden">
-											<img src={`https://financialmodelingprep.com/image-stock/${h.ticker}.png`} alt="" className="w-[28px] h-[28px] object-contain"
-												onError={e => {
-													const img = e.target as HTMLImageElement;
-													img.style.display = "none";
-													(img.parentElement as HTMLElement).innerHTML = `<span class="text-[11px] font-bold text-slate-600">${h.ticker.slice(0, 2)}</span>`;
-												}} />
-										</div>
-									)}
-									<div className="flex-1 min-w-0">
-										<p className="text-[14px] font-bold leading-tight truncate">{h.brand?.name ?? h.ticker}</p>
-										<p className="text-[12px] dark:text-slate-400 text-slate-500 mt-[2px]">
-											{h.ticker} · {h.shares} sh
-										</p>
-									</div>
-							{(() => { const pts = sparklineMap.get(h.ticker); return pts ? <Sparkline prices={pts} positive={(h.pricePct ?? 0) >= 0} /> : null; })()}
-									<div className="text-right shrink-0">
-										<p className="text-[14px] font-extrabold">${h.currentValue.toFixed(2)}</p>
-										{h.pricePct != null && (
-											<p className={`text-[12px] font-semibold mt-[2px] ${h.pricePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-												{h.pricePct >= 0 ? "+" : ""}{h.pricePct.toFixed(2)}%
-											</p>
-										)}
-									</div>
-									<ChevronRight size={16} className="shrink-0 dark:text-slate-600 text-slate-300" />
-								</button>
-							);
-						})}
-					</div>
-				) : (
-					<div className="rounded-[18px] border border-dashed border-foreground/20 p-[36px] text-center mb-[20px]">
-						<div className="text-[48px] mb-[14px]">📈</div>
-						<p className="text-[16px] font-extrabold mb-[6px]">Start trading</p>
-						<p className="text-[13px] dark:text-slate-400 text-slate-500 leading-relaxed max-w-[240px] mx-auto mb-[10px]">
-							Search for a stock to get started with your ${sandboxBudgetForXp(sandboxTotalXp).toLocaleString()} practice cash.
-						</p>
-						<p className="text-[12px] text-violet-400 font-semibold">Real prices · real shares · no risk</p>
-					</div>
-				)}
-				{/* Reset */}
-				{(tickers.length > 0 || sandboxCash !== sandboxBudgetForXp(sandboxTotalXp)) && (
-					<div className="mt-[8px] pt-[16px] border-t border-foreground/[0.06]">
-						{!confirmReset ? (
-							<button type="button" onClick={() => setConfirmReset(true)}
-								className="w-full text-[12px] dark:text-slate-500 text-slate-400 text-center active:opacity-70 py-[4px]">
-								Reset portfolio to ${sandboxBudgetForXp(sandboxTotalXp).toLocaleString()}
-							</button>
-						) : (
-							<div className="rounded-[12px] border border-rose-500/20 bg-rose-500/[0.06] px-[14px] py-[12px]">
-								<p className="text-[12px] font-bold mb-[4px]">Reset to ${sandboxBudgetForXp(sandboxTotalXp).toLocaleString()}?</p>
-								<p className="text-[11px] dark:text-slate-400 text-slate-500 mb-[10px]">All positions will be cleared. Cannot be undone.</p>
-								<div className="flex gap-[8px]">
-									<button type="button" onClick={() => setConfirmReset(false)}
-										className="flex-1 text-[12px] font-semibold border border-foreground/10 rounded-[8px] py-[7px] dark:text-slate-400 text-slate-500 active:opacity-70">
-										Cancel
-									</button>
-									<button type="button" onClick={() => { resetSandbox(); setConfirmReset(false); }}
-										className="flex-1 text-[12px] font-semibold bg-rose-500/15 border border-rose-500/25 text-rose-400 rounded-[8px] py-[7px] active:opacity-70">
-										Reset
-									</button>
-								</div>
-							</div>
-						)}
-					</div>
-				)}
-			</div>
-			{/* Floating "+" button */}
-			<button
-				type="button"
-				onClick={() => { setSearchQuery(""); setOrderAction(null); setOrderQty(0); setOrderAmount(0); setOrderMode("shares"); setShowSearch(true); }}
-				className="fixed right-[20px] z-30 w-[56px] h-[56px] rounded-full shadow-xl flex items-center justify-center text-[28px] font-bold text-white active:scale-95 transition-transform"
-				style={{ bottom: "calc(4rem + env(safe-area-inset-bottom) + 16px)", background: "linear-gradient(135deg,#7c3aed,#6366f1)" }}
-			>
-				+
-			</button>
-			{/* Search overlay */}
-			{showSearch && (
-				<div className="fixed inset-0 z-50 bg-background flex flex-col">
-					<div className="px-[18px] pt-[56px] pb-[12px] border-b border-foreground/[0.06]">
-						<div className="flex items-center gap-[12px]">
-							<div className="flex-1 flex items-center gap-[10px] rounded-[12px] border border-foreground/15 bg-foreground/[0.04] px-[14px] py-[10px]">
-								<Star size={15} className="dark:text-slate-500 text-slate-400 shrink-0" />
-								<input
-									type="text"
-									value={searchQuery}
-									onChange={e => setSearchQuery(e.target.value)}
-									placeholder="Search stocks…"
-									autoFocus
-									className="flex-1 bg-transparent text-[15px] text-foreground placeholder:dark:text-slate-500 placeholder:text-slate-400 outline-none"
-								/>
-								{searchQuery && (
-									<button type="button" onClick={() => setSearchQuery("")}
-										className="text-[14px] dark:text-slate-500 text-slate-400 shrink-0">✕</button>
-								)}
-							</div>
-							<button type="button" onClick={() => setShowSearch(false)}
-								className="text-[14px] font-semibold dark:text-slate-400 text-slate-500 shrink-0 active:opacity-70">
-								Cancel
-							</button>
-						</div>
-					</div>
-					<div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden px-[18px] py-[8px]">
-						{searchResults.length === 0 ? (
-							<p className="text-[14px] dark:text-slate-400 text-slate-500 text-center py-[40px]">No matches found</p>
-						) : (
-							searchResults.map(b => {
-								const liveQuote = queryClient.getQueryData<{ quote?: { price?: number; changePercent?: number } }>(["stock", b.ticker?.toUpperCase()])?.quote;
-								const livePrice = liveQuote?.price ?? null;
-								const changePct = liveQuote?.changePercent ?? null;
-								return (
-									<button
-										key={b.id}
-										type="button"
-										onClick={() => {
-											setShowSearch(false);
-											setSearchQuery("");
-											setActiveStock(b.ticker!.toUpperCase()); setChartRange("1d");
-										}}
-										className="w-full flex items-center gap-[13px] py-[13px] border-b border-foreground/[0.05] last:border-b-0 text-left active:bg-foreground/[0.04] transition-colors"
-									>
-										<BrandLogo brand={b} className="w-[40px] h-[40px] rounded-full" />
-										<div className="flex-1 min-w-0">
-											<p className="text-[14px] font-semibold truncate">{b.name}</p>
-											<p className="text-[12px] dark:text-slate-400 text-slate-500">{b.ticker}</p>
-										</div>
-										<div className="text-right shrink-0">
-											{livePrice != null ? (
-												<>
-													<p className="text-[14px] font-bold">${livePrice.toFixed(2)}</p>
-													{changePct != null && (
-														<p className={`text-[12px] font-semibold ${changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-															{changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
-														</p>
-													)}
-												</>
-											) : (
-												<p className="text-[12px] dark:text-slate-500 text-slate-400">View</p>
-											)}
-										</div>
-									</button>
-								);
-							})
-						)}
-					</div>
-				</div>
-			)}
-		</div>
-	);
-}
 // ── Playground Onboarding ─────────────────────────────────────────────────────
 
 const ONBOARDING_SLIDES = [
@@ -4462,15 +3474,15 @@ const ONBOARDING_SLIDES = [
 		emoji: "🧠",
 		title: "Welcome to Playground",
 		body: "This is your practice space. No real money, no pressure — just a better way to understand stocks before you invest.",
-		accent: "from-violet-500/20 to-blue-500/20",
-		border: "border-violet-500/30",
+		accent: "from-[#9E8CE5]/20 to-[#69B3CA]/20",
+		border: "border-[#9E8CE5]/30",
 	},
 	{
 		emoji: "📚",
 		title: "Learn & Practice",
 		body: "Work through bite-sized lessons, daily challenges, and real-world scenarios. Each section is designed to build a different skill — from reading earnings to spotting risk.",
-		accent: "from-blue-500/20 to-cyan-500/20",
-		border: "border-blue-500/30",
+		accent: "from-[#69B3CA]/10 to-[#69B3CA]/20",
+		border: "border-[#69B3CA]/30",
 	},
 	{
 		emoji: "⚡",
@@ -4483,7 +3495,7 @@ const ONBOARDING_SLIDES = [
 		emoji: "🚀",
 		title: "Where do you want to start?",
 		body: "Pick what sounds most interesting. You can explore everything — this just gets you started.",
-		accent: "from-emerald-500/20 to-teal-500/20",
+		accent: "from-emerald-500/20 to-[#69B3CA]/20",
 		border: "border-emerald-500/30",
 		isPicker: true,
 	},
@@ -4548,7 +3560,7 @@ function PlaygroundOnboarding({ onDone }: { onDone: (startView: ActiveView | nul
 							type="button"
 							onClick={() => setSlide(s => s + 1)}
 							className="h-[48px] px-[28px] rounded-[12px] font-semibold text-[15px] text-white active:opacity-80"
-							style={{ background: "linear-gradient(90deg,#6366f1,#8b5cf6)" }}
+							style={{ background: DISC.cta }}
 						>
 							Next →
 						</button>

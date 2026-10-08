@@ -1,5 +1,12 @@
 import type { FinnhubArticle } from "./finnhubService.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
+import { brands } from "@stak/shared/brands";
+
+/** The stocks the app carries. A story's ticker is kept only when it's one of them: the model names any listing (an
+ *  OTC "SSNLF" for Samsung), and a stock outside the catalog has no quote, no name and can't be added to a STAK - the
+ *  story's stock card showed "--" and an Add to STAK that couldn't work. */
+const CATALOG_TICKERS = new Set(brands.map((b) => b.ticker.toUpperCase()));
+const catalogTicker = (t: string) => (CATALOG_TICKERS.has(t) ? t : "");
 
 export interface SimplifiedArticle {
 	headline: string;
@@ -71,8 +78,20 @@ export function getGeminiKeys(): string[] {
 type SimplifyResult = { explanation: string; whyItMatters: string; sentiment: string; ticker: string };
 
 export const GEMINI_MODEL = "gemini-2.5-flash";
+/**
+ * Sent as the system instruction on every Gemini call that writes text people read: STAK writes American English
+ * (STAK AI's own prompt says the same). Not on data-only calls (classifiers, JSON, holiday lists), where "US
+ * punctuation" could turn an exact answer like `beat` into `Beat.`.
+ */
+export const AMERICAN_ENGLISH = {
+	parts: [{ text: "Write in American English: American spelling (analyze, behavior, center, color, favorite, practicing) and US punctuation." }],
+};
+
 export const geminiUrl = (model: string, key: string) =>
 	`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+/** The same call, answered as server-sent events while it's written (STAK AI's streamed answers). */
+export const geminiStreamUrl = (model: string, key: string) =>
+	`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`;
 
 // Use the lite model for high-volume article simplification — faster and cheaper
 const SIMPLIFY_MODEL = "gemini-2.5-flash-lite";
@@ -92,6 +111,7 @@ async function trySimplifyKey(key: string, prompt: string, count: number): Promi
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
+						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, responseMimeType: "application/json" },
 					}),
@@ -190,7 +210,8 @@ export async function simplifyArticles(
 	// The key is the articles alone, but `type` is the caller's classification, not
 	// Gemini's output - so it is laid over the cached copy rather than served from it.
 	// Returning it as cached kept a relabelled story under its old label for 30 minutes.
-	if (cached) return types ? cached.map((c, i) => ({ ...c, type: types[i] ?? c.type })) : cached;
+	// Summaries cached before the catalog check drop their outside ticker on the way out too.
+	if (cached) return cached.map((c, i) => ({ ...c, type: types?.[i] ?? c.type, ticker: catalogTicker(c.ticker ?? "") }));
 
 	// Process batches in parallel for speed
 	const batches = chunk(articles, BATCH_SIZE);
@@ -217,7 +238,7 @@ export async function simplifyArticles(
 				? s.sentiment
 				: "neutral") as "bullish" | "bearish" | "neutral",
 			type: types?.[i] ?? "sector",
-			ticker: typeof s.ticker === "string" ? s.ticker.toUpperCase().replace(/[^A-Z.]/g, "").slice(0, 10) : "",
+			ticker: typeof s.ticker === "string" ? catalogTicker(s.ticker.toUpperCase().replace(/[^A-Z.]/g, "").slice(0, 10)) : "",
 		};
 	});
 

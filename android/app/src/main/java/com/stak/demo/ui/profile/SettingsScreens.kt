@@ -30,6 +30,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -43,6 +44,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -51,6 +53,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -373,6 +376,36 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 	var confirmDelete by rememberSaveable { mutableStateOf(false) }
 	var deleting by rememberSaveable { mutableStateOf(false) }
 	var deleteError by rememberSaveable { mutableStateOf<String?>(null) }
+	// Typed, so a stray tap can't delete an account (in any case: it's the deliberate typing that counts).
+	var typedDelete by rememberSaveable { mutableStateOf("") }
+	val deleteConfirmed = typedDelete.trim().uppercase() == "DELETE"
+	fun runDelete() {
+		// The demo persona has nothing on the server to delete - only a
+		// real account's data needs the network round trip, and only a
+		// confirmed server-side delete may wipe the phone and sign out
+		// (a failed request must leave the account exactly as it was).
+		if (Session.demoAccount) {
+			Session.deleteAccount()
+			onAccountDeleted()
+		} else {
+			deleting = true
+			deleteError = null
+			scope.launch {
+				val error = viewModel.deleteAccount()
+				deleting = false
+				if (error == null) {
+					// Drops the SDK's live session for the now-deleted account (audit
+					// 2026-09-19) - the same fix as Log out, so nothing signed up or
+					// signed into right after can inherit it.
+					viewModel.clearSession()
+					Session.deleteAccount()
+					onAccountDeleted()
+				} else {
+					deleteError = error
+				}
+			}
+		}
+	}
 	SettingsPage(title = "App settings", onBack = onBack) {
 		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
 			SettingsLinkRow(label = "Dark mode", value = if (UserProfile.appearance == "system") "Match system" else "On") { onOpen(SettingsKind.APPEARANCE) }
@@ -380,13 +413,37 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 		}
 		PermissionCard("Biometric login", "Unlock STAK with your fingerprint, face or phone PIN whenever you come back.", UserProfile.accountLock) { UserProfile.accountLock = !UserProfile.accountLock; Session.saveProfile() }
 		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
-			SettingsLinkRow(label = "Delete account", chevron = !confirmDelete) { confirmDelete = !confirmDelete }
+			SettingsLinkRow(label = "Delete account", chevron = !confirmDelete) { confirmDelete = !confirmDelete; typedDelete = "" }
 			AnimatedVisibility(visible = confirmDelete) {
 				Column(verticalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.padding(start = (14 * u).dp, end = (14 * u).dp, bottom = (14 * u).dp)) {
 					Text(
 						"This removes your saves, paper portfolio and settings from this phone and signs you out. It can\u2019t be undone.",
 						style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 						color = Body,
+					)
+					Text(
+						"Type DELETE to confirm",
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp),
+						color = Body,
+					)
+					BasicTextField(
+						value = typedDelete,
+						onValueChange = { typedDelete = it.take(12) },
+						textStyle = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp, color = StakColors.TextPrimary),
+						singleLine = true,
+						keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, autoCorrectEnabled = false, imeAction = ImeAction.Done),
+						keyboardActions = KeyboardActions(onDone = { if (deleteConfirmed && !deleting) runDelete() }),
+						cursorBrush = SolidColor(StakColors.Accent),
+						modifier = Modifier
+							.fillMaxWidth()
+							.background(StakColors.SurfaceAlt, RoundedCornerShape((6 * u).dp))
+							.border((1 * u).dp, StakColors.CardBorder, RoundedCornerShape((6 * u).dp))
+							.padding(horizontal = (12 * u).dp, vertical = (13 * u).dp),
+					)
+					Text(
+						if (deleteConfirmed) "Delete my account is ready." else "The button unlocks once DELETE is typed.",
+						style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp),
+						color = StakColors.Muted,
 					)
 					if (deleteError != null) {
 						Text(deleteError!!, style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp), color = Color(0xFFE5484D))
@@ -398,32 +455,9 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 							.height((44 * u).dp)
 							.clip(RoundedCornerShape((6 * u).dp))
 							.background(Color(0x33E5484D))
-							.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, enabled = !deleting) {
-								// The demo persona has nothing on the server to delete - only a
-								// real account's data needs the network round trip, and only a
-								// confirmed server-side delete may wipe the phone and sign out
-								// (a failed request must leave the account exactly as it was).
-								if (Session.demoAccount) {
-									Session.deleteAccount()
-									onAccountDeleted()
-								} else {
-									deleting = true
-									deleteError = null
-									scope.launch {
-										val error = viewModel.deleteAccount()
-										deleting = false
-										if (error == null) {
-											// Drops the SDK's live session for the now-deleted account (audit
-											// 2026-09-19) - the same fix as Log out, so nothing signed up or
-											// signed into right after can inherit it.
-											viewModel.clearSession()
-											Session.deleteAccount()
-											onAccountDeleted()
-										} else {
-											deleteError = error
-										}
-									}
-								}
+							.alpha(if (deleteConfirmed && !deleting) 1f else 0.5f)
+							.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, enabled = !deleting && deleteConfirmed) {
+								runDelete()
 							},
 					) {
 						Text(if (deleting) "Deleting\u2026" else "Delete my account", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color(0xFFE5484D))

@@ -1,82 +1,16 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { useEffect } from "react";
 
-type Theme = "light" | "dark" | "system";
-
-interface ThemeContextType {
-	theme: Theme;
-	setTheme: (theme: Theme) => void;
-	resolvedTheme: "light" | "dark";
-	reapplyTheme: () => void;
-}
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-
+/**
+ * STAK is dark-only, matching the Android app. This used to be a full
+ * light/dark/system theme switcher; that toggle is gone (2026-09-25), but
+ * the `.dark` class still has to land on <html> because a lot of existing
+ * component code gates on literal `dark:` Tailwind variants rather than the
+ * CSS custom properties in styles.css.
+ */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-	const [theme, setTheme] = useState<Theme>(() => {
-		const saved = localStorage.getItem("stak-theme") as Theme;
-		return saved || "light";
-	});
-
-	const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
-
 	useEffect(() => {
-		localStorage.setItem("stak-theme", theme);
+		document.documentElement.classList.add("dark");
+	}, []);
 
-		const getResolvedTheme = (): "light" | "dark" => {
-			if (theme === "system") {
-				return window.matchMedia("(prefers-color-scheme: dark)").matches
-					? "dark"
-					: "light";
-			}
-			return theme;
-		};
-
-		const applyTheme = () => {
-			const resolved = getResolvedTheme();
-			setResolvedTheme(resolved);
-
-			if (resolved === "dark") {
-				document.documentElement.classList.add("dark");
-			} else {
-				document.documentElement.classList.remove("dark");
-			}
-		};
-
-		applyTheme();
-
-		// Expose so external callers can force a re-apply (e.g. after auth-page dark override)
-		(window as unknown as Record<string, unknown>).__stakReapplyTheme = applyTheme;
-
-		if (theme === "system") {
-			const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-			const handleChange = () => applyTheme();
-			mediaQuery.addEventListener("change", handleChange);
-			return () => mediaQuery.removeEventListener("change", handleChange);
-		}
-	}, [theme]);
-
-	const reapplyTheme = () => {
-		const resolved = theme === "system"
-			? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
-			: theme;
-		if (resolved === "dark") {
-			document.documentElement.classList.add("dark");
-		} else {
-			document.documentElement.classList.remove("dark");
-		}
-	};
-
-	return (
-		<ThemeContext.Provider value={{ theme, setTheme, resolvedTheme, reapplyTheme }}>
-			{children}
-		</ThemeContext.Provider>
-	);
-}
-
-export function useTheme() {
-	const context = useContext(ThemeContext);
-	if (!context) {
-		throw new Error("useTheme must be used within ThemeProvider");
-	}
-	return context;
+	return <>{children}</>;
 }

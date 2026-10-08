@@ -1,193 +1,121 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useAuth } from "../context/AuthContext";
-import { useState, useRef, useEffect } from "react";
-import { toast } from "sonner";
+import { useEffect, useId, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { ChevronLeft, Lock, Shield, Eye, EyeOff, KeyRound, Mail } from "lucide-react";
+import { NoticeCard, SettingsScaffold } from "@/components/profile/ProfileKit";
+import { SheetCta } from "@/components/simulate/simKit";
+import { DISC, cu } from "@/components/discover/discoverTheme";
+import { f, sheetCard } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/profile_/security")({
-	component: SecurityPage,
+	component: ChangePasswordPage,
 });
 
-function SecurityPage() {
-	const { appUser, resetPasswordSupabase } = useAuth();
+/** Android's friendlyError: a Supabase failure in plain words. */
+function friendlyError(err: unknown): string {
+	const message = err instanceof Error ? err.message : "";
+	const lower = message.toLowerCase();
+	if (lower.includes("weak_password") || lower.includes("weak password")) return "Password is too weak — use at least 8 characters";
+	if (lower.includes("network") || lower.includes("failed to fetch")) return "Network error — check your connection";
+	if (lower.includes("user not found")) return "No account found for that email";
+	if (lower.includes("security purposes")) return "Give it a moment before trying again.";
+	return message || "Something went wrong. Try again.";
+}
+
+function Field({ value, onChange, placeholder, hidden, error, trailing }: {
+	value: string;
+	onChange: (v: string) => void;
+	placeholder: string;
+	hidden: boolean;
+	error?: string | null;
+	trailing?: React.ReactNode;
+}) {
+	const errorId = useId();
+	return (
+		<div style={{ display: "flex", flexDirection: "column", gap: cu(6) }}>
+			<div className="flex items-center" style={{ gap: cu(8), ...sheetCard(14), padding: cu(16), border: error ? `${cu(1)} solid ${DISC.redDown}` : `${cu(1)} solid transparent` }}>
+				<input
+					type={hidden ? "password" : "text"}
+					value={value}
+					onChange={(e) => onChange(e.target.value)}
+					placeholder={placeholder}
+					aria-label={placeholder}
+					aria-invalid={!!error}
+					aria-describedby={error ? errorId : undefined}
+					autoComplete="new-password"
+					className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-[#819ABB]"
+					style={{ font: f(400, 13), color: "#fff", caretColor: "#69B3CA" }}
+				/>
+				{trailing}
+			</div>
+			{error && <p id={errorId} style={{ paddingLeft: cu(4), font: f(400, 11), color: DISC.redDown }}>{error}</p>}
+		</div>
+	);
+}
+
+/** Android's Change password (under App settings): two fields, checked after the first tap, then a "Password updated" card. */
+function ChangePasswordPage() {
+	const { appUser } = useAuth();
 	const navigate = useNavigate();
-
-	const [newPassword, setNewPassword] = useState("");
-	const [confirmPassword, setConfirmPassword] = useState("");
-	const [showNew, setShowNew] = useState(false);
+	const [password, setPassword] = useState("");
+	const [confirm, setConfirm] = useState("");
+	const [show, setShow] = useState(false);
+	const [attempted, setAttempted] = useState(false);
 	const [saving, setSaving] = useState(false);
+	const [serverError, setServerError] = useState<string | null>(null);
+	const [done, setDone] = useState(false);
 
-	// Swipe right to go back
-	const touchStartX = useRef(0);
-	const touchStartY = useRef(0);
-
-	useEffect(() => {
-		if (!appUser) navigate({ to: "/login" });
-	}, [appUser, navigate]);
+	useEffect(() => { if (!appUser) navigate({ to: "/login" }); }, [appUser, navigate]);
 	if (!appUser) return null;
 
-	const isGoogle = appUser.provider === "google.com";
-	const userEmail = appUser.email;
+	const backTo = "/profile/app-settings";
+	const passwordError = !attempted ? null : !password ? "Enter your password" : password.length < 8 ? "Use at least 8 characters" : null;
+	const confirmError = !attempted ? null : !confirm ? "Confirm your password" : confirm !== password ? "Passwords don’t match" : null;
 
-	async function handleChangePassword() {
-		if (newPassword.length < 6) {
-			toast.error("Password must be at least 6 characters");
-			return;
-		}
-		if (newPassword !== confirmPassword) {
-			toast.error("Passwords don't match");
-			return;
-		}
+	async function submit() {
+		setAttempted(true);
+		setServerError(null);
+		if (!password || password.length < 8 || confirm !== password || saving) return;
 		setSaving(true);
 		try {
-			// Supabase password update uses the active session — no re-auth needed.
-			const { error } = await supabase.auth.updateUser({ password: newPassword });
+			// The active session is enough; Supabase needs no re-authentication here.
+			const { error } = await supabase.auth.updateUser({ password });
 			if (error) throw error;
-			toast.success("Password updated successfully");
-			setNewPassword("");
-			setConfirmPassword("");
-		} catch {
-			toast.error("Failed to update password");
+			setDone(true);
+		} catch (err) {
+			setServerError(friendlyError(err));
 		} finally {
 			setSaving(false);
 		}
 	}
 
-	async function handleSendReset() {
-		if (!userEmail) return;
-		try {
-			await resetPasswordSupabase(userEmail);
-			toast.success("Reset email sent", { description: `Check ${userEmail}` });
-		} catch {
-			toast.error("Failed to send reset email");
-		}
+	if (appUser.provider === "google.com") {
+		return (
+			<SettingsScaffold title="Change password" backTo={backTo}>
+				<NoticeCard title="Password managed by Google" body="Your sign-in is handled by Google. To change your password, visit your Google account settings." />
+			</SettingsScaffold>
+		);
 	}
 
+	if (done) {
+		return (
+			<SettingsScaffold title="Change password" backTo={backTo}>
+				<NoticeCard title="Password updated" body="Use it the next time you sign in." />
+				<SheetCta onClick={() => navigate({ to: backTo })}>Done</SheetCta>
+			</SettingsScaffold>
+		);
+	}
+
+	const toggle = (
+		<button type="button" onClick={() => setShow((s) => !s)} aria-pressed={show} style={{ font: f(500, 11), color: DISC.teal }}>{show ? "Hide" : "Show"}</button>
+	);
 	return (
-		<div
-			className="min-h-screen bg-background text-foreground pb-24"
-			onTouchStart={(e) => {
-				touchStartX.current = e.touches[0].clientX;
-				touchStartY.current = e.touches[0].clientY;
-			}}
-			onTouchEnd={(e) => {
-				const dx = e.changedTouches[0].clientX - touchStartX.current;
-				const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
-				if (dx > 60 && dy < 50) navigate({ to: "/profile" });
-			}}
-		>
-			{/* Header */}
-			<div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-background/95 backdrop-blur border-b border-zinc-200 dark:border-slate-800/40">
-				<button
-					type="button"
-					onClick={() => navigate({ to: "/profile" })}
-					className="flex items-center gap-1.5 text-sm dark:text-zinc-400 text-zinc-600 hover:text-zinc-900 dark:hover:text-foreground transition-colors"
-				>
-					<ChevronLeft className="w-5 h-5" />
-					Back
-				</button>
-				<h1 className="text-sm font-semibold">Security & Password</h1>
-				<div className="w-12" />
-			</div>
-
-			<div className="max-w-lg mx-auto px-4 pt-8">
-
-				{/* Sign-in Method */}
-				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Sign-in Method</p>
-				<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 mb-6">
-					<div className="flex items-center gap-3 px-4 py-3.5">
-						<div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0">
-							<Shield className="w-4 h-4 text-amber-400" />
-						</div>
-						<div className="flex-1 min-w-0">
-							<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Provider</p>
-							<p className="text-sm font-medium text-foreground">{isGoogle ? "Google" : "Email & Password"}</p>
-						</div>
-						<span className={["text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 border", isGoogle ? "text-blue-400 bg-blue-500/10 border-blue-500/20" : "text-cyan-400 bg-cyan-500/10 border-cyan-500/20"].join(" ")}>
-							{isGoogle ? "Google" : "Email"}
-						</span>
-					</div>
-				</div>
-
-				{/* Password Section */}
-				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Password</p>
-
-				{isGoogle ? (
-					<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 p-4 text-center">
-						<div className="w-10 h-10 rounded-full bg-blue-500/15 flex items-center justify-center mx-auto mb-3">
-							<KeyRound className="w-5 h-5 text-blue-400" />
-						</div>
-						<p className="text-sm font-medium text-foreground mb-1">Password managed by Google</p>
-						<p className="text-xs text-zinc-500">Your sign-in is handled by Google. To change your password, visit your Google account settings.</p>
-					</div>
-				) : (
-					<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 divide-y divide-zinc-100 dark:divide-slate-700/30">
-
-						{/* New Password */}
-						<div className="flex items-center gap-3 px-4 py-3.5">
-							<div className="w-8 h-8 rounded-lg bg-cyan-500/15 flex items-center justify-center shrink-0">
-								<KeyRound className="w-4 h-4 text-cyan-400" />
-							</div>
-							<div className="flex-1 min-w-0">
-								<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">New Password</p>
-								<input
-									type={showNew ? "text" : "password"}
-									value={newPassword}
-									onChange={(e) => setNewPassword(e.target.value)}
-									placeholder="Min. 6 characters"
-									className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-zinc-600"
-								/>
-							</div>
-							<button type="button" onClick={() => setShowNew((v) => !v)} className="text-zinc-500 hover:dark:text-zinc-300 text-zinc-700 transition-colors shrink-0">
-								{showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-							</button>
-						</div>
-
-						{/* Confirm Password */}
-						<div className="flex items-center gap-3 px-4 py-3.5">
-							<div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center shrink-0">
-								<Lock className="w-4 h-4 text-purple-400" />
-							</div>
-							<div className="flex-1 min-w-0">
-								<p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Confirm New Password</p>
-								<input
-									type="password"
-									value={confirmPassword}
-									onChange={(e) => setConfirmPassword(e.target.value)}
-									placeholder="Repeat new password"
-									onKeyDown={(e) => { if (e.key === "Enter") handleChangePassword(); }}
-									className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-zinc-600"
-								/>
-							</div>
-						</div>
-
-						{/* Save button */}
-						<div className="px-4 py-3.5">
-							<button
-								type="button"
-								onClick={handleChangePassword}
-								disabled={saving || !newPassword || !confirmPassword}
-								className="w-full py-2.5 rounded-xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-sm font-semibold hover:bg-cyan-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
-							>
-								{saving ? "Saving…" : "Update Password"}
-							</button>
-						</div>
-					</div>
-				)}
-
-				{/* Forgot / Reset password link */}
-				{!isGoogle && (
-					<button
-						type="button"
-						onClick={handleSendReset}
-						className="mt-4 w-full flex items-center justify-center gap-2 text-xs text-zinc-500 hover:dark:text-zinc-300 text-zinc-700 transition-colors py-2"
-					>
-						<Mail className="w-3.5 h-3.5" />
-						Forgot password? Send reset email to {appUser.email}
-					</button>
-				)}
-			</div>
-		</div>
+		<SettingsScaffold title="Change password" backTo={backTo}>
+			<Field value={password} onChange={setPassword} placeholder="New password" hidden={!show} error={passwordError} trailing={toggle} />
+			<Field value={confirm} onChange={setConfirm} placeholder="Confirm new password" hidden={!show} error={confirmError} />
+			<p style={{ padding: `0 ${cu(4)}`, font: f(400, 12, 16), color: DISC.muted }}>At least 8 characters.</p>
+			{serverError && <p role="alert" style={{ font: f(400, 12), color: DISC.redDown }}>{serverError}</p>}
+			<SheetCta onClick={submit} disabled={!password || !confirm || saving}>{saving ? "Updating…" : "Update password"}</SheetCta>
+		</SettingsScaffold>
 	);
 }

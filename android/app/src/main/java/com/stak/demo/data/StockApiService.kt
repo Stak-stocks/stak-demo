@@ -8,6 +8,7 @@ import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Streaming
 
 interface StockApiService {
     @GET("api/stock/batch-quotes")
@@ -104,6 +105,9 @@ interface StockApiService {
     @GET("api/news/company/{symbol}")
     suspend fun getCompanyNews(@Path("symbol") symbol: String): CompanyNewsResponse
 
+    @POST("api/news/for-you")
+    suspend fun getForYouNews(@Body body: ForYouNewsRequest): ForYouNewsResponse
+
     @GET("api/daily-brief")
     suspend fun getDailyBrief(): DailyBriefResponse
 
@@ -161,4 +165,29 @@ interface StockApiService {
 
     @GET("api/sandbox/trades")
     suspend fun getSandboxTrades(@Query("limit") limit: Int = 100): SandboxTradesResponse
+
+    // STAK AI - see StakAiModels.kt (mirrors shared/src/stakAi.ts). The backend's plain POST /chat stays for older
+    // app versions; this one streams.
+    /** The same answer as server-sent events (`delta`, then `done` or `error`) - read with StakAiRepository.chatStream. */
+    @Streaming
+    @POST("api/stak-ai/chat/stream")
+    suspend fun stakAiChatStream(@Body body: StakAiChatRequest): retrofit2.Response<okhttp3.ResponseBody>
+
+    @GET("api/stak-ai/usage")
+    suspend fun stakAiUsage(): StakAiUsage
+
+    @GET("api/stak-ai/conversations")
+    suspend fun stakAiConversations(@Query("before") before: String? = null): StakAiConversationsResponse
+
+    @GET("api/stak-ai/conversations/{id}/messages")
+    suspend fun stakAiMessages(@Path("id") id: String): StakAiMessagesResponse
+
+    @PATCH("api/stak-ai/conversations/{id}")
+    suspend fun stakAiRename(@Path("id") id: String, @Body body: StakAiRenameRequest): OkResponse
+
+    @DELETE("api/stak-ai/conversations/{id}")
+    suspend fun stakAiDelete(@Path("id") id: String): OkResponse
+
+    @POST("api/stak-ai/messages/{id}/feedback")
+    suspend fun stakAiFeedback(@Path("id") id: Long, @Body body: StakAiFeedbackRequest): OkResponse
 }

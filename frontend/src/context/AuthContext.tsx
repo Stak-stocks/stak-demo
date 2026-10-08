@@ -7,7 +7,9 @@ import {
 	useState,
 	type ReactNode,
 } from "react";
+import { WEB_GOOGLE_SIGN_IN_KEY } from "../lib/earlyAccess";
 import { supabase } from "../lib/supabase";
+import { disableWebPush } from "../lib/webPush";
 
 export interface AppUser {
 	uid: string;
@@ -16,6 +18,8 @@ export interface AppUser {
 	displayName: string | null;
 	photoURL: string | null;
 	provider: string;
+	/** When the sign-in account was created (Supabase auth), for telling a brand-new account from an existing one. */
+	createdAt: string | null;
 }
 
 interface AuthContextType {
@@ -28,6 +32,9 @@ interface AuthContextType {
 	signInWithGoogleSupabase: () => Promise<void>;
 	resetPasswordSupabase: (email: string) => Promise<void>;
 	confirmResetSupabase: (newPassword: string) => Promise<void>;
+	verifySignupOtp: (email: string, code: string) => Promise<void>;
+	resendSignupOtp: (email: string) => Promise<void>;
+	verifyRecoveryOtp: (email: string, code: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -39,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const [canonicalUid, setCanonicalUid] = useState<string | null>(null);
 	const [supabaseSessionData, setSupabaseSessionData] = useState<{
 		email: string | null; emailVerified: boolean; displayName: string | null;
-		photoURL: string | null; provider: string;
+		photoURL: string | null; provider: string; createdAt: string | null;
 	} | null>(null);
 	// loading stays true until we know whether a session exists AND (if it does)
 	// until the canonical UID lookup completes. The sessionChecked ref prevents
@@ -70,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 					displayName: (meta.full_name ?? meta.name ?? null) as string | null,
 					photoURL: (meta.avatar_url ?? meta.picture ?? null) as string | null,
 					provider: session.user.app_metadata?.provider === "google" ? "google.com" : "password",
+					createdAt: session.user.created_at ?? null,
 				});
 			}
 		});
@@ -106,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 					displayName: (meta.full_name ?? meta.name ?? null) as string | null,
 					photoURL: (meta.avatar_url ?? meta.picture ?? null) as string | null,
 					provider: session.user.app_metadata?.provider === "google" ? "google.com" : "password",
+					createdAt: session.user.created_at ?? null,
 				});
 			}
 		}).finally(() => setLoading(false));
@@ -133,8 +142,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}, [supabaseUserId]);
 
 	async function signUpWithEmail(email: string, password: string) {
-		const { error } = await supabase.auth.signUp({ email, password });
+		const { data, error } = await supabase.auth.signUp({ email, password });
 		if (error) throw error;
+		// For an already-confirmed address Supabase answers success with an empty identities
+		// list (so signup can't be used to probe which emails exist) - and sends no code. Treat
+		// it as the duplicate it is, or the user waits on an email that never comes.
+		if (data.user && (data.user.identities?.length ?? 0) === 0) {
+			throw new Error("User already registered");
+		}
 	}
 
 	async function signInWithEmailSupabase(email: string, password: string) {
@@ -143,6 +158,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}
 
 	async function signInWithGoogleSupabase() {
+		// Early access: lets the root route tell an account this tab's Google sign-in just made from any other.
+		try { sessionStorage.setItem(WEB_GOOGLE_SIGN_IN_KEY, "1"); } catch { /* no storage: never removed, only signed out */ }
 		const { error } = await supabase.auth.signInWithOAuth({
 			provider: "google",
 			options: {
@@ -155,8 +172,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}
 
 	async function resetPasswordSupabase(email: string) {
-		// No redirectTo — the email template uses {{ .TokenHash }} to point directly
-		// to /reset-password, so redirectTo is not needed.
+		// No redirectTo — the recovery email template emits {{ .Token }} (a code
+		// the user types into forgot-password.tsx's Step 2 via verifyRecoveryOtp),
+		// not a clickable link, so there's no browser redirect to configure.
 		const { error } = await supabase.auth.resetPasswordForEmail(email);
 		if (error) throw error;
 	}
@@ -166,7 +184,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		if (error) throw error;
 	}
 
+	// In-app numeric-code verification (matches Android's flow — no email
+	// links at all). Requires the Supabase Auth email templates for "Confirm
+	// signup" and "Reset password" to emit {{ .Token }} (a code) rather than
+	// a confirmation link, or these have nothing to verify against.
+	async function verifySignupOtp(email: string, code: string) {
+		const { error } = await supabase.auth.verifyOtp({ email, token: code, type: "signup" });
+		if (error) throw error;
+	}
+
+	async function resendSignupOtp(email: string) {
+		const { error } = await supabase.auth.resend({ type: "signup", email });
+		if (error) throw error;
+	}
+
+	async function verifyRecoveryOtp(email: string, code: string) {
+		const { error } = await supabase.auth.verifyOtp({ email, token: code, type: "recovery" });
+		if (error) throw error;
+	}
+
 	async function logout() {
+		// Another person signing in on this browser must not receive this account's alerts.
+		await disableWebPush().catch(() => {});
 		await supabase.auth.signOut();
 	}
 
@@ -189,6 +228,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				signInWithGoogleSupabase,
 				resetPasswordSupabase,
 				confirmResetSupabase,
+				verifySignupOtp,
+				resendSignupOtp,
+				verifyRecoveryOtp,
 			}}
 		>
 			{children}

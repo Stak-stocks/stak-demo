@@ -1,100 +1,65 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Compass, Layers, Newspaper, Gamepad2, UserCircle } from "lucide-react";
-import { useAccount } from "@/context/AccountContext";
+import { NAV_ITEMS, isNavItemActive } from "@/lib/navItems";
+import { TAB_ICONS, type TabPath } from "@/components/nav/tabIcons";
+import { DISC, cu } from "@/components/discover/discoverTheme";
+import { PHONE_MAX_WIDTH, useFigmaUnit } from "@/components/discover/useFigmaUnit";
 
+const ICON_KEY: Record<string, string> = { "/": "home", "/discover": "discover", "/my-stak": "mystak", "/simulate": "simulate" };
 
-const NAV_ITEMS = [
-	{
-		to: "/",
-		label: "Discover",
-		icon: Compass,
-		activeColor: "text-cyan-500 dark:text-cyan-400",
-		activeBg: "bg-cyan-500/10",
-		dotColor: "bg-cyan-500 dark:bg-cyan-400",
-	},
-	{
-		to: "/my-stak",
-		label: "My STAK",
-		icon: Layers,
-		activeColor: "text-violet-500 dark:text-violet-400",
-		activeBg: "bg-violet-500/10",
-		dotColor: "bg-violet-500 dark:bg-violet-400",
-	},
-	{
-		to: "/feed",
-		label: "News",
-		icon: Newspaper,
-		activeColor: "text-orange-500 dark:text-orange-400",
-		activeBg: "bg-orange-500/10",
-		dotColor: "bg-orange-500 dark:bg-orange-400",
-	},
-	{
-		to: "/playground",
-		label: "Playground",
-		icon: Gamepad2,
-		activeColor: "text-pink-500 dark:text-pink-400",
-		activeBg: "bg-pink-500/10",
-		dotColor: "bg-pink-500 dark:bg-pink-400",
-	},
-	{
-		to: "/profile",
-		label: "Profile",
-		icon: UserCircle,
-		activeColor: "text-emerald-500 dark:text-emerald-400",
-		activeBg: "bg-emerald-500/10",
-		dotColor: "bg-emerald-500 dark:bg-emerald-400",
-	},
-] as const;
+function TabGlyph({ path }: { path: TabPath }) {
+	return (
+		<path
+			d={path.d}
+			fill={path.fill ?? "none"}
+			stroke={path.stroke}
+			strokeWidth={path.strokeWidth}
+			strokeLinecap={path.cap}
+			strokeLinejoin={path.join}
+		/>
+	);
+}
 
-export function BottomNav({ onSearchClose, searchActive }: { onSearchClose?: () => void; searchActive?: boolean }) {
+/** One tab's icon: the filled white glyph when active, the grey outline otherwise (News is a PNG on Android). */
+function TabIcon({ to, active }: { to: string; active: boolean }) {
+	if (to === "/feed") {
+		return <img src={active ? "/app/ic_tab_news_active.png" : "/app/ic_tab_news.png"} alt="" draggable={false} style={{ width: cu(24), height: cu(24) }} />;
+	}
+	const key = `${ICON_KEY[to]}${active ? "Active" : "Inactive"}`;
+	return (
+		<svg viewBox="0 0 24 24" style={{ width: cu(24), height: cu(24) }} aria-hidden="true">
+			{TAB_ICONS[key]?.map((p, i) => <TabGlyph key={i} path={p} />)}
+		</svg>
+	);
+}
+
+/** Android's bottom tab bar: 86u, #060C1D, five tabs 30u apart, white Inter labels; only the icon shows which is active. */
+export function BottomNav() {
 	const router = useRouterState();
 	const currentPath = router.location.pathname;
-	const { account } = useAccount();
-
-	const todayMidnight = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })();
-	const challengeDone = Object.entries(account?.lessonProgress ?? {}).some(
-		([key, p]) => key.startsWith("featured-today-") && p.completed && p.completedAt >= todayMidnight,
-	);
-
-	const isActive = (path: string) => {
-		if (path === "/") return currentPath === "/";
-		return currentPath.startsWith(path);
-	};
+	const unit = useFigmaUnit();
 
 	return (
-		<nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-foreground/[0.06] z-[60] pb-[env(safe-area-inset-bottom)]">
-			<div className="max-w-7xl mx-auto px-2 sm:px-4">
-				<div className="flex items-center justify-around h-16">
-					{NAV_ITEMS.map((item) => {
-						const active = isActive(item.to);
-						const Icon = item.icon;
-
-						return (
-							<Link
-								key={item.to}
-								to={item.to}
-								onClick={searchActive ? onSearchClose : undefined}
-								className={`flex flex-col items-center gap-[3px] py-2 px-3 sm:px-5 transition-colors ${
-									active
-										? item.activeColor
-										: "text-slate-400 dark:text-zinc-500 hover:text-foreground/70"
-								}`}
-							>
-								{/* Icon with tinted background when active */}
-								<div className={`relative w-[38px] h-[34px] rounded-[10px] flex items-center justify-center transition-all ${active ? item.activeBg : ""}`}>
-									<Icon className="w-[20px] h-[20px]" strokeWidth={active ? 2.2 : 1.8} />
-									{item.to === "/playground" && !challengeDone && (
-										<span className="absolute top-[2px] right-[2px] w-[7px] h-[7px] rounded-full bg-amber-400 border-[1.5px] border-background" />
-									)}
-								</div>
-								{/* Label */}
-								<span className="text-[10px] font-semibold whitespace-nowrap">{item.label}</span>
-								{/* Active dot indicator */}
-								<div className={`h-[3px] w-[16px] rounded-full transition-all duration-200 ${active ? item.dotColor : "bg-transparent"}`} />
-							</Link>
-						);
-					})}
-				</div>
+		<nav
+			aria-label="Main"
+			className="fixed bottom-0 left-0 right-0 z-[60] pb-[env(safe-area-inset-bottom)]"
+			style={{ background: DISC.tabBar, ["--u" as string]: `${unit}px` }}
+		>
+			<div className="mx-auto flex justify-center" style={{ maxWidth: PHONE_MAX_WIDTH, height: cu(86), paddingTop: cu(18), gap: cu(30), transform: `translateX(${cu(0.5)})` }}>
+				{NAV_ITEMS.map((item) => {
+					const active = isNavItemActive(currentPath, item.to);
+					return (
+						<Link
+							key={item.to}
+							to={item.to}
+							aria-current={active ? "page" : undefined}
+							className="flex flex-col items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+							style={{ gap: cu(10), width: item.to === "/" ? cu(34) : undefined, outlineColor: DISC.teal }}
+						>
+							<TabIcon to={item.to} active={active} />
+							<span className="whitespace-nowrap" style={{ font: `400 ${cu(12)} Inter, var(--font-body)`, color: "#fff" }}>{item.label}</span>
+						</Link>
+					);
+				})}
 			</div>
 		</nav>
 	);

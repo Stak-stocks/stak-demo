@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl } from "../services/geminiService.js";
+import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH } from "../services/geminiService.js";
 import { getFinnhubKeys, FINNHUB_BASE } from "../services/finnhubService.js";
 import { getConsensusEarningsDate, FMP_BASE } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
@@ -34,11 +34,11 @@ async function warmRiskWatch(ticker: string, companyName: string): Promise<void>
 	});
 }
 import { getEdgarEarningsEps } from "../services/edgarService.js";
-import { cacheDelete, cacheGet, cacheSet } from "../lib/cache.js";
+import { cacheDelete, cacheGet, cacheSet, cacheSetIfAbsent } from "../lib/cache.js";
 import { pgQuery } from "../lib/postgres.js";
-import { sendPush } from "../services/pushService.js";
+import { sendPush, type WebKeys } from "../services/pushService.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
-import { marketSessionBucket, getEasternDateKey, getPeerTickers, formatMarketCap, calcPercentChange, STAK_CAPACITY } from "@stak/shared";
+import { marketSessionBucket, getEasternDateKey, getPeerTickers, formatMarketCap, calcPercentChange, STAK_CAPACITY, DEFAULT_PRICE_THRESHOLD } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 
 
@@ -673,11 +673,11 @@ stockRouter.get("/warm-saved", async (req, res) => {
 //
 // Sends the push notifications the app's settings promise, so they arrive with the app
 // closed. Called by Cloud Scheduler every 15 minutes with x-warm-secret.
-// - Price moves: while the market is open, a saved stock moving 3% or more today, once
-//   per user, stock, direction and day, to devices with price alerts on.
+// - Price moves: while the market is open, a saved stock moving at least the device's own price
+//   threshold (1/3/5/10%, default 3) today, once per device, stock, direction and day, to devices
+//   with price alerts on.
 // - Daily deck: once per device per day, in the 9am hour where the phone is (the deck
 //   day starts at 9am local, as in the app), to devices with the daily deck on.
-const PUSH_MOVE_THRESHOLD_PCT = 3;
 /** Most companies to look at again in one run, and how long that look may take. */
 const UPDATE_SLOT2_MAX = 10;
 const PUSH_UPDATE_BUDGET_MS = 90 * 1000;
@@ -715,8 +715,8 @@ stockRouter.get("/push-run", async (req, res) => {
 			}
 		}
 
-		const devices = await pgQuery<{ token: string; uid: string; timezone: string; price_alerts: boolean; daily_deck: boolean }>(
-			`select token, uid, timezone, price_alerts, daily_deck from push_devices`,
+		const devices = await pgQuery<{ token: string; uid: string; timezone: string; price_alerts: boolean; daily_deck: boolean; price_threshold: number | null; web_keys: WebKeys }>(
+			`select token, uid, timezone, price_alerts, daily_deck, price_threshold, web_keys from push_devices`,
 		);
 		if (devices.rows.length === 0) { res.json({ ok: true, moves, decks, failed }); return; }
 
@@ -749,27 +749,37 @@ stockRouter.get("/push-run", async (req, res) => {
 					bigMoves.set(ticker, q.dp);
 				}
 			});
+			// Each user's alerting devices, grouped once (not filtered again per user).
+			const devicesByUser = new Map<string, typeof devices.rows>();
+			for (const d of devices.rows) if (d.price_alerts) devicesByUser.set(d.uid, [...(devicesByUser.get(d.uid) ?? []), d]);
+			// Each device at its own threshold - a phone set to 1% hears a move another set to 5% doesn't.
+			const sends: { uid: string; token: string; webKeys: WebKeys; ticker: string; dir: "up" | "down"; move: number; threshold: number }[] = [];
 			for (const [uid, held] of byUser) {
-				const tokens = devices.rows.filter((d) => d.uid === uid && d.price_alerts).map((d) => d.token);
 				for (const ticker of held) {
 					const p = pct.get(ticker);
-					if (p === undefined || Math.abs(p) < PUSH_MOVE_THRESHOLD_PCT) continue;
-					const dir = p >= 0 ? "up" : "down";
-					const key = `push:move:${uid}:${today}:${ticker}:${dir}`;
-					if (await cacheGet<boolean>(key)) continue;
-					await cacheSet(key, true, PUSH_DEDUPE_TTL_MS);
-					const name = brands.find((b) => b.ticker.toUpperCase() === ticker)?.name;
-					for (const token of tokens) {
-						const r = await sendPush(
-							token,
-							`${ticker} is ${dir} ${Math.abs(p).toFixed(1)}% today`,
-							`${name ? `${name}, one of your saved stocks,` : "One of your saved stocks"} moved more than ${PUSH_MOVE_THRESHOLD_PCT}%.`,
-							{ kind: "move", ticker },
-						);
-						if (r === "sent") moves++; else if (r === "failed") failed++;
+					if (p === undefined) continue;
+					for (const d of devicesByUser.get(uid) ?? []) {
+						const threshold = d.price_threshold ?? DEFAULT_PRICE_THRESHOLD;
+						if (Math.abs(p) >= threshold) sends.push({ uid, token: d.token, webKeys: d.web_keys, ticker, dir: p >= 0 ? "up" : "down", move: p, threshold });
 					}
 				}
 			}
+			await mapWithLimit(sends, 8, async (s) => {
+				// Told under the old per-account key earlier today (before the per-device thresholds shipped): not again.
+				// Only matters on the deploy day - remove after 2026-10-15.
+				if (await cacheGet<boolean>(`push:move:${s.uid}:${today}:${s.ticker}:${s.dir}`)) return;
+				// Once per device, stock, direction and day - claimed in one step, so an overlapping run can't send it too.
+				if (!(await cacheSetIfAbsent(`push:move:${s.token}:${today}:${s.ticker}:${s.dir}`, true, PUSH_DEDUPE_TTL_MS))) return;
+				const name = nameByTicker.get(s.ticker);
+				const r = await sendPush(
+					s.token,
+					`${s.ticker} is ${s.dir} ${Math.abs(s.move).toFixed(1)}% today`,
+					`${name ? `${name}, one of your saved stocks,` : "One of your saved stocks"} moved ${s.threshold}% or more.`,
+					{ kind: "move", ticker: s.ticker },
+					s.webKeys,
+				);
+				if (r === "sent") moves++; else if (r === "failed") failed++;
+			});
 		}
 
 		// ── Daily deck ──
@@ -780,9 +790,8 @@ stockRouter.get("/push-run", async (req, res) => {
 			if (get("hour") !== "09") continue;
 			const localDay = `${get("year")}-${get("month")}-${get("day")}`;
 			const key = `push:deck:${d.token}:${localDay}`;
-			if (await cacheGet<boolean>(key)) continue;
-			await cacheSet(key, true, PUSH_DEDUPE_TTL_MS);
-			const r = await sendPush(d.token, "Your deck is ready", "Fresh cards, tuned to your taste. Swipe when you have a minute.", { kind: "deck" });
+			if (!(await cacheSetIfAbsent(key, true, PUSH_DEDUPE_TTL_MS))) continue;
+			const r = await sendPush(d.token, "Your deck is ready", "Fresh cards, tuned to your taste. Swipe when you have a minute.", { kind: "deck" }, d.web_keys);
 			if (r === "sent") decks++; else if (r === "failed") failed++;
 		}
 
@@ -893,89 +902,95 @@ stockRouter.get("/portfolio-chart", async (req, res) => {
 
 // ── Stock quote & metrics ─────────────────────────────────────────────────────
 
-stockRouter.get("/:symbol", async (req, res) => {
-	const raw = req.params.symbol.toUpperCase();
-	const symbol = resolveSymbol(raw);
+/**
+ * A stock's quote and key metrics, as GET /api/stock/:symbol serves them (cached: quote per quoteTtlMs, metrics 6h).
+ * STAK AI calls this directly rather than over HTTP, which would queue behind the public rate limiter.
+ */
+export async function getStockSnapshot(rawSymbol: string) {
+	const symbol = resolveSymbol(rawSymbol.toUpperCase());
+	const extended = isExtendedHours();
 
-	try {
-		const extended = isExtendedHours();
+	// Finnhub for regular market price (fast, reliable)
+	const fbKey = `quote:fb:${symbol}`;
+	let finnhubQuoteRaw = await cacheGet<Record<string, number>>(fbKey);
+	if (!finnhubQuoteRaw) {
+		finnhubQuoteRaw = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
+		if (finnhubQuoteRaw) await cacheSet(fbKey, finnhubQuoteRaw, quoteTtlMs());
+	}
 
-		// Finnhub for regular market price (fast, reliable)
-		const fbKey = `quote:fb:${symbol}`;
-		let finnhubQuoteRaw = await cacheGet<Record<string, number>>(fbKey);
-		if (!finnhubQuoteRaw) {
-			finnhubQuoteRaw = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
-			if (finnhubQuoteRaw) await cacheSet(fbKey, finnhubQuoteRaw, quoteTtlMs());
+	// Yahoo only during extended hours — gets pre/after-market prices
+	let yahooExt: YahooExtended | null = null;
+	if (extended) {
+		const yKey = `quote:ext:${symbol}`;
+		yahooExt = await cacheGet<YahooExtended>(yKey);
+		if (!yahooExt) {
+			yahooExt = await fetchYahooExtended(symbol);
+			if (yahooExt) await cacheSet(yKey, yahooExt, quoteTtlMs());
 		}
+	}
 
-		// Yahoo only during extended hours — gets pre/after-market prices
-		let yahooExt: YahooExtended | null = null;
-		if (extended) {
-			const yKey = `quote:ext:${symbol}`;
-			yahooExt = await cacheGet<YahooExtended>(yKey);
-			if (!yahooExt) {
-				yahooExt = await fetchYahooExtended(symbol);
-				if (yahooExt) await cacheSet(yKey, yahooExt, quoteTtlMs());
+	// Fundamentals (6-hour cache) — Finnhub
+	const metricsKey = `metrics:${symbol}`;
+	let metricsRaw = await cacheGet<{ metric?: Record<string, number> }>(metricsKey);
+	if (!metricsRaw) {
+		metricsRaw = (await finnhubGet(`/stock/metric?symbol=${symbol}&metric=all`)) as { metric?: Record<string, number> } | null;
+		if (metricsRaw) await cacheSet(metricsKey, metricsRaw, METRICS_TTL_MS);
+	}
+
+	const m = metricsRaw?.metric ?? {};
+	const fb = finnhubQuoteRaw ?? {};
+
+	const quote = fb.c
+		? {
+				// Regular hours: Finnhub price. Extended hours: Yahoo extended price if available, else last Finnhub close
+				price: extended && yahooExt ? yahooExt.extendedPrice : fb.c,
+				change: fb.d,
+				changePercent: fb.dp,
+				high: fb.h,
+				low: fb.l,
+				open: fb.o,
+				prevClose: fb.pc,
+				marketState: yahooExt?.marketState ?? (extended ? "CLOSED" as const : "REGULAR" as const),
+				extendedPrice: yahooExt?.extendedPrice ?? null,
+				extendedChange: yahooExt?.extendedChange ?? null,
+				extendedChangePercent: yahooExt?.extendedChangePercent ?? null,
 			}
-		}
+		: null;
 
-		// Fundamentals (6-hour cache) — Finnhub
-		const metricsKey = `metrics:${symbol}`;
-		let metricsRaw = await cacheGet<{ metric?: Record<string, number> }>(metricsKey);
-		if (!metricsRaw) {
-			metricsRaw = (await finnhubGet(`/stock/metric?symbol=${symbol}&metric=all`)) as { metric?: Record<string, number> } | null;
-			if (metricsRaw) await cacheSet(metricsKey, metricsRaw, METRICS_TTL_MS);
-		}
+	const peRatio = m.peTTM ?? null;
+	const marketCapRaw = m.marketCapitalization ?? null;
 
-		const m = metricsRaw?.metric ?? {};
-		const fb = finnhubQuoteRaw ?? {};
+	// The catalogue entry behind this symbol: the name titles the page with the
+	// stock being shown rather than another company's (Android's Stock Detail
+	// borrowed Apple's whole fact sheet for unknown symbols), and the id is the
+	// key the brand endpoints - tip, quick look - are addressed by.
+	const brand = brands.find((b) => b.ticker.toUpperCase() === symbol);
 
-		const quote = fb.c
-			? {
-					// Regular hours: Finnhub price. Extended hours: Yahoo extended price if available, else last Finnhub close
-					price: extended && yahooExt ? yahooExt.extendedPrice : fb.c,
-					change: fb.d,
-					changePercent: fb.dp,
-					high: fb.h,
-					low: fb.l,
-					open: fb.o,
-					prevClose: fb.pc,
-					marketState: yahooExt?.marketState ?? (extended ? "CLOSED" as const : "REGULAR" as const),
-					extendedPrice: yahooExt?.extendedPrice ?? null,
-					extendedChange: yahooExt?.extendedChange ?? null,
-					extendedChangePercent: yahooExt?.extendedChangePercent ?? null,
-				}
-			: null;
+	return {
+		name: brand?.name ?? null,
+		brandId: brand?.id ?? null,
+		quote,
+		metrics: {
+			peRatio: peRatio != null ? Number(peRatio.toFixed(1)) : null,
+			marketCap: marketCapRaw != null ? formatMarketCap(marketCapRaw) : null,
+			revenueGrowth: m.revenueGrowthTTMYoy != null ? `${m.revenueGrowthTTMYoy.toFixed(1)}%` : null,
+			// Cap extreme margins — pre-revenue companies can show -10000%+ which is meaningless
+			profitMargin: m.netProfitMarginTTM != null && Math.abs(m.netProfitMarginTTM) <= 500
+				? `${m.netProfitMarginTTM.toFixed(1)}%`
+				: m.netProfitMarginTTM != null
+				? null
+				: null,
+			beta: m.beta != null ? Number(m.beta.toFixed(2)) : null,
+			dividendYield: m.dividendYieldIndicatedAnnual != null ? `${m.dividendYieldIndicatedAnnual.toFixed(2)}%` : null,
+			week52High: m["52WeekHigh"] ?? null,
+			week52Low: m["52WeekLow"] ?? null,
+		},
+	};
+}
 
-		const peRatio = m.peTTM ?? null;
-		const marketCapRaw = m.marketCapitalization ?? null;
-
-		// The catalogue entry behind this symbol: the name titles the page with the
-		// stock being shown rather than another company's (Android's Stock Detail
-		// borrowed Apple's whole fact sheet for unknown symbols), and the id is the
-		// key the brand endpoints - tip, quick look - are addressed by.
-		const brand = brands.find((b) => b.ticker.toUpperCase() === symbol);
-
-		res.json({
-			name: brand?.name ?? null,
-			brandId: brand?.id ?? null,
-			quote,
-			metrics: {
-				peRatio: peRatio != null ? Number(peRatio.toFixed(1)) : null,
-				marketCap: marketCapRaw != null ? formatMarketCap(marketCapRaw) : null,
-				revenueGrowth: m.revenueGrowthTTMYoy != null ? `${m.revenueGrowthTTMYoy.toFixed(1)}%` : null,
-				// Cap extreme margins — pre-revenue companies can show -10000%+ which is meaningless
-				profitMargin: m.netProfitMarginTTM != null && Math.abs(m.netProfitMarginTTM) <= 500
-					? `${m.netProfitMarginTTM.toFixed(1)}%`
-					: m.netProfitMarginTTM != null
-					? null
-					: null,
-				beta: m.beta != null ? Number(m.beta.toFixed(2)) : null,
-				dividendYield: m.dividendYieldIndicatedAnnual != null ? `${m.dividendYieldIndicatedAnnual.toFixed(2)}%` : null,
-				week52High: m["52WeekHigh"] ?? null,
-				week52Low: m["52WeekLow"] ?? null,
-			},
-		});
+stockRouter.get("/:symbol", async (req, res) => {
+	try {
+		res.json(await getStockSnapshot(req.params.symbol));
 	} catch (error) {
 		console.error("Error fetching stock data:", error);
 		res.status(500).json({ error: "Failed to fetch stock data" });
@@ -1908,6 +1923,7 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
+						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
 						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, maxOutputTokens: sentences > 1 ? 500 : 200 },
@@ -2103,6 +2119,7 @@ Return ONLY that sentence as plain text — no markdown, no JSON, no bullets.`;
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
+						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
 						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, maxOutputTokens: 80 },

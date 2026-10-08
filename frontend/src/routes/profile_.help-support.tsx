@@ -1,154 +1,55 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronDown, MessageSquare, Lock } from "lucide-react";
-import { useState, useRef } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { SettingsCard, SettingsLinkRow, SettingsScaffold } from "@/components/profile/ProfileKit";
+import { DISC, cu } from "@/components/discover/discoverTheme";
+import { PRESS, f, focusRing } from "@/components/phone/phone";
 
 export const Route = createFileRoute("/profile_/help-support")({
 	component: HelpSupportPage,
 });
 
 const FAQS = [
-	{
-		q: "Why can I only swipe 20 times a day?",
-		a: "The daily limit keeps the experience focused — quality over quantity. It resets every day at 9 AM so you get a fresh deck each morning.",
-	},
-	{
-		q: "What is My Stak?",
-		a: "My Stak is your personal collection of brands and stocks you're interested in. Swipe right on any brand in Discover to add it. You can view and manage it from the My Stak tab.",
-	},
-	{
-		q: "What are Intel cards and how do I unlock them?",
-		a: "Intel cards are short, jargon-free lessons about investing and markets. Your first one unlocks after 5 swipes — more cards unlock as you keep swiping.",
-	},
-	{
-		q: "How is my Vibe Check calculated?",
-		a: "Your Vibe Check is based on the brands in your Stak. We look at the categories of brands you've added (tech, fashion, energy, etc.) and surface the one you lean towards most.",
-	},
-	{
-		q: "Is Stak financial advice?",
-		a: "No. Stak is an educational app designed to help you discover stocks through brands you already know. Nothing on this platform is financial advice. Always do your own research before investing.",
-	},
-	{
-		q: "How do I change my password?",
-		a: "If you signed in with Google, your password is managed by Google. Otherwise you can update it here:",
-		action: "security" as const,
-	},
+	{ q: "Is this real money?", a: "No. In Simulate you practice with pretend money, starting with what you’d really invest. Nothing is bought or sold for real." },
+	{ q: "Where do the prices come from?", a: "Real prices from the US stock market. They update on their own while the market is open (9:30am to 4pm ET, weekdays). When it's closed, you see the last closing price." },
+	{ q: "Is my data private?", a: "Your saved stocks, taste answers and paper portfolio are stored with your STAK account, so they follow you to a new device. STAK never sells your data." },
 ];
 
-function FaqItem({ q, a, action }: Readonly<{ q: string; a: string; action?: "security" }>) {
-	const [open, setOpen] = useState(false);
-	const navigate = useNavigate();
+const SUPPORT_EMAIL = "support@thestak.org";
+const APP_VERSION = "web";
+const enc = encodeURIComponent;
 
+function FaqRow({ q, a }: { q: string; a: string }) {
+	const [open, setOpen] = useState(false);
 	return (
-		<div className="border-b border-zinc-100 dark:border-slate-700/30 last:border-0">
+		<div>
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left"
+				aria-expanded={open}
+				className={`flex w-full items-center text-left ${PRESS}`}
+				style={{ height: cu(48), padding: `0 ${cu(14)}`, ...focusRing }}
 			>
-				<span className="text-sm font-medium text-foreground">{q}</span>
-				<ChevronDown
-					className={`w-4 h-4 dark:text-zinc-400 text-zinc-600 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-				/>
+				<span className="flex-1" style={{ font: f(500, 13), color: "#fff" }}>{q}</span>
+				<span style={{ font: f(400, 14), color: DISC.muted }} aria-hidden="true">{open ? "⌃" : "⌄"}</span>
 			</button>
-			{open && (
-				<div className="px-4 pb-4">
-					<p className="text-sm text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 leading-relaxed">{a}</p>
-					{action === "security" && (
-						<button
-							type="button"
-							onClick={() => navigate({ to: "/profile/security" })}
-							className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-purple-400 hover:text-purple-300 transition-colors"
-						>
-							<Lock className="w-3.5 h-3.5" />
-							Go to Security & Password
-						</button>
-					)}
-				</div>
-			)}
+			{open && <p style={{ padding: `0 ${cu(14)} ${cu(12)}`, font: f(400, 12, 17), color: DISC.body }}>{a}</p>}
 		</div>
 	);
 }
 
+/** Android's Help & support: one card - three questions, then support links and the version. */
 function HelpSupportPage() {
-	const navigate = useNavigate();
-	const touchStartX = useRef(0);
-	const touchStartY = useRef(0);
-
+	const open = (href: string) => { window.location.href = href; };
 	return (
-		<div
-			className="min-h-screen bg-background text-foreground pb-24"
-			onTouchStart={(e) => {
-				touchStartX.current = e.touches[0].clientX;
-				touchStartY.current = e.touches[0].clientY;
-			}}
-			onTouchEnd={(e) => {
-				const dx = e.changedTouches[0].clientX - touchStartX.current;
-				const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
-				if (dx > 60 && dy < 50) navigate({ to: "/profile" });
-			}}
-		>
-			{/* Header */}
-			<div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-background/95 backdrop-blur border-b border-zinc-200 dark:border-slate-800/40">
-				<button
-					type="button"
-					onClick={() => navigate({ to: "/profile" })}
-					className="flex items-center gap-1.5 text-sm dark:text-zinc-400 text-zinc-600 hover:text-zinc-900 dark:hover:text-foreground transition-colors"
-				>
-					<ChevronLeft className="w-5 h-5" />
-					Back
-				</button>
-				<h1 className="text-sm font-semibold">Help & Support</h1>
-				<div className="w-12" />
-			</div>
-
-			<div className="max-w-lg mx-auto px-4 pt-8">
-
-				{/* Intro */}
-				<div className="flex flex-col items-center text-center mb-8">
-					<div className="w-14 h-14 rounded-2xl bg-amber-500/15 flex items-center justify-center mb-3">
-						<span className="text-3xl">🛟</span>
-					</div>
-					<h2 className="text-lg font-bold mb-1">How can we help?</h2>
-					<p className="text-sm text-zinc-500 dark:dark:text-zinc-400 text-zinc-600">
-						Check the FAQs below or send us a message and we'll get you sorted.
-					</p>
-				</div>
-
-				{/* FAQ */}
-				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">
-					Frequently Asked Questions
-				</p>
-				<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 mb-6 shadow-sm dark:shadow-none">
-					{FAQS.map((item) => (
-						<FaqItem key={item.q} q={item.q} a={item.a} action={item.action} />
-					))}
-				</div>
-
-				{/* Contact */}
-				<p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">
-					Still need help?
-				</p>
-				<div className="rounded-xl bg-white/80 dark:bg-surface-1/80 backdrop-blur border border-zinc-200 dark:border-slate-700/30 shadow-sm dark:shadow-none">
-					<div className="px-4 py-4">
-						<p className="text-sm text-zinc-500 dark:dark:text-zinc-400 text-zinc-600 mb-1">
-							Hit a snag or found a bug? Drop us the details and our team will get back to you.
-						</p>
-						<p className="text-xs dark:text-zinc-400 text-zinc-600 dark:text-zinc-600 mb-4">
-							We typically reply within 24–48 hours.
-						</p>
-						<a
-							href="https://forms.gle/6v8mDfyN1DHFsK5M6"
-							target="_blank"
-							rel="noopener noreferrer"
-							className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 transition-all text-foreground font-semibold text-sm"
-						>
-							<MessageSquare className="w-4 h-4" />
-							Contact Us
-						</a>
-					</div>
-				</div>
-
-			</div>
-		</div>
+		<SettingsScaffold title="Help & support">
+			<SettingsCard>
+				{FAQS.map((item) => <FaqRow key={item.q} q={item.q} a={item.a} />)}
+				<SettingsLinkRow label="Email support" onClick={() => open(`mailto:${SUPPORT_EMAIL}?subject=${enc("STAK support")}`)} />
+				<SettingsLinkRow label="Report a problem" onClick={() => open(`mailto:${SUPPORT_EMAIL}?subject=${enc("STAK problem report")}&body=${enc(`What happened:\n\nWhere in the app:\n\nApp version ${APP_VERSION}`)}`)} />
+				<SettingsLinkRow label="Terms of service" onClick={() => window.open("https://thestak.org/terms", "_blank", "noopener,noreferrer")} />
+				<SettingsLinkRow label="Privacy policy" onClick={() => window.open("https://thestak.org/privacy", "_blank", "noopener,noreferrer")} />
+				<SettingsLinkRow label="Version" value={APP_VERSION} chevron={false} />
+			</SettingsCard>
+		</SettingsScaffold>
 	);
 }

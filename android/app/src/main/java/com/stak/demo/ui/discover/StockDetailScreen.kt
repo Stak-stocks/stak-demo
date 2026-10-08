@@ -113,6 +113,8 @@ fun StockDetailScreen(
 	// B9 (1:2579): the Discover-entry OPEN state composes the shell tab
 	// bar; each tab pops the detail Instant and lands on that tab.
 	onTab: ((MainTab) -> Unit)? = null,
+	/** STAK AI with this stock as its context (null hides the card, e.g. in the demo). */
+	onAskAi: (() -> Unit)? = null,
 ) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	// A real account never borrows authored facts - not even for the moment before
@@ -431,6 +433,16 @@ fun StockDetailScreen(
 					verticalArrangement = Arrangement.spacedBy((10 * u).dp),
 					modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp).padding(top = (4 * u).dp, bottom = (16 * u).dp),
 				) {
+					// STAK AI (2026-10-01): opens the chat about this stock with "Why is it moving today?" as the
+					// first suggestion - not asked on tap, since every answer spends one of five questions.
+					if (onAskAi != null && !demo) {
+						com.stak.demo.ui.ai.AskAiCard(
+							title = "Why is $symbol moving?",
+							subtitle = "Ask STAK AI · plain English, today's numbers",
+							context = { com.stak.demo.data.StakAiContext.stock(symbol) },
+							onOpen = onAskAi,
+						)
+					}
 					if (fromMyStak) {
 						// Simulation belongs in Simulate, with this company prefilled (My STAK
 						// product spec, Sept 2026); the demo keeps its in-page ticket.

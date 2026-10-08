@@ -51,12 +51,16 @@
     <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#0b1121" />
+    <meta name="theme-color" content="#0A1020" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Orbitron is used only by the landing page's wordmark, which loads it itself. -->
+    <!-- Only the weights the app actually uses (Sora 400-800, Geist 400-700); Orbitron is welcome-page only and
+         loads from there. The stylesheet is swapped in after load so it never blocks first paint (display=swap
+         shows the fallback font until then). -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Geist:wght@400;500;600;700&family=Inter:wght@400&display=swap" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Geist:wght@400;500;600;700&family=Inter:wght@400&display=swap" /></noscript>
   </head>
   <body>
     <div id="app"></div>

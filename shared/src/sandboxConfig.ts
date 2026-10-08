@@ -1,9 +1,13 @@
-/** Free-choice sandbox setup options -- single source of truth for backend validation
- *  and web, mirroring Android's SETUP_BALANCES / SetupStrategy list
- *  (android/.../ui/simulate/PortfolioSetupCard.kt). Keep both lists in sync by hand;
- *  Kotlin can't import this file. */
-export const SANDBOX_STARTING_BALANCES = [1000, 10000, 100000] as const;
+/** The sandbox setup options -- single source of truth for backend validation and web,
+ *  mirrored by hand in Android's SETUP_BALANCES (ui/simulate/PortfolioSetupCard.kt) and
+ *  iOS's setupBalances (Simulate/PortfolioSetupCard.swift); Kotlin and Swift can't import this.
+ *  One money system (2026-10-07): every portfolio starts on the amount its owner picks,
+ *  framed as what they'd really invest - realistic amounts, no XP cash top-ups. */
+export const SANDBOX_STARTING_BALANCES = [500, 1000, 5000, 10000] as const;
 export type SandboxStartingBalance = (typeof SANDBOX_STARTING_BALANCES)[number];
+/** The amount the setup form starts on, a portfolio set up for the user (a trade before the form)
+ *  starts with, and a reset falls back to. Mirrored by hand in Android and iOS like the list. */
+export const SANDBOX_DEFAULT_STARTING_BALANCE: SandboxStartingBalance = 1000;
 
 export const SANDBOX_STRATEGIES = [
 	{ id: "cautious", label: "Cautious", description: "Small stakes, steady names. Aim to beat a savings account." },

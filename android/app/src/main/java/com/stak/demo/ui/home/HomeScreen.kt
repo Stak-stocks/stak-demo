@@ -91,7 +91,7 @@ private object Home {
  */
 /** `onOpenStock`: the board-only Trending strip and Saved peek (FigJam Home board, 2026-09-14). */
 @Composable
-fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> Unit = {}, onBell: () -> Unit = {}, onOpenNews: () -> Unit = {}, onOpenMyStak: () -> Unit = {}, onOpenDeck: () -> Unit = {}, onOpenStock: (String) -> Unit = {}, onOpenSavedStock: (String) -> Unit = onOpenStock) {
+fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> Unit = {}, onBell: () -> Unit = {}, onAskAi: () -> Unit = {}, onOpenNews: () -> Unit = {}, onOpenMyStak: () -> Unit = {}, onOpenDeck: () -> Unit = {}, onOpenStock: (String) -> Unit = {}, onOpenSavedStock: (String) -> Unit = onOpenStock) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	BoxWithConstraints(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		val statusPad = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -105,7 +105,7 @@ fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> 
 					.fillMaxWidth()
 					.verticalScroll(rememberScrollState()),
 			) {
-				TopNav(onProfile = onProfile, onBell = onBell, modifier = Modifier.fillMaxWidth().padding(horizontal = (17 * u).dp))
+				TopNav(onProfile = onProfile, onBell = onBell, onAskAi = onAskAi, modifier = Modifier.fillMaxWidth().padding(horizontal = (17 * u).dp))
 				Spacer(modifier = Modifier.height((21 * u).dp))
 				Column(
 					horizontalAlignment = Alignment.CenterHorizontally,
@@ -146,7 +146,7 @@ fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> 
 
 /** Fixed top nav — logo row with bell/profile circles + greeting (Figma 131px block). */
 @Composable
-private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, modifier: Modifier = Modifier) {
+private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, onAskAi: () -> Unit = {}, modifier: Modifier = Modifier) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Column(
 		// Scrolls with the content (118:1633); authored side inset 17.
@@ -168,6 +168,9 @@ private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, modifier: Mod
 				modifier = Modifier.size((78.16 * u).dp, (14.98 * u).dp),
 			)
 			Spacer(modifier = Modifier.weight(1f))
+			// STAK AI (2026-10-01): its own way in, beside the bell (no sixth tab).
+			com.stak.demo.ui.ai.AskAiHeaderButton(size = (35 * u).dp, background = Home.NavCircle, onClick = onAskAi)
+			Spacer(modifier = Modifier.width((4 * u).dp))
 			// Bell + stateful unread dot (151:1207): the authored badge
 			// (cx26.25 cy11.667 r2.917 #FF8030) shows while untouched
 			// notifications exist and clears once they're opened and read.

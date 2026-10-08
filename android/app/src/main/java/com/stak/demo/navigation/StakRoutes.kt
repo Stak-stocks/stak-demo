@@ -64,4 +64,8 @@ object StakRoutes {
 	fun orderConfirmation(symbol: String) = "order-confirmation/$symbol"
 	const val ADD_CASH = "add-cash"
 	const val SEARCH = "search"
+	/** STAK AI's chat - what it's opened from rides in StakAiLauncher, no nav args. */
+	const val STAK_AI = "ai/chat"
+	/** STAK AI's past chats. */
+	const val STAK_AI_HISTORY = "ai/history"
 }
