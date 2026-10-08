@@ -181,6 +181,7 @@ function Rail({ saved, onSave }: { saved: boolean; onSave: () => void }) {
 				<Link
 					to="/stocks/$symbol"
 					params={{ symbol: a.ticker.symbol }}
+					search={{ saved: true, from: "my-stak" }}
 					className="flex h-[296px] w-[360px] flex-col items-start overflow-clip rounded-[16px] bg-[#181f30] p-[20px]"
 				>
 					<div className="flex w-full flex-col items-start gap-[27px]">

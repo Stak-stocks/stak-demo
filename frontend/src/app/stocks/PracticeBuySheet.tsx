@@ -21,7 +21,7 @@ type Props = {
 export function PracticeBuySheet({ symbol, name, initial, price, changeShort, shares, offsetY, scrim, onClose, onConfirm }: Props) {
 	const stop = (e: MouseEvent) => e.stopPropagation();
 	return (
-		<div className="fixed inset-0 z-50" style={{ background: scrim ?? "rgba(0,0,0,0.66)" }} onClick={onClose} data-sheet>
+		<div className="stak-sheet-in fixed inset-0 z-50" style={{ background: scrim ?? "rgba(0,0,0,0.66)" }} onClick={onClose} data-sheet>
 			<div
 				role="dialog"
 				aria-label={`Buy ${symbol}?`}

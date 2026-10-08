@@ -52,7 +52,7 @@ function HomePage() {
 function MarketMoodCard() {
 	const [left, mid, right] = marketMood.deck;
 	return (
-		<section className="relative h-[470px] w-[885px] overflow-clip rounded-[16px] bg-[#171d2c]">
+		<Link to="/news" className="relative block h-[470px] w-[885px] overflow-clip rounded-[16px] bg-[#171d2c]">
 			<div className="absolute left-[28px] top-[26px] flex items-start gap-[407px]">
 				<div className="flex w-[360px] flex-col items-start gap-[4px]">
 					<h2 className="w-full font-sora text-[22px] font-semibold leading-[28px] text-[#f2f6fc]">{marketMood.title}</h2>
@@ -97,13 +97,13 @@ function MarketMoodCard() {
 					</p>
 				</article>
 			</div>
-		</section>
+		</Link>
 	);
 }
 
 function WhyCard() {
 	return (
-		<article className="relative h-[119px] w-[430px] overflow-clip rounded-[8.229px] bg-[#171d2c]">
+		<Link to="/my-stak" className="relative block h-[119px] w-[430px] overflow-clip rounded-[8.229px] bg-[#171d2c]">
 			<div className="absolute left-[calc(50%-0.5px)] top-[calc(50%-0.5px)] flex w-[341px] -translate-x-1/2 -translate-y-1/2 items-center gap-[20px]">
 				<img alt="" src={A.cautionIcon} className="size-[108px] shrink-0 object-cover" />
 				<div className="flex flex-col items-start gap-[6.171px]">
@@ -111,26 +111,23 @@ function WhyCard() {
 					<p className="w-[203.657px] font-geist text-[12.343px] font-light leading-[15.429px] text-white">{homePromos.why.body}</p>
 				</div>
 			</div>
-		</article>
+		</Link>
 	);
 }
 
 function DeckPromoCard() {
 	return (
-		<article className="relative h-[119px] w-[430px] overflow-clip rounded-[8.229px] bg-[#69b3ca]">
+		<Link to="/discover" className="relative block h-[119px] w-[430px] overflow-clip rounded-[8.229px] bg-[#69b3ca]">
 			{/* "Illustration" group (box + coins + shadow), exported at 2x, clipped by the card exactly as in Figma */}
 			<img alt="" src={A.deckBoxIllustration} className="absolute left-[29.68px] top-0 h-[119px] w-[159px]" />
 			<div className="absolute left-[235.39px] top-[calc(50%+0.67px)] flex w-[160.457px] -translate-y-1/2 flex-col items-start gap-[10.286px]">
 				<p className="w-full font-geist text-[12.343px] font-light leading-[15.429px] text-black">{homePromos.deck.body}</p>
-				<Link
-					to="/discover"
-					className="flex h-[32.914px] w-[126.514px] items-center justify-center gap-[3.086px] rounded-[15.429px] bg-[#0a1020] py-[4.728px]"
-				>
+				<span className="flex h-[32.914px] w-[126.514px] items-center justify-center gap-[3.086px] rounded-[15.429px] bg-[#0a1020] py-[4.728px]">
 					<span className="whitespace-nowrap font-geist text-[11.82px] font-medium text-white">{homePromos.deck.cta}</span>
 					<img alt="" src={A.arrowRight} className="size-[16.457px]" />
-				</Link>
+				</span>
 			</div>
-		</article>
+		</Link>
 	);
 }
 

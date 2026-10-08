@@ -41,12 +41,12 @@ function CollectionPage() {
 				<div className="flex w-full flex-col items-start gap-[16px]">
 					<div className="flex items-center gap-[16px]">
 						{stocks.slice(0, 3).map((s) => (
-							<StockCard key={s.symbol} stock={s} />
+							<StockCard key={s.symbol} stock={s} collection={slug} />
 						))}
 					</div>
 					<div className="flex w-full items-center gap-[16px]">
 						{stocks.slice(3).map((s) => (
-							<StockCard key={s.symbol} stock={s} />
+							<StockCard key={s.symbol} stock={s} collection={slug} />
 						))}
 						<Link
 							to="/discover"
@@ -62,11 +62,12 @@ function CollectionPage() {
 	);
 }
 
-function StockCard({ stock }: { stock: CollectionStock }) {
+function StockCard({ stock, collection }: { stock: CollectionStock; collection: string }) {
 	return (
 		<Link
 			to="/stocks/$symbol"
 			params={{ symbol: stock.symbol }}
+			search={{ saved: true, from: "my-stak", collection }}
 			className="flex h-[195px] w-[300px] flex-col items-start gap-[14px] overflow-clip rounded-[22.4px] bg-[#181f30] p-[20px]"
 		>
 			<span className="flex w-full items-center justify-between overflow-clip">

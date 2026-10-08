@@ -6,13 +6,14 @@ import { GhostButton, PrimaryButton } from "@/app/discover/Button";
 import { DeckCard } from "@/app/discover/DeckCard";
 import { deckCards, deckCopy, deckHeader } from "@/app/discover/data";
 import { deckTicket } from "@/app/stocks/data";
+import { AddSuccessSheet } from "@/app/simulate/sheets";
 import { PracticeBuySheet } from "@/app/stocks/PracticeBuySheet";
 
-type DeckSearch = { state?: "saved" | "buy"; i?: number; loading?: boolean };
+type DeckSearch = { state?: "saved" | "buy" | "filled"; i?: number; loading?: boolean };
 
 export const Route = createFileRoute("/_app/discover")({
 	validateSearch: (s: Record<string, unknown>): DeckSearch => ({
-		state: s.state === "saved" || s.state === "buy" ? s.state : undefined,
+		state: s.state === "saved" || s.state === "buy" || s.state === "filled" ? s.state : undefined,
 		loading: s.loading === true || s.loading === 1 || s.loading === "1" ? true : undefined,
 		i: typeof s.i === "number" && s.i >= 0 && s.i < deckHeader.total ? s.i : undefined,
 	}),
@@ -136,7 +137,23 @@ function DiscoverPage() {
 					shares={deckTicket.shares}
 					offsetY={88.5}
 					onClose={() => set({ i: index })}
-					onConfirm={() => go(index + 1)}
+					onConfirm={() => set({ i: index, state: "filled" })}
+				/>
+			)}
+			{state === "filled" && (
+				<AddSuccessSheet
+					symbol={deckTicket.symbol}
+					stock={{
+						name: deckTicket.name,
+						nameConfirm: deckTicket.name,
+						price: Number(String(deckTicket.price).replace(/[^0-9.]/g, "")),
+						pct: deckTicket.changeShort,
+						up: !String(deckTicket.changeShort).includes("\u25bc"),
+						initial: deckTicket.initial,
+					}}
+					amount={25}
+					onPrimary={() => navigate({ to: "/my-stak" })}
+					onClose={() => set({ i: index })}
 				/>
 			)}
 		</div>

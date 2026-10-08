@@ -94,7 +94,7 @@ function LoginPage() {
 	}
 
 	return (
-		<AuthLayout formTop={242}>
+		<AuthLayout formTop={242} backTo="/signup">
 			<form onSubmit={handleEmailSignIn} className="flex w-full flex-col items-start gap-[30px]">
 				<div className="flex w-full flex-col items-start gap-[14px]">
 					<div className="flex w-full flex-col items-start gap-[51px]">

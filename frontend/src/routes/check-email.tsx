@@ -34,7 +34,7 @@ function CheckEmailPage() {
 	}
 
 	return (
-		<AuthLayout formTop={411}>
+		<AuthLayout formTop={411} backTo="/forgot-password">
 			<div className="flex w-full flex-col items-start gap-[30px]">
 				<div className="flex w-full flex-col items-start">
 					<AuthHeading title="Check your email" subtitle={`We sent a reset link to ${address}. It expires in 15 minutes.`} />

@@ -36,7 +36,7 @@ function ForgotPasswordPage() {
 	}
 
 	return (
-		<AuthLayout formTop={372}>
+		<AuthLayout formTop={372} backTo="/login">
 			<form onSubmit={handleSubmit} className="flex w-full flex-col items-start gap-[30px]">
 				<div className="flex w-full flex-col items-start">
 					<AuthHeading title="Forgot your password?" subtitle="Enter the email you signed up with and we’ll send a reset link." />

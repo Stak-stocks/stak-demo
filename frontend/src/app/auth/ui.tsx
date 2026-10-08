@@ -129,7 +129,7 @@ export function Spinner() {
  * tagline, back control at 627/63, and the 440-wide form column at left 790 (10px padding) whose
  * top is the frame's own value.
  */
-export function AuthLayout({ formTop, children }: { formTop: number; children: ReactNode }) {
+export function AuthLayout({ formTop, backTo, children }: { formTop: number; backTo?: string; children: ReactNode }) {
 	return (
 		<div className="relative min-h-[1024px] w-full overflow-clip bg-[#0a1020] font-geist antialiased">
 			<aside className="absolute inset-y-0 left-0 w-[600px] overflow-clip bg-[#060c1d]">
@@ -147,7 +147,7 @@ export function AuthLayout({ formTop, children }: { formTop: number; children: R
 					<p className="font-geist text-[18px] leading-[23px] text-[#cbcccc]">Discover stocks you actually vibe with.</p>
 				</div>
 			</aside>
-			<BackButton className="absolute left-[627px] top-[63px]" />
+			<BackButton className="absolute left-[627px] top-[63px]" fallbackTo={backTo} />
 			<div className="absolute left-[790px] flex items-center p-[10px]" style={{ top: formTop }}>
 				<div className="flex w-[440px] flex-col items-center justify-center gap-[26px] overflow-clip">{children}</div>
 			</div>

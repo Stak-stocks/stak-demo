@@ -59,7 +59,7 @@ export function Portfolio({ search }: { search: PortfolioSearch }) {
 											<p className="font-geist text-[13px] font-medium leading-[17px]">{pick.gain}</p>
 											<p className="font-geist text-[11px] leading-[14px]">{pick.pct}</p>
 										</div>
-										<SmallSellButton onClick={() => setSearch({ modal: "sell-confirm", symbol: pick.symbol })}>{d.sell}</SmallSellButton>
+										<SmallSellButton onClick={() => navigate({ to: "/simulate/picks/$symbol", params: { symbol: pick.symbol } })}>{d.sell}</SmallSellButton>
 									</div>
 								</div>
 							))}

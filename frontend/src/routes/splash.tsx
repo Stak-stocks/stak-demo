@@ -1,15 +1,28 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { AU } from "@/app/auth/assets";
 
+type SplashSearch = { hold?: boolean };
+
 export const Route = createFileRoute("/splash")({
+	validateSearch: (s: Record<string, unknown>): SplashSearch => ({
+		hold: s.hold === true || s.hold === 1 || s.hold === "1" ? true : undefined,
+	}),
 	component: SplashPage,
 });
 
-/** Figma 2:5601 "Desktop · Splash". The whole screen advances to sign in. */
+/** Figma 2:5601 "Desktop · Splash". Advances to Sign up after 1.2 s like the prototype (?hold=1 freezes it); a click goes early. */
 function SplashPage() {
+	const { hold } = Route.useSearch();
+	const navigate = useNavigate();
+	useEffect(() => {
+		if (hold) return;
+		const t = setTimeout(() => navigate({ to: "/signup", replace: true }), 1200);
+		return () => clearTimeout(t);
+	}, [hold, navigate]);
 	return (
 		<Link
-			to="/login"
+			to="/signup"
 			aria-label="Welcome to STAK, continue"
 			className="relative block min-h-[1024px] w-full overflow-clip bg-[#0a1020] font-geist antialiased"
 		>

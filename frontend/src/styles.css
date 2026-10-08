@@ -166,13 +166,17 @@ input::-webkit-credentials-auto-fill-button {
 	* {
 		@apply border-border outline-ring/50;
 	}
-	header, main, nav {
+	header,
+	main,
+	nav {
 		border: 0 !important;
 		box-shadow: none !important;
 		border-color: transparent !important;
 		outline: none !important;
 	}
-	html, body, #app {
+	html,
+	body,
+	#app {
 		height: 100%;
 		overflow: hidden;
 	}
@@ -209,7 +213,8 @@ input::-webkit-credentials-auto-fill-button {
 
 /* Animated glow pulse for vibe bars */
 @keyframes glow-pulse {
-	0%, 100% {
+	0%,
+	100% {
 		opacity: 1;
 		filter: brightness(1);
 	}
@@ -221,8 +226,14 @@ input::-webkit-credentials-auto-fill-button {
 
 /* Confetti burst — fires on lesson completion */
 @keyframes confetti-fall {
-	0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
-	100% { transform: translateY(60px) rotate(720deg); opacity: 0; }
+	0% {
+		transform: translateY(-20px) rotate(0deg);
+		opacity: 1;
+	}
+	100% {
+		transform: translateY(60px) rotate(720deg);
+		opacity: 0;
+	}
 }
 
 .confetti-piece {
@@ -235,10 +246,22 @@ input::-webkit-credentials-auto-fill-button {
 
 /* Floating XP reward indicator */
 @keyframes xp-float {
-	0%   { opacity: 0; transform: translateY(0px) scale(0.7); }
-	15%  { opacity: 1; transform: translateY(-12px) scale(1.05); }
-	70%  { opacity: 1; transform: translateY(-48px) scale(1); }
-	100% { opacity: 0; transform: translateY(-72px) scale(0.9); }
+	0% {
+		opacity: 0;
+		transform: translateY(0px) scale(0.7);
+	}
+	15% {
+		opacity: 1;
+		transform: translateY(-12px) scale(1.05);
+	}
+	70% {
+		opacity: 1;
+		transform: translateY(-48px) scale(1);
+	}
+	100% {
+		opacity: 0;
+		transform: translateY(-72px) scale(0.9);
+	}
 }
 
 .xp-float {
@@ -248,14 +271,22 @@ input::-webkit-credentials-auto-fill-button {
 
 /* Answer reveal pulse — fires when correct badge appears */
 @keyframes answer-pop {
-	0%   { transform: scale(1); }
-	40%  { transform: scale(1.18); }
-	70%  { transform: scale(0.95); }
-	100% { transform: scale(1); }
+	0% {
+		transform: scale(1);
+	}
+	40% {
+		transform: scale(1.18);
+	}
+	70% {
+		transform: scale(0.95);
+	}
+	100% {
+		transform: scale(1);
+	}
 }
 
 .answer-pop {
-	animation: answer-pop 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+	animation: answer-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 /* Animated shimmer for CTA button border */
@@ -272,18 +303,91 @@ input::-webkit-credentials-auto-fill-button {
 }
 
 /* ── STAK app (desktop rebuild, Figma SGodL9Eyc2FkEejpv5ixQE) — self-hosted fonts, same files as the Android app ── */
-@font-face { font-family: "Geist"; font-weight: 300; font-style: normal; font-display: swap; src: url("/fonts/geist_light.ttf") format("truetype"); }
-@font-face { font-family: "Geist"; font-weight: 400; font-style: normal; font-display: swap; src: url("/fonts/geist_regular.ttf") format("truetype"); }
-@font-face { font-family: "Geist"; font-weight: 500; font-style: normal; font-display: swap; src: url("/fonts/geist_medium.ttf") format("truetype"); }
-@font-face { font-family: "Geist"; font-weight: 600; font-style: normal; font-display: swap; src: url("/fonts/geist_semibold.ttf") format("truetype"); }
-@font-face { font-family: "Geist"; font-weight: 700; font-style: normal; font-display: swap; src: url("/fonts/geist_bold.ttf") format("truetype"); }
-@font-face { font-family: "Sora"; font-weight: 300; font-style: normal; font-display: swap; src: url("/fonts/sora_light.ttf") format("truetype"); }
-@font-face { font-family: "Sora"; font-weight: 400; font-style: normal; font-display: swap; src: url("/fonts/sora_regular.ttf") format("truetype"); }
-@font-face { font-family: "Sora"; font-weight: 500; font-style: normal; font-display: swap; src: url("/fonts/sora_medium.ttf") format("truetype"); }
-@font-face { font-family: "Sora"; font-weight: 600; font-style: normal; font-display: swap; src: url("/fonts/sora_semibold.ttf") format("truetype"); }
-@font-face { font-family: "Sora"; font-weight: 700; font-style: normal; font-display: swap; src: url("/fonts/sora_bold.ttf") format("truetype"); }
+@font-face {
+	font-family: "Geist";
+	font-weight: 300;
+	font-style: normal;
+	font-display: swap;
+	src: url("/fonts/geist_light.ttf") format("truetype");
+}
+@font-face {
+	font-family: "Geist";
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+	src: url("/fonts/geist_regular.ttf") format("truetype");
+}
+@font-face {
+	font-family: "Geist";
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+	src: url("/fonts/geist_medium.ttf") format("truetype");
+}
+@font-face {
+	font-family: "Geist";
+	font-weight: 600;
+	font-style: normal;
+	font-display: swap;
+	src: url("/fonts/geist_semibold.ttf") format("truetype");
+}
+@font-face {
+	font-family: "Geist";
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+	src: url("/fonts/geist_bold.ttf") format("truetype");
+}
+@font-face {
+	font-family: "Sora";
+	font-weight: 300;
+	font-style: normal;
+	font-display: swap;
+	src: url("/fonts/sora_light.ttf") format("truetype");
+}
+@font-face {
+	font-family: "Sora";
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+	src: url("/fonts/sora_regular.ttf") format("truetype");
+}
+@font-face {
+	font-family: "Sora";
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+	src: url("/fonts/sora_medium.ttf") format("truetype");
+}
+@font-face {
+	font-family: "Sora";
+	font-weight: 600;
+	font-style: normal;
+	font-display: swap;
+	src: url("/fonts/sora_semibold.ttf") format("truetype");
+}
+@font-face {
+	font-family: "Sora";
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+	src: url("/fonts/sora_bold.ttf") format("truetype");
+}
 
 @theme {
 	--font-geist: "Geist", sans-serif;
 	--font-sora: "Sora", sans-serif;
+}
+
+/* sheets and tickets fade in like the prototype's 0.3 s dissolve */
+@keyframes stak-sheet-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+.stak-sheet-in {
+	animation: stak-sheet-in 0.3s ease-out both;
 }

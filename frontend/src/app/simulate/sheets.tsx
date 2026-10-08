@@ -19,7 +19,7 @@ export function Modal({
 		return () => window.removeEventListener("keydown", onKey);
 	}, [onClose]);
 	return (
-		<div className="fixed inset-0 z-50 overflow-clip" style={{ backgroundColor: scrim }}>
+		<div className="stak-sheet-in fixed inset-0 z-50 overflow-clip" style={{ backgroundColor: scrim }}>
 			<button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 cursor-default" />
 			<div
 				role="dialog"

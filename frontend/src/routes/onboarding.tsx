@@ -66,7 +66,9 @@ function OnboardingPage() {
 		[navigate],
 	);
 	const back = useCallback(() => {
-		if (step > 1) goTo(step - 1);
+		// prototype: Back on the Taste reveal returns to the Risk matrix, skipping the Preparing step
+		if (step === 7) goTo(5);
+		else if (step > 1) goTo(step - 1);
 		else navigate({ to: "/login" });
 	}, [step, goTo, navigate]);
 
@@ -108,7 +110,7 @@ function OnboardingPage() {
 		}
 		if (hold) return;
 		const start = requestAnimationFrame(() => setFilling(true));
-		const t = setTimeout(() => goTo(7), 2400);
+		const t = setTimeout(() => goTo(7), 1800);
 		return () => {
 			cancelAnimationFrame(start);
 			clearTimeout(t);
@@ -318,7 +320,7 @@ function OnboardingPage() {
 								<p className="w-full text-center font-geist text-[11px] leading-[14px] text-[#819abb]">You can change this anytime in Profile.</p>
 							</div>
 						</div>
-						<PrimaryButton className="w-[440px]" onClick={() => navigate({ to: "/home", replace: true })}>
+						<PrimaryButton className="w-[440px]" onClick={() => navigate({ to: "/home", search: { firstRun: true }, replace: true })}>
 							Proceed to home
 						</PrimaryButton>
 					</div>

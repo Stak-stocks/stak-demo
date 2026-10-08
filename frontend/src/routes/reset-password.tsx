@@ -88,7 +88,7 @@ function ResetPasswordPage() {
 
 	if (invalidCode) {
 		return (
-			<AuthLayout formTop={372}>
+			<AuthLayout formTop={372} backTo="/login">
 				<div className="flex w-full flex-col items-start gap-[30px]">
 					<div className="flex w-full flex-col items-start">
 						<AuthHeading title="Invalid link" subtitle="This password reset link is invalid or has expired." />
@@ -105,7 +105,7 @@ function ResetPasswordPage() {
 	}
 
 	return (
-		<AuthLayout formTop={341}>
+		<AuthLayout formTop={341} backTo="/login">
 			<form onSubmit={handleSubmit} className="flex w-full flex-col items-start gap-[30px]">
 				<div className="flex w-full flex-col items-start">
 					<AuthHeading
