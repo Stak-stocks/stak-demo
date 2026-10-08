@@ -1,5 +1,5 @@
 /** Discover deck copy (Figma 2:2944 / 2:3089 / 2:3422), verbatim. */
-export type DeckArt = "nvda" | "aapl" | "googl";
+export type DeckArt = "nvda" | "aapl" | "googl" | "logo";
 
 export type DeckCardData = {
 	symbol: string;

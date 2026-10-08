@@ -3,12 +3,15 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { useEffect, useRef } from "react";
 import { Toaster } from "sonner";
 import { FitCanvas } from "@/app/FitCanvas";
+import { NotFound } from "@/app/NotFound";
+import { useDocumentTitle } from "@/app/titles";
 import { isDesktopAppPath } from "@/app/paths";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { logEvent } from "@/lib/firebase";
 
 export const Route = createRootRoute({
 	component: Root,
+	notFoundComponent: NotFound,
 });
 
 /**
@@ -20,6 +23,7 @@ function Root() {
 	const location = useLocation();
 	const isDesktopApp = isDesktopAppPath(location.pathname);
 	const scrollRef = useRef<HTMLDivElement>(null);
+	useDocumentTitle(location.pathname);
 
 	useEffect(() => {
 		document.documentElement.classList.add("dark");

@@ -94,7 +94,7 @@ function OnboardingPage() {
 		if (!completed.current && user && !preview) {
 			completed.current = true;
 			sessionStorage.removeItem("stak-deck-order");
-			const prefs = { interests: [] as string[], familiarity: risk, onboardingSwipes: picks };
+			const prefs = { interests: [] as string[], familiarity: risk, onboardingSwipes: picks, goal };
 			updatePreferences(prefs).catch(() => {});
 			updateDeckOrder([]).catch(() => {});
 			const d = new Date();

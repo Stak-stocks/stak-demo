@@ -20,6 +20,7 @@ const router = createRouter({
 	scrollRestoration: false,
 	defaultStructuralSharing: true,
 	defaultPreloadStaleTime: 0,
+	defaultViewTransition: true,
 	basepath: import.meta.env.TENANT_ID ? `/${import.meta.env.TENANT_ID}` : "/",
 });
 

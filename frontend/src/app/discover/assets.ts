@@ -12,5 +12,9 @@ export const D = {
 		nvda: `${base}/illus-deck-nvda@2x.png`, // group 2:3044 export, clipped by its image frame
 		aapl: `${base}/illus-deck-aapl-local@2x.png`, // image frame 2:3004 export, un-rotated
 		googl: `${base}/illus-deck-googl-local@2x.png`, // image frame 2:2963 export, un-rotated
+		logo: "", // catalog companies: the box + beam vectors below with the company logo in a glass coin
 	},
+	/** The illustration's layers (group 2:3044): the open box and the light beam; the coin is per company. */
+	deckBox: `${base}/deck-box.svg`, // "Group 1000002777" 272.152 x 248.508 at (-26.51, 78.6) in the 212 x 287 art frame
+	deckBeam: `${base}/deck-beam.svg`, // "Vector 7" 142.687 x 153.393 at (37.15, -5.31)
 } as const;

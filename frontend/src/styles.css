@@ -392,6 +392,76 @@ input::-webkit-credentials-auto-fill-button {
 	animation: stak-sheet-in 0.3s ease-out both;
 }
 
+/* sheets are native modal dialogs: the dialog box is the scrim, the panel sits centred inside it */
+.stak-dialog {
+	position: fixed;
+	inset: 0;
+	width: auto;
+	height: auto;
+	max-width: none;
+	max-height: none;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: var(--stak-scrim, rgba(0, 0, 0, 0.66));
+	color: inherit;
+	overflow: clip;
+	z-index: 50;
+}
+.stak-dialog::backdrop {
+	background: transparent;
+}
+
+/* interaction floor: every control answers the pointer and the keyboard the same way */
+.stak-canvas :where(a, button, [role="button"], summary):focus-visible {
+	outline: 2px solid #69b3ca;
+	outline-offset: 2px;
+}
+.stak-canvas :where(input, textarea, select):focus-visible {
+	outline: 2px solid #69b3ca;
+	outline-offset: 0;
+}
+.stak-press {
+	transition:
+		transform 120ms ease,
+		filter 160ms ease,
+		opacity 160ms ease,
+		background-color 160ms ease;
+}
+.stak-press:hover {
+	filter: brightness(1.07);
+}
+.stak-press:active {
+	transform: scale(0.985);
+}
+.stak-press:disabled,
+.stak-press[aria-disabled="true"] {
+	cursor: default;
+	filter: none;
+	transform: none;
+	opacity: 0.6;
+}
+
+/* route changes dissolve like the prototype's 0.3 s transition */
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation-duration: 220ms;
+	animation-timing-function: ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.stak-sheet-in {
+		animation: none;
+	}
+	.stak-press {
+		transition: none;
+	}
+	::view-transition-old(root),
+	::view-transition-new(root) {
+		animation: none;
+	}
+}
+
 /* standalone pages: the 1024-tall frame band is centred in taller windows; header chrome subtracts it to stay at the top */
 .stak-canvas {
 	--stak-band: max(0px, calc((100vh / var(--stak-zoom, 1) - 1024px) / 2));

@@ -1,38 +1,22 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
+import { Sheet } from "@/app/ui/Sheet";
 import { cn } from "@/lib/utils";
 import { SA } from "./assets";
 import { buyFailed, cashAvailable, money, pickDetail, sheets, shares4, signedMoney, type Stock } from "./data";
 import { AmountChip, Avatar, GhostButton, GradientButton, SellButton } from "./ui";
 
-/** Scrim + centred 480 sheet ("Sheet" 2:1421 et al.). The scrim colour differs per frame in the Figma. */
+/** Scrim + centred 480 sheet ("Sheet" 2:1421 et al.) on the native dialog. The scrim colour differs per frame in the Figma. */
 export function Modal({
 	scrim = "rgba(0,0,0,0.66)",
 	halfPixel = true,
+	label = "Sheet",
 	onClose,
 	children,
-}: { scrim?: string; halfPixel?: boolean; onClose: () => void; children: ReactNode }) {
-	useEffect(() => {
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key === "Escape") onClose();
-		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, [onClose]);
+}: { scrim?: string; halfPixel?: boolean; label?: string; onClose: () => void; children: ReactNode }) {
 	return (
-		<div className="stak-sheet-in fixed inset-0 z-50 overflow-clip" style={{ backgroundColor: scrim }}>
-			<button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 cursor-default" />
-			<div
-				role="dialog"
-				aria-modal="true"
-				className="absolute left-1/2 flex w-[480px] -translate-x-1/2 -translate-y-1/2 flex-col items-start gap-[14px] overflow-clip rounded-[20px] bg-[#181f30] px-[20px] pt-[10px] pb-[30px]"
-				style={{ top: halfPixel ? "calc(50% + 0.5px)" : "50%" }}
-			>
-				<div className="flex w-full items-start justify-center overflow-clip pb-[4px]">
-					<div className="h-[4px] w-[40px] rounded-[2px] bg-[#2a3346]" />
-				</div>
-				{children}
-			</div>
-		</div>
+		<Sheet label={label} scrim={scrim} offsetY={halfPixel ? 0.5 : 0} onClose={onClose}>
+			{children}
+		</Sheet>
 	);
 }
 
@@ -102,7 +86,7 @@ export function AddConfirmSheet({
 	);
 	const line = <BigLine before={s.youGet} big={shares4(amount / stock.price)} after={s.sharesOf(symbol)} />;
 	return (
-		<Modal scrim={alt ? "rgba(11,8,8,0.86)" : "rgba(0,0,0,0.66)"} onClose={onClose}>
+		<Modal scrim={alt ? "rgba(11,8,8,0.86)" : "rgba(0,0,0,0.66)"} label={alt ? s.titleAlt(symbol) : s.title(symbol)} onClose={onClose}>
 			<SheetTitle>{alt ? s.titleAlt(symbol) : s.title(symbol)}</SheetTitle>
 			<StockRow stock={stock} name={stock.nameConfirm} />
 			<Description>{s.description}</Description>
@@ -141,7 +125,7 @@ export function AddSuccessSheet({
 }: { symbol: string; stock: Stock; amount: number; onPrimary: () => void; onClose: () => void }) {
 	const s = sheets.addSuccess;
 	return (
-		<Modal halfPixel={false} onClose={onClose}>
+		<Modal halfPixel={false} label={s.title} onClose={onClose}>
 			<div className="flex w-full flex-col items-center gap-[14px]">
 				<div className="flex w-full flex-col items-center gap-[14px]">
 					<img alt="" src={SA.checkCircle} className="size-[47px]" />
@@ -177,7 +161,7 @@ export function SellConfirmSheet({
 	const s = sheets.sellConfirm;
 	const pos = pickDetail.position;
 	return (
-		<Modal halfPixel={false} onClose={onClose}>
+		<Modal halfPixel={false} label={s.title(symbol)} onClose={onClose}>
 			<SheetTitle>{s.title(symbol)}</SheetTitle>
 			<StockRow stock={stock} name={stock.nameConfirm} />
 			<Description>{s.description}</Description>
@@ -216,7 +200,7 @@ export function SellSuccessSheet({
 	const proceeds = pos.value * portion;
 	const gain = (pos.value - pos.stake) * portion;
 	return (
-		<Modal onClose={onClose}>
+		<Modal label={s.title} onClose={onClose}>
 			<div className="flex w-full flex-col items-center gap-[14px]">
 				<img alt="" src={SA.checkCircle} className="size-[47px]" />
 				<SheetTitle>{s.title}</SheetTitle>
@@ -248,7 +232,7 @@ export function PortfolioSellSheet({
 	const s = sheets.portfolioSell;
 	const pos = pickDetail.position;
 	return (
-		<Modal scrim="rgba(17,14,14,0.74)" halfPixel={false} onClose={onClose}>
+		<Modal scrim="rgba(17,14,14,0.74)" halfPixel={false} label={s.title(symbol)} onClose={onClose}>
 			<SheetTitle>{s.title(symbol)}</SheetTitle>
 			<StockRow stock={stock} name={stock.name} />
 			<Description>{s.description}</Description>
@@ -281,7 +265,7 @@ export function BuyFailedSheet({
 	onClose,
 }: { stock: Stock; onRetry: () => void; onClose: () => void }) {
 	return (
-		<Modal onClose={onClose}>
+		<Modal label={buyFailed.title} onClose={onClose}>
 			<SheetTitle>{buyFailed.title}</SheetTitle>
 			<p className="whitespace-nowrap font-geist text-[12px] font-medium leading-[16px] text-[#e5484d]">{buyFailed.status}</p>
 			<StockRow stock={stock} name={stock.nameConfirm} />
