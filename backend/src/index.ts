@@ -27,6 +27,7 @@ import { playgroundRouter } from "./routes/playground.js";
 import { brandAdminRouter } from "./routes/brandAdmin.js";
 import { stakAiRouter } from "./routes/stakAi.js";
 import { sandboxRouter } from "./routes/sandbox.js";
+import { legalRouter } from "./routes/legal.js";
 import { syncNewIPOs } from "./services/ipoService.js";
 
 const app = express();
@@ -100,6 +101,7 @@ app.use("/api/daily-brief", authLimiter, dailyBriefRouter);
 app.use("/api/playground", authLimiter, playgroundRouter);
 app.use("/api/stak-ai", authLimiter, stakAiRouter);
 app.use("/api/sandbox", authLimiter, sandboxRouter);
+app.use("/api/legal", publicLimiter, legalRouter);
 // Public early-access sign-up; the router applies its own, much tighter limit.
 app.use("/api/waitlist", waitlistRouter);
 
