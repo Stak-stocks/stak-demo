@@ -9,10 +9,11 @@ import { SellFlow } from "@/components/simulate/SellFlow";
 import { PickDesktop } from "@/components/simulate/desktop/PickDesktop";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useMyStakData } from "@/hooks/useMyStakData";
-import { Badge, ChartNote, DarkCta, EmptyStateCard, Kicker, RangeChart, RangeChips, SIM, SheetSecondary, tealShadow } from "@/components/simulate/simKit";
+import { Badge, ChartNote, DarkCta, EmptyStateCard, Kicker, RangeChart, RangeChips, SIM, SheetSecondary, ShareCircle, tealShadow } from "@/components/simulate/simKit";
 import { Sparkle } from "@/components/mystak/TasteCard";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { BackCircle, PhonePage, f, sheetCard } from "@/components/phone/phone";
+import { pickShareText, shareText } from "@/lib/share";
 
 export const Route = createFileRoute("/simulate_/pick/$symbol")({
 	component: PickPage,
@@ -59,7 +60,7 @@ function PickPage() {
 		<div className="relative flex items-center justify-between" style={{ padding: `${cu(8)} ${cu(18)}` }}>
 			<BackCircle onClick={goPortfolio} label="Back to portfolio" />
 			<h1 className="pointer-events-none absolute inset-x-0 text-center" style={{ font: f(600, 16, undefined, "heading"), color: "#fff" }}>{symbol.toUpperCase()}</h1>
-			<span aria-hidden="true" style={{ width: cu(40), height: cu(40) }} />
+			{pick ? <ShareCircle onClick={() => { void shareText(pickShareText(pick.ticker, isUp(pick.gain), pick.gainPct), "STAK"); }} /> : <span aria-hidden="true" style={{ width: cu(40), height: cu(40) }} />}
 		</div>
 	);
 

@@ -8,6 +8,8 @@ import { Badge, EmptyStateCard, Kicker, SIM } from "@/components/simulate/simKit
 import { PortfolioRow } from "@/components/simulate/SimSections";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { BackCircle, PRESS, PhonePage, SettingsChip, f, focusRing, sheetCard } from "@/components/phone/phone";
+import { ShareCircle } from "@/components/simulate/simKit";
+import { portfolioShareText, shareText } from "@/lib/share";
 
 export const Route = createFileRoute("/simulate_/portfolio")({
 	component: PortfolioRoute,
@@ -61,7 +63,7 @@ function PortfolioPage() {
 			<div className="relative flex items-center justify-between" style={{ padding: `${cu(8)} ${cu(18)}` }}>
 				<BackCircle onClick={() => navigate({ to: "/simulate" })} label="Back to Simulate" />
 				<h1 className="pointer-events-none absolute inset-x-0 text-center" style={{ font: f(600, 16, 20, "heading"), color: "#fff" }}>Your portfolio</h1>
-				<span aria-hidden="true" style={{ width: cu(40), height: cu(40) }} />
+				<ShareCircle onClick={() => { void shareText(portfolioShareText((paper.allTimeGain / paper.paperStart) * 100, empty), "STAK"); }} />
 			</div>
 
 			<div style={{ display: "flex", flexDirection: "column", gap: cu(16), padding: `${cu(6)} ${cu(20)} ${cu(26)}` }}>
