@@ -1,24 +1,37 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { A } from "@/app/assets";
 import { PageHeader } from "@/app/PageHeader";
 import { account } from "@/app/data/account";
 import { homePromos, marketMood } from "@/app/data/home";
+import { NotificationsPanel } from "@/app/notifications/NotificationsPanel";
 
-type HomeSearch = { firstRun?: boolean };
+type NotificationsVariant = "list" | "empty";
+type HomeSearch = { firstRun?: boolean; notifications?: "1" | "empty" };
 
 export const Route = createFileRoute("/_app/home")({
 	validateSearch: (search: Record<string, unknown>): HomeSearch => ({
 		firstRun: search.firstRun === true || search.firstRun === 1 || search.firstRun === "1" ? true : undefined,
+		notifications:
+			search.notifications === "1" || search.notifications === 1 || search.notifications === true
+				? "1"
+				: search.notifications === "empty"
+					? "empty"
+					: undefined,
 	}),
 	component: HomePage,
 });
 
 /** Figma 2:414 "Desktop · Home · Main" and 2:532 "Desktop · Home · first run" (no picks block). */
 function HomePage() {
-	const { firstRun } = Route.useSearch();
+	const { firstRun, notifications } = Route.useSearch();
+	const fromSearch: NotificationsVariant | null = notifications === "1" ? "list" : notifications === "empty" ? "empty" : null;
+	const [panel, setPanel] = useState<NotificationsVariant | null>(fromSearch);
+	useEffect(() => setPanel(fromSearch), [fromSearch]);
 	return (
-		<div className="flex w-full flex-col items-start gap-[29px]">
-			<PageHeader title={account.greeting} />
+		<div className="relative flex w-full flex-col items-start gap-[29px]">
+			<PageHeader title={account.greeting} onBell={() => setPanel((p) => (p ? null : "list"))} />
+			{panel && <NotificationsPanel variant={panel} onClose={() => setPanel(null)} />}
 			<div className="flex flex-col items-center gap-[55px]">
 				<div className="flex w-full flex-col items-end gap-[19px]">
 					<MarketMoodCard />

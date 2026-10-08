@@ -21,12 +21,15 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppProfileRouteImport } from './routes/_app.profile'
 import { Route as AppNewsRouteImport } from './routes/_app.news'
 import { Route as AppHomeRouteImport } from './routes/_app.home'
+import { Route as AppDiscoverRouteImport } from './routes/_app.discover'
 import { Route as AppSimulateIndexRouteImport } from './routes/_app.simulate.index'
+import { Route as AppStocksSymbolRouteImport } from './routes/_app.stocks.$symbol'
 import { Route as AppSimulatePortfolioRouteImport } from './routes/_app.simulate.portfolio'
 import { Route as AppSimulateLeaderboardRouteImport } from './routes/_app.simulate.leaderboard'
 import { Route as AppProfileTasteRiskRouteImport } from './routes/_app.profile_.taste-risk'
 import { Route as AppProfileEditRouteImport } from './routes/_app.profile_.edit'
 import { Route as AppNewsIdRouteImport } from './routes/_app.news_.$id'
+import { Route as AppDiscoverEndRouteImport } from './routes/_app.discover_.end'
 import { Route as AppSimulatePicksSymbolRouteImport } from './routes/_app.simulate.picks.$symbol'
 
 const WelcomeRoute = WelcomeRouteImport.update({
@@ -88,9 +91,19 @@ const AppHomeRoute = AppHomeRouteImport.update({
   path: '/home',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDiscoverRoute = AppDiscoverRouteImport.update({
+  id: '/discover',
+  path: '/discover',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSimulateIndexRoute = AppSimulateIndexRouteImport.update({
   id: '/simulate/',
   path: '/simulate/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStocksSymbolRoute = AppStocksSymbolRouteImport.update({
+  id: '/stocks/$symbol',
+  path: '/stocks/$symbol',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSimulatePortfolioRoute = AppSimulatePortfolioRouteImport.update({
@@ -118,6 +131,11 @@ const AppNewsIdRoute = AppNewsIdRouteImport.update({
   path: '/news/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDiscoverEndRoute = AppDiscoverEndRouteImport.update({
+  id: '/discover_/end',
+  path: '/discover/end',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSimulatePicksSymbolRoute = AppSimulatePicksSymbolRouteImport.update({
   id: '/simulate/picks/$symbol',
   path: '/simulate/picks/$symbol',
@@ -133,14 +151,17 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/splash': typeof SplashRoute
   '/welcome': typeof WelcomeRoute
+  '/discover': typeof AppDiscoverRoute
   '/home': typeof AppHomeRoute
   '/news': typeof AppNewsRoute
   '/profile': typeof AppProfileRoute
+  '/discover/end': typeof AppDiscoverEndRoute
   '/news/$id': typeof AppNewsIdRoute
   '/profile/edit': typeof AppProfileEditRoute
   '/profile/taste-risk': typeof AppProfileTasteRiskRoute
   '/simulate/leaderboard': typeof AppSimulateLeaderboardRoute
   '/simulate/portfolio': typeof AppSimulatePortfolioRoute
+  '/stocks/$symbol': typeof AppStocksSymbolRoute
   '/simulate/': typeof AppSimulateIndexRoute
   '/simulate/picks/$symbol': typeof AppSimulatePicksSymbolRoute
 }
@@ -153,14 +174,17 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/splash': typeof SplashRoute
   '/welcome': typeof WelcomeRoute
+  '/discover': typeof AppDiscoverRoute
   '/home': typeof AppHomeRoute
   '/news': typeof AppNewsRoute
   '/profile': typeof AppProfileRoute
+  '/discover/end': typeof AppDiscoverEndRoute
   '/news/$id': typeof AppNewsIdRoute
   '/profile/edit': typeof AppProfileEditRoute
   '/profile/taste-risk': typeof AppProfileTasteRiskRoute
   '/simulate/leaderboard': typeof AppSimulateLeaderboardRoute
   '/simulate/portfolio': typeof AppSimulatePortfolioRoute
+  '/stocks/$symbol': typeof AppStocksSymbolRoute
   '/simulate': typeof AppSimulateIndexRoute
   '/simulate/picks/$symbol': typeof AppSimulatePicksSymbolRoute
 }
@@ -175,14 +199,17 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/splash': typeof SplashRoute
   '/welcome': typeof WelcomeRoute
+  '/_app/discover': typeof AppDiscoverRoute
   '/_app/home': typeof AppHomeRoute
   '/_app/news': typeof AppNewsRoute
   '/_app/profile': typeof AppProfileRoute
+  '/_app/discover_/end': typeof AppDiscoverEndRoute
   '/_app/news_/$id': typeof AppNewsIdRoute
   '/_app/profile_/edit': typeof AppProfileEditRoute
   '/_app/profile_/taste-risk': typeof AppProfileTasteRiskRoute
   '/_app/simulate/leaderboard': typeof AppSimulateLeaderboardRoute
   '/_app/simulate/portfolio': typeof AppSimulatePortfolioRoute
+  '/_app/stocks/$symbol': typeof AppStocksSymbolRoute
   '/_app/simulate/': typeof AppSimulateIndexRoute
   '/_app/simulate/picks/$symbol': typeof AppSimulatePicksSymbolRoute
 }
@@ -197,14 +224,17 @@ export interface FileRouteTypes {
     | '/signup'
     | '/splash'
     | '/welcome'
+    | '/discover'
     | '/home'
     | '/news'
     | '/profile'
+    | '/discover/end'
     | '/news/$id'
     | '/profile/edit'
     | '/profile/taste-risk'
     | '/simulate/leaderboard'
     | '/simulate/portfolio'
+    | '/stocks/$symbol'
     | '/simulate/'
     | '/simulate/picks/$symbol'
   fileRoutesByTo: FileRoutesByTo
@@ -217,14 +247,17 @@ export interface FileRouteTypes {
     | '/signup'
     | '/splash'
     | '/welcome'
+    | '/discover'
     | '/home'
     | '/news'
     | '/profile'
+    | '/discover/end'
     | '/news/$id'
     | '/profile/edit'
     | '/profile/taste-risk'
     | '/simulate/leaderboard'
     | '/simulate/portfolio'
+    | '/stocks/$symbol'
     | '/simulate'
     | '/simulate/picks/$symbol'
   id:
@@ -238,14 +271,17 @@ export interface FileRouteTypes {
     | '/signup'
     | '/splash'
     | '/welcome'
+    | '/_app/discover'
     | '/_app/home'
     | '/_app/news'
     | '/_app/profile'
+    | '/_app/discover_/end'
     | '/_app/news_/$id'
     | '/_app/profile_/edit'
     | '/_app/profile_/taste-risk'
     | '/_app/simulate/leaderboard'
     | '/_app/simulate/portfolio'
+    | '/_app/stocks/$symbol'
     | '/_app/simulate/'
     | '/_app/simulate/picks/$symbol'
   fileRoutesById: FileRoutesById
@@ -348,11 +384,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppHomeRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/discover': {
+      id: '/_app/discover'
+      path: '/discover'
+      fullPath: '/discover'
+      preLoaderRoute: typeof AppDiscoverRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/simulate/': {
       id: '/_app/simulate/'
       path: '/simulate'
       fullPath: '/simulate/'
       preLoaderRoute: typeof AppSimulateIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/stocks/$symbol': {
+      id: '/_app/stocks/$symbol'
+      path: '/stocks/$symbol'
+      fullPath: '/stocks/$symbol'
+      preLoaderRoute: typeof AppStocksSymbolRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/simulate/portfolio': {
@@ -390,6 +440,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppNewsIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/discover_/end': {
+      id: '/_app/discover_/end'
+      path: '/discover/end'
+      fullPath: '/discover/end'
+      preLoaderRoute: typeof AppDiscoverEndRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/simulate/picks/$symbol': {
       id: '/_app/simulate/picks/$symbol'
       path: '/simulate/picks/$symbol'
@@ -401,27 +458,33 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppDiscoverRoute: typeof AppDiscoverRoute
   AppHomeRoute: typeof AppHomeRoute
   AppNewsRoute: typeof AppNewsRoute
   AppProfileRoute: typeof AppProfileRoute
+  AppDiscoverEndRoute: typeof AppDiscoverEndRoute
   AppNewsIdRoute: typeof AppNewsIdRoute
   AppProfileEditRoute: typeof AppProfileEditRoute
   AppProfileTasteRiskRoute: typeof AppProfileTasteRiskRoute
   AppSimulateLeaderboardRoute: typeof AppSimulateLeaderboardRoute
   AppSimulatePortfolioRoute: typeof AppSimulatePortfolioRoute
+  AppStocksSymbolRoute: typeof AppStocksSymbolRoute
   AppSimulateIndexRoute: typeof AppSimulateIndexRoute
   AppSimulatePicksSymbolRoute: typeof AppSimulatePicksSymbolRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppDiscoverRoute: AppDiscoverRoute,
   AppHomeRoute: AppHomeRoute,
   AppNewsRoute: AppNewsRoute,
   AppProfileRoute: AppProfileRoute,
+  AppDiscoverEndRoute: AppDiscoverEndRoute,
   AppNewsIdRoute: AppNewsIdRoute,
   AppProfileEditRoute: AppProfileEditRoute,
   AppProfileTasteRiskRoute: AppProfileTasteRiskRoute,
   AppSimulateLeaderboardRoute: AppSimulateLeaderboardRoute,
   AppSimulatePortfolioRoute: AppSimulatePortfolioRoute,
+  AppStocksSymbolRoute: AppStocksSymbolRoute,
   AppSimulateIndexRoute: AppSimulateIndexRoute,
   AppSimulatePicksSymbolRoute: AppSimulatePicksSymbolRoute,
 }
