@@ -1,6 +1,8 @@
-// The published Terms of Service and Privacy Policy, word for word from the founders' documents (STAK_Terms_of_Service
-// and STAK_Privacy_Policy, October 7, 2026). Changing either means bumping TERMS_VERSION / PRIVACY_VERSION in
-// shared/src/eligibility.ts, which asks every account to accept again.
+// The published Terms of Service and Privacy Policy: the founders' documents (STAK_Terms_of_Service and
+// STAK_Privacy_Policy, October 7, 2026) with the October 8 corrections that bring them in line with the app (date of
+// birth at sign-up, web and iOS push, Google sign-in, the Gemini models, in-app account deletion, notification
+// settings and time zone, hosting) - in use pending the lawyer's review. Changing either means bumping TERMS_VERSION /
+// PRIVACY_VERSION in shared/src/eligibility.ts, which asks every account to accept again.
 
 /** A paragraph, or a bulleted list. */
 export type LegalBlock = string | { list: string[] };
@@ -11,7 +13,7 @@ const NOTICE = "SUBJECT TO LEGAL REVIEW. STAK is not yet incorporated. These ter
 
 export const PRIVACY_POLICY: LegalDoc = {
 	title: "Privacy Policy",
-	effective: "October 7, 2026",
+	effective: "October 8, 2026",
 	notice: NOTICE,
 	sections: [
 		{ heading: "1. Overview", blocks: [
@@ -26,8 +28,17 @@ export const PRIVACY_POLICY: LegalDoc = {
 				"Communications you send to STAK, including support requests and feedback.",
 			] },
 			"STAK uses Supabase Auth for account authentication, sign-up verification, and password-reset workflows. We do not need to view your password in plain text.",
+			"If you choose to sign in with Google, Google shares your name, email address, and basic profile information with STAK to create and authenticate your account. Google’s own privacy terms govern the information it processes when you use Sign in with Google.",
 		] },
-		{ heading: "", sub: "B. Beta-profile and survey information", blocks: [
+		{ heading: "", sub: "B. Age and eligibility information", blocks: [
+			"Before you use the Service, we ask for your date of birth, whether you currently reside in the United States, and your agreement to these Terms and this Privacy Policy.",
+			{ list: [
+				"We use your date of birth only to determine whether you are at least 18 years old. We do not store your date of birth.",
+				"We store that your eligibility was confirmed and when, that you confirmed U.S. residence, and which versions of the Terms of Service and Privacy Policy you accepted and when.",
+				"If a sign-up is declined because the person is under 18, we delete the account and keep only a one-way cryptographic hash of the email address for 30 days, so the same address cannot immediately sign up again. The hash cannot be used to read the email address.",
+			] },
+		] },
+		{ heading: "", sub: "C. Beta-profile and survey information", blocks: [
 			"If you complete a beta questionnaire or provide product feedback, we may collect information such as:",
 			{ list: [
 				"Your investing experience and investing journey.",
@@ -40,29 +51,30 @@ export const PRIVACY_POLICY: LegalDoc = {
 			] },
 			"If we use Tally for beta forms, Tally may process your responses. If those responses are routed to Google Sheets, Google may also process and store the submitted information on our behalf.",
 		] },
-		{ heading: "", sub: "C. Product and personalization activity", blocks: [
+		{ heading: "", sub: "D. Product and personalization activity", blocks: [
 			"To operate and personalize STAK, we may collect information about how you interact with the Service, including:",
 			{ list: [
 				"Companies you save or “STAK,” pass on, revisit, search for, or explore.",
 				"Swipe and discovery activity.",
 				"Collections, watch interests, and companies or themes you follow.",
 				"Articles, market updates, company pages, features, and topics you view or engage with.",
-				"Questions, searches, clicks, revisits, and other product interactions.",
+				"Questions, searches (including the recent-search history you keep), clicks, revisits, and other product interactions.",
 				"Investing Taste or similar personalization signals inferred from your interactions.",
 				"Simulated portfolio and paper-trading activity, including virtual trades and practice activity.",
 				"Feature usage, session activity, and other events needed to operate, secure, and improve the beta.",
+				"Notification settings, such as which alerts you receive and the price-move threshold you choose.",
 			] },
 			"STAK may use these interactions to personalize the companies, explanations, news, educational content, and other information shown to you. Personalized content reflects your activity on STAK and is not a determination that any investment is suitable for you.",
 		] },
-		{ heading: "", sub: "D. STAK AI information", blocks: [
-			"If you use STAK AI, we may collect the prompts, questions, and other content you submit, along with relevant STAK context used to generate a response (for example, a company you are viewing or companies you have saved). STAK currently uses Google Gemini 2.5 Flash to support AI functionality, and information included in an AI request may be transmitted to Google for processing.",
+		{ heading: "", sub: "E. STAK AI information", blocks: [
+			"If you use STAK AI, we may collect the prompts, questions, and other content you submit, along with relevant STAK context used to generate a response (for example, a company you are viewing or companies you have saved). STAK currently uses Google Gemini models (currently Gemini 2.5 Flash and Gemini 2.5 Flash-Lite) to support AI functionality, including STAK AI and AI-generated summaries of news and company information, and information included in an AI request may be transmitted to Google for processing.",
 			"Please do not submit highly sensitive information to STAK AI, such as Social Security numbers, bank or brokerage passwords, payment-card numbers, medical information, or other credentials.",
 		] },
-		{ heading: "", sub: "E. Technical and device information", blocks: [
+		{ heading: "", sub: "F. Technical and device information", blocks: [
 			"When you use the Service, STAK and its service providers may automatically process technical information such as browser type, device type, operating system, IP or network information, referral information, pages or features viewed, timestamps, authentication/session information, and security or error logs, to the extent generated or made available through the Service and our providers.",
-			"On Android, Firebase Cloud Messaging may process device or push-notification tokens needed to deliver notifications. Firebase is not STAK’s primary database. STAK currently uses Vercel Analytics on the website and does not currently use a separate analytics provider in the Android app.",
+			"If you allow notifications, we store a push-notification token for your device or browser, together with its notification settings and time zone (so reminders arrive at the right local time). In the mobile apps, Firebase Cloud Messaging processes device tokens to deliver notifications; on iPhone, it does so through Apple’s push notification service. If you turn on browser notifications on the website, your browser’s push service (for example, those run by Google, Mozilla, or Apple) processes a push subscription to deliver them. Firebase is not STAK’s primary database. STAK currently uses Vercel Analytics on the website and does not currently use a separate analytics provider in the mobile apps.",
 		] },
-		{ heading: "", sub: "F. Information we do not collect in the current beta", blocks: [
+		{ heading: "", sub: "G. Information we do not collect in the current beta", blocks: [
 			{ list: [
 				"The beta does not connect to brokerage accounts.",
 				"The beta does not request or store brokerage login credentials.",
@@ -74,6 +86,7 @@ export const PRIVACY_POLICY: LegalDoc = {
 		{ heading: "3. How We Use Information", blocks: [
 			{ list: [
 				"Create, authenticate, secure, and maintain accounts.",
+				"Confirm that users are eligible for the beta (at least 18 years old and located in the United States) and record acceptance of our Terms and Privacy Policy.",
 				"Operate the STAK website, app, Discover, My STAK, News, Simulate, STAK AI, and related beta features.",
 				"Remember companies, preferences, and other user-selected information.",
 				"Personalize content, company discovery, Investing Taste, explanations, and other experiences.",
@@ -94,11 +107,14 @@ export const PRIVACY_POLICY: LegalDoc = {
 			"We may share information with service providers and other parties only as reasonably necessary for the purposes described in this Policy, including:",
 			{ list: [
 				"Supabase - PostgreSQL database, account authentication, sign-up verification, and password resets.",
-				"Firebase Cloud Messaging (FCM) - Android push notifications.",
+				"Google Cloud - hosting for STAK’s application servers.",
+				"Google - Sign in with Google, if you choose it.",
+				"Firebase Cloud Messaging (FCM) - mobile app push notifications (Android, and iPhone through Apple’s push notification service).",
+				"Browser push services (for example, those run by Google, Mozilla, and Apple) - website notifications you turn on.",
 				"Vercel Analytics - website analytics and performance measurement.",
 				"Resend - application and product email delivery.",
 				"Zoho Mail - STAK business and support inboxes, including support@thestak.org.",
-				"Google Gemini 2.5 Flash - AI processing for STAK AI functionality.",
+				"Google Gemini (currently Gemini 2.5 Flash and Gemini 2.5 Flash-Lite) - AI processing for STAK AI and AI-generated summaries.",
 				"Tally and Google Sheets - beta forms and response storage, if used for the beta questionnaire.",
 				"Professional advisers and service providers, such as lawyers, accountants, security providers, hosting providers, and contractors, where reasonably necessary to support STAK.",
 				"Government authorities, courts, regulators, or other parties when required by law or when reasonably necessary to protect rights, safety, security, or prevent fraud or abuse.",
@@ -109,7 +125,7 @@ export const PRIVACY_POLICY: LegalDoc = {
 		{ heading: "6. Email, Newsletter, and Push Notifications", blocks: [
 			"STAK may send essential account and service messages, such as sign-up codes, password resets, security notices, and important product or legal notices. You may not be able to opt out of communications that are necessary to operate or secure your account.",
 			"If you subscribe to The STAK Brief or other marketing communications, you can unsubscribe using the link provided in the message or by contacting us. STAK has not yet selected a separate newsletter-delivery provider; if we add one, that provider may process email addresses and newsletter engagement information, and we will update this Policy as appropriate.",
-			"You may be able to control Android push notifications through your device settings or in-product settings when available.",
+			"You can control push notifications in STAK’s notification settings and through your device or browser settings.",
 		] },
 		{ heading: "7. Cookies and Similar Technologies", blocks: [
 			"STAK and its service providers may use cookies, local storage, session storage, and similar technologies for authentication, security, preferences, product functionality, and website analytics. Browser controls may allow you to limit some of these technologies, but doing so may affect Service functionality.",
@@ -122,10 +138,10 @@ export const PRIVACY_POLICY: LegalDoc = {
 		] },
 		{ heading: "10. Your Choices and Privacy Rights", blocks: [
 			"Depending on where you live and applicable law, you may have rights regarding your personal information, such as requesting access, correction, deletion, or a copy of certain information, and opting out of certain marketing communications. To make a privacy request, contact support@thestak.org. We may need to verify your identity before completing a request.",
-			"You may request deletion of your STAK account and associated personal information, subject to information we must or are permitted to retain for legal, security, fraud-prevention, dispute-resolution, or technical reasons.",
+			"You can delete your STAK account at any time in the app’s settings, or request deletion of your account and associated personal information by contacting support@thestak.org, subject to information we must or are permitted to retain for legal, security, fraud-prevention, dispute-resolution, or technical reasons.",
 		] },
 		{ heading: "11. Children", blocks: [
-			"The beta is not intended for anyone under 18, and we do not knowingly permit users under 18 to participate. If you believe a person under 18 has provided personal information to STAK, contact support@thestak.org.",
+			"The beta is not intended for anyone under 18, and we do not knowingly permit users under 18 to participate. We ask for a date of birth before the Service can be used, and we delete accounts that indicate the user is under 18 (see “Age and eligibility information” above). If you believe a person under 18 has provided personal information to STAK, contact support@thestak.org.",
 		] },
 		{ heading: "12. United States Service and Data Processing", blocks: [
 			"The current beta is offered only in the United States. Our providers may process or store information in the United States or other locations where they operate. By using the Service, you understand that information may be processed in locations with different data-protection rules than your state of residence.",
@@ -145,7 +161,7 @@ export const PRIVACY_POLICY: LegalDoc = {
 
 export const TERMS_OF_SERVICE: LegalDoc = {
 	title: "Terms of Service",
-	effective: "October 7, 2026",
+	effective: "October 8, 2026",
 	notice: NOTICE,
 	sections: [
 		{ heading: "1. Acceptance of These Terms", blocks: [
@@ -155,6 +171,7 @@ export const TERMS_OF_SERVICE: LegalDoc = {
 		] },
 		{ heading: "2. Eligibility and U.S.-Only Beta", blocks: [
 			"You must be at least 18 years old and located in the United States to participate in the current beta. By using STAK, you represent that you meet these requirements and are legally able to enter into these Terms.",
+			"Before you can use the Service, we ask you to provide your date of birth, confirm that you currently reside in the United States, and agree to these Terms and the Privacy Policy. Providing false information to gain access violates these Terms. We may suspend or delete an account that does not meet these requirements.",
 		] },
 		{ heading: "3. The STAK Beta", blocks: [
 			"STAK is currently a beta product. Features may be experimental, incomplete, unavailable, delayed, changed, or removed at any time. We may limit beta access, impose usage limits, reset test data, pause features, or discontinue all or part of the beta without guaranteeing continued availability.",
@@ -189,7 +206,7 @@ export const TERMS_OF_SERVICE: LegalDoc = {
 		] },
 		{ heading: "9. STAK AI", blocks: [
 			"STAK AI uses artificial intelligence to generate explanations, summaries, comparisons, and other content. AI output may be incomplete, outdated, misleading, or incorrect. You should independently verify important information before relying on it.",
-			"STAK currently uses Google Gemini 2.5 Flash to support AI functionality. By using STAK AI, you authorize us to process your prompts and relevant Service context as described in the Privacy Policy.",
+			"STAK currently uses Google Gemini models (currently Gemini 2.5 Flash and Gemini 2.5 Flash-Lite) to support AI functionality. By using STAK AI, you authorize us to process your prompts and relevant Service context as described in the Privacy Policy.",
 			"Do not submit sensitive credentials or highly sensitive personal information to STAK AI, including Social Security numbers, bank or brokerage passwords, payment-card numbers, or other account credentials.",
 		] },
 		{ heading: "10. Market, News, and Third-Party Data", blocks: [
@@ -225,7 +242,7 @@ export const TERMS_OF_SERVICE: LegalDoc = {
 			"The Service may rely on or link to third-party services, websites, APIs, data providers, and content. STAK is not responsible for third-party services that we do not control. Your use of a third-party service may be subject to that provider’s terms and privacy policy.",
 		] },
 		{ heading: "16. Suspension and Termination", blocks: [
-			"You may stop using STAK at any time and may request account deletion by contacting support@thestak.org. We may suspend, limit, or terminate access to the Service if we reasonably believe you have violated these Terms, created a security or legal risk, abused the Service, or if we discontinue the beta or a feature.",
+			"You may stop using STAK at any time. You can delete your account in the app’s settings or request account deletion by contacting support@thestak.org. We may suspend, limit, or terminate access to the Service if we reasonably believe you have violated these Terms, created a security or legal risk, abused the Service, or if we discontinue the beta or a feature.",
 			"Sections that by their nature should survive termination, including intellectual-property, disclaimer, limitation-of-liability, and other protective provisions, will survive to the extent permitted by law.",
 		] },
 		{ heading: "17. Disclaimer of Warranties", blocks: [
