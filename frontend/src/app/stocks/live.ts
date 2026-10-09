@@ -4,7 +4,7 @@
  * reachable. AAPL keeps the frames' authored copy wherever the live sources have nothing better.
  */
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import {
 	ago,
 	betaOf,
@@ -22,7 +22,7 @@ import {
 	shares4,
 	signedPct,
 	tickerLine,
-	useApiHealth,
+	useApiHealthState,
 	useLive,
 	useQuote,
 	useTaste,
@@ -33,6 +33,10 @@ import { type AnalystView, type StockDetailData, type StockStat, stockDetails } 
 
 /** The rail's track is 328 px wide (360 − 2 × 16); fills and markers are authored in px of it. */
 const RAIL_TRACK = 328;
+/** The content column's risk track is 712 px wide (744 − 2 × 16). */
+const RISK_TRACK = 712;
+/** Both markers are 14 px squares placed by their left edge, so they travel the track minus their own width. */
+const MARKER = 14;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 const num = (s: string | undefined | null) => {
 	const v = Number.parseFloat(String(s ?? "").replace(/[^0-9.+-]/g, ""));
@@ -52,9 +56,9 @@ function riskFor(ticker: string, riskShort: string) {
 	const beta = betaOf(ticker);
 	const band: [number, number] = riskShort === "Growth" ? [0.9, 1.6] : riskShort === "Balanced" ? [0.6, 1.3] : [0, 1.0];
 	if (beta === null) {
-		return { title: "Risk fit", badge: "Not rated", low: "Low", high: "High", markerLeft: 356, note: "No volatility data yet. Treat it as a middle-of-the-road name." };
+		return { title: "Risk fit", badge: "Not rated", low: "Low", high: "High", markerLeft: (RISK_TRACK - MARKER) / 2, note: "No volatility data yet. Treat it as a middle-of-the-road name." };
 	}
-	const markerLeft = Math.round(clamp(beta / 2, 0, 1) * 712);
+	const markerLeft = Math.round(clamp(beta / 2, 0, 1) * (RISK_TRACK - MARKER));
 	const badge = beta < band[0] ? "Steadier than you" : beta > band[1] ? "Riskier than you" : "Matches you";
 	const note =
 		beta < 0.8
@@ -83,7 +87,7 @@ function analystFrom(data: AnalystData | undefined, actions: AnalystAction[] | u
 		upside: upside === null ? "Target range published" : `${upside >= 0 ? "↑" : "↓"} ${pct1(upside)} ${upside >= 0 ? "upside" : "downside"}`,
 		rangeLabel: "PRICE TARGET RANGE",
 		rangeFill: Math.round(clamp((pt.avg - pt.low) / span, 0, 1) * RAIL_TRACK),
-		rangeMarker: Math.round(clamp(((price ?? pt.avg) - pt.low) / span, 0, 1) * (RAIL_TRACK - 14)),
+		rangeMarker: Math.round(clamp(((price ?? pt.avg) - pt.low) / span, 0, 1) * (RAIL_TRACK - MARKER)),
 		low: ["Low", `$${Math.round(pt.low)}`],
 		avg: ["Avg", `$${Math.round(pt.avg)}`],
 		high: ["High", `$${Math.round(pt.high)}`],
@@ -112,10 +116,14 @@ export function useStockDetail(symbol: string, opts: { previewSaved?: boolean } 
 	const known = !!authored || isKnownTicker(T);
 	const live = useLive();
 	const taste = useTaste();
-	const healthy = useApiHealth();
+	const { healthy, settled } = useApiHealthState();
 	const quote = useQuote(T);
 	const q = useQuery(quoteQuery(T, healthy && known));
-	const loading = healthy && known && q.isPending;
+	// the skeleton shows until the probe has answered and, with the API up, until the live quote is in;
+	// once the page has painted it never drops back to the skeleton (the quote just swaps from demo to live)
+	const painted = useRef(false);
+	const loading = known && !painted.current && (!settled || (healthy && q.isPending));
+	if (!loading) painted.current = true;
 	const name = authored?.name ?? companyName(T);
 	const analystQ = useQuery({ queryKey: ["analyst", T], queryFn: () => getAnalystData(T, name), enabled: healthy && known, staleTime: 10 * 60_000, retry: 0 });
 	const actionsQ = useQuery({ queryKey: ["analyst-actions", T], queryFn: () => getAnalystActions(T, name), enabled: healthy && known, staleTime: 10 * 60_000, retry: 0 });

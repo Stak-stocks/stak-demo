@@ -105,9 +105,10 @@ export function PickDetail({ symbol: raw, search }: { symbol: string; search: Pi
 		if (!pos) return;
 		try {
 			await live.actions.sell(symbol, round4(pos.shares * frac), pos.price);
-			toast.success("Position closed");
+			toast.success(frac >= 1 ? "Position closed" : `Sold ${Math.round(frac * 100)}% of ${symbol}`);
 			setSearch({ modal: "sell-success", portion: frac });
 		} catch {
+			toast.error("Could not sell. Try again."); // the position and cash are unchanged
 			setSearch({});
 		}
 	};

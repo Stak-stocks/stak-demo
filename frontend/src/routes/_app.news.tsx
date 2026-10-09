@@ -28,10 +28,19 @@ function NewsPage() {
 	const [searching, setSearching] = useState(false);
 	const [query, setQuery] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);
+	const searchBoxRef = useRef<HTMLDivElement>(null);
+	const searchButtonRef = useRef<HTMLButtonElement>(null);
+	/** whether the search button takes the focus once it is back: set by every close except a blur that moved focus to another control */
+	const refocusButton = useRef(false);
 	useEffect(() => {
 		if (searching) inputRef.current?.focus();
+		else if (refocusButton.current) {
+			refocusButton.current = false;
+			searchButtonRef.current?.focus();
+		}
 	}, [searching]);
-	const closeSearch = () => {
+	const closeSearch = (refocus = true) => {
+		refocusButton.current = refocus;
 		setSearching(false);
 		setQuery("");
 	};
@@ -53,7 +62,7 @@ function NewsPage() {
 					<p className="font-geist text-[13px] leading-[17px] text-[#819abb]">{newsListing.date}</p>
 				</div>
 				{searching ? (
-					<div className="mr-[3px] flex items-center gap-[8px]">
+					<div ref={searchBoxRef} className="mr-[3px] flex items-center gap-[8px]">
 						<input
 							ref={inputRef}
 							value={query}
@@ -61,8 +70,12 @@ function NewsPage() {
 							onKeyDown={(e) => {
 								if (e.key === "Escape") closeSearch();
 							}}
-							onBlur={() => {
-								if (!query.trim()) closeSearch();
+							onBlur={(e) => {
+								if (query.trim()) return;
+								// an empty field closes on blur; focus that left for another control stays there, focus
+								// heading for the × (which unmounts with the field) or nowhere comes back to the search button
+								const leftForControl = e.relatedTarget instanceof HTMLElement && !searchBoxRef.current?.contains(e.relatedTarget);
+								closeSearch(!leftForControl);
 							}}
 							aria-label={SEARCH.label}
 							placeholder={SEARCH.placeholder}
@@ -72,7 +85,7 @@ function NewsPage() {
 							type="button"
 							aria-label={SEARCH.close}
 							onMouseDown={(e) => e.preventDefault()}
-							onClick={closeSearch}
+							onClick={() => closeSearch()}
 							className="stak-press flex size-[40px] cursor-pointer items-center justify-center overflow-clip rounded-[20px] bg-[#181f30] font-geist text-[18px] leading-none text-[#819abb]"
 						>
 							×
@@ -80,6 +93,7 @@ function NewsPage() {
 					</div>
 				) : (
 					<button
+						ref={searchButtonRef}
 						type="button"
 						aria-label={SEARCH.label}
 						onClick={() => setSearching(true)}

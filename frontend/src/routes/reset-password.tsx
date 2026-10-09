@@ -76,6 +76,8 @@ function ResetPasswordPage() {
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
+		// the frame preview has no action code: the button keeps its enabled look and submitting does nothing
+		if (preview) return;
 		const next: typeof errors = {};
 		const problem = passwordProblem(password);
 		if (problem) next.password = problem;
@@ -152,7 +154,7 @@ function ResetPasswordPage() {
 					/>
 					<FieldError>{errors.confirm ?? errors.form}</FieldError>
 				</div>
-				<PrimaryButton type="submit" disabled={resetting || preview} aria-busy={resetting}>
+				<PrimaryButton type="submit" disabled={resetting} aria-busy={resetting}>
 					{resetting ? "Saving…" : "Save new password"}
 				</PrimaryButton>
 			</form>

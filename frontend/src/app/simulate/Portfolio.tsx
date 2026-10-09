@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { colPlus } from "@/app/FitCanvas";
 import { companyInitial, dayLabel, money, normalizeTicker, round4, signedMoney, signedPct, usePortfolio } from "@/app/live";
@@ -40,13 +40,20 @@ export function Portfolio({ search }: { search: PortfolioSearch }) {
 	const pos = pf.positions.find((x) => x.ticker === symbol);
 	const stock = stockFor(symbol, pos?.price ?? pf.quotes[symbol]?.price ?? stocks[symbol]?.price ?? 0, pos?.quote?.changePercent ?? 0);
 
+	// the Sell sheet only opens over a position actually held; a ?modal=sell-confirm for anything else is dropped once the portfolio is known
+	const stale = search.modal === "sell-confirm" && live.ready && !pos;
+	useEffect(() => {
+		if (stale) navigate({ to: "/simulate/portfolio", search: { variant: search.variant }, replace: true });
+	}, [stale, search.variant, navigate]);
+
 	const confirmSell = async (portion: number) => {
 		if (!pos) return;
 		try {
 			await live.actions.sell(symbol, round4(pos.shares * portion), pos.price);
-			toast.success("Position closed");
+			toast.success(portion >= 1 ? "Position closed" : `Sold ${Math.round(portion * 100)}% of ${symbol}`);
 			navigate({ to: "/simulate/picks/$symbol", params: { symbol }, search: { modal: "sell-success", portion } });
 		} catch {
+			toast.error("Could not sell. Try again."); // the position and cash are unchanged
 			setSearch({});
 		}
 	};
@@ -92,7 +99,9 @@ export function Portfolio({ search }: { search: PortfolioSearch }) {
 											<p className="font-geist text-[13px] font-medium leading-[17px]">{signedMoney(pick.gain)}</p>
 											<p className="font-geist text-[11px] leading-[14px]">{signedPct(pick.pct)}</p>
 										</div>
-										<SmallSellButton onClick={() => navigate({ to: "/simulate/picks/$symbol", params: { symbol: pick.ticker } })}>{d.sell}</SmallSellButton>
+										<SmallSellButton aria-label={`Sell ${pick.ticker}`} onClick={() => navigate({ to: "/simulate/picks/$symbol", params: { symbol: pick.ticker } })}>
+											{d.sell}
+										</SmallSellButton>
 									</div>
 								</div>
 							))}
@@ -121,13 +130,13 @@ export function Portfolio({ search }: { search: PortfolioSearch }) {
 				<p className="w-full font-geist text-[12px] leading-[16px] text-[#819abb]">{d.footnote}</p>
 			</div>
 
-			{search.modal === "sell-confirm" && (
+			{search.modal === "sell-confirm" && pos && (
 				<PortfolioSellSheet
 					symbol={symbol}
 					stock={stock}
-					shares={pos?.shares}
-					stake={pos?.stake}
-					value={pos?.value}
+					shares={pos.shares}
+					stake={pos.stake}
+					value={pos.value}
 					onConfirm={confirmSell}
 					onClose={() => setSearch({})}
 				/>

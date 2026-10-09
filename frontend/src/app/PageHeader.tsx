@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { A } from "./assets";
 import { useNotifications } from "./live/notifications";
+import { NOTIFICATIONS_PANEL_ID } from "./notifications/NotificationsPanel";
 
 /** "Wordmark row" (logo + notification bell) and the page title, as on Home / Profile / Notifications. */
 export function PageHeader({ title, onBell }: { title: string; onBell?: () => void }) {
@@ -9,9 +10,13 @@ export function PageHeader({ title, onBell }: { title: string; onBell?: () => vo
 		<div className="flex w-full flex-col items-start gap-[18px]">
 			<div className="flex h-[40px] w-full items-center justify-between overflow-clip">
 				<Wordmark />
+				{/* aria-expanded is kept current by NotificationsPanel through the DOM while it is mounted (the header does not hold the panel's state) */}
 				<button
 					type="button"
 					aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
+					aria-haspopup="dialog"
+					aria-controls={NOTIFICATIONS_PANEL_ID}
+					aria-expanded={false}
 					onClick={onBell}
 					className="stak-press relative size-[35px] shrink-0 rounded-full"
 				>

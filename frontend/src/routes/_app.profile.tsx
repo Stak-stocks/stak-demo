@@ -1,9 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { deleteUser } from "firebase/auth";
-import { useState } from "react";
+import { deleteDoc, doc } from "firebase/firestore";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 import { col } from "@/app/FitCanvas";
 import { wholeMoney } from "@/app/live/format";
+import { localKey } from "@/app/live/guest";
 import { useLive } from "@/app/live/store";
 import { PageHeader } from "@/app/PageHeader";
 import { P } from "@/app/profile/assets";
@@ -14,6 +16,7 @@ import { GhostButton, hairline } from "@/app/simulate/ui";
 import { Sheet } from "@/app/ui/Sheet";
 import { useAccountDisplay } from "@/app/useAccountDisplay";
 import { useAuth } from "@/context/AuthContext";
+import { db } from "@/lib/firebase";
 
 export const Route = createFileRoute("/_app/profile")({
 	component: ProfilePage,
@@ -38,6 +41,8 @@ function ProfilePage() {
 	const { user, logout } = useAuth();
 	const [confirmDelete, setConfirmDelete] = useState(false);
 	const [deleting, setDeleting] = useState(false);
+	const deleteTitleId = useId();
+	const deleteBodyId = useId();
 
 	const yourStak = [
 		{ label: profile.yourStak.rows[0].label, value: `${stats.taste.summary}  ${CHEVRON}`, href: "/profile/taste-risk" },
@@ -56,6 +61,13 @@ function ProfilePage() {
 		setDeleting(true);
 		try {
 			if (user) {
+				// the person's data goes with the account: the user document (saves, paper portfolio, taste, XP) and this browser's local store
+				await deleteDoc(doc(db, "users", user.uid));
+				try {
+					localStorage.removeItem(localKey(user.uid));
+				} catch {
+					/* storage unavailable */
+				}
 				await deleteUser(user);
 				toast.success("Account deleted");
 			} else {
@@ -141,9 +153,11 @@ function ProfilePage() {
 			</div>
 
 			{confirmDelete && (
-				<Sheet label="Delete your account?" onClose={() => setConfirmDelete(false)}>
-					<p className="whitespace-nowrap font-sora text-[18px] font-semibold leading-[23px] text-white">Delete your account?</p>
-					<p className="w-full font-geist text-[12px] leading-[18px] text-[#c8d2e0]">
+				<Sheet label="Delete your account?" role="alertdialog" labelledBy={deleteTitleId} describedBy={deleteBodyId} onClose={() => setConfirmDelete(false)}>
+					<p id={deleteTitleId} className="whitespace-nowrap font-sora text-[18px] font-semibold leading-[23px] text-white">
+						Delete your account?
+					</p>
+					<p id={deleteBodyId} className="w-full font-geist text-[12px] leading-[18px] text-[#c8d2e0]">
 						{user
 							? "This removes your saves, your paper portfolio and your taste profile for good. There is no undo."
 							: "This resets the demo profile: saves, paper trades and taste go back to the start."}
@@ -158,7 +172,8 @@ function ProfilePage() {
 						>
 							<span className="whitespace-nowrap font-sora text-[14px] leading-[18px] text-[#e5484d]">{deleting ? "Deleting…" : profile.deleteAccount}</span>
 						</button>
-						<GhostButton onClick={() => setConfirmDelete(false)} height={52} radius={6} fontSize={14}>
+						{/* the safe action takes the initial focus, so a repeated Enter cannot delete */}
+						<GhostButton onClick={() => setConfirmDelete(false)} height={52} radius={6} fontSize={14} autoFocus>
 							Back
 						</GhostButton>
 					</div>

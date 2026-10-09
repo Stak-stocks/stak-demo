@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { money, shares4, signedMoney } from "@/app/live/format";
 import { Sheet } from "@/app/ui/Sheet";
 import { cn } from "@/lib/utils";
@@ -68,6 +68,20 @@ function Buttons({ children }: { children: ReactNode }) {
 const clampPct = (v: string) => Math.min(100, Math.max(0, Number(v) || 0));
 
 /**
+ * The "Custom" chip's field: `custom` is null while the chip shows and a string while the field does.
+ * Escape in the field cancels back to the chip, which takes focus again once it is back in the DOM.
+ */
+function useCustomField() {
+	const [custom, setCustom] = useState<string | null>(null);
+	const chipRef = useRef<HTMLButtonElement>(null);
+	const cancel = () => {
+		setCustom(null);
+		requestAnimationFrame(() => chipRef.current?.focus());
+	};
+	return { custom, setCustom, chipRef, cancel };
+}
+
+/**
  * 2:1421 "Add NVDA to your portfolio?" (canonical) / 2:1079 "Buy PLTR?" (alternate frame, 12px cash gap).
  * `cash` is the live paper cash; the amount must fit in it before Confirm enables.
  */
@@ -80,12 +94,13 @@ export function AddConfirmSheet({
 	onClose,
 }: { symbol: string; stock: Stock; alt?: boolean; cash?: number; onConfirm: (amount: number) => void | Promise<void>; onClose: () => void }) {
 	const [picked, setPicked] = useState<number>(25);
-	const [custom, setCustom] = useState<string | null>(null);
+	const { custom, setCustom, chipRef, cancel: cancelCustom } = useCustomField();
 	const [busy, setBusy] = useState(false);
 	const s = sheets.addConfirm;
 	const available = cash ?? cashAvailable;
 	const amount = custom !== null ? Number(custom) || 0 : picked;
 	const valid = amount > 0 && amount <= available + 0.005 && stock.price > 0;
+	const over = custom !== null && amount > available + 0.005; // a typed amount the paper cash cannot cover: say so, do not just grey out
 	const confirm = async () => {
 		if (!valid || busy) return;
 		setBusy(true);
@@ -110,14 +125,19 @@ export function AddConfirmSheet({
 				</AmountChip>
 			))}
 			{custom === null ? (
-				<AmountChip selected={false} onClick={() => setCustom("")}>
+				<AmountChip ref={chipRef} selected={false} onClick={() => setCustom("")}>
 					{s.custom}
 				</AmountChip>
 			) : (
-				<CustomChip prefix="$" value={custom} onChange={setCustom} max={Math.floor(available)} />
+				<CustomChip prefix="$" value={custom} onChange={setCustom} onCancel={cancelCustom} max={Math.floor(available)} />
 			)}
 		</div>
 	);
+	const reason = over ? (
+		<p role="alert" className="font-geist text-[11px] leading-[14px] text-[#e5484d]">
+			That is more than your paper cash. Up to {money(Math.floor(available))} fits.
+		</p>
+	) : null;
 	const line = <BigLine before={s.youGet} big={shares4(valid ? amount / stock.price : 0)} after={s.sharesOf(symbol)} />;
 	return (
 		<Modal scrim={alt ? "rgba(11,8,8,0.86)" : "rgba(0,0,0,0.66)"} label={alt ? s.titleAlt(symbol) : s.title(symbol)} onClose={onClose}>
@@ -129,6 +149,7 @@ export function AddConfirmSheet({
 					<KeyValue label={s.cashLabel} value={money(available)} />
 					<div className="flex w-full flex-col items-start gap-[24px]">
 						{chips}
+						{reason}
 						{line}
 					</div>
 				</div>
@@ -137,6 +158,7 @@ export function AddConfirmSheet({
 					<div className="flex w-full flex-col items-start gap-[15px]">
 						<KeyValue label={s.cashLabel} value={money(available)} />
 						{chips}
+						{reason}
 					</div>
 					{line}
 				</div>
@@ -200,7 +222,7 @@ export function SellConfirmSheet({
 	onClose,
 }: { symbol: string; stock: Stock; shares?: number; value?: number; onConfirm: (portion: number) => void | Promise<void>; onClose: () => void }) {
 	const [portion, setPortion] = useState(0.5);
-	const [custom, setCustom] = useState<string | null>(null);
+	const { custom, setCustom, chipRef, cancel: cancelCustom } = useCustomField();
 	const [busy, setBusy] = useState(false);
 	const s = sheets.sellConfirm;
 	const held = shares ?? pickDetail.position.shares;
@@ -238,11 +260,11 @@ export function SellConfirmSheet({
 							</AmountChip>
 						))}
 						{custom === null ? (
-							<AmountChip selected={false} onClick={() => setCustom("")}>
+							<AmountChip ref={chipRef} selected={false} onClick={() => setCustom("")}>
 								{s.custom}
 							</AmountChip>
 						) : (
-							<CustomChip suffix="%" value={custom} onChange={setCustom} max={100} label="Custom portion" />
+							<CustomChip suffix="%" value={custom} onChange={setCustom} onCancel={cancelCustom} max={100} label="Custom portion" />
 						)}
 					</div>
 				</div>
@@ -320,7 +342,7 @@ export function PortfolioSellSheet({
 	onClose: () => void;
 }) {
 	const [portion, setPortion] = useState(1);
-	const [custom, setCustom] = useState<string | null>(null);
+	const { custom, setCustom, chipRef, cancel: cancelCustom } = useCustomField();
 	const [busy, setBusy] = useState(false);
 	const s = sheets.portfolioSell;
 	const held = shares ?? pickDetail.position.shares;
@@ -359,11 +381,11 @@ export function PortfolioSellSheet({
 							</AmountChip>
 						))}
 						{custom === null ? (
-							<AmountChip selected={false} onClick={() => setCustom("")}>
+							<AmountChip ref={chipRef} selected={false} onClick={() => setCustom("")}>
 								{s.custom}
 							</AmountChip>
 						) : (
-							<CustomChip suffix="%" value={custom} onChange={setCustom} max={100} label="Custom portion" />
+							<CustomChip suffix="%" value={custom} onChange={setCustom} onCancel={cancelCustom} max={100} label="Custom portion" />
 						)}
 					</div>
 					<BigLine before={s.returning} big={money(worth * frac)} after={s.toCash} />

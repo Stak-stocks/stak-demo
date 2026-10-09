@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useId } from "react";
 import { BackCrumb } from "@/app/discover/BackCrumb";
 import { GhostButton, PrimaryButton } from "@/app/discover/Button";
 import { colPlus } from "@/app/FitCanvas";
@@ -172,7 +172,7 @@ function ContentColumn({ stock, saved, c }: StockDetailProps & { c: Colors }) {
 				<p className="whitespace-nowrap font-sora text-[15px] font-semibold leading-[19px] text-[#f2f6fc]">{stock.news.title}</p>
 				<p className={cn("whitespace-nowrap font-geist text-[11px] font-medium leading-[14px]", stock.news.move.startsWith("▼") ? "text-[#e5484d]" : "text-[#2fd08a]")}>{stock.news.move}</p>
 				{stock.news.lines.map((l) => (
-					<p key={l} className="w-[45.787%] font-geist text-[11px] leading-[14px] text-[#819abb]">
+					<p key={l} className="w-[45.787%] truncate font-geist text-[11px] leading-[14px] text-[#819abb]">
 						{l}
 					</p>
 				))}
@@ -189,7 +189,7 @@ function ContentColumn({ stock, saved, c }: StockDetailProps & { c: Colors }) {
 									<p className="whitespace-nowrap font-geist text-[10px] font-medium leading-[13px] text-[#819abb]">{a.tone}</p>
 								</div>
 							</div>
-							<p className="w-[calc(100%-8px)] font-geist text-[12px] font-normal leading-[16px] text-[#f2f6fc]">{a.text}</p>
+							<p className="line-clamp-3 w-[calc(100%-8px)] font-geist text-[12px] font-normal leading-[16px] text-[#f2f6fc]">{a.text}</p>
 						</div>
 					))}
 				</div>
@@ -200,6 +200,8 @@ function ContentColumn({ stock, saved, c }: StockDetailProps & { c: Colors }) {
 
 function ActionRail({ stock, saved, open, c, onToggleSaved, onToggleOpen, onPracticeBuy }: StockDetailProps & { c: Colors }) {
 	const an = stock.analyst;
+	// the analyst card's disclosure: both toggle buttons announce their state and name the panel they unfold
+	const panelId = useId();
 	return (
 		<div className="flex min-w-0 flex-col items-start gap-[14px] overflow-clip" style={{ flex: "360 1 0" }}>
 			{/* CTA card */}
@@ -229,66 +231,71 @@ function ActionRail({ stock, saved, open, c, onToggleSaved, onToggleOpen, onPrac
 					</>
 				) : open ? (
 					<>
-						<button type="button" onClick={onToggleOpen} className="stak-press flex cursor-pointer items-start">
+						<button type="button" onClick={onToggleOpen} aria-expanded={open} aria-controls={panelId} className="stak-press flex cursor-pointer items-start">
 							<p className="whitespace-nowrap font-sora text-[15px] font-semibold leading-[19px] text-[#f2f6fc]">{an.title}</p>
 						</button>
-						<p className="whitespace-nowrap font-geist text-[10px] leading-[13px] tracking-[0.8px] text-[#819abb]">{an.rangeLabel}</p>
-						<div className="relative h-[8px] w-full overflow-clip rounded-[4px]" style={{ background: c.inner }}>
-							<div className="absolute left-0 top-0 h-[8px] rounded-[4px] bg-[rgba(93,168,191,0.55)]" style={{ width: pct(an.rangeFill, 328) }} />
-							<img alt="" src={S.marker} className="absolute top-[-3px] size-[14px]" style={{ left: pct(an.rangeMarker, 328) }} />
-						</div>
-						<div className="flex h-[30px] w-full items-start justify-between overflow-clip whitespace-nowrap">
-							{[an.low, an.avg, an.high].map(([k, v], i) => (
-								<div
-									key={k}
-									className={cn("flex flex-col gap-px overflow-clip", i === 0 ? "items-start" : i === 1 ? "items-center" : "items-end")}
-								>
-									<p className="font-geist text-[10px] leading-[13px] text-[#819abb]">{k}</p>
-									<p className="font-geist text-[12px] font-medium leading-[16px] text-[#f2f6fc]">{v}</p>
-								</div>
-							))}
-						</div>
-						<p className="whitespace-nowrap font-geist text-[11px] font-medium leading-[14px] text-[#2fd08a]">{an.upside}</p>
-						<p className="whitespace-nowrap font-geist text-[10px] font-medium leading-[13px] tracking-[0.8px] text-[#819abb]">
-							{an.consensusLabel}
-						</p>
-						<div className="relative h-[8px] w-full overflow-clip rounded-[4px]" style={{ background: c.inner }}>
-							<div className="absolute left-0 top-0 h-[8px] rounded-[4px] bg-[#2fd08a]" style={{ width: pct(an.consensusFill, 328) }} />
-						</div>
-						<div className="flex h-[16px] w-full items-start justify-between overflow-clip whitespace-nowrap font-geist text-[11px] font-medium leading-[14px]">
-							{an.counts.map((t, i) => (
-								<p key={t} className={i === 0 ? "text-[#2fd08a]" : "text-[#819abb]"}>
-									{t}
-								</p>
-							))}
-						</div>
-						<p className="whitespace-nowrap font-geist text-[10px] font-medium leading-[13px] tracking-[0.8px] text-[#819abb]">
-							{an.recentLabel}
-						</p>
-						{an.actions.map((a) => (
-							<div
-								key={a.firm}
-								className={cn(
-									"flex w-full items-center justify-between overflow-clip whitespace-nowrap rounded-[10px] px-[12px] py-[9px] font-geist font-medium",
-									a.firm !== "Goldman Sachs" && "h-[38px]",
-								)}
-								style={{ background: c.inner }}
-							>
-								<p className="text-[12px] leading-[16px] text-[#f2f6fc]">{a.firm}</p>
-								<div className="flex items-center gap-[10px] overflow-clip">
-									<p className={cn("text-[11px] leading-[14px]", a.rating === "Buy" ? "text-[#2fd08a]" : "text-[#819abb]")}>{a.rating}</p>
-									<p className="text-[12px] leading-[16px] text-[#f2f6fc]">{a.target}</p>
-								</div>
+						{/* display: contents — the panel's children stay the card's own flex items, so the layout is untouched */}
+						<div id={panelId} className="contents">
+							<p className="whitespace-nowrap font-geist text-[10px] leading-[13px] tracking-[0.8px] text-[#819abb]">{an.rangeLabel}</p>
+							<div className="relative h-[8px] w-full overflow-clip rounded-[4px]" style={{ background: c.inner }}>
+								<div className="absolute left-0 top-0 h-[8px] rounded-[4px] bg-[rgba(93,168,191,0.55)]" style={{ width: pct(an.rangeFill, 328) }} />
+								<img alt="" src={S.marker} className="absolute top-[-3px] size-[14px]" style={{ left: pct(an.rangeMarker, 328) }} />
 							</div>
-						))}
+							<div className="flex h-[30px] w-full items-start justify-between overflow-clip whitespace-nowrap">
+								{[an.low, an.avg, an.high].map(([k, v], i) => (
+									<div
+										key={k}
+										className={cn("flex flex-col gap-px overflow-clip", i === 0 ? "items-start" : i === 1 ? "items-center" : "items-end")}
+									>
+										<p className="font-geist text-[10px] leading-[13px] text-[#819abb]">{k}</p>
+										<p className="font-geist text-[12px] font-medium leading-[16px] text-[#f2f6fc]">{v}</p>
+									</div>
+								))}
+							</div>
+							<p className="whitespace-nowrap font-geist text-[11px] font-medium leading-[14px] text-[#2fd08a]">{an.upside}</p>
+							<p className="whitespace-nowrap font-geist text-[10px] font-medium leading-[13px] tracking-[0.8px] text-[#819abb]">
+								{an.consensusLabel}
+							</p>
+							<div className="relative h-[8px] w-full overflow-clip rounded-[4px]" style={{ background: c.inner }}>
+								<div className="absolute left-0 top-0 h-[8px] rounded-[4px] bg-[#2fd08a]" style={{ width: pct(an.consensusFill, 328) }} />
+							</div>
+							<div className="flex h-[16px] w-full items-start justify-between overflow-clip whitespace-nowrap font-geist text-[11px] font-medium leading-[14px]">
+								{an.counts.map((t, i) => (
+									<p key={t} className={i === 0 ? "text-[#2fd08a]" : "text-[#819abb]"}>
+										{t}
+									</p>
+								))}
+							</div>
+							<p className="whitespace-nowrap font-geist text-[10px] font-medium leading-[13px] tracking-[0.8px] text-[#819abb]">
+								{an.recentLabel}
+							</p>
+							{an.actions.map((a) => (
+								<div
+									key={a.firm}
+									className={cn(
+										"flex w-full items-center justify-between overflow-clip whitespace-nowrap rounded-[10px] px-[12px] py-[9px] font-geist font-medium",
+										a.firm !== "Goldman Sachs" && "h-[38px]",
+									)}
+									style={{ background: c.inner }}
+								>
+									<p className="text-[12px] leading-[16px] text-[#f2f6fc]">{a.firm}</p>
+									<div className="flex items-center gap-[10px] overflow-clip">
+										<p className={cn("text-[11px] leading-[14px]", a.rating === "Buy" ? "text-[#2fd08a]" : "text-[#819abb]")}>{a.rating}</p>
+										<p className="text-[12px] leading-[16px] text-[#f2f6fc]">{a.target}</p>
+									</div>
+								</div>
+							))}
+						</div>
 					</>
 				) : (
 					<>
-						<button type="button" onClick={onToggleOpen} className="stak-press flex w-full cursor-pointer items-start justify-between">
+						<button type="button" onClick={onToggleOpen} aria-expanded={open} aria-controls={panelId} className="stak-press flex w-full cursor-pointer items-start justify-between">
 							<p className="whitespace-nowrap font-sora text-[15px] font-semibold leading-[19px] text-[#f2f6fc]">{an.title}</p>
 							<img alt="" src={S.caret} className="size-[20px] shrink-0" />
 						</button>
 						<p className="whitespace-nowrap font-geist text-[11px] font-medium leading-[14px] text-[#2fd08a]">{an.upside}</p>
+						{/* the folded panel: present for aria-controls, display: none so the card's gaps ignore it */}
+						<div id={panelId} hidden />
 					</>
 				)}
 			</Card>

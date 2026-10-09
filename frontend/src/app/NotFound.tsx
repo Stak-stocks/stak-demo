@@ -19,7 +19,7 @@ export function NotFound() {
 				</p>
 				<div className="h-[28px] w-[10px]" />
 				<Link to="/home" className="block w-[240px]">
-					<GradientButton>Go home</GradientButton>
+					<GradientButton as="span">Go home</GradientButton>
 				</Link>
 			</div>
 		</main>

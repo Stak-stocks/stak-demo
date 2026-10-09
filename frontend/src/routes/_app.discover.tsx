@@ -221,12 +221,12 @@ function DiscoverPage() {
 				<div className="flex w-full flex-col items-center gap-[35px]">
 					<div className="relative h-[458.231px] w-[690.509px]">
 						{left && (
-							<div className="absolute left-0 top-0 z-[1] flex h-[439.887px] w-[368.911px] items-center justify-center">
+							<div key={left.symbol} className="absolute left-0 top-0 z-[1] flex h-[439.887px] w-[368.911px] items-center justify-center">
 								<DeckCard card={left} slot="left" saved={left.saved} />
 							</div>
 						)}
 						{right && (
-							<div className="absolute left-[343.05px] top-[3.76px] z-0 flex h-[423.583px] w-[347.459px] items-center justify-center">
+							<div key={right.symbol} className="absolute left-[343.05px] top-[3.76px] z-0 flex h-[423.583px] w-[347.459px] items-center justify-center">
 								<DeckCard card={right} slot="right" saved={right.saved} />
 							</div>
 						)}

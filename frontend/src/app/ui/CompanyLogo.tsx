@@ -11,7 +11,9 @@ type Props = { ticker: string; size: number; rounded?: number; className?: strin
 export function CompanyLogo({ ticker, size, rounded = 12, className }: Props) {
 	const sources = logoSources(ticker);
 	const chain = sources ? [sources.primary, sources.fallback, sources.ultimate] : [];
-	const [step, setStep] = useState(0);
+	// the fallback step belongs to one ticker: a new company starts again from the first source
+	const [state, setState] = useState({ ticker, step: 0 });
+	const step = state.ticker === ticker ? state.step : 0;
 	const src = chain[step];
 	if (!src) {
 		return (
@@ -34,7 +36,7 @@ export function CompanyLogo({ ticker, size, rounded = 12, className }: Props) {
 			loading="lazy"
 			decoding="async"
 			referrerPolicy="no-referrer"
-			onError={() => setStep((s) => s + 1)}
+			onError={() => setState({ ticker, step: step + 1 })}
 			className={cn("shrink-0 object-contain", className)}
 			style={{ width: size, height: size, borderRadius: rounded }}
 		/>

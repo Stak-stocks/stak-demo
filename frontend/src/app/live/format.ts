@@ -40,7 +40,9 @@ export function ago(ms: number, now = Date.now()): string {
 	const weeks = Math.floor(days / 7);
 	if (weeks < 9) return `${weeks} weeks ago`;
 	const months = Math.floor(days / 30);
-	return months < 12 ? `${months} months ago` : `${Math.floor(days / 365)} years ago`;
+	if (months < 12) return `${months} months ago`;
+	const years = Math.max(1, Math.round(days / 365)); // 361 days is "1 year ago", not "0 years ago"
+	return years === 1 ? "1 year ago" : `${years} years ago`;
 }
 /** First letter upper, trailing full stop — turns a catalog blurb into a card headline. */
 export function sentence(s: string): string {

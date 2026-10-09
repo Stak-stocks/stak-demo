@@ -1,8 +1,11 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { type Notice, useNotifications } from "@/app/live/notifications";
 import { NT } from "./assets";
 import { notifications } from "./data";
+
+/** The dialog's id. The bell (PageHeader) names it in `aria-controls`, which is also how the panel finds the bell. */
+export const NOTIFICATIONS_PANEL_ID = "stak-notifications-panel";
 
 /**
  * "Notifications panel" (Figma 2:2728, 420x541) / empty (2:2936, 420x179), anchored 48px under the
@@ -11,23 +14,39 @@ import { notifications } from "./data";
  */
 export function NotificationsPanel({ variant, onClose }: { variant: "list" | "empty"; onClose: () => void }) {
 	const inbox = useNotifications();
+	const panelRef = useRef<HTMLDivElement>(null);
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
 	}, [onClose]);
+	// Focus moves into the dialog while it is open and back to the bell when it closes, and the bell
+	// reads as expanded meanwhile. The bell belongs to PageHeader, which does not know the panel's
+	// state, so both go through the DOM; the panel mounts and unmounts with its open state.
+	useEffect(() => {
+		const bell = document.querySelector<HTMLElement>(`[aria-controls="${NOTIFICATIONS_PANEL_ID}"]`);
+		bell?.setAttribute("aria-expanded", "true");
+		panelRef.current?.focus({ preventScroll: true });
+		return () => {
+			bell?.setAttribute("aria-expanded", "false");
+			if (bell?.isConnected) bell.focus();
+		};
+	}, []);
 	const empty = variant === "empty" || inbox.items.length === 0;
 
 	return (
 		<>
 			<button type="button" aria-label="Close notifications" onClick={onClose} className="fixed inset-0 z-10 cursor-default" />
 			<div
+				ref={panelRef}
+				id={NOTIFICATIONS_PANEL_ID}
 				role="dialog"
 				aria-label={notifications.title}
+				tabIndex={-1}
 				className={
 					empty
-						? "absolute right-0 top-[48px] z-20 flex w-[420px] flex-col items-start gap-[12px] rounded-[16px] border border-[rgba(255,255,255,0.08)] bg-[#0e162b] px-[16px] py-[28px] shadow-[0px_16px_20px_0px_rgba(0,0,0,0.45)]"
-						: "absolute right-0 top-[48px] z-20 flex w-[420px] flex-col items-start gap-[12px] rounded-[16px] border border-[rgba(255,255,255,0.08)] bg-[#0e162b] p-[16px] shadow-[0px_16px_20px_0px_rgba(0,0,0,0.45)]"
+						? "absolute right-0 top-[48px] z-20 flex w-[420px] flex-col items-start gap-[12px] rounded-[16px] border border-[rgba(255,255,255,0.08)] bg-[#0e162b] px-[16px] py-[28px] shadow-[0px_16px_20px_0px_rgba(0,0,0,0.45)] outline-none"
+						: "absolute right-0 top-[48px] z-20 flex w-[420px] flex-col items-start gap-[12px] rounded-[16px] border border-[rgba(255,255,255,0.08)] bg-[#0e162b] p-[16px] shadow-[0px_16px_20px_0px_rgba(0,0,0,0.45)] outline-none"
 				}
 			>
 				{empty ? <PanelEmpty /> : <PanelList inbox={inbox} onClose={onClose} />}
@@ -89,6 +108,8 @@ function Group({ items, onOpen, onClose }: { items: Notice[]; onOpen: (id: strin
 						onClick={() => open(item)}
 						className="stak-press flex w-full items-center gap-[12px] overflow-clip rounded-[14px] bg-[#181f30] p-[16px] text-left"
 					>
+						{/* the dot below is decorative; this is the unread state a screen reader gets */}
+						{item.unread && <span className="sr-only">Unread</span>}
 						<div className="flex min-w-px flex-1 flex-col items-start gap-[4px] overflow-clip">
 							<span className="whitespace-nowrap font-geist text-[14px] font-medium leading-[18px] text-white">{item.title}</span>
 							<span className="w-full font-geist text-[11px] leading-[14px] text-[#acafb1]">{item.body}</span>

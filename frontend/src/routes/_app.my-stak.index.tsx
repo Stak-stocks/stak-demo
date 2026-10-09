@@ -47,7 +47,7 @@ function MyStakEmpty({ remaining }: { remaining: number }) {
 					<p className="w-[460px] text-center font-geist text-[15px] leading-[22px] text-[#819abb]">{EMPTY.body}</p>
 					<div className="h-[28px] w-[10px]" />
 					<Link to="/discover" className="stak-press block w-[240px] cursor-pointer rounded-[6px]">
-						<GradientButton>{EMPTY.cta}</GradientButton>
+						<GradientButton as="span">{EMPTY.cta}</GradientButton>
 					</Link>
 					<div className="h-[14px] w-[10px]" />
 					<p className="whitespace-nowrap text-center font-geist text-[13px] leading-[17px] text-[#819abb]">{EMPTY.caption(remaining)}</p>

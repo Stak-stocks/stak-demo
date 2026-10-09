@@ -1,8 +1,8 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { colPlus } from "@/app/FitCanvas";
-import { changeLine, changeShort, companyInitial, companyName, money, normalizeTicker, signedMoney, signedPct, usePortfolio, useQuotes, wholeMoney } from "@/app/live";
+import { changeLine, changeShort, companyInitial, companyName, type Fill, money, normalizeTicker, signedMoney, signedPct, usePortfolio, useQuotes, wholeMoney } from "@/app/live";
 import { cn } from "@/lib/utils";
 import { SA } from "./assets";
 import { simulateEmpty, simulateHome, stocks, type Stock } from "./data";
@@ -64,12 +64,16 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 	const pct = quotes[symbol]?.changePercent ?? pf.quotes[symbol]?.changePercent ?? 0;
 	const stock = stockFor(symbol, price, pct);
 	const amount = search.amount ?? 25;
+	// the order that actually filled: the success sheet shows its quantity, cost and cash left rather than an estimate from the typed dollars
+	const [fill, setFill] = useState<Fill | null>(null);
+	const filled = fill?.ticker === symbol ? fill : null;
 
 	const confirmBuy = async (dollars: number) => {
 		try {
-			await live.actions.buy(symbol, dollars, price);
+			const result = await live.actions.buy(symbol, dollars, price);
+			setFill(result);
 			toast.success("Order filled");
-			setSearch({ modal: "add-success", symbol, amount: dollars });
+			setSearch({ modal: "add-success", symbol, amount: result.cost });
 		} catch {
 			setSearch({ modal: "buy-failed", symbol, amount: dollars });
 		}
@@ -145,7 +149,9 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 												{changeLine(q.changePercent)}
 											</p>
 										</div>
-										<SmallBuyButton onClick={() => setSearch({ modal: "add-confirm", symbol: row.symbol })}>{d.saved.buy}</SmallBuyButton>
+										<SmallBuyButton aria-label={`Buy ${row.symbol}`} onClick={() => setSearch({ modal: "add-confirm", symbol: row.symbol })}>
+											{d.saved.buy}
+										</SmallBuyButton>
 									</div>
 								);
 							})}
@@ -206,11 +212,14 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 				<AddSuccessSheet
 					symbol={symbol}
 					stock={stock}
-					amount={amount}
-					shares={price > 0 ? amount / price : 0}
-					cash={pf.cash}
+					amount={filled?.cost ?? amount}
+					shares={filled?.shares ?? (price > 0 ? amount / price : 0)}
+					cash={filled?.cashAfter ?? pf.cash}
 					onPrimary={() => navigate({ to: "/my-stak" })}
-					onClose={() => setSearch({})}
+					onClose={() => {
+						setFill(null);
+						setSearch({});
+					}}
 				/>
 			)}
 		</div>
@@ -318,7 +327,7 @@ function SimulateEmpty({ budget }: { budget: number }) {
 					<p className="w-[460px] text-center font-geist text-[15px] leading-[22px] text-[#819abb]">{e.body}</p>
 					<div className="h-[28px] w-[10px]" />
 					<Link to="/discover" className="block w-[240px]">
-						<GradientButton>{e.cta}</GradientButton>
+						<GradientButton as="span">{e.cta}</GradientButton>
 					</Link>
 				</div>
 			</div>

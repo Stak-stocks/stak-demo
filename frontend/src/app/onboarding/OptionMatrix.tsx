@@ -1,11 +1,12 @@
-import type { KeyboardEvent, ReactNode } from "react";
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { OB } from "./assets";
 import type { MatrixOption } from "./data";
 
 /**
  * 2x2 option matrix (776x300): 378x140 cards, 20px gutters, selected = 0.5px #69b3ca hairline.
- * The arrow keys move between the cards (left/right across a row, up/down across rows).
+ * A radiogroup with one Tab stop: the arrow keys move between the cards (left/right across a row,
+ * up/down across rows) and select as they move, like native radios.
  */
 export function OptionMatrix({
 	options,
@@ -13,6 +14,7 @@ export function OptionMatrix({
 	selected,
 	onSelect,
 	wideFirst,
+	label,
 }: {
 	options: MatrixOption[];
 	icons: Record<string, ReactNode>;
@@ -20,7 +22,20 @@ export function OptionMatrix({
 	onSelect: (id: string) => void;
 	/** The first goal card in Figma has a 34px gap and no fixed row width. */
 	wideFirst?: boolean;
+	/** Accessible name of the group; without it, the step heading above the matrix (its question) names the group. */
+	label?: string;
 }) {
+	const rootRef = useRef<HTMLDivElement>(null);
+	const [headingLabel, setHeadingLabel] = useState<string>();
+	useEffect(() => {
+		if (label) return;
+		// The question is the step's heading, rendered by the step above this matrix, not by it.
+		let scope = rootRef.current?.parentElement ?? null;
+		let heading: HTMLElement | null = null;
+		while (scope && !(heading = scope.querySelector<HTMLElement>("h1, h2, h3"))) scope = scope.parentElement;
+		setHeadingLabel(heading?.textContent?.trim() || undefined);
+	}, [label]);
+	const hasSelected = options.some((o) => o.id === selected);
 	const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
 		const cards = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("button[data-option]"));
 		const at = cards.indexOf(document.activeElement as HTMLButtonElement);
@@ -32,10 +47,11 @@ export function OptionMatrix({
 		if (next) {
 			e.preventDefault();
 			next.focus();
+			if (next.dataset.option) onSelect(next.dataset.option);
 		}
 	};
 	return (
-		<div className="relative h-[300px] w-full overflow-clip" role="radiogroup" onKeyDown={onKeyDown}>
+		<div ref={rootRef} className="relative h-[300px] w-full overflow-clip" role="radiogroup" aria-label={label ?? headingLabel} onKeyDown={onKeyDown}>
 			{options.map((o, i) => {
 				const isSelected = o.id === selected;
 				const first = wideFirst && i === 0;
@@ -46,6 +62,8 @@ export function OptionMatrix({
 						data-option={o.id}
 						role="radio"
 						aria-checked={isSelected}
+						// roving tabindex: the selected card is the group's Tab stop, the first card while nothing is picked
+						tabIndex={(hasSelected ? isSelected : i === 0) ? 0 : -1}
 						onClick={() => onSelect(o.id)}
 						className={cn(
 							"stak-press absolute flex h-[140px] w-[378px] cursor-pointer flex-col items-center justify-center overflow-clip rounded-[16px] bg-[#181f30] py-[20px] pl-[24px] pr-[40px] text-left",

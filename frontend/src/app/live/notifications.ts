@@ -57,10 +57,11 @@ function derive(live: Live, moves: { ticker: string; pct: number }[], now: numbe
 			});
 	}
 	for (const s of live.sold) {
+		const stillHeld = live.positions.some((p) => p.ticker === s.ticker); // a partial sale leaves the position open
 		if (s.soldAt >= dayStart)
 			out.push({
 				id: `sold-${s.ticker}-${s.soldAt}`,
-				title: "Position closed",
+				title: stillHeld ? `Sold part of ${s.ticker}` : "Position closed",
 				body: `${shares4(s.shares)} ${s.ticker} returned ${money(s.proceeds)} to your cash · paper`,
 				at: s.soldAt,
 				group: "today",

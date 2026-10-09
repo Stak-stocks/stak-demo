@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, KeyboardEvent, ReactNode, Ref } from "react";
 import { cn } from "@/lib/utils";
 import { SA } from "./assets";
 
@@ -126,16 +126,29 @@ export function GradientButton({
 	className,
 	height = 52,
 	disabled,
-}: { children: ReactNode; onClick?: () => void; className?: string; height?: number; disabled?: boolean }) {
+	as = "button",
+}: {
+	children: ReactNode;
+	onClick?: () => void;
+	className?: string;
+	height?: number;
+	disabled?: boolean;
+	/** `span` draws the same box as plain content, for the inside of a Link that is the control itself (no button nested in the anchor). */
+	as?: "button" | "span";
+}) {
+	const classes = cn(PRESS, "flex w-full items-center justify-center rounded-[6px] px-[14px] py-[7px]", className);
+	const style: CSSProperties = { height, backgroundImage: GRADIENT, boxShadow: hairline(0.361, "rgba(101,158,173,0.63)"), filter: GLOW_FILTER };
+	const label = <span className="whitespace-nowrap font-geist text-[14px] font-medium leading-[20.69px] text-white">{children}</span>;
+	if (as === "span") {
+		return (
+			<span className={classes} style={style}>
+				{label}
+			</span>
+		);
+	}
 	return (
-		<button
-			type="button"
-			onClick={onClick}
-			disabled={disabled}
-			className={cn(PRESS, "flex w-full items-center justify-center rounded-[6px] px-[14px] py-[7px]", className)}
-			style={{ height, backgroundImage: GRADIENT, boxShadow: hairline(0.361, "rgba(101,158,173,0.63)"), filter: GLOW_FILTER }}
-		>
-			<span className="whitespace-nowrap font-geist text-[14px] font-medium leading-[20.69px] text-white">{children}</span>
+		<button type="button" onClick={onClick} disabled={disabled} className={classes} style={style}>
+			{label}
 		</button>
 	);
 }
@@ -148,11 +161,23 @@ export function GhostButton({
 	radius = 5.781,
 	fontSize = 14.453,
 	className,
-}: { children: ReactNode; onClick?: () => void; height?: number; radius?: number; fontSize?: number; className?: string }) {
+	autoFocus,
+}: {
+	children: ReactNode;
+	onClick?: () => void;
+	height?: number;
+	radius?: number;
+	fontSize?: number;
+	className?: string;
+	/** takes the initial focus inside a Sheet (its `data-autofocus` hook), so a confirmation starts on its safe action */
+	autoFocus?: boolean;
+}) {
 	return (
 		<button
 			type="button"
 			onClick={onClick}
+			autoFocus={autoFocus}
+			data-autofocus={autoFocus || undefined}
 			className={cn(PRESS, "flex w-full items-center justify-center px-[14px] py-[7px]", className)}
 			style={{ height, borderRadius: radius, boxShadow: hairline(0.361, "rgba(52,59,79,0.33)"), filter: GHOST_FILTER }}
 		>
@@ -179,11 +204,12 @@ export function SellButton({ children, onClick, width, disabled }: { children: R
 }
 
 /** 60x30 "Buy" in the Saved staks rows. */
-export function SmallBuyButton({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
+export function SmallBuyButton({ children, onClick, "aria-label": ariaLabel }: { children: ReactNode; onClick?: () => void; "aria-label"?: string }) {
 	return (
 		<button
 			type="button"
 			onClick={onClick}
+			aria-label={ariaLabel}
 			className={cn(PRESS, "flex h-[30px] w-[60px] shrink-0 items-center justify-center rounded-[5.781px] px-[10px] py-[7.226px]")}
 			style={{ backgroundImage: GRADIENT, boxShadow: hairline(0.361, "rgba(101,158,173,0.63)"), filter: BUY_FILTER }}
 		>
@@ -193,11 +219,12 @@ export function SmallBuyButton({ children, onClick }: { children: ReactNode; onC
 }
 
 /** 60x30 "Sell" in the Picks table. */
-export function SmallSellButton({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
+export function SmallSellButton({ children, onClick, "aria-label": ariaLabel }: { children: ReactNode; onClick?: () => void; "aria-label"?: string }) {
 	return (
 		<button
 			type="button"
 			onClick={onClick}
+			aria-label={ariaLabel}
 			className="stak-press flex h-[30px] w-[60px] shrink-0 cursor-pointer items-center justify-center rounded-[5.781px] px-[10px] py-[7.226px]"
 			style={{ boxShadow: hairline(1, "rgba(255,255,255,0.14)") }}
 		>
@@ -207,9 +234,15 @@ export function SmallSellButton({ children, onClick }: { children: ReactNode; on
 }
 
 /** Quick-amount / portion chip inside the sheets. */
-export function AmountChip({ selected, children, onClick }: { selected: boolean; children: ReactNode; onClick?: () => void }) {
+export function AmountChip({
+	selected,
+	children,
+	onClick,
+	ref,
+}: { selected: boolean; children: ReactNode; onClick?: () => void; ref?: Ref<HTMLButtonElement> }) {
 	return (
 		<button
+			ref={ref}
 			type="button"
 			onClick={onClick}
 			aria-pressed={selected}
@@ -224,15 +257,25 @@ export function AmountChip({ selected, children, onClick }: { selected: boolean;
 	);
 }
 
-/** The "Custom" chip turned into a field: the chip's geometry with a sign and a number input. */
+/**
+ * The "Custom" chip turned into a field: the chip's geometry with a sign and a number input. It replaces the chip
+ * that had focus, so it takes focus itself; Escape hands the row back to the chips (`onCancel`) instead of closing the sheet.
+ */
 export function CustomChip({
 	prefix,
 	suffix,
 	value,
 	onChange,
+	onCancel,
 	max,
 	label = "Custom amount",
-}: { prefix?: string; suffix?: string; value: string; onChange: (v: string) => void; max?: number; label?: string }) {
+}: { prefix?: string; suffix?: string; value: string; onChange: (v: string) => void; onCancel?: () => void; max?: number; label?: string }) {
+	const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+		if (e.key !== "Escape" || !onCancel) return;
+		e.preventDefault();
+		e.stopPropagation();
+		onCancel();
+	};
 	return (
 		<label
 			className="flex min-w-px flex-1 items-center justify-center overflow-clip rounded-[10px] bg-[#0f2a38] py-[8px] font-geist text-[12px] font-medium leading-[16px] text-[#a6e4f7]"
@@ -240,6 +283,7 @@ export function CustomChip({
 		>
 			{prefix && <span>{prefix}</span>}
 			<input
+				autoFocus
 				type="number"
 				inputMode="decimal"
 				min={1}
@@ -247,6 +291,7 @@ export function CustomChip({
 				step={1}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
+				onKeyDown={onKeyDown}
 				aria-label={label}
 				className="w-[44px] bg-transparent text-center text-[#a6e4f7] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 			/>
