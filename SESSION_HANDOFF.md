@@ -378,9 +378,10 @@ Android: `cd android && ./gradlew compileDebugKotlin` (needs `sdk.dir` in `local
   desktop-only (kept: it's the desktop top bar's search); tests for usePaperPortfolio, BuyFlow, SellFlow.
 - The 8.1 decisions below are answered except: browser smoke test, web deploy (Vercel). Terms/Privacy pages: built
   (2026-10-08, /terms and /privacy from the founders' documents, `lib/legalText.ts`).
-- **Eligibility gate** (2026-10-08; one-tap since 2026-10-09): "Before we get started" on web, Android and iOS - one
-  sentence (18 or older, living in the United States, and the linked Terms / Privacy) above "Agree and continue", as
-  most apps do it; no checkboxes, no date of birth. Migration `20261009000000_eligibility.sql`
+- **Eligibility gate** (2026-10-08; one-tap since 2026-10-09): "Before we get started" on web, Android and iOS - the
+  STAK glass mark, a card of four rows (18 or older, living in the United States, Terms of Service ›, Privacy Policy ›;
+  the last two open the document), then one sentence above "Agree and continue", as most apps do it; no checkboxes,
+  no date of birth. Migration `20261009000000_eligibility.sql`
   (users columns; signed-in users may update only deck_order / preferences / last_brief_date directly). POST
   /api/me/eligibility `{ ageConfirmed, inUS, acceptTerms }` (400 without all three); GET /api/me returns
   `needsEligibility`; authMiddleware refuses accounts created from `ELIGIBILITY_ENFORCED_FROM` until they confirm.
