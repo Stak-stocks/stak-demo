@@ -24,7 +24,7 @@ import {
 import {
 	fetchSupabaseAccount, subscribeSupabaseAccount, updateStakSupabase, saveToStakSupabase,
 	removeFromStakSupabase, deletePassedBrandSupabase,
-	updatePassedBrandsSupabase, updateDeckOrderSupabase, updatePreferencesSupabase,
+	updatePassedBrandsSupabase, updatePreferencesSupabase,
 	updateLastBriefDateSupabase,
 	markPlaygroundOnboardedSupabase, saveGeneratedLessonHistorySupabase,
 } from "../lib/supabaseAccount";
@@ -126,7 +126,6 @@ export interface UserDoc {
 	bonusSwipes?: number;
 	totalSwipeCount?: number;
 	totalIntelViews?: number;
-	deckOrder?: string[];
 	searchHistory?: SearchEntry[];
 	tagScores?: Record<string, number>;
 	lastBriefDate?: string;
@@ -170,7 +169,6 @@ interface AccountContextType {
 	removePassedBrand: (brandId: string) => Promise<void>;
 	updatePassedBrands: (entries: PassedEntry[]) => Promise<void>;
 	incrementSwipeCount: () => Promise<SwipeLimitIncrementResponse>;
-	updateDeckOrder: (order: string[]) => Promise<void>;
 	updatePreferences: (prefs: UserDoc["preferences"]) => Promise<void>;
 	addSearchHistory: (query: string) => Promise<void>;
 	removeSearchHistoryEntry: (query: string) => Promise<void>;
@@ -256,10 +254,6 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 		if (!supabaseUserId) return { accepted: false, count: 0, limit: 0 };
 		return incrementSwipeCountServer();
 	}, [supabaseUserId]);
-
-	const updateDeckOrder = useCallback(async (order: string[]) => {
-		await updateDeckOrderSupabase(order);
-	}, []);
 
 	const addSearchHistory = useCallback(async (query: string) => {
 		await addSearchHistoryEntry(query);
@@ -359,7 +353,6 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 				removePassedBrand,
 				updatePassedBrands,
 				incrementSwipeCount,
-				updateDeckOrder,
 				updatePreferences,
 				completeLesson,
 				completeEarningsScenario,

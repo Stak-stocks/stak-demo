@@ -5,6 +5,7 @@
  */
 import { categoryNameOf } from "@stak/shared";
 import { usd } from "@/lib/simFormat";
+import { DECK_DAY_START_HOUR } from "@/lib/utils";
 
 /** `n` figma units as a CSS length. */
 export const cu = (n: number) => `calc(${n} * var(--u))`;
@@ -83,7 +84,7 @@ export const CARD_ART_FALLBACK = "/discover-art/_template.webp";
 
 /** "A new deck lands at 9am." before 9am, else "…tomorrow at 9am." */
 export function nextDeckNote(now = new Date()): string {
-	return now.getHours() < 9 ? "A new deck lands at 9am." : "A new deck lands tomorrow at 9am.";
+	return now.getHours() < DECK_DAY_START_HOUR ? "A new deck lands at 9am." : "A new deck lands tomorrow at 9am.";
 }
 
 export const formatPrice = (price: number | null | undefined) => (price == null ? "—" : usd(price));

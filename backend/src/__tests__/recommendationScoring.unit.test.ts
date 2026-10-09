@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeRecommendationScore, type RecommendationFreshness, type ScorableStock } from "@stak/shared";
+import { computeRecommendationScore, STAK_WEIGHTED_STOCK_TAGS, TAG_SCORE_MAX, TAG_SCORE_MIN, type RecommendationFreshness, type ScorableStock, type StakStockTagConfig } from "@stak/shared";
 
 function emptyFreshness(): RecommendationFreshness {
 	return {
@@ -71,5 +71,56 @@ describe("computeRecommendationScore -- AI-generated output landing outside the 
 		const result = computeRecommendationScore("AAPL", stock, {}, emptyFreshness(), ["high_growth"], []);
 
 		expect(result.scoreBreakdown.dailyBriefThemeBoost).toBeGreaterThan(0);
+	});
+});
+
+describe("computeRecommendationScore -- taste match keeps stocks apart", () => {
+	const catalog = STAK_WEIGHTED_STOCK_TAGS as unknown as StakStockTagConfig[];
+	const byTicker = new Map(catalog.map((s) => [s.ticker, s]));
+	/** tasteProfileService's right swipe: +5 x weight on each of the stock's tags, clamped like the database. */
+	function swipeRight(scores: Record<string, number>, ticker: string) {
+		for (const lt of byTicker.get(ticker)!.learningTags) {
+			scores[lt.tag] = Math.min(TAG_SCORE_MAX, Math.max(TAG_SCORE_MIN, (scores[lt.tag] ?? 0) + 5 * lt.weight));
+		}
+	}
+	const profile = (s: StakStockTagConfig) => s.learningTags.map((lt) => `${lt.tag}:${lt.weight}`).sort().join(",");
+	/** The distinct tag profiles tied at the top score (stocks with identical tags can only tie). */
+	const topProfiles = (scores: Record<string, number>) => {
+		const scored = catalog.map((s) => ({ s, f: computeRecommendationScore(s.ticker, s, scores, emptyFreshness(), []).finalScore }));
+		const best = Math.max(...scored.map((x) => x.f));
+		return new Set(scored.filter((x) => x.f === best).map((x) => profile(x.s))).size;
+	};
+
+	it("a tech fan's swipes don't tie different stocks at the top (61 did after 4 swipes, 119 after 22)", () => {
+		const tech = ["NVDA", "AMD", "MSFT", "AAPL", "GOOGL", "META", "AVGO", "CRM", "ORCL", "ADBE", "SNOW", "NET", "DDOG", "CRWD", "PLTR", "QCOM", "INTC", "AMZN", "SHOP", "PANW", "TSLA", "NFLX"];
+		const scores: Record<string, number> = {};
+		tech.slice(0, 4).forEach((t) => swipeRight(scores, t));
+		expect(topProfiles(scores)).toBe(1);
+		tech.slice(4).forEach((t) => swipeRight(scores, t));
+		expect(topProfiles(scores)).toBe(1);
+		// Tied stocks share their tags exactly; news or earnings now lifts one above the rest (the old cap at 1 swallowed it).
+		const nvda = byTicker.get("NVDA")!;
+		const amd = byTicker.get("AMD")!;
+		const fresh = { ...emptyFreshness(), earningsTickers: new Set(["AMD"]) };
+		expect(computeRecommendationScore("AMD", amd, scores, fresh, []).finalScore)
+			.toBeGreaterThan(computeRecommendationScore("NVDA", nvda, scores, fresh, []).finalScore);
+	});
+
+	it("measures against the user's strongest interest: a full match scores 1, a partial one less", () => {
+		const stock: ScorableStock = { ticker: "X", primaryCategory: "x", learningTags: [{ tag: "a", weight: 1 }, { tag: "b", weight: 1 }] };
+		expect(computeRecommendationScore("X", stock, { a: 20, b: 20 }, emptyFreshness(), []).scoreBreakdown.tasteMatchScore).toBe(1);
+		expect(computeRecommendationScore("X", stock, { a: 20, b: 0 }, emptyFreshness(), []).scoreBreakdown.tasteMatchScore).toBe(0.5);
+	});
+
+	it("caps runaway scores: a tag at 65 counts as 30", () => {
+		const stock: ScorableStock = { ticker: "X", primaryCategory: "x", learningTags: [{ tag: "a", weight: 1 }, { tag: "b", weight: 1 }] };
+		const capped = computeRecommendationScore("X", stock, { a: 65, b: 15 }, emptyFreshness(), []);
+		expect(capped.scoreBreakdown.tasteMatchScore).toBe(0.75);
+	});
+
+	it("one small signal isn't a perfect match, and passed tags sink below neutral", () => {
+		const stock: ScorableStock = { ticker: "X", primaryCategory: "x", learningTags: [{ tag: "a", weight: 1 }] };
+		expect(computeRecommendationScore("X", stock, { a: 3 }, emptyFreshness(), []).scoreBreakdown.tasteMatchScore).toBe(0.6);
+		expect(computeRecommendationScore("X", stock, { a: -10, b: 20 }, emptyFreshness(), []).scoreBreakdown.tasteMatchScore).toBe(-0.5);
 	});
 });

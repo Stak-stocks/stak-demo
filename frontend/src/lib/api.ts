@@ -281,6 +281,11 @@ export function recordSwipe(
 	});
 }
 
+/** The account's swipes since `since`, on every device (newest first). */
+export function getSwipesSince(since: Date) {
+	return apiRequest<{ swipes: { brandId: string; direction: string }[] }>(`/api/swipe?since=${encodeURIComponent(since.toISOString())}`);
+}
+
 /** Engagement events. Investing Taste counts `learn_more` (Quick Looks read) and `stock_detail_open` (company pages
  *  opened) per ticker, the same events Android sends. */
 export function recordEngagement(
@@ -461,17 +466,6 @@ export interface SandboxTrade {
 
 export function getSandboxTrades(limit = 50) {
 	return apiRequest<{ trades: SandboxTrade[] }>(`/api/sandbox/trades?limit=${limit}`);
-}
-
-export function getDeckOrder() {
-	return apiRequest<{ order: string[] }>("/api/me/deck-order");
-}
-
-export function saveDeckOrder(order: string[]) {
-	return apiRequest("/api/me/deck-order", {
-		method: "PUT",
-		body: JSON.stringify({ order }),
-	});
 }
 
 export function getDailySwipeCount() {
@@ -757,16 +751,6 @@ export interface RecommendationDebugStock {
 	matchedUserTags: string[];
 }
 
-export interface FreshnessSignals {
-	majorNewsLast48h: string[];
-	unusualMovers: string[];
-	analystUpdatesLast7d: string[];
-}
-
-export function getRecommendationFreshness() {
-	return apiRequest<FreshnessSignals>("/api/recommendations/freshness");
-}
-
 export function getRecommendationDebug(limit = 50) {
 	return apiRequest<{
 		uid: string;
@@ -962,6 +946,19 @@ export function patchStakBrandPrice(brandId: string, price: number) {
 	return apiRequest<{ ok: boolean }>(`/api/me/stak/${encodeURIComponent(brandId)}/price`, {
 		method: "PATCH",
 		body: JSON.stringify({ price }),
+	});
+}
+
+/** Today's deck, the same on every device: the tickers picked for `day` (the 9am deck day), or none yet. */
+export function getDailyDeck(day: string) {
+	return apiRequest<{ day: string; tickers: string[] }>(`/api/me/daily-deck?day=${encodeURIComponent(day)}`);
+}
+
+/** Offers `tickers` as `day`'s deck; the server keeps the first one offered and returns the day's deck either way. */
+export function offerDailyDeck(day: string, tickers: string[]) {
+	return apiRequest<{ day: string; tickers: string[] }>("/api/me/daily-deck", {
+		method: "PUT",
+		body: JSON.stringify({ day, tickers }),
 	});
 }
 

@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { memo, useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { type BrandSummary, STAK_WEIGHTED_STOCK_TAGS, computeRecommendationScore as computeRecScore, type RecommendationFreshness } from "@stak/shared";
 import { useBrandsList } from "@/hooks/useBrandsList";
 import { DiscoverDeck, type DeckCardProps, type Undo } from "@/components/discover/DiscoverDeck";
@@ -16,49 +16,32 @@ import { QuickLookSheet } from "@/components/discover/QuickLookSheet";
 import { DEFAULT_DECK_LABEL, DISC, cu } from "@/components/discover/discoverTheme";
 import { PHONE_MAX_WIDTH, useFigmaUnit } from "@/components/discover/useFigmaUnit";
 import { toast } from "sonner";
-import { recordEngagement, getMarketEarnings, getDailyBrief, getQuickLook, getRecommendationFreshness, getSortedRecommendations } from "@/lib/api";
-import { marketSessionBucket, getEasternDateKey } from "@/lib/utils";
+import { recordEngagement, getQuickLook, getSortedRecommendations, getDailyDeck, offerDailyDeck, getSwipesSince } from "@/lib/api";
+import { getDeckDayStart, getTodayKey } from "@/lib/utils";
 import { useSwipeLimit, DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
 import { useAuth } from "@/context/AuthContext";
 import { useAccount } from "@/context/AccountContext";
 import type { PassedEntry } from "@/context/AccountContext";
-import { INTEREST_TO_BRANDS } from "@/data/onboarding";
-
-// Reverse mapping: brand ID → interest categories it belongs to
-const BRAND_TO_CATEGORIES: Record<string, string[]> = {};
-for (const [category, brandIds] of Object.entries(INTEREST_TO_BRANDS)) {
-	for (const id of brandIds) {
-		if (!BRAND_TO_CATEGORIES[id]) BRAND_TO_CATEGORIES[id] = [];
-		BRAND_TO_CATEGORIES[id].push(category);
-	}
-}
+import { chooseDailyDeck, eligibleInOrder, passKeepsOut, pinDailyDeck, readPinnedDeck, withCategoryCap, PASS_HIDE_COUNT } from "@/lib/dailyDeck";
 
 const TICKER_TAG_MAP = new Map(
 	STAK_WEIGHTED_STOCK_TAGS.map((s) => [s.ticker.toUpperCase(), s]),
 );
 
-function shuffleArray<T>(array: T[]): T[] {
-	const shuffled = [...array];
-	for (let i = shuffled.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-	}
-	return shuffled;
-}
+/** No signals beyond the account's own taste: what an offline deck is ranked by. */
+const NO_FRESHNESS: RecommendationFreshness = { earningsTickers: new Set(), majorNewsTickers: new Set(), unusualMovers: new Set(), analystUpdatedTickers: new Set() };
 
-// Recommendation-scoring formula itself lives in @stak/shared so the live Discover
-// deck (here) and the backend's /api/recommendations/debug endpoint can't drift apart.
-function computeRecommendationScore(
-	brand: BrandSummary,
-	tagScores: Record<string, number>,
-	freshness: RecommendationFreshness,
-	recentlyShownCats: string[],
-	todayThemes: string[],
-): number {
-	const ticker = brand.ticker?.toUpperCase() ?? "";
-	const stock = TICKER_TAG_MAP.get(ticker);
-	return computeRecScore(ticker, stock, tagScores, freshness, todayThemes, recentlyShownCats).finalScore;
+/** The catalog ranked by the account's taste alone (the shared formula the server uses) - the deck when the server's
+ *  ranking can't be reached. Tickers, best first. */
+function rankLocally(brands: BrandSummary[], tagScores: Record<string, number>): string[] {
+	return brands
+		.map((b) => {
+			const ticker = b.ticker?.toUpperCase() ?? "";
+			return { ticker: b.ticker, score: computeRecScore(ticker, TICKER_TAG_MAP.get(ticker), tagScores, NO_FRESHNESS, []).finalScore };
+		})
+		.sort((a, b) => b.score - a.score)
+		.map((x) => x.ticker);
 }
 
 export const Route = createFileRoute("/discover")({
@@ -86,7 +69,7 @@ const DesktopDeckCard = memo(function DesktopDeckCard({ brand, paletteIndex, liv
 
 function App() {
 	const { appUser } = useAuth();
-	const { account, saveToStak, removeFromStak, removePassedBrand, updatePassedBrands, updateDeckOrder } = useAccount();
+	const { account, saveToStak, removeFromStak, removePassedBrand, updatePassedBrands } = useAccount();
 	const queryClient = useQueryClient();
 	const uid = appUser?.uid ?? "guest";
 
@@ -99,8 +82,6 @@ function App() {
 	const [quickLookBrand, setQuickLookBrand] = useState<BrandSummary | null>(null);
 	// Desktop only: the category picked under "Not sure?", and the card in front (for the Quick Look beside the deck).
 	const [focus, setFocus] = useState<string | null>(null);
-	const focusRef = useRef(focus);
-	focusRef.current = focus;
 	const [frontBrand, setFrontBrand] = useState<BrandSummary | null>(null);
 	const [progress, setProgress] = useState<number | null>(null);
 	// Desktop: the card's width follows the window (430-550px), then shrinks to fit the column and - measured, since bio
@@ -162,56 +143,6 @@ function App() {
 
 	const { count: swipeCount, hasReachedLimit, bumpOptimistic, reportSwipeResult } = useSwipeLimit(uid, !!appUser);
 
-	// Daily Brief themes for dailyBriefThemeBoost — shares the ["daily-brief"] query with Home and News
-	const { data: dailyBriefData } = useQuery({
-		queryKey: ["daily-brief", getEasternDateKey(), marketSessionBucket()],
-		queryFn: getDailyBrief,
-		staleTime: 30 * 60 * 1000,
-		gcTime: 60 * 60 * 1000,
-		retry: 0,
-	});
-	const todayThemes = useMemo(
-		() => dailyBriefData?.decks.map((d) => d.id) ?? [],
-		[dailyBriefData],
-	);
-
-	// Earnings calendar for freshnessBoost — tickers with upcoming earnings in the next ~7 days
-	const { data: earningsWeekData } = useQuery({
-		queryKey: ["earnings-week-recommend"],
-		queryFn: () => getMarketEarnings("week"),
-		staleTime: 60 * 60 * 1000,
-		gcTime: 2 * 60 * 60 * 1000,
-		retry: 0,
-	});
-	const earningsTickerSet = useMemo(() => {
-		const set = new Set<string>();
-		for (const entry of earningsWeekData?.entries ?? []) {
-			if (entry.status === "upcoming") set.add(entry.symbol.toUpperCase());
-		}
-		return set;
-	}, [earningsWeekData]);
-
-	// Freshness signals: major news (48h), unusual movers (≥3%), analyst updates (7d)
-	const { data: freshnessData } = useQuery({
-		queryKey: ["recommendation-freshness"],
-		queryFn: getRecommendationFreshness,
-		staleTime: 30 * 60 * 1000,
-		gcTime: 60 * 60 * 1000,
-		retry: 0,
-	});
-	const majorNewsTickers = useMemo(
-		() => new Set<string>((freshnessData?.majorNewsLast48h ?? []).map((t) => t.toUpperCase())),
-		[freshnessData],
-	);
-	const unusualMoverSet = useMemo(
-		() => new Set<string>((freshnessData?.unusualMovers ?? []).map((t) => t.toUpperCase())),
-		[freshnessData],
-	);
-	const analystUpdatedTickers = useMemo(
-		() => new Set<string>((freshnessData?.analystUpdatesLast7d ?? []).map((t) => t.toUpperCase())),
-		[freshnessData],
-	);
-
 	// ── Stak — initialised from the account ──────────────────────────────
 	// Must use useEffect (not lazy useState) so we wait for both account
 	// and the brand catalog (useBrandsList, a real network fetch with no local-cache
@@ -237,11 +168,9 @@ function App() {
 	useEffect(() => {
 		if (passedInitialized.current || !account) return;
 		passedInitialized.current = true;
-		const entries = account.passedBrands ?? [];
-		const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-		// Permanently hide after 5 left-swipes; otherwise hide for 1 day
-		const active = entries.filter((e) => (e.count ?? 0) >= 5 || e.at > oneDayAgo);
-		setPassedBrandIds(new Set(active.map((e) => e.id)));
+		// Hidden for a day after a pass; for good after PASS_HIDE_COUNT of them.
+		const now = Date.now();
+		setPassedBrandIds(new Set((account.passedBrands ?? []).filter((e) => passKeepsOut(e, now)).map((e) => e.id)));
 	}, [account]);
 
 	// Ref keeps the latest passed entries for use in stable callbacks.
@@ -261,7 +190,7 @@ function App() {
 	// brand to the bottom of the deck without waiting for a route remount.
 	useEffect(() => {
 		if (!passedInitialized.current) return;
-		const tempPasses = passedEntriesRef.current.filter(e => (e.count ?? 0) < 5);
+		const tempPasses = passedEntriesRef.current.filter(e => (e.count ?? 1) < PASS_HIDE_COUNT);
 		if (tempPasses.length === 0) return;
 		const now = Date.now();
 		const nextExpiry = Math.min(...tempPasses.map(e => e.at + 24 * 60 * 60 * 1000));
@@ -270,7 +199,7 @@ function App() {
 			const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
 			setPassedBrandIds(prev => {
 				const toRemove = passedEntriesRef.current.filter(
-					e => (e.count ?? 0) < 5 && e.at <= oneDayAgo && prev.has(e.id),
+					e => (e.count ?? 1) < PASS_HIDE_COUNT && e.at <= oneDayAgo && prev.has(e.id),
 				);
 				if (toRemove.length === 0) return prev; // bail out — nothing to remove, keep same reference
 				const next = new Set(prev);
@@ -283,218 +212,128 @@ function App() {
 		return () => clearTimeout(timer);
 	}, [passedBrandIds]);
 
-	// ── Deck order — reactive init so it always reads correct account state ──
-	// Lazy useState would capture account at mount time; if preferences arrive
-	// slightly after (e.g. right after onboarding) the order would be random.
-	// Using useEffect + ref lets us wait until account (and the brand catalog) are
-	// definitively ready.
+	// ── Today's deck — the apps' rules (lib/dailyDeck) ───────────────────
+	// Waits for the account and the catalog (useEffect, not lazy useState: either can arrive after mount). The server's
+	// ranking picks the deck from the first swipe; it's pinned for the day, so a reload doesn't reshuffle it.
 	const [recommendedOrder, setRecommendedOrder] = useState<BrandSummary[]>([]);
-	const orderInitialized = useRef(false);
-
-	// Refs used inside re-sort effects to avoid stale closures
-	const freshnessRef = useRef<RecommendationFreshness>({
-		earningsTickers: earningsTickerSet,
-		majorNewsTickers: new Set(),
-		unusualMovers: new Set(),
-		analystUpdatedTickers: new Set(),
-	});
+	// The rest of today's ranking, best first: what a desktop category chip brings in when the picks hold none of it.
+	const [rankedPool, setRankedPool] = useState<BrandSummary[]>([]);
+	// Set once today's picks are in - an empty deck (everything saved or passed) is a finished deck, not a loading one.
+	const [deckPicked, setDeckPicked] = useState(false);
+	// The deck day (9am rollover) - kept current while the page stays open, so a new day picks a new deck.
+	const [deckDay, setDeckDay] = useState(getTodayKey);
 	useEffect(() => {
-		freshnessRef.current = { earningsTickers: earningsTickerSet, majorNewsTickers, unusualMovers: unusualMoverSet, analystUpdatedTickers };
-	}, [earningsTickerSet, majorNewsTickers, unusualMoverSet, analystUpdatedTickers]);
-	const recentlyShownCatsRef = useRef<string[]>([]); // last 5 primaryCategories shown (for diversity)
-	const recommendedOrderRef = useRef<BrandSummary[]>([]);
-	useEffect(() => { recommendedOrderRef.current = recommendedOrder; }, [recommendedOrder]);
+		const check = () => setDeckDay(getTodayKey());
+		const timer = setInterval(check, 60_000);
+		document.addEventListener("visibilitychange", check);
+		return () => { clearInterval(timer); document.removeEventListener("visibilitychange", check); };
+	}, []);
+	// Who and which day the deck was picked for: another account, or a new day, picks again.
+	const pickedFor = useRef("");
 	const swipedBrandsRef = useRef(swipedBrands);
 	useEffect(() => { swipedBrandsRef.current = swipedBrands; }, [swipedBrands]);
 	const passedBrandIdsRef = useRef(passedBrandIds);
 	useEffect(() => { passedBrandIdsRef.current = passedBrandIds; }, [passedBrandIds]);
-	const todayThemesRef = useRef(todayThemes);
-	useEffect(() => { todayThemesRef.current = todayThemes; }, [todayThemes]);
 
 	useEffect(() => {
-		if (orderInitialized.current || !account || allBrands.length === 0) return;
-		orderInitialized.current = true;
-
-		const totalSwipes = account.totalSwipeCount ?? 0;
-		const deckOrder = account.deckOrder;
-		let order: BrandSummary[];
-
-		// ── Phase A: Users with 20+ swipes → server-sorted recommendations ──
-		if (totalSwipes >= 20) {
-			if (deckOrder?.length) {
-				updateDeckOrder([]).catch(() => {});
-			}
-
-			// Re-queued brands (expired passes, count < 5) always go to the bottom.
-			// Without this they jump near the top because tagScores still reflect past
-			// engagement with their categories (e.g. a brand just removed from Stak).
-			const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-			const requeuedIds = new Set(
-				(account.passedBrands ?? [])
-					.filter((e) => (e.count ?? 0) < 5 && e.at <= oneDayAgo)
-					.map((e) => e.id),
-			);
-			const pushToBottom = (arr: BrandSummary[]) => [
-				...arr.filter((b) => !requeuedIds.has(b.id)),
-				...arr.filter((b) => requeuedIds.has(b.id)),
-			];
-
-			// Set synchronous client-side order immediately so deck isn't blank while
-			// the server call resolves (~200ms cold, ~10ms when 5-min cache is warm).
-			const tagScores = account.tagScores ?? {};
-			order = pushToBottom(
-				[...allBrands]
-					.map((b) => ({
-						brand: b,
-						score: computeRecommendationScore(b, tagScores, freshnessRef.current, [], todayThemesRef.current),
-					}))
-					.sort((a, b) => b.score - a.score)
-					.map(({ brand }) => brand),
-			);
-			setRecommendedOrder(order);
-			// Then refine with server-computed order (personalised + freshness signals
-			// computed from live market data, cached per uid for 5 min).
-			const tickerMap = new Map(allBrands.map((b) => [b.ticker, b]));
-			getSortedRecommendations()
-				.then((data) => {
-					const sorted = (data.brandIds ?? []).map((t) => tickerMap.get(t)).filter(Boolean) as BrandSummary[];
-					const sortedSet = new Set(data.brandIds ?? []);
-					const missing = allBrands.filter((b) => !sortedSet.has(b.ticker));
-					setRecommendedOrder(pushToBottom([...sorted, ...missing]));
-				})
-				.catch(() => {}); // initial client-side order already set — keep it on error
-			return; // don't persist — will always recompute on load
-		}
-
-		// ── Phase B: New users (<20 swipes) → restore or build fixed onboarding deck ──
-		if (deckOrder?.length) {
-			const brandMap = new Map(allBrands.map((b) => [b.id, b]));
-			const restored = deckOrder.map((id) => brandMap.get(id)).filter(Boolean) as BrandSummary[];
-			if (restored.length > 0) {
-				const restoredIdSet = new Set(deckOrder);
-				const newBrands = allBrands.filter((b) => !restoredIdSet.has(b.id));
-				order = newBrands.length > 0 ? [...restored, ...shuffleArray(newBrands)] : restored;
-
-				// Re-queued (expired passed) cards go to the bottom
-				const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-				const requeuedIds = new Set(
-					(account.passedBrands ?? [])
-						.filter((e) => (e.count ?? 0) < 5 && e.at <= oneDayAgo)
-						.map((e) => e.id),
-				);
-				if (requeuedIds.size > 0) {
-					order = [
-						...order.filter((b) => !requeuedIds.has(b.id)),
-						...shuffleArray(order.filter((b) => requeuedIds.has(b.id))),
-					];
-				}
-				setRecommendedOrder(order);
-				return;
-			}
-		}
-
-		// First-ever session: build onboarding deck shuffled within interest tiers
-		const interests: string[] = account.preferences?.interests ?? [];
-		const onboardingSwipes = new Set<string>(account.preferences?.onboardingSwipes ?? []);
-
-		if (interests.length === 0 && onboardingSwipes.size === 0) {
-			order = shuffleArray(allBrands);
-		} else {
-			const interestBrandIds = new Set(interests.flatMap((i) => INTEREST_TO_BRANDS[i] || []));
-			const expandedCats = new Set<string>();
-			for (const id of interestBrandIds) {
-				(BRAND_TO_CATEGORIES[id] || []).forEach((c) => expandedCats.add(c));
-			}
-			const adjacentBrandIds = new Set<string>();
-			for (const cat of expandedCats) {
-				(INTEREST_TO_BRANDS[cat] || []).forEach((id) => {
-					if (!interestBrandIds.has(id)) adjacentBrandIds.add(id);
-				});
-			}
-
-			// Shuffle independently within each tier — no behavioural scoring yet
-			const tier0 = shuffleArray(allBrands.filter((b) => onboardingSwipes.has(b.id)));
-			const tier1 = shuffleArray(allBrands.filter((b) => !onboardingSwipes.has(b.id) && interestBrandIds.has(b.id)));
-			const tier2 = shuffleArray(allBrands.filter((b) => !onboardingSwipes.has(b.id) && !interestBrandIds.has(b.id) && adjacentBrandIds.has(b.id)));
-			const tier3 = shuffleArray(allBrands.filter((b) => !onboardingSwipes.has(b.id) && !interestBrandIds.has(b.id) && !adjacentBrandIds.has(b.id)));
-			order = [...tier0, ...tier1, ...tier2, ...tier3];
-		}
-
-		setRecommendedOrder(order);
-		updateDeckOrder(order.map((b) => b.id)).catch((e) => console.error("Failed to save deck order:", e));
-	}, [account, allBrands]);
-
-	// When the daily swipe limit is hit, clear deckOrder so the next session
-	// recomputes a fresh scored deck rather than restoring today's exhausted order.
-	const limitClearedRef = useRef(false);
-	useEffect(() => {
-		if (!limitClearedRef.current && swipeCount >= DAILY_SWIPE_LIMIT) {
-			limitClearedRef.current = true;
-			updateDeckOrder([]).catch((e) => console.error("Failed to save deck order:", e));
-		}
-	}, [swipeCount, updateDeckOrder]);
-
-	// Live re-sort: fires after every tagScores update for users with 20+ swipes.
-	// Keeps the first 3 brands in the current filtered view locked (they're visible on screen)
-	// and re-scores + re-sorts every other brand so the deck always reflects the latest taste.
-	useEffect(() => {
-		if (!account || !orderInitialized.current) return;
-		if ((account.totalSwipeCount ?? 0) < 20) return;
-		if (recommendedOrderRef.current.length === 0) return;
-
+		const key = `${uid}:${deckDay}`;
+		if (pickedFor.current === key || !account || allBrands.length === 0) return;
+		// Picked once per account and day: the account refreshing (a save, a pass) must not re-pick the deck under the user.
+		pickedFor.current = key;
+		setDeckPicked(false);
+		const held = new Set(account.stakBrandIds ?? []);
+		const passed = account.passedBrands ?? [];
 		const tagScores = account.tagScores ?? {};
-
-		// Identify the 3 brands currently visible (top of the filtered deck)
-		const swipedIds = new Set(swipedBrandsRef.current.map((b) => b.id));
-		// The on-screen cards follow the desktop category chip when one is picked, so lock those.
-		const filtered = withFocus(recommendedOrderRef.current.filter(
-			(b) => !swipedIds.has(b.id) && !passedBrandIdsRef.current.has(b.id),
-		), focusRef.current);
-		const lockedIds = new Set(
-			[filtered[0]?.id, filtered[1]?.id, filtered[2]?.id].filter(Boolean),
-		);
-		const lockedInOrder = [filtered[0], filtered[1], filtered[2]].filter(Boolean);
-
-		// Score and sort all remaining brands (including ones not yet in recommendedOrder)
-		const scored = allBrands
-			.filter((b) => !lockedIds.has(b.id))
-			.map((b) => ({
-				brand: b,
-				score: computeRecommendationScore(
-					b, tagScores, freshnessRef.current, recentlyShownCatsRef.current, todayThemes,
-				),
-			}))
-			.sort((a, b) => b.score - a.score)
-			.map(({ brand }) => brand);
-
-		// Re-queued brands (expired passes, count < 5) go to the bottom, same as Phase B.
-		// Without this, they'd jump near the top because users have high tag-score affinity
-		// for categories they previously engaged with.
-		const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-		const requeuedIds = new Set(
-			passedEntriesRef.current
-				.filter((e) => (e.count ?? 0) < 5 && e.at <= oneDayAgo)
-				.map((e) => e.id),
-		);
-		const normalRest = scored.filter((b) => !requeuedIds.has(b.id));
-		const requeuedRest = scored.filter((b) => requeuedIds.has(b.id));
-
-		setRecommendedOrder([...lockedInOrder, ...normalRest, ...requeuedRest]);
-	}, [account?.tagScores, todayThemes]);
+		const byTicker = new Map(allBrands.map((b) => [b.ticker, b]));
+		// A stock saved since the deck was picked (on any device, or from a stock page) leaves it.
+		const brandsOf = (tickers: string[]) => tickers.flatMap((t) => byTicker.get(t) ?? []).filter((b) => !held.has(b.id));
+		(async () => {
+			const [shared, recs] = await Promise.all([
+				getDailyDeck(deckDay).then((d) => d.tickers, () => null),
+				getSortedRecommendations().then((d) => d.brandIds ?? [], () => []),
+			]);
+			// Offline or signed out: the account's own taste, ranked here - not shared, so the next load can do better.
+			const eligible = eligibleInOrder(allBrands, recs.length > 0 ? recs : rankLocally(allBrands, tagScores), held, passed);
+			// A deck stands even when it's all been saved since: today's picks are done, not re-picked.
+			const tickers = await chooseDailyDeck({
+				shared,
+				pinned: readPinnedDeck(uid, deckDay),
+				ranked: recs.length > 0,
+				pick: () => withCategoryCap(eligible, DAILY_SWIPE_LIMIT).map((b) => b.ticker),
+				offer: (mine) => offerDailyDeck(deckDay, mine).then((d) => d.tickers),
+			});
+			if (pickedFor.current !== key) return;
+			if (tickers) pinDailyDeck(uid, deckDay, tickers);
+			setRecommendedOrder(tickers ? brandsOf(tickers) : withCategoryCap(eligible, DAILY_SWIPE_LIMIT));
+			setRankedPool(eligible);
+			setDeckPicked(true);
+		})();
+	}, [account, allBrands, uid, deckDay]);
 
 	const handleLearnMore = useCallback((brand: BrandSummary) => {
 		setQuickLookBrand(brand);
 		recordEngagement("learn_more", brand.id, { ticker: brand.ticker, categories: brand.interestCategories }).catch(() => {});
 	}, []);
 
-	const rememberCategory = (brand: BrandSummary) => {
-		const cat = TICKER_TAG_MAP.get(brand.ticker?.toUpperCase() ?? "")?.primaryCategory;
-		if (cat) recentlyShownCatsRef.current = [cat, ...recentlyShownCatsRef.current].slice(0, 5);
-	};
-
 	// Each card's server writes run one after another: STAK -> Undo -> STAK again, sent all at once, could otherwise land
 	// as add, add, remove and leave a card that looks saved but isn't. Same for a pass and its undo.
 	const brandOps = useRef(new Map<string, Promise<unknown>>());
+
+	// Today's swipes on every device (card -> its latest direction), read when Discover opens and again when the tab is
+	// looked at: a card swiped on the phone while this tab stayed open leaves the deck rather than be swiped twice, and
+	// the end-of-deck receipt counts them (as Android counts its own). Every platform sends a swipe only once its undo
+	// window has passed, so the list never holds an undone card.
+	const [swipedToday, setSwipedToday] = useState<Map<string, string>>(new Map());
+	const signedIn = !!appUser;
+	useEffect(() => {
+		setSwipedToday(new Map());
+		if (!signedIn) return;
+		// One check at a time, and not again within a few seconds: a tab switch fires both events below.
+		let inFlight = false;
+		let lastAt = 0;
+		// Another account (or day) since this was asked: its answer is not this deck's.
+		let cancelled = false;
+		const sync = () => {
+			if (document.visibilityState !== "visible" || inFlight || Date.now() - lastAt < 3000) return;
+			inFlight = true;
+			lastAt = Date.now();
+			const day = getTodayKey();
+			getSwipesSince(getDeckDayStart())
+				.then(({ swipes }) => {
+					// An answer from before the 9am rollover belongs to yesterday's deck.
+					if (cancelled || getTodayKey() !== day) return;
+					// Newest first: each card's latest decision is the one kept.
+					const latest = new Map<string, string>();
+					for (const s of swipes) if (!latest.has(s.brandId)) latest.set(s.brandId, s.direction);
+					setSwipedToday((prev) => (prev.size === latest.size && [...latest].every(([id, d]) => prev.get(id) === d) ? prev : latest));
+				})
+				.catch(() => {})
+				.finally(() => { inFlight = false; });
+		};
+		sync();
+		// Coming back to the tab, or to a window left open beside the phone.
+		document.addEventListener("visibilitychange", sync);
+		window.addEventListener("focus", sync);
+		return () => {
+			cancelled = true;
+			document.removeEventListener("visibilitychange", sync);
+			window.removeEventListener("focus", sync);
+		};
+	}, [signedIn, deckDay, uid]);
+	// An open Quick Look on a card just dropped closes with it.
+	useEffect(() => {
+		if (quickLookBrand && swipedToday.has(quickLookBrand.id)) setQuickLookBrand(null);
+	}, [swipedToday, quickLookBrand]);
+
+	// This tab's own decisions today (an undone one taken back out), counted at once - the server hears of each only
+	// after its undo window.
+	const [decidedHere, setDecidedHere] = useState<Map<string, string>>(new Map());
+	useEffect(() => setDecidedHere(new Map()), [deckDay, uid]);
+	const decide = (id: string, direction: "left" | "right" | null) => setDecidedHere((cur) => {
+		const next = new Map(cur);
+		if (direction) next.set(id, direction); else next.delete(id);
+		return next;
+	});
 	const inOrder = <T,>(brandId: string, op: () => Promise<T>): Promise<T> => {
 		const run = (brandOps.current.get(brandId) ?? Promise.resolve()).catch(() => {}).then(op);
 		brandOps.current.set(brandId, run);
@@ -502,14 +341,14 @@ function App() {
 		return run;
 	};
 
-	// An undone card returns to the front even if the live re-sort moved it while its decision was pending.
+	// An undone card returns to the front of the deck.
 	const backToFront = (brand: BrandSummary) => setRecommendedOrder((cur) => [brand, ...cur.filter((b) => b.id !== brand.id)]);
 
 	/** Android's STAK: adds the card to My STAK now ("full" when there's no room). Returns how to take it back.
 	 *  Reads and updates the refs as well as state, so two decisions before the next render both count. */
 	const handleSave = (brand: BrandSummary): "full" | Undo => {
 		if (swipedBrandsRef.current.length >= STAK_CAPACITY) return "full";
-		rememberCategory(brand);
+		decide(brand.id, "right");
 		const wasPassed = passedBrandIdsRef.current.has(brand.id);
 		const passedBefore = passedEntriesRef.current.find((e) => e.id === brand.id);
 		swipedBrandsRef.current = [...swipedBrandsRef.current, brand];
@@ -531,6 +370,7 @@ function App() {
 		});
 		return () => {
 			// Only this card comes out; anything decided since stays as it is.
+			decide(brand.id, null);
 			backToFront(brand);
 			swipedBrandsRef.current = swipedBrandsRef.current.filter((b) => b.id !== brand.id);
 			setSwipedBrands((cur) => cur.filter((b) => b.id !== brand.id));
@@ -548,16 +388,17 @@ function App() {
 
 	/** Android's Pass: hides the card for a day (five passes hide it for good). Returns how to take it back. */
 	const handlePass = (brand: BrandSummary): Undo => {
-		rememberCategory(brand);
 		const wasPassed = passedBrandIdsRef.current.has(brand.id);
 		const prev = passedEntriesRef.current.find((e) => e.id === brand.id);
 		const next: PassedEntry = { id: brand.id, at: Date.now(), count: (prev?.count ?? 0) + 1 };
+		decide(brand.id, "left");
 		passedBrandIdsRef.current = new Set([...passedBrandIdsRef.current, brand.id]);
 		setPassedBrandIds((cur) => new Set([...cur, brand.id]));
 		passedEntriesRef.current = prev ? passedEntriesRef.current.map((e) => e.id === brand.id ? { ...e, ...next } : e) : [...passedEntriesRef.current, next];
 		inOrder(brand.id, () => updatePassedBrands([next])).catch((e) => console.error("Failed to save passed brands:", e));
 		return () => {
 			// Only this card comes back; passes made since stay passed.
+			decide(brand.id, null);
 			backToFront(brand);
 			if (!wasPassed) {
 				passedBrandIdsRef.current = new Set([...passedBrandIdsRef.current].filter((id) => id !== brand.id));
@@ -570,19 +411,20 @@ function App() {
 	};
 
 	// Stable brands array for the deck — prevents it recreating on every unrelated render.
-	const filteredBrands = useMemo(
-		() => recommendedOrder.filter(
-			(brand) =>
-				!swipedBrands.some((b) => b.id === brand.id) &&
-				!passedBrandIds.has(brand.id),
-		),
-		[recommendedOrder, swipedBrands, passedBrandIds],
+	// Saved, passed, or swiped today on any device: out of the deck.
+	const stillOpen = useCallback(
+		(brand: BrandSummary) => !swipedBrands.some((b) => b.id === brand.id) && !passedBrandIds.has(brand.id) && !swipedToday.has(brand.id),
+		[swipedBrands, passedBrandIds, swipedToday],
 	);
-	const deckBrands = useMemo(() => withFocus(filteredBrands, focus), [filteredBrands, focus]);
+	const filteredBrands = useMemo(() => recommendedOrder.filter(stillOpen), [recommendedOrder, stillOpen]);
+	const deckBrands = useMemo(
+		() => withFocus(filteredBrands, focus, focus ? rankedPool.filter(stillOpen) : []),
+		[filteredBrands, focus, rankedPool, stillOpen],
+	);
 
 	// A card's tint comes from where it sits in the day's order, so it stays the same as cards leave the deck.
 	const paletteIndexById = useMemo(() => new Map(recommendedOrder.map((b, i) => [b.id, i])), [recommendedOrder]);
-	// Pinned on first sight: the live re-sort moves the visible cards to the front of the order, which would recolour them.
+	// Pinned on first sight: an undone card moves to the front of the order, which would recolour it.
 	const palettePin = useRef(new Map<string, number>());
 	const paletteOf = useCallback((brand: BrandSummary) => {
 		let index = palettePin.current.get(brand.id);
@@ -594,13 +436,15 @@ function App() {
 	}, [paletteIndexById]);
 	const closeQuickLook = useCallback(() => setQuickLookBrand(null), []);
 
-	const todayStart = new Date();
-	todayStart.setHours(0, 0, 0, 0);
-	const todayMs = todayStart.getTime();
-	const todayPassed = (account?.passedBrands ?? []).filter(e => e.at > todayMs).length;
-	const todaySaved = Object.values(account?.stakSavedAt ?? {}).filter(e => e.savedAt > todayMs).length;
+	// Today's saves and passes for the end-of-deck receipt: this tab's own, with the server's latest over them (a card
+	// decided again on another device counts as its newer decision).
+	let savedToday = 0;
+	let passedToday = 0;
+	for (const direction of new Map([...decidedHere, ...swipedToday]).values()) {
+		if (direction === "right") savedToday++; else passedToday++;
+	}
 
-	const deckLoading = recommendedOrder.length === 0 && !hasReachedLimit;
+	const deckLoading = !deckPicked && !hasReachedLimit;
 	const loadFailed = brandsError && allBrands.length === 0;
 	const headerCount = Math.min(swipeCount + 1, DAILY_SWIPE_LIMIT);
 
@@ -610,8 +454,8 @@ function App() {
 		limit: DAILY_SWIPE_LIMIT,
 		swipeCount,
 		stakSize: account?.stakBrandIds?.length ?? 0,
-		initialSaved: todaySaved,
-		initialPassed: todayPassed,
+		savedToday,
+		passedToday,
 		onSave: handleSave,
 		onPass: handlePass,
 		onLearnMore: handleLearnMore,
