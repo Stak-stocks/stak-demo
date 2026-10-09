@@ -20,6 +20,12 @@ describe("withFocus", () => {
 		expect(withFocus(deck, "dividends").map((b) => b.ticker)).toEqual(["KO", "PFE", "NVDA"]);
 	});
 
+	it("brings in the category's best-ranked others when today's picks hold too few, without repeating a pick", () => {
+		const ranking = [brand("AMD"), brand("NVDA"), brand("MRK")];
+		expect(withFocus(deck, "tech", ranking).map((b) => b.ticker)).toEqual(["NVDA", "AMD", "KO", "PFE"]);
+		expect(withFocus(deck, null, ranking)).toBe(deck);
+	});
+
 	it("offers the design's five categories", () => {
 		expect(DISCOVER_FOCUS.map((f) => f.label)).toEqual(["Tech", "Healthcare", "Clean Energy", "AI", "Dividends"]);
 	});

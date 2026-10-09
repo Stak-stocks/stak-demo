@@ -197,8 +197,13 @@ struct EngagementEventRequest: Encodable {
     var categories: [String]?; var todayKey: String?; var params: [String: AnyCodable]?
 }
 struct EventResponse: Decodable { var success: Bool = false }
-struct PassedEntry: Codable { var id: String = ""; var at: Int64 = 0 }
+/// A passed brand: when it was last passed, and how many times (five keeps it out of the deck).
+struct PassedEntry: Codable { var id: String = ""; var at: Int64 = 0; var count: Int = 1 }
 struct PassedResponse: Decodable { var entries: [PassedEntry] = [] }
+struct PassedAddResponse: Decodable { var entry: PassedEntry? }
+/// Today's deck, the same on every device (tickers; empty when none is picked yet).
+struct DailyDeckDto: Decodable { var day: String = ""; var tickers: [String] = [] }
+struct DailyDeckRequest: Encodable { let day: String; let tickers: [String] }
 struct PassedPutRequest: Encodable { let entries: [PassedEntry] }
 struct SwipeRecord: Decodable { var brandId: String = ""; var direction: String = ""; var timestamp: String = "" }
 struct SwipeHistoryResponse: Decodable { var swipes: [SwipeRecord] = [] }
@@ -924,10 +929,26 @@ extension EventResponse {
 }
 
 extension PassedEntry {
-    private enum CodingKeys: String, CodingKey { case id, at }
+    private enum CodingKeys: String, CodingKey { case id, at, count }
+    // A server from before pass counts sends none: each pass then counts once.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = c.value(.id, or: ""); at = c.flexibleInt64(.at) ?? 0
+        id = c.value(.id, or: ""); at = c.flexibleInt64(.at) ?? 0; count = c.value(.count, or: 1)
+    }
+}
+
+extension PassedAddResponse {
+    private enum CodingKeys: String, CodingKey { case entry }
+    init(from decoder: Decoder) throws {
+        entry = try decoder.container(keyedBy: CodingKeys.self).value(.entry, or: nil)
+    }
+}
+
+extension DailyDeckDto {
+    private enum CodingKeys: String, CodingKey { case day, tickers }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        day = c.value(.day, or: ""); tickers = c.value(.tickers, or: [])
     }
 }
 

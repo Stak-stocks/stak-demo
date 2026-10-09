@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { cn } from "../utils";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cn, getDeckDayStart } from "../utils";
 
 describe("cn", () => {
 	it("returns empty string with no arguments", () => {
@@ -34,5 +34,17 @@ describe("cn", () => {
 
 	it("handles array inputs via clsx", () => {
 		expect(cn(["foo", "bar"], "baz")).toBe("foo bar baz");
+	});
+});
+
+describe("getDeckDayStart", () => {
+	afterEach(() => vi.useRealTimers());
+
+	it("is 9 AM today from 9 AM on, and 9 AM yesterday before it", () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date(2026, 9, 9, 14, 30));
+		expect(getDeckDayStart()).toEqual(new Date(2026, 9, 9, 9));
+		vi.setSystemTime(new Date(2026, 9, 9, 8, 59));
+		expect(getDeckDayStart()).toEqual(new Date(2026, 9, 8, 9));
 	});
 });

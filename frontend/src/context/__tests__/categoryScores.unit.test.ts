@@ -11,7 +11,6 @@ vi.mock("@/lib/supabaseAccount", () => ({
 	updateStakSupabase: vi.fn().mockResolvedValue(undefined),
 	saveToStakSupabase: vi.fn().mockResolvedValue(undefined),
 	updatePassedBrandsSupabase: vi.fn().mockResolvedValue(undefined),
-	updateDeckOrderSupabase: vi.fn().mockResolvedValue(undefined),
 	updatePreferencesSupabase: vi.fn().mockResolvedValue(undefined),
 	updateLastBriefDateSupabase: vi.fn().mockResolvedValue(undefined),
 	markPlaygroundOnboardedSupabase: vi.fn().mockResolvedValue(undefined),

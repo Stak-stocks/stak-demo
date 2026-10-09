@@ -146,6 +146,15 @@ interface StockApiService {
     @PUT("api/me/passed")
     suspend fun putPassed(@Body body: PassedPutRequest): PassedResponse
 
+    @POST("api/me/passed/{id}")
+    suspend fun addPass(@Path("id") id: String): PassedAddResponse
+
+    @GET("api/me/daily-deck")
+    suspend fun getDailyDeck(@Query("day") day: String): DailyDeckDto
+
+    @PUT("api/me/daily-deck")
+    suspend fun offerDailyDeck(@Body body: DailyDeckRequest): DailyDeckDto
+
     @GET("api/swipe")
     suspend fun getSwipes(@Query("since") since: String): SwipeHistoryResponse
 

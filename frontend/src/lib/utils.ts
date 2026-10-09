@@ -8,15 +8,24 @@ export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
 }
 
+/** The local hour a new deck day begins (the apps' DECK_DAY_START_HOUR). */
+export const DECK_DAY_START_HOUR = 9;
+
 /** Returns YYYY-MM-DD in local device time. Resets at 9 AM so late-night
  *  sessions count against the previous day's limit, matching server logic. */
 export function getTodayKey(): string {
 	const now = new Date();
-	const target = now.getHours() < 9 ? new Date(now.setDate(now.getDate() - 1)) : now;
+	const target = now.getHours() < DECK_DAY_START_HOUR ? new Date(now.setDate(now.getDate() - 1)) : now;
 	const y = target.getFullYear();
 	const m = String(target.getMonth() + 1).padStart(2, "0");
 	const d = String(target.getDate()).padStart(2, "0");
 	return `${y}-${m}-${d}`;
+}
+
+/** When today's deck day (getTodayKey) began: 9 AM local on its date. */
+export function getDeckDayStart(): Date {
+	const [y, m, d] = getTodayKey().split("-").map(Number);
+	return new Date(y!, m! - 1, d!, DECK_DAY_START_HOUR);
 }
 
 /** Returns today's date as YYYY-MM-DD in local device time (no 9 AM offset). */

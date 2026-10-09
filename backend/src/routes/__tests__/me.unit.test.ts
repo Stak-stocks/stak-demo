@@ -192,27 +192,45 @@ describe("meRouter", () => {
 		expect(res.body).toEqual({ accepted: false, count: 20, limit: 20 });
 	});
 
-	// ── PUT /deck-order ──────────────────────────────────────────────────────────
+	// ── /daily-deck ──────────────────────────────────────────────────────────────
 
-	it("PUT /deck-order returns 400 when order contains non-strings", async () => {
+	it("GET /daily-deck returns that day's deck, and none for another day", async () => {
+		pgQueryMock.mockResolvedValue({ rows: [{ deck_order: ["2026-10-09", "NVDA", "WMT"] }] });
 		const app = await buildApp();
 
-		const res = await request(app)
-			.put("/deck-order")
-			.send({ order: ["aapl", 42] }); // 42 is not a string
-
-		expect(res.status).toBe(400);
-		expect(res.body.error).toMatch(/invalid deck order/i);
+		expect((await request(app).get("/daily-deck?day=2026-10-09")).body).toEqual({ day: "2026-10-09", tickers: ["NVDA", "WMT"] });
+		expect((await request(app).get("/daily-deck?day=2026-10-10")).body).toEqual({ day: "2026-10-10", tickers: [] });
+		expect((await request(app).get("/daily-deck?day=today")).status).toBe(400);
 	});
 
-	it("PUT /deck-order saves valid string array", async () => {
+	it("PUT /daily-deck keeps the first deck offered for the day", async () => {
+		// The conditional update matched nothing (another device already picked today): the stored deck is returned.
+		pgQueryMock
+			.mockResolvedValueOnce({ rows: [] })
+			.mockResolvedValueOnce({ rows: [{ deck_order: ["2026-10-09", "AMD"] }] });
 		const app = await buildApp();
 
-		const res = await request(app)
-			.put("/deck-order")
-			.send({ order: ["aapl", "tsla", "nvda"] });
+		const res = await request(app).put("/daily-deck").send({ day: "2026-10-09", tickers: ["NVDA"] });
 
-		expect(res.status).toBe(200);
-		expect(res.body.order).toEqual(["aapl", "tsla", "nvda"]);
+		expect(res.body).toEqual({ day: "2026-10-09", tickers: ["AMD"] });
+		expect(pgQueryMock.mock.calls[0]![1]).toEqual(["u1", ["2026-10-09", "NVDA"], "2026-10-09"]);
+	});
+
+	it("PUT /daily-deck: only a later day replaces the stored deck (a device on yesterday gets none back)", async () => {
+		pgQueryMock
+			.mockResolvedValueOnce({ rows: [] })
+			.mockResolvedValueOnce({ rows: [{ deck_order: ["2026-10-09", "AMD"] }] });
+		const app = await buildApp();
+
+		const res = await request(app).put("/daily-deck").send({ day: "2026-10-08", tickers: ["NVDA"] });
+
+		expect(res.body).toEqual({ day: "2026-10-08", tickers: [] });
+		expect(pgQueryMock.mock.calls[0]![0]).toContain("deck_order[1] < $3");
+	});
+
+	it("PUT /daily-deck refuses a malformed deck", async () => {
+		const app = await buildApp();
+		expect((await request(app).put("/daily-deck").send({ day: "2026-10-09", tickers: [] })).status).toBe(400);
+		expect((await request(app).put("/daily-deck").send({ day: "x", tickers: ["NVDA"] })).status).toBe(400);
 	});
 });

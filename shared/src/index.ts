@@ -1,7 +1,7 @@
 export { TIER_XP, TIER_THRESHOLDS, xpToTier, ACTIVITY_TYPES, SANDBOX_BUDGETS, ACTIVITY_XP_CAP } from "./tierConfig";
 export type { TierNumber, ActivityType } from "./tierConfig";
 
-export { computeRecommendationScore, THEME_TAG_MAP } from "./recommendationScoring";
+export { computeRecommendationScore, referenceTagScore, clampTagScore, THEME_TAG_MAP, TAG_SCORE_MIN, TAG_SCORE_MAX } from "./recommendationScoring";
 export type {
 	LearningTagLike,
 	ScorableStock,

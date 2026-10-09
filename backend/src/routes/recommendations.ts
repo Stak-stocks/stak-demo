@@ -5,6 +5,7 @@ import { cacheGet, cacheSet } from "../lib/cache.js";
 import { computeRecommendationScore, type RecommendationFreshness, STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig, type StakTicker, getEasternDateKey } from "@stak/shared";
 import { getFinnhubKeys, FINNHUB_BASE } from "../services/finnhubService.js";
 import { classifyMood, SECTOR_ETFS, MOOD_DECKS, type DeckDef, type MarketData } from "../services/marketMood.js";
+import { seedTasteFromPicks, sortedRecommendationsKey } from "../services/tasteProfileService.js";
 
 export const recommendationsRouter = Router();
 
@@ -226,22 +227,6 @@ function computeScore(
 	};
 }
 
-// GET /api/recommendations/freshness — publicly cached freshness signals for scoring
-// Returns tickers with major news (48h), unusual moves (≥3%), or recent analyst updates (7d)
-recommendationsRouter.get("/freshness", async (_req, res) => {
-	try {
-		const signals = await getFreshnessSignals();
-		res.json({
-			majorNewsLast48h:    [...signals.majorNewsLast48h],
-			unusualMovers:       [...signals.unusualMovers],
-			analystUpdatesLast7d:[...signals.analystUpdatesLast7d],
-		});
-	} catch (error) {
-		console.error("Error computing freshness signals:", error);
-		res.status(500).json({ error: "Failed to compute freshness signals" });
-	}
-});
-
 // GET /api/recommendations/debug — full score breakdown for every tracked stock
 // Returns stocks sorted by finalScore descending so you can verify the system isn't random
 recommendationsRouter.get("/debug", authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -297,25 +282,34 @@ recommendationsRouter.get("/debug", authMiddleware, async (req: AuthenticatedReq
 });
 
 // GET /api/recommendations — authenticated, returns brand IDs sorted by personalised score.
-// Used by the Discover page for the initial deck order for users with 20+ swipes,
-// replacing the client-side O(N) scoring loop. Cached per uid for 5 min.
+// Every platform's daily deck is picked from this order. Cached per uid for 5 min.
 recommendationsRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
 		const limit = Math.min(Number(req.query.limit ?? 334), 334);
 
-		const cacheKey = `recommendations:sorted:${uid}:v1`;
+		const cacheKey = sortedRecommendationsKey(uid);
 		const cached = await cacheGet<string[]>(cacheKey);
 		if (cached) {
 			res.json({ brandIds: cached, categories: categoriesFor(cached) });
 			return;
 		}
 
-		const tagResult = await pgQuery<{ tag_scores: Record<string, number> | null }>(
-			`SELECT tag_scores FROM users WHERE uid = $1`,
+		const tagResult = await pgQuery<{ tag_scores: Record<string, number> | null; picks: unknown }>(
+			`SELECT tag_scores, preferences->'android_taste'->'picks' as picks FROM users WHERE uid = $1`,
 			[uid],
 		);
-		const tagScores: Record<string, number> = (tagResult.rows[0]?.tag_scores as Record<string, number>) ?? {};
+		let tagScores: Record<string, number> = (tagResult.rows[0]?.tag_scores as Record<string, number>) ?? {};
+		// An account from before onboarding's picks became taste (or whose picks never reached it) gets them now.
+		const picks = tagResult.rows[0]?.picks;
+		if (Object.keys(tagScores).length === 0 && Array.isArray(picks)) {
+			const seeded = await seedTasteFromPicks(uid, picks.filter((p): p is string => typeof p === "string"));
+			// Nothing seeded here can mean another request just did: read what it wrote rather than cache an empty taste.
+			tagScores = seeded ?? (await pgQuery<{ tag_scores: Record<string, number> | null }>(
+				`SELECT tag_scores FROM users WHERE uid = $1`,
+				[uid],
+			)).rows[0]?.tag_scores ?? {};
+		}
 
 		const [earningsTickers, todayThemes, freshness] = await Promise.all([
 			getUpcomingEarningsTickers(),
