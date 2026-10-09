@@ -177,15 +177,16 @@ export function AuthInset({ children }: { children: ReactNode }) {
 /** The sign-in / create-account / forgot-password frame: a faint tilted brand mark behind a 342u column on the
  *  phone; on desktop, the design's split screen (brand panel left, the same form in a centred column right).
  *  Auth pages share one frame. With no `nav` of its own, a page gets a back circle to the landing page, so
- *  someone who lands on sign-in or sign-up can always get back to what STAK is. */
-export function AuthScreen({ children, nav, bottom }: { children: ReactNode; nav?: ReactNode; bottom: ReactNode }) {
+ *  someone who lands on sign-in or sign-up can always get back to what STAK is. `watermark={false}`: a page that shows
+ *  the mark itself (the eligibility gate) leaves out the faint one behind the phone column. */
+export function AuthScreen({ children, nav, bottom, watermark = true }: { children: ReactNode; nav?: ReactNode; bottom: ReactNode; watermark?: boolean }) {
 	const navigate = useNavigate();
 	nav ??= <AuthBackLink label="Back to home" onClick={() => navigate({ to: "/welcome" })} />;
 	if (!useIsMobile()) return <AuthDesktopFrame nav={nav} bottom={bottom}>{children}</AuthDesktopFrame>;
 	return (
 		<PhonePage>
 			<div className="relative" style={{ minHeight: `min(${cu(800)}, 100dvh)`, display: "flex", flexDirection: "column" }}>
-				<img src="/app/auth_watermark.png" alt="" draggable={false} className="pointer-events-none absolute select-none" style={{ left: "50%", marginLeft: cu(-182 - 9.37), top: cu(400.16), width: cu(364), height: cu(364), maxWidth: "none" }} />
+				{watermark && <img src="/app/auth_watermark.png" alt="" draggable={false} className="pointer-events-none absolute select-none" style={{ left: "50%", marginLeft: cu(-182 - 9.37), top: cu(400.16), width: cu(364), height: cu(364), maxWidth: "none" }} />}
 				<div className="relative flex flex-1 flex-col">
 					<div style={{ padding: `${cu(10)} ${cu(20)} ${cu(4)}` }}>{nav}</div>
 					<div style={{ display: "flex", flexDirection: "column", gap: cu(14), padding: `${cu(14)} ${cu(24)} 0` }}>{children}</div>
