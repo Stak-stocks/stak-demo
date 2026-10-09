@@ -251,6 +251,26 @@ describe("FAQ (hands-off section)", () => {
 		expect(screen.queryByText(FAQ_ANSWER_2)).toBeNull();
 	});
 
+	it.each(ALL)("%s: the support address shows under 'Email Us', with Copy (for a computer with no email app)", async (_name, width) => {
+		const writeText = vi.fn().mockResolvedValue(undefined);
+		Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+		try {
+			renderAt(width);
+			expect(screen.getByText("support@thestak.org")).toBeInTheDocument();
+			fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+			expect(writeText).toHaveBeenCalledWith("support@thestak.org");
+			expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
+		} finally {
+			delete (navigator as { clipboard?: unknown }).clipboard;
+		}
+	});
+
+	it("with no clipboard, Copy selects the address instead (for Cmd/Ctrl+C)", () => {
+		renderAt(DESKTOP);
+		fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+		expect(window.getSelection()?.toString()).toBe("support@thestak.org");
+	});
+
 	it.each(ALL)("%s: 'Email Us' opens the contact mailto", (_name, width) => {
 		const loc = { href: "" };
 		Object.defineProperty(window, "location", { configurable: true, value: loc });
