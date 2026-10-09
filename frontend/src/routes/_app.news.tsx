@@ -1,16 +1,50 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 import { N } from "@/app/news/assets";
 import { colPlus } from "@/app/FitCanvas";
-import { CHEVRON, newsListing } from "@/app/news/data";
+import { useApiHealth } from "@/app/live/quotes";
+import { useLive } from "@/app/live/store";
+import { ARTICLE_TICKERS, CHEVRON, IN_YOUR_STAK, type NewsCardData, newsListing, SEARCH } from "@/app/news/data";
 import { NewsColumn } from "@/app/news/NewsCard";
+import { getMarketStatusLive } from "@/lib/api";
 
 export const Route = createFileRoute("/_app/news")({
 	component: NewsPage,
 });
 
-/** Figma 2:4359 "Desktop · News listing" (1440x1120): content column 1144 wide. */
+/**
+ * Figma 2:4359 "Desktop · News listing" (1440x1120): content column 1144 wide. The stories are the
+ * authored demo content; the "In your STAK" tag is only shown on stories about a saved company,
+ * the Market Mood chip reads the live market status, and the search button filters both columns.
+ */
 function NewsPage() {
 	const { brief, mood, mini, forYou, markets } = newsListing;
+	const live = useLive();
+	const healthy = useApiHealth();
+	const status = useQuery({ queryKey: ["market-status"], queryFn: getMarketStatusLive, enabled: healthy, staleTime: 60_000, retry: 0 });
+	const moodLine = status.data ? (status.data.isOpen ? "Markets open" : status.data.holiday ? `Closed · ${status.data.holiday}` : "Markets closed") : mood.subtitle;
+
+	const [searching, setSearching] = useState(false);
+	const [query, setQuery] = useState("");
+	const inputRef = useRef<HTMLInputElement>(null);
+	useEffect(() => {
+		if (searching) inputRef.current?.focus();
+	}, [searching]);
+	const closeSearch = () => {
+		setSearching(false);
+		setQuery("");
+	};
+	const q = query.trim().toLowerCase();
+
+	const tagged = (cards: readonly NewsCardData[]): NewsCardData[] =>
+		cards
+			.filter((card) => !q || card.title.toLowerCase().includes(q))
+			.map((card) => {
+				const ticker = ARTICLE_TICKERS[card.id];
+				return { ...card, tag: ticker && live.savedTickers.has(ticker) ? IN_YOUR_STAK : card.tag };
+			});
+
 	return (
 		<div className="flex flex-col items-start gap-[24px]" style={{ width: colPlus(10) }}>
 			<div className="flex h-[58px] w-full items-center justify-between">
@@ -18,13 +52,42 @@ function NewsPage() {
 					<h1 className="font-sora text-[28px] font-semibold leading-[35px] text-[#f2f6fc]">{newsListing.title}</h1>
 					<p className="font-geist text-[13px] leading-[17px] text-[#819abb]">{newsListing.date}</p>
 				</div>
-				<button
-					type="button"
-					aria-label="Search"
-					className="mr-[3px] flex size-[40px] items-center justify-center overflow-clip rounded-[20px] bg-[#181f30]"
-				>
-					<img alt="" src={N.search} className="size-[20px]" />
-				</button>
+				{searching ? (
+					<div className="mr-[3px] flex items-center gap-[8px]">
+						<input
+							ref={inputRef}
+							value={query}
+							onChange={(e) => setQuery(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Escape") closeSearch();
+							}}
+							onBlur={() => {
+								if (!query.trim()) closeSearch();
+							}}
+							aria-label={SEARCH.label}
+							placeholder={SEARCH.placeholder}
+							className="h-[40px] w-[260px] rounded-[20px] border-0 bg-[#181f30] px-[16px] font-geist text-[13px] leading-[17px] text-[#f2f6fc] outline-none placeholder:text-[#5c6b85]"
+						/>
+						<button
+							type="button"
+							aria-label={SEARCH.close}
+							onMouseDown={(e) => e.preventDefault()}
+							onClick={closeSearch}
+							className="stak-press flex size-[40px] cursor-pointer items-center justify-center overflow-clip rounded-[20px] bg-[#181f30] font-geist text-[18px] leading-none text-[#819abb]"
+						>
+							×
+						</button>
+					</div>
+				) : (
+					<button
+						type="button"
+						aria-label={SEARCH.label}
+						onClick={() => setSearching(true)}
+						className="stak-press mr-[3px] flex size-[40px] cursor-pointer items-center justify-center overflow-clip rounded-[20px] bg-[#181f30]"
+					>
+						<img alt="" src={N.search} className="size-[20px]" />
+					</button>
+				)}
 			</div>
 
 			<div className="flex w-full flex-col items-start gap-[50px]">
@@ -33,7 +96,7 @@ function NewsPage() {
 					<Link
 						to="/news/$id"
 						params={{ id: brief.id }}
-						className="flex h-[250px] min-w-0 flex-col items-start overflow-clip rounded-[16px] bg-[#69b3ca] px-[26px] pb-[20px] pt-[24px]"
+						className="stak-press flex h-[250px] min-w-0 cursor-pointer flex-col items-start overflow-clip rounded-[16px] bg-[#69b3ca] px-[26px] pb-[20px] pt-[24px]"
 						style={{ flex: "692 1 0" }}
 					>
 						<div className="flex w-full flex-col items-start gap-[12px]">
@@ -64,7 +127,7 @@ function NewsPage() {
 						<div className="relative flex h-[95px] w-full items-center overflow-clip rounded-[12px] bg-[#181f30] px-[16px] py-[10px]">
 							<div className="flex flex-col items-start gap-[2px] overflow-clip whitespace-nowrap">
 								<span className="font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{mood.title}</span>
-								<span className="font-geist text-[11px] leading-[14px] text-[#819abb]">{mood.subtitle}</span>
+								<span className="font-geist text-[11px] leading-[14px] text-[#819abb]">{moodLine}</span>
 							</div>
 							<img alt="" src={N.gaugeLow} className="absolute right-[17.969px] top-[30.692px] h-[33.615px] w-[67.031px]" />
 						</div>
@@ -82,9 +145,9 @@ function NewsPage() {
 					</div>
 				</div>
 
-				<div className="flex w-full items-center gap-[40px]">
-					<NewsColumn title={forYou.title} cards={forYou.cards} />
-					<NewsColumn title={markets.title} cards={markets.cards} />
+				<div className="flex w-full items-start gap-[40px]">
+					<NewsColumn title={forYou.title} cards={tagged(forYou.cards)} emptyText={SEARCH.empty(query)} />
+					<NewsColumn title={markets.title} cards={tagged(markets.cards)} emptyText={SEARCH.empty(query)} />
 				</div>
 			</div>
 		</div>

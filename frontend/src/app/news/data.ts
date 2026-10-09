@@ -26,19 +26,38 @@ export const newsListing = {
 	forYou: {
 		title: "For You",
 		cards: [
-			{ id: "nvidia-chip-rally", tag: "In your STAK", title: "Nvidia lags the chip rally it kicked off", source: "Reuters · 2d", thumb: N.thumbs.nvidia },
-			{ id: "apple-foldable", tag: "In your STAK", title: "Apple climbs 5% on foldable iPhone push", source: "Bloomberg · 2d", thumb: N.thumbs.apple },
-			{ id: "tesla-deliveries", tag: "In your STAK", title: "Tesla drops 7% even after beating deliveries", source: "CNBC · 2d", thumb: N.thumbs.tesla },
+			{ id: "nvidia-chip-rally", tag: "Tech", title: "Nvidia lags the chip rally it kicked off", source: "Reuters · 2d", thumb: N.thumbs.nvidia },
+			{ id: "apple-foldable", tag: "Tech", title: "Apple climbs 5% on foldable iPhone push", source: "Bloomberg · 2d", thumb: N.thumbs.apple },
+			{ id: "tesla-deliveries", tag: "Autos", title: "Tesla drops 7% even after beating deliveries", source: "CNBC · 2d", thumb: N.thumbs.tesla },
 		] as NewsCardData[],
 	},
 	markets: {
 		title: "Markets",
 		cards: [
-			{ id: "june-jobs-miss", tag: "In your STAK", title: "June jobs miss eases Fed hike bets", source: "Reuters · 2d", thumb: N.thumbs.jobs },
-			{ id: "memory-chips-soar", tag: "In your STAK", title: "Memory chips soar as the AI trade rotates", source: "Bloomberg · 2d", thumb: N.thumbs.memory },
-			{ id: "oil-slips-iran", tag: "In your STAK", title: "Oil slips after positive Iran talks", source: "Reuters · 3d", thumb: N.thumbs.oil },
+			{ id: "june-jobs-miss", tag: "Markets", title: "June jobs miss eases Fed hike bets", source: "Reuters · 2d", thumb: N.thumbs.jobs },
+			{ id: "memory-chips-soar", tag: "Chips", title: "Memory chips soar as the AI trade rotates", source: "Bloomberg · 2d", thumb: N.thumbs.memory },
+			{ id: "oil-slips-iran", tag: "Markets", title: "Oil slips after positive Iran talks", source: "Reuters · 3d", thumb: N.thumbs.oil },
 		] as NewsCardData[],
 	},
+} as const;
+
+/** The tag every card carried in the frame; shown only when the story's company is in the person's STAK. */
+export const IN_YOUR_STAK = "In your STAK";
+
+/** Which company each demo story is about (the macro stories have none). */
+export const ARTICLE_TICKERS: Record<string, string> = {
+	"nvidia-chip-rally": "NVDA",
+	"apple-foldable": "AAPL",
+	"tesla-deliveries": "TSLA",
+	"memory-chips-soar": "MU",
+	"dow-record-chips-slide": "",
+};
+
+export const SEARCH = {
+	label: "Search news",
+	placeholder: "Search news",
+	close: "Close search",
+	empty: (query: string) => (query.trim() ? `Nothing matches “${query.trim()}”.` : ""),
 } as const;
 
 export const article = {

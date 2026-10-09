@@ -1,9 +1,16 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { N } from "@/app/news/assets";
+import { useState } from "react";
+import { toast } from "sonner";
 import { colPlus } from "@/app/FitCanvas";
+import { financialsOf } from "@/app/live/catalog";
+import { money, signedPct } from "@/app/live/format";
+import { type Quote, useApiHealth, useQuote } from "@/app/live/quotes";
+import { useLive } from "@/app/live/store";
+import { N } from "@/app/news/assets";
 import { article } from "@/app/news/data";
 import { GradientButton } from "@/app/profile/ui";
+import { getStockData } from "@/lib/api";
 
 type DetailSearch = { saved?: boolean };
 
@@ -14,20 +21,39 @@ export const Route = createFileRoute("/_app/news_/$id")({
 	component: NewsDetailPage,
 });
 
-/** Figma 2:4453 "Desktop · News detail · Unsaved" and 2:4555 "Saved" (1440x2050): content column 1130 wide. */
+const SYMBOL = article.ticker.symbol;
+
+/**
+ * Figma 2:4453 "Desktop · News detail · Unsaved" and 2:4555 "Saved" (1440x2050): content column 1130 wide.
+ * The story is the demo article; the rail is live — today's quote, the catalog's financial snapshot
+ * (plus the API's day/52-week ranges when it answers), and Add to STAK writes a real save.
+ */
 function NewsDetailPage() {
-	const { saved: savedParam } = Route.useSearch();
-	const [saved, setSaved] = useState(Boolean(savedParam));
-	useEffect(() => setSaved(Boolean(savedParam)), [savedParam]);
+	const { saved: preview } = Route.useSearch();
+	const live = useLive();
+	const quote = useQuote(SYMBOL);
+	const saved = Boolean(preview) || live.savedTickers.has(SYMBOL);
+	const [busy, setBusy] = useState(false);
 	const a = article;
-	const save = () => setSaved(true);
+	const save = async () => {
+		if (saved || busy) return;
+		setBusy(true);
+		try {
+			await live.actions.save(SYMBOL, quote?.price ?? null);
+			toast(a.savedToast);
+		} catch {
+			toast("Could not save right now. Try again.");
+		} finally {
+			setBusy(false);
+		}
+	};
 	return (
 		<div className="flex flex-col items-start gap-[24px]" style={{ width: colPlus(-4) }}>
 			<div className="flex flex-col items-start gap-[31px]">
 				<Link
 					to="/news"
 					aria-label="Back to News"
-					className="flex size-[40px] items-center justify-center overflow-clip rounded-[20px] bg-[#192238]"
+					className="stak-press flex size-[40px] cursor-pointer items-center justify-center overflow-clip rounded-[20px] bg-[#192238]"
 				>
 					<img alt="" src={N.back} className="size-[22px]" />
 				</Link>
@@ -90,20 +116,20 @@ function NewsDetailPage() {
 							))}
 						</div>
 
-						<a href={a.sourceUrl} target="_blank" rel="noreferrer" className="flex w-[81px] items-center justify-between">
+						<a href={a.sourceUrl} target="_blank" rel="noreferrer" className="stak-press flex w-[81px] cursor-pointer items-center justify-between">
 							<span className="whitespace-nowrap font-sora text-[13px] leading-[16px] text-white">{a.sourceLabel}</span>
 							<img alt="" src={N.externalLink} className="size-[19px]" />
 						</a>
 					</article>
 				</div>
 
-				<Rail saved={saved} onSave={save} />
+				<Rail saved={saved} busy={busy} quote={quote} onSave={save} />
 			</div>
 		</div>
 	);
 }
 
-/** "Hero image" 720x416: raster fill, category toast, play polygon, bookmark (unsaved) or "Saved to My STAK" toast. */
+/** "Hero image" 720x416: raster fill (the page's LCP image), category toast, play polygon, bookmark (unsaved) or "Saved to My STAK" toast. */
 function Hero({ saved, onSave }: { saved: boolean; onSave: () => void }) {
 	const a = article;
 	return (
@@ -111,6 +137,9 @@ function Hero({ saved, onSave }: { saved: boolean; onSave: () => void }) {
 			<img
 				alt=""
 				src={N.hero}
+				width={908}
+				height={605}
+				{...({ fetchpriority: "high" } as object)}
 				className="absolute left-[calc(50%-1px)] top-[calc(50%+33.18px)] h-auto w-[113.056%] max-w-none -translate-x-1/2 -translate-y-1/2"
 			/>
 			<div
@@ -120,7 +149,10 @@ function Hero({ saved, onSave }: { saved: boolean; onSave: () => void }) {
 				<span className="whitespace-nowrap font-geist text-[20px] font-medium leading-[26px] text-white">{a.category}</span>
 			</div>
 			{saved && (
-				<div className="absolute left-[calc(100%-251px)] top-[20px] flex items-center gap-[8px] overflow-clip rounded-[15.75px] bg-[rgba(36,43,61,0.25)] px-[14px] py-[10px]">
+				<div
+					className="absolute left-[calc(100%-251px)] top-[20px] flex items-center gap-[8px] overflow-clip rounded-[15.75px] bg-[rgba(36,43,61,0.25)] px-[14px] py-[10px]"
+					role="status"
+				>
 					<img alt="" src={N.bookmarkSaved} className="size-[25.25px]" />
 					<span className="whitespace-nowrap font-geist text-[20px] font-medium leading-[26px] text-white">{a.savedToast}</span>
 				</div>
@@ -135,7 +167,12 @@ function Hero({ saved, onSave }: { saved: boolean; onSave: () => void }) {
 				</div>
 			</div>
 			{!saved && (
-				<button type="button" aria-label="Save to My STAK" onClick={onSave} className="absolute left-[calc(100%-56px)] top-[16px] size-[33.125px]">
+				<button
+					type="button"
+					aria-label="Save to My STAK"
+					onClick={onSave}
+					className="stak-press absolute left-[calc(100%-56px)] top-[16px] size-[33.125px] cursor-pointer"
+				>
 					<span className="absolute inset-[0_0_-2.66%_0]">
 						<img alt="" src={N.bookmark} className="block size-full max-w-none" />
 					</span>
@@ -145,7 +182,7 @@ function Hero({ saved, onSave }: { saved: boolean; onSave: () => void }) {
 	);
 }
 
-function TickerHead() {
+function TickerHead({ quote }: { quote: Quote | null }) {
 	const t = article.ticker;
 	return (
 		<>
@@ -158,8 +195,17 @@ function TickerHead() {
 					<span className="font-geist text-[12px] leading-[16px] text-[#819abb]">{t.symbol}</span>
 				</span>
 			</div>
-			<p className="whitespace-nowrap font-sora text-[26px] font-semibold leading-[33px] text-[#f2f6fc]">{t.price}</p>
+			<p className="whitespace-nowrap font-sora text-[26px] font-semibold leading-[33px] text-[#f2f6fc]">{quote ? money(quote.price) : t.price}</p>
 		</>
+	);
+}
+
+function ChangeLine({ quote }: { quote: Quote | null }) {
+	const down = (quote?.changePercent ?? 0) < 0;
+	return (
+		<p className={`whitespace-nowrap font-geist text-[13px] font-medium leading-[17px] ${down ? "text-[#ff5a6a]" : "text-[#2fd08a]"}`}>
+			{quote ? `${signedPct(quote.changePercent)} today` : article.ticker.change}
+		</p>
 	);
 }
 
@@ -173,25 +219,53 @@ function TickerChart() {
 	);
 }
 
+const withDollar = (v: string) => (v.startsWith("$") ? v : `$${v}`);
+const range = (lo: number, hi: number) => `${money(lo)}–${money(hi)}`;
+
+/** Key stats: the catalog's snapshot for cap / P/E / yield, the API's ranges when it answers, the authored values as the last resort. */
+function useKeyStats() {
+	const healthy = useApiHealth();
+	const data = useQuery({ queryKey: ["stock-data", SYMBOL], queryFn: () => getStockData(SYMBOL), enabled: healthy, staleTime: 60_000, retry: 0 });
+	const fin = financialsOf(SYMBOL);
+	const m = data.data?.metrics;
+	const q = data.data?.quote;
+	const [[cap, pe], [day, vol], [wk, dy]] = article.keyStats.rows;
+	return [
+		[
+			{ label: cap.label, value: m?.marketCap ? withDollar(m.marketCap) : fin?.marketCap.value ? withDollar(fin.marketCap.value) : cap.value },
+			{ label: pe.label, value: m?.peRatio != null ? String(m.peRatio) : (fin?.peRatio.value ?? pe.value) },
+		],
+		[
+			{ label: day.label, value: q && q.low > 0 && q.high > 0 ? range(q.low, q.high) : day.value },
+			{ label: vol.label, value: vol.value },
+		],
+		[
+			{ label: wk.label, value: m?.week52Low != null && m?.week52High != null ? range(m.week52Low, m.week52High) : wk.value },
+			{ label: dy.label, value: m?.dividendYield ?? fin?.dividendYield.value ?? dy.value },
+		],
+	];
+}
+
 /** Right rail: ticker card (unsaved / saved variants), key stats, Add to STAK, divider, chip, read next. */
-function Rail({ saved, onSave }: { saved: boolean; onSave: () => void }) {
+function Rail({ saved, busy, quote, onSave }: { saved: boolean; busy: boolean; quote: Quote | null; onSave: () => void }) {
 	const a = article;
+	const rows = useKeyStats();
 	return (
 		<aside className="flex min-w-0 flex-col items-start gap-[16px] overflow-clip" style={{ flex: "360 1 0" }}>
 			{saved ? (
 				<Link
 					to="/stocks/$symbol"
-					params={{ symbol: a.ticker.symbol }}
+					params={{ symbol: SYMBOL }}
 					search={{ saved: true, from: "my-stak" }}
-					className="flex h-[296px] w-full flex-col items-start overflow-clip rounded-[16px] bg-[#181f30] p-[20px]"
+					className="stak-press flex h-[296px] w-full cursor-pointer flex-col items-start overflow-clip rounded-[16px] bg-[#181f30] p-[20px]"
 				>
 					<div className="flex w-full flex-col items-start gap-[27px]">
 						<div className="flex w-full flex-col items-start gap-[10px]">
 							<div className="flex w-full flex-col items-start gap-[10px]">
 								<div className="flex w-full flex-col items-start gap-[10px]">
-									<TickerHead />
+									<TickerHead quote={quote} />
 								</div>
-								<p className="whitespace-nowrap font-geist text-[13px] font-medium leading-[17px] text-[#2fd08a]">{a.ticker.change}</p>
+								<ChangeLine quote={quote} />
 							</div>
 							<TickerChart />
 						</div>
@@ -211,19 +285,19 @@ function Rail({ saved, onSave }: { saved: boolean; onSave: () => void }) {
 			) : (
 				<Link
 					to="/stocks/$symbol"
-					params={{ symbol: a.ticker.symbol }}
-					className="flex w-full flex-col items-start gap-[10px] overflow-clip rounded-[16px] bg-[#181f30] p-[20px]"
+					params={{ symbol: SYMBOL }}
+					className="stak-press flex w-full cursor-pointer flex-col items-start gap-[10px] overflow-clip rounded-[16px] bg-[#181f30] p-[20px]"
 				>
-					<TickerHead />
-					<p className="whitespace-nowrap font-geist text-[13px] font-medium leading-[17px] text-[#2fd08a]">{a.ticker.change}</p>
+					<TickerHead quote={quote} />
+					<ChangeLine quote={quote} />
 					<TickerChart />
 				</Link>
 			)}
 
 			<div className="flex w-full flex-col items-start gap-[12px] overflow-clip whitespace-nowrap rounded-[16px] bg-[#181f30] p-[20px]">
 				<p className="font-sora text-[15px] font-semibold leading-[19px] text-[#f2f6fc]">{a.keyStats.title}</p>
-				{a.keyStats.rows.map((row) => (
-					<div key={row[0].label} className="flex h-[34px] w-full items-start gap-[20px] overflow-clip">
+				{rows.map((row) => (
+					<div key={row[0]!.label} className="flex h-[34px] w-full items-start gap-[20px] overflow-clip">
 						{row.map((stat) => (
 							<div key={stat.label} className="flex h-[30px] min-w-0 flex-1 flex-col items-start gap-[2px] overflow-clip">
 								<span className="font-geist text-[11px] leading-[14px] text-[#819abb]">{stat.label}</span>
@@ -235,7 +309,7 @@ function Rail({ saved, onSave }: { saved: boolean; onSave: () => void }) {
 			</div>
 
 			{!saved && (
-				<GradientButton onClick={onSave}>
+				<GradientButton onClick={onSave} className={busy ? "stak-press cursor-wait opacity-80" : "stak-press cursor-pointer"}>
 					<img alt="" src={N.plus} className="size-[12.6px]" />
 					<span className="whitespace-nowrap font-geist text-[14px] font-medium leading-[20.69px] text-white">{a.addToStak}</span>
 				</GradientButton>
@@ -253,7 +327,7 @@ function Rail({ saved, onSave }: { saved: boolean; onSave: () => void }) {
 						key={`${item.id}-${i}`}
 						to="/news/$id"
 						params={{ id: item.id }}
-						className="flex h-[60px] w-full flex-col items-start gap-[5px] overflow-clip rounded-[12px] bg-[#181f30] px-[16px] py-[14px]"
+						className="stak-press flex h-[60px] w-full cursor-pointer flex-col items-start gap-[5px] overflow-clip rounded-[12px] bg-[#181f30] px-[16px] py-[14px]"
 					>
 						<span className="font-geist text-[10px] leading-[13px] text-[#819abb]">{item.source}</span>
 						<span className="w-full font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{item.title}</span>
