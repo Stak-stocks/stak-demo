@@ -51,7 +51,6 @@ vi.mock("@/hooks/useSwipeLimit", () => ({
 		reportSwipeResult: vi.fn(),
 	}),
 	DAILY_SWIPE_LIMIT: 20,
-	getTodayKey: () => "2026-01-01",
 }));
 
 vi.mock("@/context/AuthContext", () => ({
