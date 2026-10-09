@@ -2,7 +2,18 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { applyActionCode } from "firebase/auth";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AuthHeading, AuthInput, AuthLayout, FootRow, PrimaryButton, ShowToggle, Spinner } from "@/app/auth/ui";
+import {
+	AuthHeading,
+	AuthInput,
+	AuthLayout,
+	authErrorMessage,
+	FieldError,
+	FootRow,
+	passwordProblem,
+	PrimaryButton,
+	ShowToggle,
+	Spinner,
+} from "@/app/auth/ui";
 import { useAuth } from "../context/AuthContext";
 import { auth } from "../lib/firebase";
 
@@ -28,6 +39,7 @@ function ResetPasswordPage() {
 	const [resetting, setResetting] = useState(false);
 	const [verifying, setVerifying] = useState(!preview);
 	const [invalidCode, setInvalidCode] = useState(false);
+	const [errors, setErrors] = useState<{ password?: string; confirm?: string; form?: string }>({});
 
 	useEffect(() => {
 		if (preview) return;
@@ -64,22 +76,20 @@ function ResetPasswordPage() {
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
-		if (!password || !confirmPassword) return;
-		if (password !== confirmPassword) {
-			toast.error("Passwords don't match");
-			return;
-		}
-		if (password.length < 6) {
-			toast.error("Password must be at least 6 characters");
-			return;
-		}
+		const next: typeof errors = {};
+		const problem = passwordProblem(password);
+		if (problem) next.password = problem;
+		if (!confirmPassword) next.confirm = "Type your new password again";
+		else if (password !== confirmPassword) next.confirm = "The passwords do not match";
+		setErrors(next);
+		if (next.password || next.confirm) return;
 		setResetting(true);
 		try {
 			await confirmReset(oobCode, password);
 			toast.success("Password reset! You can now sign in.");
 			navigate({ to: "/login" });
-		} catch {
-			toast.error("Failed to reset password. The link may have expired.");
+		} catch (error: unknown) {
+			setErrors({ form: authErrorMessage(error, "Could not reset the password. The link may have expired.") });
 			setResetting(false);
 		}
 	}
@@ -106,7 +116,7 @@ function ResetPasswordPage() {
 
 	return (
 		<AuthLayout formTop={341} backTo="/login">
-			<form onSubmit={handleSubmit} className="flex w-full flex-col items-start gap-[30px]">
+			<form onSubmit={handleSubmit} noValidate className="flex w-full flex-col items-start gap-[30px]">
 				<div className="flex w-full flex-col items-start">
 					<AuthHeading
 						title="Set a new password"
@@ -120,20 +130,30 @@ function ResetPasswordPage() {
 						autoComplete="new-password"
 						placeholder="New password"
 						value={password}
-						onChange={(e) => setPassword(e.target.value)}
+						invalid={!!errors.password}
+						onChange={(e) => {
+							setPassword(e.target.value);
+							if (errors.password || errors.form) setErrors((p) => ({ ...p, password: undefined, form: undefined }));
+						}}
 						right={<ShowToggle shown={showPassword} onToggle={() => setShowPassword((v) => !v)} />}
 					/>
+					<FieldError>{errors.password}</FieldError>
 					<AuthInput
 						type={showPassword ? "text" : "password"}
 						name="confirmPassword"
 						autoComplete="new-password"
 						placeholder="Confirm new password"
 						value={confirmPassword}
-						onChange={(e) => setConfirmPassword(e.target.value)}
+						invalid={!!errors.confirm}
+						onChange={(e) => {
+							setConfirmPassword(e.target.value);
+							if (errors.confirm || errors.form) setErrors((p) => ({ ...p, confirm: undefined, form: undefined }));
+						}}
 					/>
+					<FieldError>{errors.confirm ?? errors.form}</FieldError>
 				</div>
-				<PrimaryButton type="submit" disabled={resetting || preview || !password || !confirmPassword}>
-					{resetting ? "Saving..." : "Save new password"}
+				<PrimaryButton type="submit" disabled={resetting || preview} aria-busy={resetting}>
+					{resetting ? "Saving…" : "Save new password"}
 				</PrimaryButton>
 			</form>
 			<div className="flex flex-col items-center justify-center">

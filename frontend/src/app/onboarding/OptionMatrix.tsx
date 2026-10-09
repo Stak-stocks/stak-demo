@@ -1,9 +1,12 @@
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { OB } from "./assets";
 import type { MatrixOption } from "./data";
 
-/** 2x2 option matrix (776x300): 378x140 cards, 20px gutters, selected = 0.5px #69b3ca hairline. */
+/**
+ * 2x2 option matrix (776x300): 378x140 cards, 20px gutters, selected = 0.5px #69b3ca hairline.
+ * The arrow keys move between the cards (left/right across a row, up/down across rows).
+ */
 export function OptionMatrix({
 	options,
 	icons,
@@ -18,8 +21,21 @@ export function OptionMatrix({
 	/** The first goal card in Figma has a 34px gap and no fixed row width. */
 	wideFirst?: boolean;
 }) {
+	const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+		const cards = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("button[data-option]"));
+		const at = cards.indexOf(document.activeElement as HTMLButtonElement);
+		if (at === -1) return;
+		const step: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 2, ArrowUp: -2 };
+		const delta = step[e.key];
+		if (delta === undefined) return;
+		const next = cards[at + delta];
+		if (next) {
+			e.preventDefault();
+			next.focus();
+		}
+	};
 	return (
-		<div className="relative h-[300px] w-full overflow-clip">
+		<div className="relative h-[300px] w-full overflow-clip" role="radiogroup" onKeyDown={onKeyDown}>
 			{options.map((o, i) => {
 				const isSelected = o.id === selected;
 				const first = wideFirst && i === 0;
@@ -27,10 +43,12 @@ export function OptionMatrix({
 					<button
 						type="button"
 						key={o.id}
-						aria-pressed={isSelected}
+						data-option={o.id}
+						role="radio"
+						aria-checked={isSelected}
 						onClick={() => onSelect(o.id)}
 						className={cn(
-							"absolute flex h-[140px] w-[378px] flex-col items-center justify-center overflow-clip rounded-[16px] bg-[#181f30] py-[20px] pl-[24px] pr-[40px] text-left",
+							"stak-press absolute flex h-[140px] w-[378px] cursor-pointer flex-col items-center justify-center overflow-clip rounded-[16px] bg-[#181f30] py-[20px] pl-[24px] pr-[40px] text-left",
 							isSelected && "border-[0.5px] border-solid border-[#69b3ca]",
 						)}
 						style={{ left: i % 2 ? 398 : 0, top: i < 2 ? 0 : 160 }}

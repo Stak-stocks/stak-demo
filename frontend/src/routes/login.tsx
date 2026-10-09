@@ -2,7 +2,19 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AU } from "@/app/auth/assets";
-import { AuthHeading, AuthInput, AuthLayout, FootRow, OrDivider, PrimaryButton, ShowToggle, SocialButton } from "@/app/auth/ui";
+import {
+	AuthHeading,
+	AuthInput,
+	AuthLayout,
+	authErrorMessage,
+	FieldError,
+	FootRow,
+	isEmail,
+	OrDivider,
+	PrimaryButton,
+	ShowToggle,
+	SocialButton,
+} from "@/app/auth/ui";
 import { getProfile } from "@/lib/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -18,6 +30,7 @@ function LoginPage() {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
+	const [errors, setErrors] = useState<{ email?: string; password?: string; form?: string }>({});
 
 	useEffect(() => {
 		if (!loading && user) {
@@ -42,20 +55,17 @@ function LoginPage() {
 
 	async function handleEmailSignIn(e: React.FormEvent) {
 		e.preventDefault();
-		if (!email || !password) return;
+		const next: typeof errors = {};
+		if (!isEmail(email)) next.email = "Enter the email you signed up with";
+		if (!password) next.password = "Enter your password";
+		setErrors(next);
+		if (next.email || next.password) return;
 		setSigningIn(true);
 		try {
-			await signInWithEmail(email, password);
+			await signInWithEmail(email.trim(), password);
 			toast.success("Welcome back!");
 		} catch (error: unknown) {
-			const message = error instanceof Error ? error.message : "";
-			if (message.includes("user-not-found") || message.includes("invalid-credential")) {
-				toast.error("Invalid email or password");
-			} else if (message.includes("wrong-password")) {
-				toast.error("Wrong password");
-			} else {
-				toast.error("Sign in failed. Please try again.");
-			}
+			setErrors({ form: authErrorMessage(error, "Sign in failed. Please try again.") });
 			setSigningIn(false);
 		}
 	}
@@ -87,7 +97,7 @@ function LoginPage() {
 		} catch (error: unknown) {
 			const code = (error as { code?: string }).code ?? "";
 			const cancelled = code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request";
-			if (!cancelled) toast.error("Sign in failed. Please try again.");
+			if (!cancelled) setErrors({ form: authErrorMessage(error, "Sign in failed. Please try again.") });
 		} finally {
 			setSigningIn(false);
 		}
@@ -95,7 +105,7 @@ function LoginPage() {
 
 	return (
 		<AuthLayout formTop={242} backTo="/signup">
-			<form onSubmit={handleEmailSignIn} className="flex w-full flex-col items-start gap-[30px]">
+			<form onSubmit={handleEmailSignIn} noValidate className="flex w-full flex-col items-start gap-[30px]">
 				<div className="flex w-full flex-col items-start gap-[14px]">
 					<div className="flex w-full flex-col items-start gap-[51px]">
 						<AuthHeading title="Welcome back" subtitle="Your deck kept learning while you were away." />
@@ -117,23 +127,37 @@ function LoginPage() {
 						autoComplete="email"
 						placeholder="Email address"
 						value={email}
-						onChange={(e) => setEmail(e.target.value)}
+						invalid={!!errors.email}
+						onChange={(e) => {
+							setEmail(e.target.value);
+							if (errors.email || errors.form) setErrors((p) => ({ ...p, email: undefined, form: undefined }));
+						}}
 					/>
+					<FieldError>{errors.email}</FieldError>
 					<AuthInput
 						type={showPassword ? "text" : "password"}
 						name="password"
 						autoComplete="current-password"
 						placeholder="Password"
 						value={password}
-						onChange={(e) => setPassword(e.target.value)}
+						invalid={!!errors.password}
+						onChange={(e) => {
+							setPassword(e.target.value);
+							if (errors.password || errors.form) setErrors((p) => ({ ...p, password: undefined, form: undefined }));
+						}}
 						right={<ShowToggle shown={showPassword} onToggle={() => setShowPassword((v) => !v)} />}
 					/>
-					<Link to="/forgot-password" className="whitespace-nowrap font-geist text-[12px] font-medium leading-[16px] text-[#a6e4f7]">
+					<FieldError>{errors.password ?? errors.form}</FieldError>
+					<Link
+						to="/forgot-password"
+						search={{ email: isEmail(email) ? email.trim() : undefined }}
+						className="stak-press whitespace-nowrap rounded-[4px] font-geist text-[12px] font-medium leading-[16px] text-[#a6e4f7]"
+					>
 						Forgot password?
 					</Link>
 				</div>
-				<PrimaryButton type="submit" disabled={signingIn || !email || !password}>
-					{signingIn ? "Signing in..." : "Sign in"}
+				<PrimaryButton type="submit" disabled={signingIn} aria-busy={signingIn}>
+					{signingIn ? "Signing in…" : "Sign in"}
 				</PrimaryButton>
 			</form>
 			<div className="flex flex-col items-center justify-center gap-[14px]">

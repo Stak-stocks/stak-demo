@@ -2,7 +2,20 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AU } from "@/app/auth/assets";
-import { AuthHeading, AuthInput, AuthLayout, FootRow, OrDivider, PrimaryButton, ShowToggle, SocialButton } from "@/app/auth/ui";
+import {
+	AuthHeading,
+	AuthInput,
+	AuthLayout,
+	authErrorMessage,
+	FieldError,
+	FootRow,
+	isEmail,
+	OrDivider,
+	passwordProblem,
+	PrimaryButton,
+	ShowToggle,
+	SocialButton,
+} from "@/app/auth/ui";
 import { getProfile } from "@/lib/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -19,6 +32,7 @@ function SignUpPage() {
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
+	const [errors, setErrors] = useState<{ email?: string; password?: string; confirm?: string; form?: string }>({});
 
 	useEffect(() => {
 		if (!loading && user) {
@@ -39,33 +53,23 @@ function SignUpPage() {
 
 	async function handleEmailSignUp(e: React.FormEvent) {
 		e.preventDefault();
-		if (!email || !password || !confirmPassword) return;
-		if (password !== confirmPassword) {
-			toast.error("Passwords don't match");
-			return;
-		}
-		if (password.length < 6) {
-			toast.error("Password must be at least 6 characters");
-			return;
-		}
+		const next: typeof errors = {};
+		if (!isEmail(email)) next.email = "Enter a valid email address";
+		const problem = passwordProblem(password);
+		if (problem) next.password = problem;
+		if (!confirmPassword) next.confirm = "Type your password again";
+		else if (password !== confirmPassword) next.confirm = "The passwords do not match";
+		setErrors(next);
+		if (next.email || next.password || next.confirm) return;
 		setSigningUp(true);
 		try {
-			await signUpWithEmail(email, password);
+			await signUpWithEmail(email.trim(), password);
 			// The verification email still goes out; the user continues to onboarding without a verify screen.
 			await sendVerificationEmail();
 			// Don't navigate here: the effect above handles it once auth state
 			// updates with the new user (prevents a stale-user race)
 		} catch (error: unknown) {
-			const message = error instanceof Error ? error.message : "";
-			if (message.includes("email-already-in-use")) {
-				toast.error("Email already in use. Try signing in instead.");
-			} else if (message.includes("weak-password")) {
-				toast.error("Password is too weak. Use at least 6 characters.");
-			} else if (message.includes("invalid-email")) {
-				toast.error("Invalid email address");
-			} else {
-				toast.error("Sign up failed. Please try again.");
-			}
+			setErrors({ form: authErrorMessage(error, "Sign up failed. Please try again.") });
 			setSigningUp(false);
 		}
 	}
@@ -95,15 +99,19 @@ function SignUpPage() {
 		} catch (error: unknown) {
 			const code = (error as { code?: string }).code ?? "";
 			const cancelled = code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request";
-			if (!cancelled) toast.error("Sign in failed. Please try again.");
+			if (!cancelled) setErrors({ form: authErrorMessage(error, "Sign in failed. Please try again.") });
 		} finally {
 			setSigningUp(false);
 		}
 	}
 
+	const clear = (key: keyof typeof errors) => {
+		if (errors[key] || errors.form) setErrors((p) => ({ ...p, [key]: undefined, form: undefined }));
+	};
+
 	return (
 		<AuthLayout formTop={242}>
-			<form onSubmit={handleEmailSignUp} className="flex w-full flex-col items-start gap-[30px]">
+			<form onSubmit={handleEmailSignUp} noValidate className="flex w-full flex-col items-start gap-[30px]">
 				<div className="flex w-full flex-col items-start gap-[14px]">
 					<div className="flex w-full flex-col items-start gap-[51px]">
 						<AuthHeading title="Create your account" subtitle="Enter your details below to continue" />
@@ -125,28 +133,43 @@ function SignUpPage() {
 						autoComplete="email"
 						placeholder="Email address"
 						value={email}
-						onChange={(e) => setEmail(e.target.value)}
+						invalid={!!errors.email}
+						onChange={(e) => {
+							setEmail(e.target.value);
+							clear("email");
+						}}
 					/>
+					<FieldError>{errors.email}</FieldError>
 					<AuthInput
 						type={showPassword ? "text" : "password"}
 						name="password"
 						autoComplete="new-password"
 						placeholder="Password"
 						value={password}
-						onChange={(e) => setPassword(e.target.value)}
+						invalid={!!errors.password}
+						onChange={(e) => {
+							setPassword(e.target.value);
+							clear("password");
+						}}
 						right={<ShowToggle shown={showPassword} onToggle={() => setShowPassword((v) => !v)} />}
 					/>
+					<FieldError>{errors.password}</FieldError>
 					<AuthInput
 						type={showPassword ? "text" : "password"}
 						name="confirmPassword"
 						autoComplete="new-password"
 						placeholder="Confirm Password"
 						value={confirmPassword}
-						onChange={(e) => setConfirmPassword(e.target.value)}
+						invalid={!!errors.confirm}
+						onChange={(e) => {
+							setConfirmPassword(e.target.value);
+							clear("confirm");
+						}}
 					/>
+					<FieldError>{errors.confirm ?? errors.form}</FieldError>
 				</div>
-				<PrimaryButton type="submit" disabled={signingUp || !email || !password || !confirmPassword}>
-					{signingUp ? "Creating account..." : "Create account"}
+				<PrimaryButton type="submit" disabled={signingUp} aria-busy={signingUp}>
+					{signingUp ? "Creating account…" : "Create account"}
 				</PrimaryButton>
 			</form>
 			<div className="flex flex-col items-center justify-center gap-[14px] whitespace-nowrap">

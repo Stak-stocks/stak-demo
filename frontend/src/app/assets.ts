@@ -23,6 +23,8 @@ export const A = {
 	wordmarkIcon: `${base}/dc4bd.svg`,
 	wordmarkText: `${base}/7f791.svg`,
 	bell: `${base}/5dc1c.svg`,
+	bellQuiet: `${base}/bell-quiet.svg`, // Group 1000002393 (2:438): the bell without its badge
+	bellDot: `${base}/bell-dot.svg`, // Ellipse 467 (2:442): the 5.833px #FF8030 badge, shown only while something is unread
 	// home
 	gauge: `${base}/30c6a.svg`,
 	arrowRight: `${base}/64d73.svg`,

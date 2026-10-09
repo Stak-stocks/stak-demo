@@ -17,7 +17,7 @@ export function PrimaryButton({ className, children, ...props }: ButtonHTMLAttri
 			type="button"
 			{...props}
 			className={cn(
-				"flex h-[52px] w-full items-center justify-center overflow-clip rounded-[6px] border-[0.361px] border-solid border-[rgba(101,158,173,0.63)] disabled:cursor-not-allowed",
+				"stak-press flex h-[52px] w-full cursor-pointer items-center justify-center overflow-clip rounded-[6px] border-[0.361px] border-solid border-[rgba(101,158,173,0.63)] disabled:cursor-not-allowed",
 				PRIMARY_SHADOW,
 				className,
 			)}
@@ -33,10 +33,10 @@ export function SocialButton({ icon, children, ...props }: ButtonHTMLAttributes<
 		<button
 			type="button"
 			{...props}
-			className="flex h-[48px] w-full items-center justify-center overflow-clip rounded-[12px] bg-[#181f30]"
+			className="stak-press flex h-[48px] w-full cursor-pointer items-center justify-center overflow-clip rounded-[12px] bg-[#181f30] disabled:cursor-not-allowed"
 		>
 			<span className="flex items-center gap-[10px]">
-				<img alt="" src={icon} className="size-[18px] object-contain" />
+				<img alt="" src={icon} className="size-[18px] object-contain" width={18} height={18} />
 				<span className="whitespace-nowrap font-geist text-[14px] font-medium leading-[18px] text-white">{children}</span>
 			</span>
 		</button>
@@ -53,18 +53,35 @@ export function OrDivider() {
 	);
 }
 
-type AuthInputProps = InputHTMLAttributes<HTMLInputElement> & { right?: ReactNode };
+type AuthInputProps = InputHTMLAttributes<HTMLInputElement> & { right?: ReactNode; invalid?: boolean };
 
-/** "Input · …": 48h r12 #181f30, Geist 13 placeholder #819abb, optional trailing control. */
-export function AuthInput({ right, className, ...props }: AuthInputProps) {
+/** "Input · …": 48h r12 #181f30, Geist 13 placeholder #819abb, optional trailing control; a red hairline when invalid. */
+export function AuthInput({ right, className, invalid, ...props }: AuthInputProps) {
 	return (
-		<label className={cn("flex h-[48px] w-full items-center justify-between overflow-clip rounded-[12px] bg-[#181f30] px-[16px]", className)}>
+		<label
+			className={cn(
+				"flex h-[48px] w-full items-center justify-between overflow-clip rounded-[12px] bg-[#181f30] px-[16px]",
+				invalid && "shadow-[inset_0_0_0_1px_#e5484d]",
+				className,
+			)}
+		>
 			<input
 				{...props}
+				aria-invalid={invalid || undefined}
 				className="min-w-0 flex-1 bg-transparent font-geist text-[13px] leading-[17px] text-[#f2f6fc] outline-none placeholder:text-[#819abb]"
 			/>
 			{right}
 		</label>
+	);
+}
+
+/** The line under a field that explains what to fix (Geist 12, the product's red). */
+export function FieldError({ children }: { children: ReactNode }) {
+	if (!children) return null;
+	return (
+		<p role="alert" className="w-full font-geist text-[12px] leading-[16px] text-[#e5484d]">
+			{children}
+		</p>
 	);
 }
 
@@ -73,7 +90,8 @@ export function ShowToggle({ shown, onToggle }: { shown: boolean; onToggle: () =
 		<button
 			type="button"
 			onClick={onToggle}
-			className="ml-[12px] shrink-0 whitespace-nowrap font-geist text-[11px] font-medium leading-[14px] text-[#a6e4f7]"
+			aria-pressed={shown}
+			className="stak-press ml-[12px] shrink-0 cursor-pointer whitespace-nowrap rounded-[4px] font-geist text-[11px] font-medium leading-[14px] text-[#a6e4f7]"
 		>
 			{shown ? "Hide" : "Show"}
 		</button>
@@ -82,7 +100,7 @@ export function ShowToggle({ shown, onToggle }: { shown: boolean; onToggle: () =
 
 /** "Remembered it?  Sign in": 12px row, muted copy + accent link. */
 export function FootRow({ text, linkLabel, to, onClick }: { text: string; linkLabel: string; to?: string; onClick?: () => void }) {
-	const linkClass = "whitespace-nowrap font-geist text-[12px] font-medium leading-[16px] text-[#a6e4f7]";
+	const linkClass = "stak-press cursor-pointer whitespace-nowrap rounded-[4px] font-geist text-[12px] font-medium leading-[16px] text-[#a6e4f7]";
 	return (
 		<div className="flex items-start gap-[6px] overflow-clip whitespace-nowrap">
 			<span className="font-geist text-[12px] leading-[16px] text-[#819abb]">{text}</span>
@@ -115,9 +133,9 @@ export function BackButton({
 				if (window.history.length > 1) window.history.back();
 				else navigate({ to: fallbackTo });
 			}}
-			className={cn("flex size-[40px] items-center justify-center overflow-clip rounded-[20px] bg-[#192238]", className)}
+			className={cn("stak-press flex size-[40px] cursor-pointer items-center justify-center overflow-clip rounded-[20px] bg-[#192238]", className)}
 		>
-			<img alt="" src={AU.back} className="size-[22px]" />
+			<img alt="" src={AU.back} className="size-[22px]" width={22} height={22} />
 		</button>
 	);
 }
@@ -128,6 +146,33 @@ export function Spinner() {
 			<div className="size-8 animate-spin rounded-full border-2 border-[#69b3ca] border-t-transparent" />
 		</div>
 	);
+}
+
+// ── Validation and error copy shared by the auth forms ────────────────────────────────────────
+
+export const PASSWORD_MIN = 8;
+
+export const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.trim());
+
+/** The rule the reset frame states: "At least 8 characters, with a number." */
+export function passwordProblem(p: string): string | null {
+	if (p.length < PASSWORD_MIN) return `Use at least ${PASSWORD_MIN} characters`;
+	if (!/\d/.test(p)) return "Add at least one number";
+	return null;
+}
+
+/** Firebase error codes in plain words; the fallback is the form's own sentence. */
+export function authErrorMessage(error: unknown, fallback: string): string {
+	const code = ((error as { code?: string })?.code ?? (error instanceof Error ? error.message : "")) as string;
+	if (code.includes("invalid-credential") || code.includes("user-not-found") || code.includes("wrong-password")) return "Wrong email or password";
+	if (code.includes("email-already-in-use")) return "That email is already registered";
+	if (code.includes("invalid-email")) return "That email address does not look right";
+	if (code.includes("weak-password")) return `Use at least ${PASSWORD_MIN} characters`;
+	if (code.includes("too-many-requests")) return "Too many attempts. Try again in a few minutes";
+	if (code.includes("network-request-failed")) return "No connection. Check your network and try again";
+	if (code.includes("user-disabled")) return "This account has been disabled";
+	if (code.includes("expired-action-code") || code.includes("invalid-action-code")) return "This link has expired. Request a new one";
+	return fallback;
 }
 
 /**
@@ -148,7 +193,7 @@ export function AuthLayout({ formTop, backTo, children }: { formTop: number; bac
 						<div className="flex-none rotate-[48.43deg]">
 							<div className="relative size-[702.892px] opacity-40">
 								<div className="pointer-events-none absolute inset-0 overflow-hidden">
-									<img alt="" src={AU.glass} className="absolute left-[0.55%] top-[0.49%] size-full max-w-none" />
+									<img alt="" src={AU.glass} className="absolute left-[0.55%] top-[0.49%] size-full max-w-none" fetchPriority="high" />
 								</div>
 							</div>
 						</div>

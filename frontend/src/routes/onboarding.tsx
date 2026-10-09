@@ -18,6 +18,7 @@ import {
 	RISKS,
 	TASTE_BARS,
 } from "@/app/onboarding/data";
+import { useLive } from "@/app/live/store";
 import { useAccount } from "@/context/AccountContext";
 import { trackEvent, updateProfile } from "@/lib/api";
 import { logEvent } from "@/lib/firebase";
@@ -51,6 +52,7 @@ function OnboardingPage() {
 	const { user, loading, onboardingCompleted: claimsOnboardingCompleted, refreshClaims } = useAuth();
 	const { account, accountLoading, updatePreferences, updateDeckOrder, updateLastBriefDate } = useAccount();
 	const navigate = useNavigate();
+	const live = useLive();
 	const hasProgressed = useRef(false);
 	const completed = useRef(false);
 
@@ -161,7 +163,7 @@ function OnboardingPage() {
 							))}
 						</div>
 						<div className="flex w-[440px] flex-col items-center gap-[17px]">
-							<PrimaryButton onClick={() => goTo(3)}>{`Continue · ${picks.length} picked`}</PrimaryButton>
+							<PrimaryButton onClick={() => goTo(3)} disabled={picks.length === 0}>{`Continue · ${picks.length} picked`}</PrimaryButton>
 							<p className="w-full text-center font-geist text-[11px] leading-[14px] text-[#819abb]">You can change this later</p>
 						</div>
 					</div>
@@ -299,7 +301,7 @@ function OnboardingPage() {
 										{(name.trim()[0] ?? "N").toUpperCase()}
 									</span>
 								</div>
-								<button type="button" className="w-full text-center font-geist text-[12px] font-medium leading-[16px] text-[#a6e4f7]">
+								<button type="button" className="stak-press w-full cursor-pointer rounded-[4px] text-center font-geist text-[12px] font-medium leading-[16px] text-[#a6e4f7]">
 									Add a photo
 								</button>
 							</div>
@@ -322,7 +324,14 @@ function OnboardingPage() {
 								<p className="w-full text-center font-geist text-[11px] leading-[14px] text-[#819abb]">You can change this anytime in Profile.</p>
 							</div>
 						</div>
-						<PrimaryButton className="w-[440px]" onClick={() => navigate({ to: "/home", search: { firstRun: true }, replace: true })}>
+						<PrimaryButton
+							className="w-[440px]"
+							onClick={() => {
+								// the name chosen here is the one the sidebar, Home and Profile show
+								if (name.trim() && name.trim() !== PROFILE_DEFAULT_NAME) live.actions.setDisplayName(name).catch(() => {});
+								navigate({ to: "/home", search: { firstRun: true }, replace: true });
+							}}
+						>
 							Proceed to home
 						</PrimaryButton>
 					</div>
@@ -341,7 +350,7 @@ function BrandCard({ brand, selected, onToggle, index }: { brand: BrandPick; sel
 			aria-pressed={selected}
 			onClick={onToggle}
 			className={cn(
-				"absolute flex h-[76px] w-[225px] items-center justify-center gap-[10px] overflow-clip rounded-[14px] bg-[#181f30]",
+				"stak-press absolute flex h-[76px] w-[225px] cursor-pointer items-center justify-center gap-[10px] overflow-clip rounded-[14px] bg-[#181f30]",
 				selected && "border border-solid border-[rgba(105,179,202,0.5)]",
 			)}
 			style={{ left: (index % 4) * 245, top: Math.floor(index / 4) * 96 }}

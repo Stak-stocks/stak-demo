@@ -27,11 +27,11 @@ export function Sidebar({ open, active, onToggle }: Props) {
 		>
 			{open ? (
 				<div className="absolute left-[28px] top-[33px] flex w-[159px] items-center gap-[46px]">
-					<Link to="/home" aria-label="STAK home" className="relative block h-[21.117px] w-[87.037px] shrink-0">
+					<Link to="/home" aria-label="STAK home" className="stak-press relative block h-[21.117px] w-[87.037px] shrink-0 cursor-pointer rounded-[4px]">
 						<img alt="" src={A.logoIcon} className="absolute left-0 top-0 size-[21.117px]" />
 						<img alt="" src={A.logoWord} className="absolute left-[24.7px] top-[4.6px] h-[11.949px] w-[62.337px]" />
 					</Link>
-					<button type="button" aria-label="Hide navigation" onClick={onToggle} className="relative size-[28px] shrink-0">
+					<button type="button" aria-label="Hide navigation" onClick={onToggle} className="stak-press relative size-[28px] shrink-0 cursor-pointer rounded-[6px]">
 						<img alt="" src={A.navHide} className="absolute inset-0 size-full" />
 					</button>
 				</div>
@@ -40,7 +40,7 @@ export function Sidebar({ open, active, onToggle }: Props) {
 					type="button"
 					aria-label="Show navigation"
 					onClick={onToggle}
-					className="absolute left-[22px] top-[33px] size-[28px]"
+					className="stak-press absolute left-[22px] top-[33px] size-[28px] cursor-pointer rounded-[6px]"
 				>
 					<img alt="" src={A.navShow} className="absolute inset-0 size-full" />
 				</button>
@@ -57,9 +57,9 @@ export function Sidebar({ open, active, onToggle }: Props) {
 						to={item.to}
 						aria-current={isActive ? "page" : undefined}
 						className={cn(
-							"absolute left-[16px] flex h-[40px] items-center overflow-clip rounded-[10px]",
+							"stak-press absolute left-[16px] flex h-[40px] cursor-pointer items-center overflow-clip rounded-[10px]",
 							open ? "w-[184px] gap-[12px] px-[12px]" : "w-[40px] justify-center px-[8px]",
-							isActive && "bg-[rgba(255,255,255,0.06)]",
+							isActive ? "bg-[rgba(255,255,255,0.06)]" : "hover:bg-[rgba(255,255,255,0.04)]",
 						)}
 						style={{ top: 92 + i * 48 }}
 					>
@@ -98,7 +98,7 @@ function AccountRow({ open, active }: { open: boolean; active: boolean }) {
 			to="/profile"
 			aria-label="Profile"
 			className={cn(
-				"flex h-[48px] items-center gap-[12px] overflow-clip rounded-[10px] bg-[#141b2c]",
+				"stak-press flex h-[48px] cursor-pointer items-center gap-[12px] overflow-clip rounded-[10px] bg-[#141b2c]",
 				open ? "w-[184px] px-[12px]" : "w-[40px] justify-center px-[6px]",
 				active && "border border-[#242f4b]",
 			)}

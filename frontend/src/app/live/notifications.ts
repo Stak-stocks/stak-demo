@@ -97,7 +97,9 @@ export function useNotifications() {
 			.sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct))
 			.slice(0, 3);
 		const derived = derive(live, moves, now);
-		const untouched = !live.signedIn && live.sold.length === 2 && live.positions.length === 6 && !live.deck;
+		// the persona has not acted yet: seed trades intact and no card decided (Home builds today's deck, that is not a decision)
+		const decided = live.deck ? live.deck.saved.length + live.deck.passed.length + live.deck.bought.length : 0;
+		const untouched = !live.signedIn && live.sold.length === 2 && live.positions.length === 6 && decided === 0;
 		const base = untouched ? [...derived.filter((n) => !n.id.startsWith("brief-") && !n.id.startsWith("move-")), ...seedNotices(now)] : derived;
 		const dismissed = new Set(live.dismissed);
 		const read = new Set(live.read);
