@@ -197,8 +197,10 @@ struct EngagementEventRequest: Encodable {
     var categories: [String]?; var todayKey: String?; var params: [String: AnyCodable]?
 }
 struct EventResponse: Decodable { var success: Bool = false }
-struct PassedEntry: Codable { var id: String = ""; var at: Int64 = 0 }
+/// A passed brand: when it was last passed, and how many times (five keeps it out of the deck).
+struct PassedEntry: Codable { var id: String = ""; var at: Int64 = 0; var count: Int = 1 }
 struct PassedResponse: Decodable { var entries: [PassedEntry] = [] }
+struct PassedAddResponse: Decodable { var entry: PassedEntry? }
 struct PassedPutRequest: Encodable { let entries: [PassedEntry] }
 struct SwipeRecord: Decodable { var brandId: String = ""; var direction: String = ""; var timestamp: String = "" }
 struct SwipeHistoryResponse: Decodable { var swipes: [SwipeRecord] = [] }
@@ -367,6 +369,15 @@ extension KeyedDecodingContainer {
     /// The key's value, or `fallback` when it's missing, null or the wrong type.
     func value<T: Decodable>(_ key: Key, or fallback: T) -> T {
         (try? decodeIfPresent(T.self, forKey: key)) ?? fallback
+    }
+}
+
+extension PassedEntry {
+    private enum CodingKeys: String, CodingKey { case id, at, count }
+    // A server from before pass counts sends none: each pass then counts once.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = c.value(.id, or: ""); at = c.value(.at, or: 0); count = c.value(.count, or: 1)
     }
 }
 

@@ -7,6 +7,7 @@ import { brands } from "@stak/shared/brands";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 import { planOf } from "../lib/entitlements.js";
 import { getSupabaseAdmin } from "../lib/supabaseAdmin.js";
+import { seedTasteFromPicks } from "../services/tasteProfileService.js";
 
 export const meRouter = Router();
 
@@ -170,6 +171,8 @@ meRouter.put("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			`update users set ${setClauses.join(", ")} where uid = $${i}`,
 			values,
 		);
+		// Onboarding's brand picks start the account's taste, so its first deck leans toward them.
+		if (taste !== undefined) await seedTasteFromPicks(uid, (taste as AndroidTaste).picks);
 
 		const updated = await pgQuery<{
 			uid: string; email: string | null; display_name: string | null; phone: string | null;
@@ -227,6 +230,10 @@ async function replaceStakBrands(uid: string, brandIds: string[]): Promise<void>
 			for (const id of added) { logRows.push(`($1, $${lIdx}, 'save', null)`); logParams.push(id); lIdx += 1; }
 			for (const r of removed) { logRows.push(`($1, $${lIdx}, 'unsave', $${lIdx + 1})`); logParams.push(r.brand_id, r.price_at_save); lIdx += 2; }
 			await client.query(`insert into stak_save_log (uid, brand_id, action, price) values ${logRows.join(", ")}`, logParams);
+		}
+		// Saving a stock clears its passes: a later unsave starts it fresh in the deck, not one pass from hidden.
+		if (added.length > 0) {
+			await client.query(`delete from passed_brands where uid = $1 and brand_id = any($2::text[])`, [uid, added]);
 		}
 		await client.query(`delete from stak_brands where uid = $1`, [uid]);
 		if (brandIds.length > 0) {
@@ -294,18 +301,45 @@ meRouter.put("/stak", authMiddleware, async (req: AuthenticatedRequest, res) => 
 meRouter.get("/passed", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
-		const result = await pgQuery<{ brand_id: string; last_passed_at: string }>(
-			`select brand_id, last_passed_at from passed_brands where uid = $1`,
+		const result = await pgQuery<{ brand_id: string; last_passed_at: string; pass_count: number }>(
+			`select brand_id, last_passed_at, pass_count from passed_brands where uid = $1`,
 			[uid],
 		);
 		const entries = result.rows.map((r) => ({
 			id: r.brand_id,
 			at: new Date(r.last_passed_at).getTime(),
+			// How many times it's been passed: five keeps it out of the deck (every platform).
+			count: r.pass_count,
 		}));
 		res.json({ entries });
 	} catch (error) {
 		console.error("Error fetching passed brands:", error);
 		res.status(500).json({ error: "Failed to fetch passed brands" });
+	}
+});
+
+// POST /api/me/passed/:brandId — count one pass (the apps). Counted on the server, so a list read before a pass made
+// elsewhere - or before a save cleared one - can't overwrite it.
+meRouter.post("/passed/:brandId", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const brandId = req.params.brandId;
+		if (!brandId || brandId.length > 100) {
+			res.status(400).json({ error: "brandId is required" });
+			return;
+		}
+		await ensureUserRow(uid, req.user!.email);
+		const result = await pgQuery<{ last_passed_at: string; pass_count: number }>(
+			`insert into passed_brands (uid, brand_id, last_passed_at, pass_count) values ($1, $2, now(), 1)
+			 on conflict (uid, brand_id) do update set last_passed_at = now(), pass_count = passed_brands.pass_count + 1
+			 returning last_passed_at, pass_count`,
+			[uid, brandId],
+		);
+		const row = result.rows[0]!;
+		res.json({ entry: { id: brandId, at: new Date(row.last_passed_at).getTime(), count: row.pass_count } });
+	} catch (error) {
+		console.error("Error recording pass:", error);
+		res.status(500).json({ error: "Failed to record pass" });
 	}
 });
 
@@ -315,26 +349,42 @@ meRouter.put("/passed", authMiddleware, async (req: AuthenticatedRequest, res) =
 		const uid = req.user!.uid;
 		const { entries } = req.body;
 
-		if (!Array.isArray(entries)) {
-			res.status(400).json({ error: "entries must be an array" });
+		if (!Array.isArray(entries) || entries.length > 2000 || !entries.every((e) =>
+			e && typeof e === "object" && typeof e.id === "string" && e.id.length > 0 && e.id.length <= 100
+			&& Number.isFinite(e.at) && (e.count === undefined || (Number.isInteger(e.count) && e.count >= 1 && e.count <= 1000)))) {
+			res.status(400).json({ error: "entries must be an array of { id, at, count? }" });
 			return;
 		}
+		const sent = entries as { id: string; at: number; count?: number }[];
 
 		await ensureUserRow(uid, req.user!.email);
 		const passedClient = await pgPool.connect();
 		try {
 			await passedClient.query("BEGIN");
+			// The pass counts (five passes keep a stock out of the deck) survive a whole-list save. An app that doesn't send
+			// a count has its newer pass counted here: one more than before when the time moved on, the same when it didn't.
+			// Two saves at once queue on the account's row (locking passed_brands rows would lock nothing for a first pass).
+			await passedClient.query(`select 1 from users where uid = $1 for update`, [uid]);
+			const before = await passedClient.query<{ brand_id: string; last_passed_at: string; pass_count: number }>(
+				`select brand_id, last_passed_at, pass_count from passed_brands where uid = $1`,
+				[uid],
+			);
+			const old = new Map(before.rows.map((r) => [r.brand_id, { at: new Date(r.last_passed_at).getTime(), count: r.pass_count }]));
+			const rows = new Map<string, { at: number; count: number }>();
+			for (const e of sent) {
+				const prev = old.get(e.id);
+				const count = e.count ?? (prev ? (e.at > prev.at ? prev.count + 1 : prev.count) : 1);
+				rows.set(e.id, { at: e.at, count });
+			}
 			await passedClient.query(`delete from passed_brands where uid = $1`, [uid]);
-			if (entries.length > 0) {
-				const values = (entries as { id: string; at: number }[]).map(
-					(e, i) => `($1, $${i * 2 + 2}, to_timestamp($${i * 2 + 3}::bigint / 1000.0))`
-				).join(", ");
+			if (rows.size > 0) {
 				const params: unknown[] = [uid];
-				for (const e of entries as { id: string; at: number }[]) {
-					params.push(e.id, e.at);
-				}
+				const values = [...rows].map(([id, r], i) => {
+					params.push(id, r.at, r.count);
+					return `($1, $${i * 3 + 2}, to_timestamp($${i * 3 + 3}::bigint / 1000.0), $${i * 3 + 4})`;
+				}).join(", ");
 				await passedClient.query(
-					`insert into passed_brands (uid, brand_id, last_passed_at) values ${values}`,
+					`insert into passed_brands (uid, brand_id, last_passed_at, pass_count) values ${values}`,
 					params,
 				);
 			}
@@ -482,45 +532,6 @@ meRouter.post("/swipes/increment", authMiddleware, async (req: AuthenticatedRequ
 	} catch (error) {
 		console.error("Error incrementing daily swipes:", error);
 		res.status(500).json({ error: "Failed to increment daily swipes" });
-	}
-});
-
-// GET /api/me/deck-order — get persisted swipe deck order for cross-device sync
-meRouter.get("/deck-order", authMiddleware, async (req: AuthenticatedRequest, res) => {
-	try {
-		const uid = req.user!.uid;
-		const result = await pgQuery<{ deck_order: string[] | null }>(
-			`select deck_order from users where uid = $1`,
-			[uid],
-		);
-		res.json({ order: result.rows[0]?.deck_order ?? [] });
-	} catch (error) {
-		console.error("Error fetching deck order:", error);
-		res.status(500).json({ error: "Failed to fetch deck order" });
-	}
-});
-
-// PUT /api/me/deck-order — save swipe deck order
-meRouter.put("/deck-order", authMiddleware, async (req: AuthenticatedRequest, res) => {
-	try {
-		const uid = req.user!.uid;
-		const { order } = req.body;
-
-		if (!Array.isArray(order) || !order.every((id) => typeof id === "string")) {
-			res.status(400).json({ error: "Invalid deck order" });
-			return;
-		}
-
-		await ensureUserRow(uid, req.user!.email);
-		await pgQuery(
-			`update users set deck_order = $1, updated_at = now() where uid = $2`,
-			[order, uid],
-		);
-
-		res.json({ order });
-	} catch (error) {
-		console.error("Error saving deck order:", error);
-		res.status(500).json({ error: "Failed to save deck order" });
 	}
 });
 

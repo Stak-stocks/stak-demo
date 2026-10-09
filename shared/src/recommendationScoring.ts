@@ -35,6 +35,22 @@ export interface RecommendationScoreResult {
 	matchedUserTags: string[];
 }
 
+/** A taste score's range. Each swipe moves it a few points (tasteProfileService's ACTION_POINTS); the ceiling keeps a
+ *  long-loved tag from growing forever, the floor keeps a passed one recoverable. The database update clamps to the same. */
+export const TAG_SCORE_MIN = -10;
+export const TAG_SCORE_MAX = 30;
+/** The smallest "strongest interest" a stock is measured against, so one Learn more doesn't make a perfect match. */
+const MIN_REFERENCE_SCORE = 5;
+
+export const clampTagScore = (score: number) => Math.min(TAG_SCORE_MAX, Math.max(TAG_SCORE_MIN, score));
+
+/** The user's strongest interest: what a perfect match is measured against. */
+export function referenceTagScore(tagScores: Record<string, number>): number {
+	let top = MIN_REFERENCE_SCORE;
+	for (const score of Object.values(tagScores)) if (Number.isFinite(score)) top = Math.max(top, clampTagScore(score));
+	return top;
+}
+
 // Maps Daily Brief deck theme IDs → stock tags / primaryCategories that qualify for the boost
 export const THEME_TAG_MAP: Record<string, { tags: string[]; categories: string[] }> = {
 	high_growth:  { tags: ["high_growth", "innovation", "cloud", "saas", "ai", "ai_supply_chain", "semiconductor"], categories: ["mega_cap_tech", "consumer_tech", "enterprise_software", "semiconductor", "semiconductor_equipment", "automation_ai", "database_data"] },
@@ -50,10 +66,9 @@ export const THEME_TAG_MAP: Record<string, { tags: string[]; categories: string[
 
 /**
  * finalScore = tasteMatchScore + freshnessBoost + dailyBriefThemeBoost + diversityAdjustment
- * clamped to [0, 1] at the top only — negative scores are intentional: stocks in a
- * category the user has repeatedly passed should sink below neutral stocks, not tie
- * with them at 0. (This is a no-op floor-wise wherever diversityAdjustment is 0, e.g.
- * server-side calls that don't pass recentlyShownCats.)
+ * not clamped: a perfect taste match with news or earnings ranks above one without (a cap
+ * at 1 tied them), and negative scores are intentional - stocks in a category the user has
+ * repeatedly passed sink below neutral stocks rather than tie with them at 0.
  *
  * `ticker` is taken separately from `stock` because freshness signals (earnings/news/
  * unusual move/analyst update) should still apply even if the stock isn't in the
@@ -69,16 +84,21 @@ export function computeRecommendationScore(
 ): RecommendationScoreResult {
 	const upperTicker = ticker.toUpperCase();
 
-	// 1. tasteMatchScore (0–1): weighted sum of user's tag scores for this stock's learning tags
+	// 1. tasteMatchScore (-1 to 1): how much of the stock is made of what the user likes. Each tag counts by its weight,
+	// against the user's own strongest interest - a stock built only from their top tags scores 1. (A fixed divisor
+	// saturated after a few swipes: a third of the catalog tied at 1, and the order among them was catalog order.)
 	const matchedUserTags: string[] = [];
-	const weightedSum = stock
-		? stock.learningTags.reduce((sum, lt) => {
-			const score = tagScores[lt.tag] ?? 0;
-			if (score > 0) matchedUserTags.push(lt.tag);
-			return sum + score * lt.weight;
-		}, 0)
-		: 0;
-	const tasteMatchScore = Math.min(1, weightedSum / 10);
+	const reference = referenceTagScore(tagScores);
+	let weightedSum = 0;
+	let totalWeight = 0;
+	for (const lt of stock?.learningTags ?? []) {
+		const raw = tagScores[lt.tag];
+		const score = typeof raw === "number" && Number.isFinite(raw) ? clampTagScore(raw) : 0;
+		if (score > 0) matchedUserTags.push(lt.tag);
+		weightedSum += score * lt.weight;
+		totalWeight += lt.weight;
+	}
+	const tasteMatchScore = totalWeight > 0 ? Math.max(-1, Math.min(1, weightedSum / (reference * totalWeight))) : 0;
 
 	// 2. freshnessBoost (0–0.20): boost stocks with imminent activity
 	const earningsBoost    = freshness.earningsTickers.has(upperTicker)       ? 0.08 : 0;
@@ -101,10 +121,10 @@ export function computeRecommendationScore(
 	const catCountInRecent = recentlyShownCats.slice(0, 5).filter((c) => c === stockCat).length;
 	const diversityAdjustment = stockCat && catCountInRecent >= 3 ? -0.10 : 0;
 
-	// Not rounded — the frontend sorts the live deck on this value, and rounding to
+	// Not rounded — the server (and the web's offline fallback) sorts the deck on this value, and rounding to
 	// 3dp could tie stocks that should stay strictly ordered. Breakdown fields below
 	// are rounded since they're only ever surfaced for human-readable debug output.
-	const finalScore = Math.min(1, tasteMatchScore + freshnessBoost + dailyBriefThemeBoost + diversityAdjustment);
+	const finalScore = tasteMatchScore + freshnessBoost + dailyBriefThemeBoost + diversityAdjustment;
 
 	return {
 		finalScore,

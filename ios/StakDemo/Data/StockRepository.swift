@@ -48,6 +48,7 @@ final class StockRepository {
     func recordEvent(_ req: EngagementEventRequest) async throws -> EventResponse { try await api.recordEvent(req) }
     func getPassed() async throws -> PassedResponse { try await api.getPassed() }
     func putPassed(_ entries: [PassedEntry]) async throws -> PassedResponse { try await api.putPassed(PassedPutRequest(entries: entries)) }
+    func addPass(_ brandId: String) async throws -> PassedAddResponse { try await api.addPass(brandId) }
     func getSwipes(since: String) async throws -> SwipeHistoryResponse { try await api.getSwipes(since: since) }
 
     // MARK: – Me / profile

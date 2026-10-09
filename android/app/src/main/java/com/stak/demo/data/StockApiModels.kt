@@ -341,8 +341,10 @@ data class EngagementEventRequest(
     val params: Map<String, Any>? = null,
 )
 data class EventResponse(val success: Boolean = false)
-data class PassedEntry(val id: String = "", val at: Long = 0L)
+/** A passed brand: when it was last passed, and how many times (five keeps it out of the deck). */
+data class PassedEntry(val id: String = "", val at: Long = 0L, val count: Int = 1)
 data class PassedResponse(val entries: List<PassedEntry> = emptyList())
+data class PassedAddResponse(val entry: PassedEntry? = null)
 data class PassedPutRequest(val entries: List<PassedEntry>)
 data class SwipeRecord(val brandId: String = "", val direction: String = "", val timestamp: String = "")
 data class SwipeHistoryResponse(val swipes: List<SwipeRecord> = emptyList())

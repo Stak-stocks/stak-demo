@@ -69,6 +69,9 @@ final class StockApiService {
     func recordEvent(_ body: EngagementEventRequest) async throws -> EventResponse { try await net.post("api/swipe/event", body: body) }
     func getPassed() async throws -> PassedResponse { try await net.get("api/me/passed") }
     func putPassed(_ body: PassedPutRequest) async throws -> PassedResponse { try await net.put("api/me/passed", body: body) }
+    func addPass(_ brandId: String) async throws -> PassedAddResponse {
+        try await net.post("api/me/passed/\(brandId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? brandId)", body: EmptyBody())
+    }
     func getSwipes(since: String) async throws -> SwipeHistoryResponse { try await net.get("api/swipe", query: ["since": since]) }
 
     // MARK: – Me / profile

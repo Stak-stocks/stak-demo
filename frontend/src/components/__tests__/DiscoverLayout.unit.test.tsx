@@ -38,9 +38,8 @@ vi.mock("@/components/discover/QuickLookSheet", () => ({
 
 vi.mock("@/lib/api", () => ({
 	recordEngagement: vi.fn(),
-	getMarketEarnings: vi.fn(),
-	getDailyBrief: vi.fn(),
-	getRecommendationFreshness: vi.fn(),
+	getQuickLook: vi.fn(),
+	getSortedRecommendations: vi.fn(),
 	getBrandsList: vi.fn(),
 }));
 
@@ -52,6 +51,7 @@ vi.mock("@/hooks/useSwipeLimit", () => ({
 		reportSwipeResult: vi.fn(),
 	}),
 	DAILY_SWIPE_LIMIT: 20,
+	getTodayKey: () => "2026-01-01",
 }));
 
 vi.mock("@/context/AuthContext", () => ({
@@ -63,24 +63,18 @@ vi.mock("@/context/AccountContext", () => ({
 		account: {
 			stakBrandIds: [],
 			passedBrands: [],
-			deckOrder: null,
 			tagScores: {},
 		},
 		saveToStak: vi.fn().mockResolvedValue(undefined),
 		removeFromStak: vi.fn().mockResolvedValue(undefined),
 		removePassedBrand: vi.fn().mockResolvedValue(undefined),
 		updatePassedBrands: vi.fn().mockResolvedValue(undefined),
-		updateDeckOrder: vi.fn().mockResolvedValue(undefined),
 	}),
 }));
 
 // These tests cover the phone (Android) layout; desktop Discover is a separate branch of the page.
 vi.mock("@/hooks/use-mobile", () => ({
 	useIsMobile: () => true,
-}));
-
-vi.mock("@/data/onboarding", () => ({
-	INTEREST_TO_BRANDS: {},
 }));
 
 vi.mock("sonner", () => ({

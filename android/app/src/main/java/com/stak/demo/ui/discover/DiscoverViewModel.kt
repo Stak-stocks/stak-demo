@@ -60,8 +60,8 @@ class DiscoverViewModel @Inject constructor(
     private val pendingSwipeJobs = mutableMapOf<String, Job>()
     private val quickLookCache = mutableMapOf<String, QuickLookData>()
     private val tipCache = mutableMapOf<String, String>()
-    /** brandId -> epoch ms of the last pass. Null until read: PUT replaces the server list, so never write blind. */
-    private var passedAt: MutableMap<String, Long>? = null
+    /** brandId -> its last pass and pass count, as read with the deck (null when that read failed). */
+    private var passedAt: MutableMap<String, PassedEntry>? = null
 
     /**
      * Quick Look for any brand: the generated structured overview
@@ -133,7 +133,7 @@ class DiscoverViewModel @Inject constructor(
                     // Shared with news search, which maps tickers and company names.
                     com.stak.demo.data.BrandNames.fill(res.brands)
                     val recs = recsDeferred.await()
-                    passedAt = passedDeferred.await()?.associate { it.id to it.at }?.toMutableMap()
+                    passedAt = passedDeferred.await()?.associateBy { it.id }?.toMutableMap()
                     val picks = todaysPicks(res.brands, recs?.brandIds.orEmpty(), limit, passedAt.orEmpty(), recs?.categories.orEmpty())
                     quotedRef = StakClock.lastCloseRef()
                     val quotes = if (picks.isNotEmpty()) {
@@ -173,15 +173,17 @@ class DiscoverViewModel @Inject constructor(
     /**
      * Today's deck: the backend's personalised ranking (the same
      * /api/recommendations order the web deck uses), minus stocks already in
-     * My STAK and anything passed in the last 24h (older passes return at the
-     * back, as on web), capped at the daily limit. Pinned per day so a relaunch or a
-     * refreshed ranking doesn't reshuffle a deck the user is part-way through.
+     * My STAK, anything passed in the last 24h (older passes return at the
+     * back) and anything passed [PASS_HIDE_COUNT] times, at most [MAX_PER_CATEGORY]
+     * per category, capped at the daily limit - every platform's rules. Pinned per
+     * day so a relaunch or a refreshed ranking doesn't reshuffle a deck the user is
+     * part-way through.
      */
     private fun todaysPicks(
         brands: List<BrandSummaryDto>,
         ranked: List<String>,
         limit: Int,
-        passed: Map<String, Long>,
+        passed: Map<String, PassedEntry>,
         categories: Map<String, String>,
     ): List<BrandSummaryDto> {
         val byTicker = brands.associateBy { it.ticker }
@@ -201,7 +203,10 @@ class DiscoverViewModel @Inject constructor(
         val ordered = ranked.mapNotNull { byTicker[it] } + brands.filter { it.ticker !in rankedSet }
         val held = MyStakHoldings.tickers
         val dayAgo = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
-        val eligible = ordered.filter { it.ticker !in held && (passed[it.id] ?: 0L) <= dayAgo }
+        val eligible = ordered.filter { brand ->
+            val pass = passed[brand.id]
+            brand.ticker !in held && (pass == null || (pass.count < PASS_HIDE_COUNT && pass.at <= dayAgo))
+        }
         val picks = withCategoryCap(eligible.filter { it.id !in passed } + eligible.filter { it.id in passed }, categories, limit)
         val label = deckLabelFor(picks, categories)
         // Only a real personalised ranking is pinned. A fallback order (ranking
@@ -242,16 +247,17 @@ class DiscoverViewModel @Inject constructor(
                 _swipedToday.value = res.dailySwipeCount + pendingSwipeJobs.size
                 if (res.limitReached) _hasReachedLimit.value = true
                 if (res.success && !isSTAK) recordPass(brandId)
+                // Saving clears a stock's passes (the server drops them with the save) - so a later pass list doesn't put them back.
+                if (res.success && isSTAK) passedAt?.remove(brandId)
             }
         }
         pendingSwipeJobs[brandId] = job
     }
 
-    /** Mirror a sent pass into the backend's passed list (the list web re-queues from). */
+    /** Count a sent pass in the backend's passed list (the list every platform re-queues from). */
     private suspend fun recordPass(brandId: String) {
-        val entries = passedAt ?: return
-        entries[brandId] = System.currentTimeMillis()
-        runCatching { repository.putPassed(entries.map { (id, at) -> PassedEntry(id, at) }) }
+        val counted = runCatching { repository.addPass(brandId).entry }.getOrNull()
+        passedAt?.let { it[brandId] = counted ?: PassedEntry(brandId, System.currentTimeMillis(), (it[brandId]?.count ?: 0) + 1) }
     }
 
     fun retry() = fetchDeck()
@@ -367,10 +373,12 @@ private const val DEFAULT_DECK_LABEL = "TODAY'S DECK"
 private const val PICKS_DAY_KEY = "deck.picks.day"
 private const val PICKS_KEY = "deck.picks"
 /** Bump when the picking rules change, so a deck pinned under the old rules is re-picked. */
-private const val PICKS_VERSION = 2
+private const val PICKS_VERSION = 3
 private const val PICKS_VERSION_KEY = "deck.picks.version"
 private const val PICKS_LABEL_KEY = "deck.picks.label"
 private const val MAX_PER_CATEGORY = 3
+/** Passed this many times, a stock stops coming back to the deck (every platform's rule; saving it clears its passes). */
+internal const val PASS_HIDE_COUNT = 5
 
 /**
  * The top [limit] brands with at most [MAX_PER_CATEGORY] per primary category, so

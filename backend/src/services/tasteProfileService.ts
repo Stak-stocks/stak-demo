@@ -1,5 +1,6 @@
 import { pgQuery } from "../lib/postgres.js";
-import { STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "@stak/shared";
+import { cacheDelete } from "../lib/cache.js";
+import { STAK_WEIGHTED_STOCK_TAGS, clampTagScore, type StakStockTagConfig } from "@stak/shared";
 
 type ActionType =
 	| "save"
@@ -53,4 +54,49 @@ export async function updateUserTasteProfile(
 			[uid, JSON.stringify(deltas)],
 		);
 	} catch { /* fire-and-forget — never break the caller */ }
+}
+
+/** Where /api/recommendations keeps an account's ranking for a few minutes (v2: the scoring that measures against the
+ *  user's strongest interest). */
+export const sortedRecommendationsKey = (uid: string) => `recommendations:sorted:${uid}:v2`;
+
+/** Onboarding's brand tiles, by the name each app sends (web calls Sony "Sony Group Corp", the apps "PlayStation"). */
+const PICK_TICKERS: Record<string, string> = {
+	apple: "AAPL", tesla: "TSLA", nike: "NKE", spotify: "SPOT", netflix: "NFLX", amazon: "AMZN", disney: "DIS",
+	microsoft: "MSFT", nvidia: "NVDA", playstation: "SONY", "sony group corp": "SONY", coinbase: "COIN", uber: "UBER",
+};
+
+/** The taste scores onboarding's brand picks give: each pick counts as a right swipe on that brand. */
+export function tasteFromPicks(picks: string[]): Record<string, number> {
+	const scores: Record<string, number> = {};
+	const tickers = new Set(picks.map((p) => PICK_TICKERS[p.trim().toLowerCase()]).filter(Boolean));
+	for (const ticker of tickers) {
+		for (const lt of STOCK_TAG_MAP.get(ticker)?.learningTags ?? []) {
+			scores[lt.tag] = clampTagScore((scores[lt.tag] ?? 0) + ACTION_POINTS.right_swipe * lt.weight);
+		}
+	}
+	return scores;
+}
+
+/**
+ * Starts an account's taste from its onboarding brand picks, so the first deck already leans toward them. Only an
+ * account with no taste yet: once it has swiped, its swipes say more than the quiz did. Returns the scores it set
+ * (null when it set none). Never throws.
+ */
+export async function seedTasteFromPicks(uid: string, picks: string[]): Promise<Record<string, number> | null> {
+	const scores = tasteFromPicks(picks);
+	if (Object.keys(scores).length === 0) return null;
+	try {
+		const res = await pgQuery(
+			`update users set tag_scores = $2::jsonb
+			 where uid = $1 and (tag_scores is null or tag_scores = '{}'::jsonb)`,
+			[uid, JSON.stringify(scores)],
+		);
+		if ((res.rowCount ?? 0) === 0) return null;
+		// A ranking cached before the account had a taste would hide it for a few minutes.
+		await cacheDelete(sortedRecommendationsKey(uid)).catch(() => {});
+		return scores;
+	} catch {
+		return null;
+	}
 }
