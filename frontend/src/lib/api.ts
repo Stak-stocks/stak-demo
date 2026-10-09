@@ -281,6 +281,11 @@ export function recordSwipe(
 	});
 }
 
+/** The account's swipes since `since`, on every device (newest first). */
+export function getSwipesSince(since: Date) {
+	return apiRequest<{ swipes: { brandId: string; direction: string }[] }>(`/api/swipe?since=${encodeURIComponent(since.toISOString())}`);
+}
+
 /** Engagement events. Investing Taste counts `learn_more` (Quick Looks read) and `stock_detail_open` (company pages
  *  opened) per ticker, the same events Android sends. */
 export function recordEngagement(

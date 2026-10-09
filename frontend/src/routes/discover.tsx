@@ -16,8 +16,9 @@ import { QuickLookSheet } from "@/components/discover/QuickLookSheet";
 import { DEFAULT_DECK_LABEL, DISC, cu } from "@/components/discover/discoverTheme";
 import { PHONE_MAX_WIDTH, useFigmaUnit } from "@/components/discover/useFigmaUnit";
 import { toast } from "sonner";
-import { recordEngagement, getQuickLook, getSortedRecommendations, getDailyDeck, offerDailyDeck } from "@/lib/api";
-import { useSwipeLimit, DAILY_SWIPE_LIMIT, getTodayKey } from "@/hooks/useSwipeLimit";
+import { recordEngagement, getQuickLook, getSortedRecommendations, getDailyDeck, offerDailyDeck, getSwipesSince } from "@/lib/api";
+import { getDeckDayStart, getTodayKey } from "@/lib/utils";
+import { useSwipeLimit, DAILY_SWIPE_LIMIT } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
 import { useAuth } from "@/context/AuthContext";
 import { useAccount } from "@/context/AccountContext";
@@ -277,6 +278,48 @@ function App() {
 	// Each card's server writes run one after another: STAK -> Undo -> STAK again, sent all at once, could otherwise land
 	// as add, add, remove and leave a card that looks saved but isn't. Same for a pass and its undo.
 	const brandOps = useRef(new Map<string, Promise<unknown>>());
+
+	// Cards swiped on another device while this tab stayed open: dropped when the tab is looked at again, so they aren't
+	// swiped twice. (A swipe here is only sent once its undo window closes, so the list never holds an undone card.)
+	// The apps send a swipe only once their 3s undo has passed too.
+	const [swipedElsewhere, setSwipedElsewhere] = useState<Set<string>>(new Set());
+	useEffect(() => setSwipedElsewhere(new Set()), [deckDay, uid]);
+	useEffect(() => {
+		if (!appUser) return;
+		// One check at a time, and not again within a few seconds: a tab switch fires both events below.
+		let inFlight = false;
+		let lastAt = 0;
+		const sync = () => {
+			if (document.visibilityState !== "visible" || inFlight || Date.now() - lastAt < 3000) return;
+			inFlight = true;
+			lastAt = Date.now();
+			const day = getTodayKey();
+			getSwipesSince(getDeckDayStart())
+				.then(({ swipes }) => {
+					// An answer from before the 9am rollover belongs to yesterday's deck.
+					if (getTodayKey() !== day) return;
+					// A card with a decision still being written here is this tab's own.
+					const ids = swipes.map((s) => s.brandId).filter((id) => !brandOps.current.has(id));
+					setSwipedElsewhere((prev) => {
+						const next = new Set([...prev, ...ids]);
+						return next.size === prev.size ? prev : next;
+					});
+				})
+				.catch(() => {})
+				.finally(() => { inFlight = false; });
+		};
+		// Coming back to the tab, or to a window left open beside the phone.
+		document.addEventListener("visibilitychange", sync);
+		window.addEventListener("focus", sync);
+		return () => {
+			document.removeEventListener("visibilitychange", sync);
+			window.removeEventListener("focus", sync);
+		};
+	}, [appUser]);
+	// An open Quick Look on a card just dropped closes with it.
+	useEffect(() => {
+		if (quickLookBrand && swipedElsewhere.has(quickLookBrand.id)) setQuickLookBrand(null);
+	}, [swipedElsewhere, quickLookBrand]);
 	const inOrder = <T,>(brandId: string, op: () => Promise<T>): Promise<T> => {
 		const run = (brandOps.current.get(brandId) ?? Promise.resolve()).catch(() => {}).then(op);
 		brandOps.current.set(brandId, run);
@@ -350,19 +393,16 @@ function App() {
 	};
 
 	// Stable brands array for the deck — prevents it recreating on every unrelated render.
-	const filteredBrands = useMemo(
-		() => recommendedOrder.filter(
-			(brand) =>
-				!swipedBrands.some((b) => b.id === brand.id) &&
-				!passedBrandIds.has(brand.id),
-		),
-		[recommendedOrder, swipedBrands, passedBrandIds],
+	// Saved, passed, or swiped on another device: out of the deck.
+	const stillOpen = useCallback(
+		(brand: BrandSummary) => !swipedBrands.some((b) => b.id === brand.id) && !passedBrandIds.has(brand.id) && !swipedElsewhere.has(brand.id),
+		[swipedBrands, passedBrandIds, swipedElsewhere],
 	);
-	const deckBrands = useMemo(() => withFocus(
-		filteredBrands,
-		focus,
-		focus ? rankedPool.filter((b) => !swipedBrands.some((s) => s.id === b.id) && !passedBrandIds.has(b.id)) : [],
-	), [filteredBrands, focus, rankedPool, swipedBrands, passedBrandIds]);
+	const filteredBrands = useMemo(() => recommendedOrder.filter(stillOpen), [recommendedOrder, stillOpen]);
+	const deckBrands = useMemo(
+		() => withFocus(filteredBrands, focus, focus ? rankedPool.filter(stillOpen) : []),
+		[filteredBrands, focus, rankedPool, stillOpen],
+	);
 
 	// A card's tint comes from where it sits in the day's order, so it stays the same as cards leave the deck.
 	const paletteIndexById = useMemo(() => new Map(recommendedOrder.map((b, i) => [b.id, i])), [recommendedOrder]);
