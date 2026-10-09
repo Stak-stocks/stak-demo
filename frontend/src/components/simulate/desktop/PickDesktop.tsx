@@ -1,4 +1,5 @@
 import { ArrowRight, ChevronRight, History, Plus, Sparkles } from "lucide-react";
+import { RANGE_SPOKEN } from "@/components/simulate/simKit";
 import type { ChartRange, SandboxTrade, StockChartPoint } from "@/lib/api";
 import type { Pick } from "@/hooks/usePaperPortfolio";
 import { isUp, monthDayYear, sharesLabel, signedUsd, usd, versusWords } from "@/lib/simFormat";
@@ -7,7 +8,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { DESK, DeskButton, Panel, PanelHeader, SkeletonBar, deskFocus, deskPageBg } from "@/components/desktop/deskKit";
 import { ValueChart } from "@/components/desktop/ValueChart";
 
-const RANGES: ReadonlyArray<readonly [ChartRange, string]> = [["1d", "1D"], ["1w", "1W"], ["1m", "1M"], ["3m", "3M"], ["ytd", "YTD"], ["1y", "1Y"]];
+const RANGES: ReadonlyArray<readonly [ChartRange, string]> = [["1d", "1D"], ["1w", "1W"], ["1m", "1M"], ["3m", "3M"], ["ytd", "YTD"], ["1y", "1Y"], ["5y", "5Y"], ["max", "MAX"]];
 
 function Tile({ label, value, color = "#fff" }: { label: string; value: string; color?: string }) {
 	return (
@@ -86,7 +87,7 @@ export function PickDesktop({ pick, brand, held, range, onRange, prices, chartLo
 								<div className="flex gap-1 rounded-[10px] p-1" role="group" aria-label="Chart range" style={{ background: DESK.panelRaised, border: `1px solid ${DESK.border}` }}>
 									{RANGES.map(([key, label]) => {
 										const on = key === range;
-										return <button key={key} type="button" aria-pressed={on} onClick={() => onRange(key)} className={`rounded-[8px] px-3 py-[5px] text-[12.5px] font-medium ${deskFocus}`} style={on ? { background: DESK.cyanSoft, color: DESK.cyan, boxShadow: `inset 0 0 0 1px ${DESK.borderStrong}` } : { color: DESK.muted }}>{label}</button>;
+										return <button key={key} type="button" aria-pressed={on} aria-label={RANGE_SPOKEN[key] ?? label} onClick={() => onRange(key)} className={`rounded-[8px] px-3 py-[5px] text-[12.5px] font-medium ${deskFocus}`} style={on ? { background: DESK.cyanSoft, color: DESK.cyan, boxShadow: `inset 0 0 0 1px ${DESK.borderStrong}` } : { color: DESK.muted }}>{label}</button>;
 									})}
 								</div>
 							</div>

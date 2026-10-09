@@ -3,7 +3,7 @@ import { getLastCloseRef } from "@/lib/utils";
 import { sessionWord } from "@/components/discover/discoverTheme";
 import type { ChartRange } from "@/lib/api";
 
-const PERIOD: Record<ChartRange, string> = { "1d": "today", "1w": "past week", "1m": "past month", "3m": "past 3 months", ytd: "year to date", "1y": "past year" };
+const PERIOD: Record<ChartRange, string> = { "1d": "today", "1w": "past week", "1m": "past month", "3m": "past 3 months", ytd: "year to date", "1y": "past year", "5y": "past 5 years", max: "all time" };
 
 /** "▲ 1.2% past month". On 1D the suffix follows the session ("today", or "on Wednesday" before the open and at weekends). */
 export function rangeChangeText(pct: number, range: ChartRange, now = new Date()): string {

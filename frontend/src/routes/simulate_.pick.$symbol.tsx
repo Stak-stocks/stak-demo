@@ -9,7 +9,7 @@ import { SellFlow } from "@/components/simulate/SellFlow";
 import { PickDesktop } from "@/components/simulate/desktop/PickDesktop";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useMyStakData } from "@/hooks/useMyStakData";
-import { Badge, ChartNote, DarkCta, EmptyStateCard, Kicker, RangeChart, RangeChips, SIM, SheetSecondary, ShareCircle, tealShadow } from "@/components/simulate/simKit";
+import { Badge, ChartNote, DarkCta, EmptyStateCard, Kicker, RangeChart, RangeChips, SIM, STOCK_RANGES, SheetSecondary, ShareCircle, tealShadow } from "@/components/simulate/simKit";
 import { Sparkle } from "@/components/mystak/TasteCard";
 import { DISC, cu, sessionWord } from "@/components/discover/discoverTheme";
 import { BackCircle, PhonePage, f, sheetCard } from "@/components/phone/phone";
@@ -170,7 +170,7 @@ function PickPage() {
 							: values.length >= 2 ? <RangeChart values={values} height={73.5} />
 							: <ChartNote>{chartLoading ? "" : "No history yet"}</ChartNote>}
 					</div>
-					<div style={{ paddingTop: cu(40) }}><RangeChips value={range} onChange={setRange} /></div>
+					<div style={{ paddingTop: cu(40) }}><RangeChips value={range} onChange={setRange} ranges={STOCK_RANGES} /></div>
 				</section>
 
 				<div style={{ display: "flex", flexDirection: "column", gap: cu(10) }}>
