@@ -101,7 +101,6 @@ const CARD_BG = "#10172a";
 const BODY_DIM = "rgba(255,255,255,0.62)";
 /** Body copy on navy, and the app's teal (Android StakColors.Body / Teal). */
 const BODY_TEXT = "#C8D2E0";
-const TEAL = "#69B3CA";
 
 /** The label colour on the teal CTA gradient: navy, not white - white reads 1.4-3.3:1 on it, navy 5.7-13.6:1 (WCAG AA). */
 const CTA_INK = "#0A1020";
@@ -220,9 +219,7 @@ function CtaButton({
 	fontSize = 18,
 	arrowSize = { w: 19.006, h: 15.839 },
 	type = "button",
-	expanded,
-	controls,
-	ref,
+	href,
 	style,
 }: {
 	label: string;
@@ -231,38 +228,33 @@ function CtaButton({
 	fontSize?: number;
 	arrowSize?: { w: number; h: number };
 	type?: "button" | "submit";
-	/** For a button that opens a panel: whether it's open, and the panel's id. */
-	expanded?: boolean;
-	controls?: string;
-	ref?: Ref<HTMLButtonElement>;
+	/** A link instead of a button (same look). */
+	href?: string;
 	style?: CSSProperties;
 }) {
-	return (
-		<button
-			ref={ref}
-			type={type}
-			onClick={onClick}
-			aria-expanded={expanded}
-			aria-controls={controls}
-			style={{
-				background: CTA_GRADIENT,
-				border: CTA_BORDER,
-				borderRadius: 5.781,
-				padding: "7.226px 14.453px",
-				display: "flex",
-				alignItems: "center",
-				justifyContent: "center",
-				gap: 7.226,
-				filter: CTA_SHADOW,
-				cursor: "pointer",
-				flexShrink: 0,
-				...style,
-			}}
-		>
+	const look: CSSProperties = {
+		background: CTA_GRADIENT,
+		border: CTA_BORDER,
+		borderRadius: 5.781,
+		padding: "7.226px 14.453px",
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "center",
+		gap: 7.226,
+		filter: CTA_SHADOW,
+		cursor: "pointer",
+		flexShrink: 0,
+		textDecoration: "none",
+		...style,
+	};
+	const inner = (
+		<>
 			<span style={{ fontFamily: SR, fontWeight: 400, fontSize, lineHeight: "normal", color: CTA_INK }}>{label}</span>
 			{withArrow && <img src={A.ctaArrow} alt="" style={{ width: arrowSize.w, height: arrowSize.h, flexShrink: 0, filter: "brightness(0)" }} />}
-		</button>
+		</>
 	);
+	if (href) return <a href={href} onClick={onClick} style={{ ...look, boxSizing: "border-box" }}>{inner}</a>;
+	return <button type={type} onClick={onClick} style={look}>{inner}</button>;
 }
 
 /* ═══════════════════════════════════════════════════════════════════ */
@@ -903,102 +895,8 @@ function FaqRow({ i, q, a, open, onToggle }: { i: number; q: string; a: string; 
 
 /** Where "Email Us" writes to. */
 const SUPPORT_EMAIL = "support@thestak.org";
-
-const SUPPORT_SUBJECT = "Question about STAK";
-const enc = encodeURIComponent;
-/** Where "Email Us" can write from: the browser mail services (no email app needed), the computer's own email app,
- *  or a copy of the address. */
-const EMAIL_ROUTES = [
-	{ label: "Open in Gmail", href: `https://mail.google.com/mail/?view=cm&fs=1&to=${enc(SUPPORT_EMAIL)}&su=${enc(SUPPORT_SUBJECT)}`, external: true },
-	{ label: "Open in Outlook", href: `https://outlook.live.com/mail/0/deeplink/compose?to=${enc(SUPPORT_EMAIL)}&subject=${enc(SUPPORT_SUBJECT)}`, external: true },
-	{ label: "Use my email app", href: `mailto:${SUPPORT_EMAIL}?subject=${enc(SUPPORT_SUBJECT)}`, external: false },
-] as const;
-
-/**
- * "Email Us" and the menu it opens. On its own, a mailto: link does nothing on a computer with no email app set up (a
- * Mac whose Mail app was never configured, by someone who uses Gmail in the browser) - so the menu offers Gmail and
- * Outlook in the browser, the email app, and a copy of the address.
- */
-function EmailUsMenu() {
-	const [open, setOpen] = useState(false);
-	const [copied, setCopied] = useState(false);
-	const rootRef = useRef<HTMLDivElement>(null);
-	const buttonRef = useRef<HTMLButtonElement>(null);
-	const addressRef = useRef<HTMLSpanElement>(null);
-	const timer = useRef<number | undefined>(undefined);
-	useEffect(() => () => window.clearTimeout(timer.current), []);
-	// A tap outside, or Escape (which hands focus back to the button), closes it.
-	useEffect(() => {
-		if (!open) return;
-		const onPointerDown = (e: PointerEvent) => { if (!rootRef.current?.contains(e.target as Node)) setOpen(false); };
-		const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); buttonRef.current?.focus(); } };
-		document.addEventListener("pointerdown", onPointerDown);
-		document.addEventListener("keydown", onKey);
-		return () => {
-			document.removeEventListener("pointerdown", onPointerDown);
-			document.removeEventListener("keydown", onKey);
-		};
-	}, [open]);
-	// No clipboard (or it refused): select the address instead, so Cmd/Ctrl+C takes it.
-	const selectAddress = () => {
-		const el = addressRef.current;
-		const sel = window.getSelection();
-		if (!el || !sel) return;
-		const range = document.createRange();
-		range.selectNodeContents(el);
-		sel.removeAllRanges();
-		sel.addRange(range);
-	};
-	const copy = () => {
-		if (!navigator.clipboard) { selectAddress(); return; }
-		navigator.clipboard.writeText(SUPPORT_EMAIL).then(() => {
-			setCopied(true);
-			window.clearTimeout(timer.current);
-			timer.current = window.setTimeout(() => setCopied(false), 2000);
-		}).catch(selectAddress);
-	};
-	// No inline background, so the stylesheet's hover shade can show.
-	const item: CSSProperties = { ...btnReset, background: undefined, display: "flex", alignItems: "center", gap: 10, width: "100%", boxSizing: "border-box", padding: "11px 16px", fontFamily: SR, fontWeight: 400, fontSize: 14, lineHeight: "20px", color: "#fff", textDecoration: "none", textAlign: "left" };
-	return (
-		<div
-			ref={rootRef}
-			// Tabbing out of the menu closes it.
-			onBlur={(e) => { if (open && e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false); }}
-			style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}
-		>
-			<CtaButton ref={buttonRef} label="Email Us" onClick={() => setOpen((v) => !v)} expanded={open} controls="landing-email-menu" fontSize={14.453} arrowSize={{ w: 13.775, h: 11.48 }} />
-			{open && (
-				<div
-					id="landing-email-menu"
-					className="landing-email-menu"
-					style={{ position: "absolute", top: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", zIndex: 20, width: "max-content", minWidth: 250, maxWidth: "calc(100vw - 32px)", background: CARD_BG, border: "1px solid rgba(105,179,202,0.28)", borderRadius: 12, boxShadow: "0 18px 40px rgba(0,0,0,0.5)", padding: "6px 0" }}
-				>
-					<p style={{ margin: 0, padding: "8px 16px 6px", fontFamily: SR, fontWeight: 300, fontSize: 12.5, lineHeight: "18px", color: BODY_TEXT }}>
-						Email us at{" "}
-						{/* One click selects all of it (Safari reads only the prefixed property). */}
-						<span ref={addressRef} style={{ userSelect: "all", WebkitUserSelect: "all", color: "#fff", fontWeight: 400 }}>{SUPPORT_EMAIL}</span>
-					</p>
-					{EMAIL_ROUTES.map((r) => (
-						<a
-							key={r.label}
-							href={r.href}
-							{...(r.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-							onClick={() => setOpen(false)}
-							style={item}
-						>
-							{r.label}
-							{r.external && <span className="sr-only"> (opens in a new tab)</span>}
-						</a>
-					))}
-					<button type="button" onClick={copy} style={{ ...item, color: TEAL }}>
-						{copied ? "Copied" : "Copy address"}
-					</button>
-					<span role="status" className="sr-only">{copied ? "Email address copied" : ""}</span>
-				</div>
-			)}
-		</div>
-	);
-}
+/** A plain mailto: link - the computer's own email app opens with the address and subject filled in. */
+const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Question about STAK")}`;
 
 function Faq() {
 	const l = useLayout();
@@ -1015,7 +913,11 @@ function Faq() {
 			</Column>
 			<div style={{ display: "flex", flexDirection: "column", gap: 30, alignItems: "center", marginTop: desktop ? 125 : 83.805, paddingInline: 16 }}>
 				<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 18, lineHeight: "25px", color: "#fff", margin: 0, textAlign: "center" }}>Have more questions?</p>
-				<EmailUsMenu />
+				<CtaButton href={SUPPORT_MAILTO} label="Email Us" fontSize={14.453} arrowSize={{ w: 13.775, h: 11.48 }} />
+				{/* For a computer with no email app: the address itself, to write to from anywhere. */}
+				<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 14, lineHeight: "20px", color: BODY_TEXT, margin: "-14px 0 0", textAlign: "center" }}>
+					or write to <span style={{ userSelect: "all", WebkitUserSelect: "all", color: "#fff", fontWeight: 400 }}>{SUPPORT_EMAIL}</span>
+				</p>
 			</div>
 		</Section>
 	);
@@ -1628,15 +1530,6 @@ function LandingPage() {
 				.landing-faq-q {
 					background: #1a2237;
 					transition: background-color 0.2s ease;
-				}
-				.landing-email-menu :is(a, button) {
-					background: none;
-				}
-				.landing-email-menu :is(a, button):hover {
-					background: rgba(255,255,255,0.05);
-				}
-				.landing-scroll .landing-email-menu :is(a, button):focus-visible {
-					outline-offset: -2px;
 				}
 				.landing-faq-q:hover {
 					background: #2a3552;
