@@ -251,13 +251,46 @@ describe("FAQ (hands-off section)", () => {
 		expect(screen.queryByText(FAQ_ANSWER_2)).toBeNull();
 	});
 
-	it.each(ALL)("%s: the support address shows under 'Email Us', with Copy (for a computer with no email app)", async (_name, width) => {
+	it.each(ALL)("%s: 'Email Us' opens a menu - Gmail and Outlook in the browser, the email app, or the address", (_name, width) => {
+		renderAt(width);
+		const button = screen.getByRole("button", { name: "Email Us" });
+		expect(button).toHaveAttribute("aria-expanded", "false");
+		fireEvent.click(button);
+		expect(button).toHaveAttribute("aria-expanded", "true");
+		expect(screen.getByRole("link", { name: /Open in Gmail/ }).getAttribute("href")).toContain("mail.google.com/mail/?view=cm&fs=1&to=support%40thestak.org");
+		expect(screen.getByRole("link", { name: /Open in Outlook/ }).getAttribute("href")).toContain("outlook.live.com/mail/0/deeplink/compose?to=support%40thestak.org");
+		expect(screen.getByRole("link", { name: "Use my email app" }).getAttribute("href")).toMatch(/^mailto:support@thestak\.org/);
+		expect(screen.getByText("support@thestak.org")).toBeInTheDocument();
+	});
+
+	it("'Email Us' menu: Escape closes it and puts focus back on the button", () => {
+		renderAt(DESKTOP);
+		const button = screen.getByRole("button", { name: "Email Us" });
+		fireEvent.click(button);
+		fireEvent.keyDown(document, { key: "Escape" });
+		expect(button).toHaveAttribute("aria-expanded", "false");
+		expect(document.activeElement).toBe(button);
+	});
+
+	it("'Email Us' menu: a tap outside or tabbing out closes it; the button names its panel", () => {
+		renderAt(DESKTOP);
+		const button = screen.getByRole("button", { name: "Email Us" });
+		fireEvent.click(button);
+		expect(button).toHaveAttribute("aria-controls", document.querySelector(".landing-email-menu")?.id);
+		fireEvent.pointerDown(document.body);
+		expect(button).toHaveAttribute("aria-expanded", "false");
+		fireEvent.click(button);
+		fireEvent.blur(screen.getByRole("link", { name: /Open in Gmail/ }), { relatedTarget: document.body });
+		expect(button).toHaveAttribute("aria-expanded", "false");
+	});
+
+	it("'Email Us' menu: Copy address copies it", async () => {
 		const writeText = vi.fn().mockResolvedValue(undefined);
 		Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
 		try {
-			renderAt(width);
-			expect(screen.getByText("support@thestak.org")).toBeInTheDocument();
-			fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+			renderAt(DESKTOP);
+			fireEvent.click(screen.getByRole("button", { name: "Email Us" }));
+			fireEvent.click(screen.getByRole("button", { name: "Copy address" }));
 			expect(writeText).toHaveBeenCalledWith("support@thestak.org");
 			expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
 		} finally {
@@ -265,18 +298,11 @@ describe("FAQ (hands-off section)", () => {
 		}
 	});
 
-	it("with no clipboard, Copy selects the address instead (for Cmd/Ctrl+C)", () => {
+	it("'Email Us' menu: with no clipboard, Copy address selects it instead (for Cmd/Ctrl+C)", () => {
 		renderAt(DESKTOP);
-		fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+		fireEvent.click(screen.getByRole("button", { name: "Email Us" }));
+		fireEvent.click(screen.getByRole("button", { name: "Copy address" }));
 		expect(window.getSelection()?.toString()).toBe("support@thestak.org");
-	});
-
-	it.each(ALL)("%s: 'Email Us' opens the contact mailto", (_name, width) => {
-		const loc = { href: "" };
-		Object.defineProperty(window, "location", { configurable: true, value: loc });
-		renderAt(width);
-		fireEvent.click(screen.getByText("Email Us"));
-		expect(loc.href).toBe("mailto:support@thestak.org");
 	});
 });
 
