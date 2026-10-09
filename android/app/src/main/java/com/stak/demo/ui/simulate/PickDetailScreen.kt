@@ -88,6 +88,9 @@ internal data class PickSpec(
 	val weekGain: String = "+$3.80",
 )
 
+/** The price's move over the selected range: its direction, percent and the change line under the price. */
+private data class RangeMove(val up: Boolean, val pct: Double, val text: String)
+
 internal val PICK_SPECS = listOf(
 	PickSpec("NVDA", "N", "NVIDIA Corp", "$122.10", "Picked May 8 at $98.50", "$98.50", "+$24.00", "24.0%", true, "1.0152", "$124.00", "+20.8% ahead", true, "▲ 2.4%"),
 	// TSLA's day move: the News feed's "Tesla drops 7%" story (-6.95% today).
@@ -165,6 +168,23 @@ fun PickDetailScreen(
 	// the 48 box and ".85" in its own 16/20 box (1:4654); "" when it carries no cents - never an index crash.
 	val priceWhole = p.priceNow.substringBefore('.')
 	val priceCents = p.priceNow.removePrefix(priceWhole)
+	// A real pick's price history for the selected range (the chart below draws it too).
+	val pickChart = if (PaperPortfolio.demo) null else rememberPickChart(symbol, range)
+	// The price's change over the selected range: today's move from the quote for 1D, otherwise from the
+	// range's first close to the live price. The demo keeps its authored stake line. Read here, above the header,
+	// so the share picture shows the same line and chart the page does.
+	val move: RangeMove? = if (PaperPortfolio.demo) null else run {
+		val price = p.priceNow.removePrefix("$").replace(",", "").toDoubleOrNull()?.takeIf { it > 0.0 } ?: return@run null
+		val (change, pct) = if (range == "1D") {
+			val dayPct = com.stak.demo.data.LiveQuotes.cached(symbol)?.second ?: return@run null
+			(price - price / (1 + dayPct / 100.0)) to dayPct
+		} else {
+			val first = (pickChart as? PickChartState.Line)?.closes?.firstOrNull()?.takeIf { it > 0.0 } ?: return@run null
+			(price - first) to (price - first) / first * 100.0
+		}
+		val up = change > -0.005
+		RangeMove(up, pct, PaperPortfolio.rangeLine(PaperPortfolio.signedUsd(change), pct, up, range))
+	}
 
 	Box(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(modifier = Modifier.fillMaxSize()) {
@@ -195,9 +215,34 @@ fun PickDetailScreen(
 							indication = com.stak.demo.ui.theme.PressDim,
 							role = androidx.compose.ui.semantics.Role.Button,
 						) {
-							val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
-								.putExtra(android.content.Intent.EXTRA_TEXT, PaperPortfolio.pickShareText(p))
-							runCatching { context.startActivity(android.content.Intent.createChooser(send, "Share pick")) }
+							val rangeShare = move?.let { PaperPortfolio.RangeShare(it.up, it.pct, range) }
+							val text = PaperPortfolio.pickShareText(p, rangeShare)
+							if (PaperPortfolio.demo) {
+								// The demo's figures are authored - nothing real to picture; its invite, in words.
+								val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+									.putExtra(android.content.Intent.EXTRA_TEXT, text)
+								runCatching { context.startActivity(android.content.Intent.createChooser(send, "Share pick")) }
+							} else {
+								// A picture of what's on screen - price, the range's move and chart - with its line in words.
+								val sign = if (p.up) "+" else "-"
+								com.stak.demo.ui.components.ShareCard.share(
+									context,
+									scope,
+									com.stak.demo.ui.components.ShareCard.Spec(
+										kicker = "MY PICK",
+										title = p.symbol,
+										subtitle = p.company,
+										figure = p.priceNow,
+										line = move?.text ?: "${if (p.up) "▲" else "▼"} ${p.gain} ($sign${p.gainPct}) since I picked it",
+										up = move?.up ?: p.up,
+										note = "My gain ${p.gain} ($sign${p.gainPct}) · ${p.pickedLine}",
+										values = (pickChart as? PickChartState.Line)?.closes.orEmpty(),
+									),
+									text,
+									"Share pick",
+									"stak-${p.symbol.lowercase()}.png",
+								)
+							}
 						},
 				) {
 					Image(painterResource(R.drawable.ic_news_share), "Share", modifier = Modifier.size((18 * u).dp)) // 1:4652 icon/share is 18 (exact-design audit 2026-09-04)
@@ -249,29 +294,13 @@ fun PickDetailScreen(
 							modifier = Modifier.padding(start = (7 * u).dp, bottom = (6 * u).dp),
 						)
 					}
-					// A real pick's price history for the selected range (the chart below draws it too).
-					val pickChart = if (PaperPortfolio.demo) null else rememberPickChart(symbol, range)
-					// The price's change over the selected range: today's move from the quote for 1D, otherwise from the
-					// range's first close to the live price. The demo keeps its authored stake line.
-					val move: Pair<Boolean, String>? = if (PaperPortfolio.demo) null else run {
-						val price = p.priceNow.removePrefix("$").replace(",", "").toDoubleOrNull()?.takeIf { it > 0.0 } ?: return@run null
-						val (change, pct) = if (range == "1D") {
-							val dayPct = com.stak.demo.data.LiveQuotes.cached(symbol)?.second ?: return@run null
-							(price - price / (1 + dayPct / 100.0)) to dayPct
-						} else {
-							val first = (pickChart as? PickChartState.Line)?.closes?.firstOrNull()?.takeIf { it > 0.0 } ?: return@run null
-							(price - first) to (price - first) / first * 100.0
-						}
-						val up = change > -0.005
-						up to PaperPortfolio.rangeLine(PaperPortfolio.signedUsd(change), pct, up, range)
-					}
 					Text(
-						if (PaperPortfolio.demo) "That is ${if (p.up) "up" else "down"} ${p.gainPct} on a ${p.stakeBasis} paper stake" else move?.second ?: "—",
+						if (PaperPortfolio.demo) "That is ${if (p.up) "up" else "down"} ${p.gainPct} on a ${p.stakeBasis} paper stake" else move?.text ?: "—",
 						// 1:4662 (exact-design audit 2026-09-04): Geist Light for the authored line; the live change line is Medium, like Simulate's.
 						style = TextStyle(fontFamily = Geist, fontWeight = if (PaperPortfolio.demo) FontWeight.Light else FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 						color = when {
 							PaperPortfolio.demo || move == null -> Sim.Muted
-							move.first -> Sim.Green
+							move.up -> Sim.Green
 							else -> Sim.Red
 						},
 						modifier = Modifier.padding(top = (11 * u).dp),

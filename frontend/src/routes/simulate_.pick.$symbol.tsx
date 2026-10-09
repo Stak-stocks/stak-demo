@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { getStockChart, type ChartRange } from "@/lib/api";
 import { allPreMarket } from "@/lib/chartSeries";
 import { usePaperPortfolio, type Pick } from "@/hooks/usePaperPortfolio";
-import { isUp, monthDay, rangeLine, signedPct, signedUsd, usd, versusWords } from "@/lib/simFormat";
+import { isUp, monthDay, rangeLine, rangeWord, signedPct, signedUsd, usd, versusWords } from "@/lib/simFormat";
 import { SellFlow } from "@/components/simulate/SellFlow";
 import { PickDesktop } from "@/components/simulate/desktop/PickDesktop";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -13,7 +13,8 @@ import { Badge, ChartNote, DarkCta, EmptyStateCard, Kicker, RangeChart, RangeChi
 import { Sparkle } from "@/components/mystak/TasteCard";
 import { DISC, cu, sessionWord } from "@/components/discover/discoverTheme";
 import { BackCircle, PhonePage, f, sheetCard } from "@/components/phone/phone";
-import { pickShareText, shareText } from "@/lib/share";
+import { pickShareText, shareRangeWord } from "@/lib/share";
+import { ShareCardPrep, sharePicture, type ShareCardSpec } from "@/lib/shareCard";
 
 export const Route = createFileRoute("/simulate_/pick/$symbol")({
 	component: PickPage,
@@ -60,7 +61,7 @@ function PickPage() {
 		<div className="relative flex items-center justify-between" style={{ padding: `${cu(8)} ${cu(18)}` }}>
 			<BackCircle onClick={goPortfolio} label="Back to portfolio" />
 			<h1 className="pointer-events-none absolute inset-x-0 text-center" style={{ font: f(600, 16, undefined, "heading"), color: "#fff" }}>{symbol.toUpperCase()}</h1>
-			{pick ? <ShareCircle onClick={() => { void shareText(pickShareText(pick.ticker, isUp(pick.gain), pick.gainPct), "STAK"); }} /> : <span aria-hidden="true" style={{ width: cu(40), height: cu(40) }} />}
+			{pick ? <ShareCircle onClick={() => sharePick()} /> : <span aria-hidden="true" style={{ width: cu(40), height: cu(40) }} />}
 		</div>
 	);
 
@@ -97,8 +98,27 @@ function PickPage() {
 			pct = (change / first) * 100;
 		}
 		const moveUp = isUp(change);
-		return { up: moveUp, text: rangeLine(signedUsd(change), pct, moveUp, range, sessionWord()) };
+		return { up: moveUp, pct, text: rangeLine(signedUsd(change), pct, moveUp, range, sessionWord()) };
 	})();
+
+	/** The share picture: what's on screen - price, the range's move and chart (as the apps word it). */
+	const gainUp = isUp(pick.gain);
+	const shareSpec: ShareCardSpec = {
+		kicker: "MY PICK",
+		title: pick.ticker,
+		subtitle: brand?.name,
+		figure: usd(pick.price),
+		line: move?.text ?? `${gainUp ? "▲" : "▼"} ${signedUsd(pick.gain)} (${signedPct(pick.gainPct)}) since I picked it`,
+		up: move?.up ?? gainUp,
+		note: `My gain ${signedUsd(pick.gain)} (${signedPct(pick.gainPct)}) · Picked ${monthDay(pick.addedAt)} at ${usd(pick.costPerShare)}`,
+		values: flatToday ? [] : values,
+	};
+	/** The share: that picture, with its line in words. */
+	function sharePick() {
+		if (!pick) return;
+		const text = pickShareText(pick.ticker, gainUp, pick.gainPct, move ? { up: move.up, pct: move.pct, word: shareRangeWord(range, rangeWord, sessionWord()) } : undefined);
+		void sharePicture(shareSpec, text, `stak-${pick.ticker.toLowerCase()}.png`);
+	}
 
 	// "This week" and "vs the market": this stock's last-week move, in dollars on the held shares and against SPY.
 	const weekCloses = (week.data?.prices ?? []).filter((p) => p.close > 0);
@@ -152,6 +172,7 @@ function PickPage() {
 	return (
 		<PhonePage>
 			{header}
+			<ShareCardPrep spec={shareSpec} />
 			<div style={{ display: "flex", flexDirection: "column", gap: cu(16), padding: `${cu(6)} ${cu(20)} ${cu(26)}` }}>
 				<section className="flex flex-col" style={{ height: cu(307), ...sheetCard(16), padding: cu(18) }} aria-label={`${pick.ticker} performance`}>
 					<div className="flex items-center" style={{ gap: cu(9) }}>

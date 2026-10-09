@@ -169,14 +169,13 @@ struct PickDetailView: View {
 						.foregroundStyle(Color.white)
 						.accessibilityAddTraits(.isHeader)
 					Spacer()
-					ShareLink(item: portfolio.pickShareText(pick)) {
-						ZStack {
-							Circle().fill(Sim.cardBg)
-							Image("IcNewsShare")
-								.resizable()
-								.frame(width: 18 * u, height: 18 * u) // 1:4652 icon/share is 18 (exact-design audit 2026-09-04)
+					// The demo's figures are authored - nothing real to picture; its invite, in words. A real pick shares a picture.
+					Group {
+						if portfolio.demo {
+							ShareLink(item: portfolio.pickShareText(pick)) { shareIcon(u) }
+						} else {
+							Button { sharePick(pick) } label: { shareIcon(u) }
 						}
-						.frame(width: 40 * u, height: 40 * u)
 					}
 					.buttonStyle(.pressDim)
 					.accessibilityLabel("Share")
@@ -398,9 +397,20 @@ struct PickDetailView: View {
 		return (gainText, gainColor, versusText, versusColor)
 	}
 
+	/// The 40 share circle (1:4652 icon/share is 18 - exact-design audit 2026-09-04).
+	private func shareIcon(_ u: CGFloat) -> some View {
+		ZStack {
+			Circle().fill(Sim.cardBg)
+			Image("IcNewsShare")
+				.resizable()
+				.frame(width: 18 * u, height: 18 * u)
+		}
+		.frame(width: 40 * u, height: 40 * u)
+	}
+
 	/// The price's change over the selected range: today's move from the quote for 1D, otherwise from the range's first
 	/// close to the live price. Nil until that's read.
-	private func rangeMove(_ pick: PickSpec) -> (up: Bool, text: String)? {
+	private func rangeMove(_ pick: PickSpec) -> (up: Bool, pct: Double, text: String)? {
 		let price = PaperPortfolio.amount(pick.priceNow)
 		guard price > 0 else { return nil }
 		let change: Double, pct: Double
@@ -414,7 +424,26 @@ struct PickDetailView: View {
 			pct = change / first * 100
 		}
 		let up = change > -0.005
-		return (up, PaperPortfolio.rangeLine(PaperPortfolio.signedMoney(change), pct: pct, up: up, range: range))
+		return (up, pct, PaperPortfolio.rangeLine(PaperPortfolio.signedMoney(change), pct: pct, up: up, range: range))
+	}
+
+	/// The share: a picture of what's on screen - price, the range's move and chart - with its line in words.
+	private func sharePick(_ pick: PickSpec) {
+		let move = rangeMove(pick)
+		let text = portfolio.pickShareText(pick, range: move.map { (up: $0.up, pct: $0.pct, range: range) })
+		let sign = pick.up ? "+" : "-"
+		var values: [Double] = []
+		if case .line(let closes)? = charts[range] { values = closes }
+		ShareCard.share(ShareCard.Spec(
+			kicker: "MY PICK",
+			title: pick.symbol,
+			subtitle: pick.company,
+			figure: pick.priceNow,
+			line: move?.text ?? "\(pick.up ? "▲" : "▼") \(pick.gain) (\(sign)\(pick.gainPct)) since I picked it",
+			up: move?.up ?? pick.up,
+			note: "My gain \(pick.gain) (\(sign)\(pick.gainPct)) · \(pick.pickedLine)",
+			values: values
+		), text: text)
 	}
 
 	/// The demo keeps its authored line - it has no live price behind its numbers. A real pick draws its own stock's
