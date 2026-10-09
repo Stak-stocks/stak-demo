@@ -13,7 +13,7 @@ import { getLastCloseRef } from "@/lib/utils";
 import { pricesAsOf, rangeChangeText, sinceSavedFor } from "@/lib/stockPage";
 import { usd } from "@/lib/simFormat";
 import { BuyFlow } from "@/components/simulate/BuyFlow";
-import { ChartNote, RangeChart, RangeChips, SheetCheck, SheetCta, SheetScaffold, SheetSecondary } from "@/components/simulate/simKit";
+import { ChartNote, RangeChart, RangeChips, STOCK_RANGES, SheetCheck, SheetCta, SheetScaffold, SheetSecondary } from "@/components/simulate/simKit";
 import { AnalystCard, CompareCard, LessonCard, NewsSignalCard, NumbersCard, RiskAndWatch, SinceYouSavedCard } from "@/components/stock/StockModules";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { BackCircle, PhonePage, f } from "@/components/phone/phone";
@@ -248,7 +248,7 @@ function StockDetailPage() {
 					: values.length >= 2 ? <RangeChart values={values} width={345} height={76} color={(chartPct ?? 0) >= 0 ? DISC.green : "#FF5A6A"} />
 					: <ChartNote width={345} height={76} color={DISC.muted}>{chart.isPending ? "" : "No price history for this range"}</ChartNote>}
 			</div>
-			<div style={{ paddingTop: cu(40) }}><RangeChips value={range} onChange={setRange} /></div>
+			<div style={{ paddingTop: cu(40) }}><RangeChips value={range} onChange={setRange} ranges={STOCK_RANGES} /></div>
 
 			<div style={{ display: "flex", flexDirection: "column", gap: cu(14), padding: `${cu(12)} ${cu(20)}` }}>
 				{held && <SinceYouSavedCard value={since.value} tone={since.tone} body={since.body} changes={changes} unreadOnEntry={unreadOnEntry.current ?? new Set()} />}

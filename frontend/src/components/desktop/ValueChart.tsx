@@ -7,6 +7,8 @@ export interface ValuePoint { ts: string; value: number }
 const W = 1000;
 const H = 300;
 const shortDay = (ts: string) => new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" });
+const fullDay = (ts: string) => new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/New_York" });
+const monthYear = (ts: string) => new Date(ts).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "America/New_York" });
 const compact = (n: number) => (Math.abs(n) >= 1000 ? `$${(n / 1000).toFixed(1)}K` : `$${n.toFixed(0)}`);
 
 /**
@@ -26,6 +28,9 @@ export function ValueChart({ points, color, className = "", formatValue }: {
 
 	const values = points.map((p) => p.value);
 	const heights = chartFractions(values);
+	// Past about 13 months (5Y, MAX) a date is told by its month and year; within that (1Y too), by month and day.
+	const longSpan = Date.parse(points[points.length - 1]!.ts) - Date.parse(points[0]!.ts) > 400 * 24 * 60 * 60 * 1000;
+	const tickLabel = longSpan ? monthYear : shortDay;
 	const last = points.length - 1;
 	const xy = heights.map((h, i) => [(i / last) * W, (1 - h) * H] as const);
 	const line = `M${xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L")}`;
@@ -68,7 +73,7 @@ export function ValueChart({ points, color, className = "", formatValue }: {
 							className="pointer-events-none absolute top-2 z-10 -translate-x-1/2 whitespace-nowrap rounded-[10px] px-3 py-2 text-[12px] shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
 							style={{ left: `${Math.min(88, Math.max(12, (hover! / last) * 100))}%`, background: DESK.panelRaised, border: `1px solid ${DESK.border}` }}
 						>
-							<p style={{ color: DESK.muted }}>{shortDay(h.ts)}</p>
+							<p style={{ color: DESK.muted }}>{longSpan ? fullDay(h.ts) : shortDay(h.ts)}</p>
 							<p className="font-heading text-[14px] font-semibold tabular-nums text-white">{formatValue(h.value)}</p>
 							{hPct != null && <p className="tabular-nums" style={{ color: hPct >= 0 ? DESK.green : DESK.red }}>{hPct >= 0 ? "+" : ""}{hPct.toFixed(1)}%</p>}
 						</div>
@@ -76,7 +81,7 @@ export function ValueChart({ points, color, className = "", formatValue }: {
 				</div>
 				<div className="relative mt-2 h-[14px] text-[11px]" style={{ color: DESK.muted }} aria-hidden="true">
 					{xTicks.map((i) => (
-						<span key={i} className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${Math.min(96, Math.max(4, (i / last) * 100))}%` }}>{shortDay(points[i]!.ts)}</span>
+						<span key={i} className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${Math.min(96, Math.max(4, (i / last) * 100))}%` }}>{tickLabel(points[i]!.ts)}</span>
 					))}
 				</div>
 			</div>

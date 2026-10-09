@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import type { ChartRange } from "@/lib/api";
+import type { ChartRange, PortfolioRange } from "@/lib/api";
 import { chartFractions } from "@/lib/chartSeries";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { PHONE_MAX_WIDTH, useFigmaUnit, useShellInset } from "@/components/discover/useFigmaUnit";
@@ -101,13 +101,22 @@ export const ChartNote = ({ children, width = 343, height = 73.56, color = DISC.
 	<div className="grid place-items-center" style={{ width: cu(width), height: cu(height), font: f(400, 11), color }}>{children}</div>
 );
 
-const RANGES: ReadonlyArray<readonly [ChartRange, string]> = [["1d", "1D"], ["1w", "1W"], ["1m", "1M"], ["3m", "3M"], ["ytd", "YTD"], ["1y", "1Y"]];
+/** A stock chart's pills, and the portfolio's (ALL - since the account began - where a stock has 5Y and MAX). */
+export const STOCK_RANGES: ReadonlyArray<readonly [ChartRange, string]> = [["1d", "1D"], ["1w", "1W"], ["1m", "1M"], ["3m", "3M"], ["ytd", "YTD"], ["1y", "1Y"], ["5y", "5Y"], ["max", "MAX"]];
+export const PORTFOLIO_RANGES: ReadonlyArray<readonly [PortfolioRange, string]> = [["1d", "1D"], ["1w", "1W"], ["1m", "1M"], ["3m", "3M"], ["ytd", "YTD"], ["1y", "1Y"], ["all", "ALL"]];
 
-/** The 1D 1W 1M 3M YTD 1Y row: the selected range sits in a small teal-tinted pill, the rest are plain text. */
-export function RangeChips({ value, onChange }: { value: ChartRange; onChange: (r: ChartRange) => void }) {
+/** What a screen reader says for each range pill (as iOS): "MAX" or "5Y" alone is cryptic read aloud. */
+export const RANGE_SPOKEN: Record<string, string> = {
+	"1d": "1 day", "1w": "1 week", "1m": "1 month", "3m": "3 months", ytd: "Year to date", "1y": "1 year",
+	"5y": "5 years", max: "All time", all: "Since you started",
+};
+
+/** The range row (1D 1W 1M 3M YTD 1Y ...): the selected range sits in a small teal-tinted pill, the rest are plain text. */
+export function RangeChips<R extends string>({ value, onChange, ranges }: { value: NoInfer<R>; onChange: (r: NoInfer<R>) => void; ranges: ReadonlyArray<readonly [R, string]> }) {
 	return (
-		<div className="flex items-center justify-center" style={{ gap: cu(37) }} role="group" aria-label="Chart range">
-			{RANGES.map(([key, label]) => {
+		// Spread across the card's width, so seven or eight pills fit as well as six did.
+		<div className="flex items-center justify-between" style={{ width: cu(343), margin: "0 auto", padding: `0 ${cu(8)}`, boxSizing: "border-box" }} role="group" aria-label="Chart range">
+			{ranges.map(([key, label]) => {
 				const selected = key === value;
 				return (
 					<button
@@ -115,6 +124,7 @@ export function RangeChips({ value, onChange }: { value: ChartRange; onChange: (
 						type="button"
 						onClick={() => onChange(key)}
 						aria-pressed={selected}
+						aria-label={RANGE_SPOKEN[key] ?? label}
 						className={`grid place-items-center ${PRESS}`}
 						style={selected
 							? { width: cu(39), height: cu(22.5), borderRadius: cu(11.25), background: "rgba(105,179,202,0.16)", border: `${cu(0.75)} solid rgba(105,179,202,0.4)`, font: f(500, 12, 16), color: DISC.teal, ...focusRing }

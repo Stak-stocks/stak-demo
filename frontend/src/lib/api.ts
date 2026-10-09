@@ -647,9 +647,14 @@ export function getKeyRisk(symbol: string, name?: string, beta?: string, pe?: st
 }
 
 export interface StockChartPoint { ts: string; close: number; session?: "pre" | "regular" | "post"; }
-export type ChartRange = "1d" | "1w" | "1m" | "3m" | "ytd" | "1y";
+/** A stock chart's ranges; 5y is weekly closes, max the whole listed history (monthly). */
+export type ChartRange = "1d" | "1w" | "1m" | "3m" | "ytd" | "1y" | "5y" | "max";
+/** The portfolio chart's ranges: a simulated account is new, so it has "all" (since it began) where a stock has 5y/max. */
+export type PortfolioRange = "1d" | "1w" | "1m" | "3m" | "ytd" | "1y" | "all";
+/** What the chart route serves: the stock ranges, plus 2y - daily closes the portfolio's ALL reads past its first year. */
+export type PriceRange = ChartRange | "2y";
 
-export function getStockChart(symbol: string, range: ChartRange = "1m") {
+export function getStockChart(symbol: string, range: PriceRange = "1m") {
 	return apiRequest<{ prices: StockChartPoint[] }>(
 		`/api/stock/${encodeURIComponent(symbol)}/chart?range=${range}`,
 	);
