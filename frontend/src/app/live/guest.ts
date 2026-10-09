@@ -121,6 +121,41 @@ export type Store<T> = {
 
 const stores = new Map<string, Store<unknown>>();
 
+const validDeck = (v: unknown): boolean => {
+	if (v === null) return true;
+	if (!v || typeof v !== "object") return false;
+	const d = v as Record<string, unknown>;
+	return (
+		typeof d.date === "string" &&
+		typeof d.theme === "string" &&
+		typeof d.index === "number" &&
+		[d.order, d.saved, d.passed, d.bought].every((a) => Array.isArray(a) && a.every((x) => typeof x === "string"))
+	);
+};
+
+/**
+ * Merge a stored snapshot over the seed, keeping only the fields whose shape matches the seed's, so a
+ * corrupt or hand-edited value in localStorage falls back to the seed instead of crashing every screen.
+ */
+export function sanitize<T extends object>(base: T, stored: unknown): T {
+	if (!stored || typeof stored !== "object" || Array.isArray(stored)) return base;
+	const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
+	for (const [k, v] of Object.entries(stored as Record<string, unknown>)) {
+		if (!(k in base)) continue;
+		const b = (base as Record<string, unknown>)[k];
+		if (k === "deck") {
+			if (validDeck(v)) out[k] = v;
+		} else if (Array.isArray(b)) {
+			if (Array.isArray(v)) out[k] = v;
+		} else if (b === null) {
+			if (v === null || typeof v === "string") out[k] = v; // nullable scalars (lastBriefDate)
+		} else if (typeof v === typeof b && (typeof v !== "number" || Number.isFinite(v))) {
+			out[k] = v;
+		}
+	}
+	return out as T;
+}
+
 function createStore<T extends object>(key: string, seed: () => T): Store<T> {
 	let cache: T | null = null;
 	const listeners = new Set<() => void>();
@@ -129,7 +164,7 @@ function createStore<T extends object>(key: string, seed: () => T): Store<T> {
 		try {
 			const raw = localStorage.getItem(key);
 			if (raw) {
-				cache = { ...seed(), ...(JSON.parse(raw) as Partial<T>) };
+				cache = sanitize(seed(), JSON.parse(raw));
 				return cache;
 			}
 		} catch {

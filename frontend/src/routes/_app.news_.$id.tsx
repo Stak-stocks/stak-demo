@@ -5,12 +5,11 @@ import { toast } from "sonner";
 import { colPlus } from "@/app/FitCanvas";
 import { financialsOf } from "@/app/live/catalog";
 import { money, signedPct } from "@/app/live/format";
-import { type Quote, useApiHealth, useQuote } from "@/app/live/quotes";
+import { type Quote, stockDataQuery, useApiHealth, useQuote } from "@/app/live/quotes";
 import { useLive } from "@/app/live/store";
 import { N } from "@/app/news/assets";
 import { article } from "@/app/news/data";
 import { GradientButton } from "@/app/profile/ui";
-import { getStockData } from "@/lib/api";
 
 type DetailSearch = { saved?: boolean };
 
@@ -225,7 +224,7 @@ const range = (lo: number, hi: number) => `${money(lo)}–${money(hi)}`;
 /** Key stats: the catalog's snapshot for cap / P/E / yield, the API's ranges when it answers, the authored values as the last resort. */
 function useKeyStats() {
 	const healthy = useApiHealth();
-	const data = useQuery({ queryKey: ["stock-data", SYMBOL], queryFn: () => getStockData(SYMBOL), enabled: healthy, staleTime: 60_000, retry: 0 });
+	const data = useQuery(stockDataQuery(SYMBOL, healthy)); // the same request the rail's quote already made
 	const fin = financialsOf(SYMBOL);
 	const m = data.data?.metrics;
 	const q = data.data?.quote;

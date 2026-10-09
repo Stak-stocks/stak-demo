@@ -56,6 +56,13 @@ function DiscoverPage() {
 	const [entering, setEntering] = useState(false);
 	const [savedToast, setSavedToast] = useState(false);
 	const busy = useRef(false);
+	const mounted = useRef(true);
+	useEffect(() => {
+		mounted.current = true;
+		return () => {
+			mounted.current = false;
+		};
+	}, []);
 
 	const n = deck.order.length;
 	const previewing = i !== undefined || state !== undefined;
@@ -96,8 +103,9 @@ function DiscoverPage() {
 		setLeaving(true);
 		await new Promise((r) => setTimeout(r, reducedMotion() ? 0 : OUT_MS));
 		const ok = await deck.pass(centre.symbol);
-		setLeaving(false);
 		busy.current = false;
+		if (!mounted.current) return; // the person left mid-swipe: nothing to animate or route
+		setLeaving(false);
 		if (!ok || index + 1 >= n) {
 			toEnd();
 			return;
@@ -105,26 +113,32 @@ function DiscoverPage() {
 		deck.go(index + 1);
 		clearPreview();
 		setEntering(true);
-		setTimeout(() => setEntering(false), IN_MS);
+		setTimeout(() => mounted.current && setEntering(false), IN_MS);
 	}, [centre, deck, index, n, toEnd, clearPreview]);
 
 	/** Save keeps the card (the chip reads Saved, the toast shows); a second press takes it back out. */
 	const onSave = useCallback(async () => {
 		if (!centre || busy.current) return;
-		if (centre.saved && state !== "saved") {
-			await deck.unsave(centre.symbol);
-			toast("Removed from My STAK");
-			return;
+		busy.current = true; // a held → or a double-click meters one swipe, not several
+		try {
+			if (centre.saved && state !== "saved") {
+				await deck.unsave(centre.symbol);
+				toast("Removed from My STAK");
+				return;
+			}
+			if (previewing) deck.go(index);
+			const ok = await deck.save(centre.symbol, price || null);
+			if (!mounted.current) return;
+			if (!ok) {
+				toEnd();
+				return;
+			}
+			setSavedToast(true);
+			setTimeout(() => mounted.current && setSavedToast(false), 2500);
+			clearPreview();
+		} finally {
+			busy.current = false;
 		}
-		if (previewing) deck.go(index);
-		const ok = await deck.save(centre.symbol, price || null);
-		if (!ok) {
-			toEnd();
-			return;
-		}
-		setSavedToast(true);
-		setTimeout(() => setSavedToast(false), 2500);
-		clearPreview();
 	}, [centre, state, previewing, deck, index, price, toEnd, clearPreview]);
 
 	const onPrevious = useCallback(() => {
@@ -142,7 +156,7 @@ function DiscoverPage() {
 			const pos = await live.actions.buy(centre.symbol, amount, price);
 			if (previewing) deck.go(index);
 			deck.markBought(centre.symbol);
-			setPhase({ kind: "filled", shares: pos.shares, cash: Math.round((live.cash - amount) * 100) / 100 });
+			setPhase({ kind: "filled", shares: pos.shares, cash: pos.cashAfter });
 			if (state === "buy") clearPreview();
 			toast("Order filled");
 		} catch {
@@ -161,7 +175,7 @@ function DiscoverPage() {
 		else {
 			deck.go(index + 1);
 			setEntering(true);
-			setTimeout(() => setEntering(false), IN_MS);
+			setTimeout(() => mounted.current && setEntering(false), IN_MS);
 		}
 	};
 
@@ -181,11 +195,15 @@ function DiscoverPage() {
 		return () => window.removeEventListener("keydown", onKey);
 	}, [ticketUp, filledUp, phase.kind, onPass, onSave, centre, clearPreview]);
 
-	if (loading) return <DeckSkeleton />;
+	if (loading || !deck.ready) return <DeckSkeleton />;
 
 	return (
 		<div className="relative -mt-[30px]">
 			<style>{DECK_MOTION_CSS}</style>
+			{/* always mounted, so a save is announced when the text arrives (the visual toast below is decorative) */}
+			<div role="status" aria-live="polite" className="sr-only">
+				{savedToast ? deckCopy.toast : ""}
+			</div>
 			<header className="flex h-[92px] w-full items-center justify-between pr-[47px]">
 				<div className="flex flex-col items-start gap-[6px] overflow-clip whitespace-nowrap">
 					<h1 className="font-sora text-[28px] font-semibold leading-[35px] text-[#f2f6fc]">{deckHeader.title}</h1>
@@ -252,7 +270,7 @@ function DiscoverPage() {
 			</div>
 
 			{(state === "saved" || savedToast) && (
-				<div className="absolute top-[118.01px] flex h-[44.963px] w-[161.348px] items-center justify-center" style={{ left: colCentre(812, 303.33) }} role="status">
+				<div className="absolute top-[118.01px] flex h-[44.963px] w-[161.348px] items-center justify-center" style={{ left: colCentre(812, 303.33) }} aria-hidden="true">
 					<div className="stak-sheet-in flex rotate-[-2.15deg] items-center gap-[9px] overflow-clip rounded-[18px] bg-[rgba(36,43,61,0.48)] px-[16px] py-[11px]">
 						<img alt="" src={D.toastBookmark} className="size-[17px]" />
 						<p className="whitespace-nowrap font-geist text-[12px] font-medium leading-[16px] text-white">{deckCopy.toast}</p>

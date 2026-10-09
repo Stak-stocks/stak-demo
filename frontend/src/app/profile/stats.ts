@@ -12,7 +12,7 @@ export function useProfileStats() {
 	const live = useLive();
 	const portfolio = usePortfolio();
 	const taste = useTaste();
-	const deck = useDeck();
+	const deck = useDeck({ quotes: false }); // progress only: Home and the hub never show card prices
 	return useMemo(() => {
 		const saves = live.saves.length;
 		const techSaves = live.saves.filter((s) => isTech(s.ticker)).length;

@@ -69,12 +69,17 @@ function StockPage() {
 
 	const toggleSaved = async () => {
 		// the real save decides; `?saved=1` only previews the look until the person acts
-		if (live.savedTickers.has(stock.symbol.toUpperCase())) {
-			await live.actions.unsave(stock.symbol);
-			toast("Removed from My STAK");
-		} else {
-			await live.actions.save(stock.symbol, price || null);
-			toast("Saved to My STAK");
+		try {
+			if (live.savedTickers.has(stock.symbol.toUpperCase())) {
+				await live.actions.unsave(stock.symbol);
+				toast("Removed from My STAK");
+			} else {
+				await live.actions.save(stock.symbol, price || null);
+				toast("Saved to My STAK");
+			}
+		} catch {
+			toast("Could not update My STAK. Try again.");
+			return;
 		}
 		if (search.saved) update({ saved: undefined });
 	};
@@ -82,7 +87,7 @@ function StockPage() {
 	const confirmBuy = async (amount: number) => {
 		try {
 			const pos = await live.actions.buy(stock.symbol, amount, price);
-			setPhase({ kind: "filled", shares: pos.shares, cash: Math.round((live.cash - amount) * 100) / 100 });
+			setPhase({ kind: "filled", shares: pos.shares, cash: pos.cashAfter });
 			if (search.ticket || search.sheet) update({ ticket: undefined, sheet: undefined });
 			toast("Order filled");
 		} catch {

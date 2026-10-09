@@ -86,9 +86,10 @@ function derive(live: Live, moves: { ticker: string; pct: number }[], now: numbe
 
 export function useNotifications() {
 	const live = useLive();
-	const saved = useMemo(() => [...live.savedTickers].slice(0, 24), [live.savedTickers]);
+	const saved = useMemo(() => [...live.savedTickers].slice(0, 12), [live.savedTickers]); // the most recent saves are enough for the "moving today" notices
 	const quotes = useQuotes(saved);
-	const now = Date.now();
+	const minute = Math.floor(Date.now() / 60_000); // the inbox re-derives at most once a minute, not on every render
+	const now = minute * 60_000;
 
 	const items = useMemo<Notice[]>(() => {
 		const moves = saved
@@ -107,7 +108,7 @@ export function useNotifications() {
 			.filter((n) => !dismissed.has(n.id))
 			.sort((a, b) => b.at - a.at)
 			.map((n) => ({ ...n, unread: !read.has(n.id) }));
-	}, [live, saved, quotes, now]);
+	}, [live, saved, quotes, now]); // `now` only changes with `minute`
 
 	const unread = items.filter((n) => n.unread).length;
 	const markAllRead = useCallback(() => live.actions.markRead(items.map((n) => n.id)), [live.actions, items]);

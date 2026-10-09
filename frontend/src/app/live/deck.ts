@@ -12,7 +12,7 @@ import { getLocalDateKey } from "@/lib/utils";
 import { allTickers, betaOf, brandByTicker, normalizeTicker, primaryCategoryOf, tickerLine, tickersInCategories } from "./catalog";
 import { changeLine, money, sentence } from "./format";
 import type { DeckProgress } from "./guest";
-import { hasDemoQuote, useApiHealth, useQuotes, type Quote } from "./quotes";
+import { hasDemoQuote, useApiHealthState, useQuotes, type Quote } from "./quotes";
 import { type Live, useLive } from "./store";
 
 export const DECK_SIZE = deckHeader.total;
@@ -152,6 +152,15 @@ export function buildDeckOrder(theme: DeckTheme, exclude: ReadonlySet<string>, s
 
 export type DeckCard = DeckCardData & { quote: Quote | null; saved: boolean; held: boolean };
 
+/** The card's headline box holds two lines (the authored lines run to 74 characters): one sentence, cut at a word when it must be. */
+export const HEADLINE_MAX = 76;
+export function fitHeadline(text: string): string {
+	const first = sentence(text.split(/(?<=[.!?])\s+/)[0] ?? text);
+	if (first.length <= HEADLINE_MAX) return first;
+	const cut = first.slice(0, HEADLINE_MAX - 1).replace(/\s+\S*$/, "");
+	return `${cut.replace(/[\s,;:.]+$/, "")}…`;
+}
+
 /** Card copy: the frames' authored lines for their three companies, the catalog's voice for the rest. */
 export function cardFor(ticker: string, quote: Quote | null, live?: Pick<Live, "savedTickers" | "positions">): DeckCard {
 	const T = normalizeTicker(ticker);
@@ -163,7 +172,7 @@ export function cardFor(ticker: string, quote: Quote | null, live?: Pick<Live, "
 		: {
 				symbol: T,
 				ticker: tickerLine(T),
-				headline: sentence(brandByTicker(T)?.personalityDescription || brandByTicker(T)?.bio || T),
+				headline: fitHeadline(brandByTicker(T)?.personalityDescription || brandByTicker(T)?.bio || T),
 				price,
 				change,
 				tip: tipFor(T),
@@ -174,6 +183,8 @@ export function cardFor(ticker: string, quote: Quote | null, live?: Pick<Live, "
 
 export type Deck = {
 	theme: DeckTheme;
+	/** false until the API probe has decided whether the deck draws on the live catalog or the demo table */
+	ready: boolean;
 	date: string;
 	order: string[];
 	cards: DeckCard[];
@@ -196,10 +207,12 @@ export type Deck = {
 	restart: () => void;
 };
 
-export function useDeck(): Deck {
+const NO_QUOTES: string[] = [];
+
+export function useDeck(opts: { quotes?: boolean } = {}): Deck {
 	const live = useLive();
 	const acct = useAccount();
-	const healthy = useApiHealth();
+	const { healthy, settled } = useApiHealthState();
 	const date = getLocalDateKey();
 	// today's stored deck decides the theme (so finishing it does not rotate it away); the rotation only picks the NEXT deck
 	const stored = live.deck && live.deck.date === date ? live.deck : null;
@@ -209,18 +222,19 @@ export function useDeck(): Deck {
 
 	const order = useMemo(() => {
 		if (progress) return progress.order;
+		if (!settled) return NO_QUOTES; // the probe decides whether the pool is the whole catalog or the demo table
 		const exclude = new Set<string>([...live.savedTickers, ...live.passed]);
 		return buildDeckOrder(theme, exclude, `${date}:${theme.key}:${live.uid ?? "guest"}`, !healthy);
 		// the order is frozen once persisted; saves made mid-deck must not reshuffle it
-	}, [progress, theme, date, live.uid, healthy, live.savedTickers, live.passed]);
+	}, [progress, settled, theme, date, live.uid, healthy, live.savedTickers, live.passed]);
 
 	// persist a freshly built deck once, so reloads and later saves keep the same twelve cards
 	useEffect(() => {
-		if (progress || !live.ready) return;
+		if (progress || !live.ready || !settled || order.length === 0) return;
 		live.actions.setDeck({ date, theme: theme.key, order, index: 0, saved: [], passed: [], bought: [] });
-	}, [progress, live.ready, live.actions, date, theme.key, order]);
+	}, [progress, settled, live.ready, live.actions, date, theme.key, order]);
 
-	const quotes = useQuotes(order);
+	const quotes = useQuotes(opts.quotes === false ? NO_QUOTES : order);
 	const cards = useMemo(() => order.map((t) => cardFor(t, quotes[t] ?? null, live)), [order, quotes, live]);
 	const index = Math.min(progress?.index ?? 0, order.length);
 	const decided = useMemo(
@@ -243,7 +257,8 @@ export function useDeck(): Deck {
 	const meter = useCallback(async () => {
 		if (!live.signedIn) return true;
 		try {
-			const r = await acct.incrementSwipeCount();
+			// bounded: a slow server must not hold the next card back; the count catches up on the next swipe
+			const r = await Promise.race([acct.incrementSwipeCount(), new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 1500))]);
 			if (!r.accepted) {
 				setLimitReached(true);
 				return false;
@@ -257,12 +272,17 @@ export function useDeck(): Deck {
 	const pass = useCallback(
 		async (ticker: string) => {
 			const T = normalizeTicker(ticker);
+			if (live.savedTickers.has(T)) {
+				// moving past a card the person kept is not a pass: it only advances the pointer
+				patch((p) => ({ index: Math.max(p.index, p.order.indexOf(T) + 1) }));
+				return true;
+			}
 			if (!(await meter())) return false;
 			patch((p) => ({ passed: [...new Set([...p.passed, T])], index: Math.max(p.index, p.order.indexOf(T) + 1) }));
 			live.actions.pass(T).catch(() => {});
 			return true;
 		},
-		[meter, patch, live.actions],
+		[meter, patch, live.actions, live.savedTickers],
 	);
 
 	const save = useCallback(
@@ -300,6 +320,7 @@ export function useDeck(): Deck {
 
 	return {
 		theme,
+		ready: !!progress || settled,
 		date,
 		order,
 		cards,

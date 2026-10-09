@@ -6,8 +6,8 @@
  * Screens never branch on the backend; they read `live` and call `live.actions`.
  */
 import { ACTION_POINTS, xpToTier } from "@stak/shared";
-import { doc, updateDoc } from "firebase/firestore";
-import { useEffect, useMemo } from "react";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { useAccount } from "@/context/AccountContext";
 import { useAuth } from "@/context/AuthContext";
 import { updateProfile } from "@/lib/api";
@@ -74,7 +74,7 @@ export type LiveActions = {
 	unsave: (ticker: string) => Promise<void>;
 	pass: (ticker: string) => Promise<void>;
 	/** Spend `dollars` of paper cash on `ticker` at `price`; throws "insufficient" when cash is short. */
-	buy: (ticker: string, dollars: number, price: number) => Promise<Position>;
+	buy: (ticker: string, dollars: number, price: number) => Promise<Fill>;
 	/** Sell `shares` of `ticker` at `price`; the proceeds return to cash and the sale is logged. */
 	sell: (ticker: string, shares: number, price: number) => Promise<SoldEntry>;
 	setDeck: (progress: DeckProgress | null | ((prev: DeckProgress | null) => DeckProgress | null)) => void;
@@ -90,6 +90,59 @@ export type LiveActions = {
 
 export type Live = LiveState & { actions: LiveActions };
 
+/** What a practice order actually did: the position plus the exact dollars charged and the cash left. */
+export type Fill = Position & { cost: number; cashAfter: number };
+
+/** One paper-budget initialisation per account per page load, however many useLive() instances mount. */
+const sandboxInitRequested = new Set<string>();
+
+/**
+ * Whether this browser had a signed-in session the last time auth settled. Only then is it worth
+ * holding the screens while Firebase restores it; a browser that never signed in shows the guest at once.
+ */
+const SESSION_FLAG = "stak.session.v1";
+const hadSession = () => {
+	try {
+		return localStorage.getItem(SESSION_FLAG) === "1";
+	} catch {
+		return false;
+	}
+};
+const rememberSession = (signedIn: boolean) => {
+	try {
+		if (signedIn) localStorage.setItem(SESSION_FLAG, "1");
+		else localStorage.removeItem(SESSION_FLAG);
+	} catch {
+		/* storage unavailable: the gate simply never holds */
+	}
+};
+
+/** A ceiling on the wait for Firebase: after 3 s the guest shows rather than a skeleton forever. */
+const grace = { over: false, started: false, listeners: new Set<() => void>() };
+function useAuthGraceOver(): boolean {
+	return useSyncExternalStore(
+		(listener) => {
+			grace.listeners.add(listener);
+			if (!grace.started) {
+				grace.started = true;
+				setTimeout(() => {
+					grace.over = true;
+					for (const l of grace.listeners) l();
+				}, 3000);
+			}
+			return () => grace.listeners.delete(listener);
+		},
+		() => grace.over,
+		() => true,
+	);
+}
+
+/** Accounts learn taste the way the guest does; the bump lands on the user document the mobile apps read. */
+function learnTaste(uid: string | null, scores: Record<string, number> | undefined, ticker: string, pts: number) {
+	if (!uid) return;
+	updateDoc(doc(db, "users", uid), { tagScores: bumpTags(scores ?? {}, ticker, pts) }).catch(() => {});
+}
+
 export function useLive(): Live {
 	const { user, loading: authLoading } = useAuth();
 	const acct = useAccount();
@@ -99,16 +152,25 @@ export function useLive(): Live {
 	const local = useStore(localStore(uid ?? "guest"));
 	const signedIn = !!user;
 	const sandboxCash = account?.sandboxCash;
+	const sessionExpected = useMemo(hadSession, []);
+	const graceOver = useAuthGraceOver();
+	const guestReady = !authLoading || !sessionExpected || graceOver;
+
+	useEffect(() => {
+		if (!authLoading) rememberSession(signedIn);
+	}, [authLoading, signedIn]);
 
 	// A signed-in account starts with the paper budget of its tier (the context does this lazily).
 	useEffect(() => {
-		if (signedIn && account && sandboxCash === undefined) acct.initSandboxCash().catch(() => {});
-	}, [signedIn, account, sandboxCash, acct.initSandboxCash]);
+		if (!signedIn || !uid || !account || sandboxCash !== undefined || sandboxInitRequested.has(uid)) return;
+		sandboxInitRequested.add(uid);
+		acct.initSandboxCash().catch(() => sandboxInitRequested.delete(uid));
+	}, [signedIn, uid, account, sandboxCash, acct.initSandboxCash]);
 
 	const state = useMemo<LiveState>(() => {
 		if (!signedIn) {
 			return {
-				ready: !authLoading,
+				ready: guestReady,
 				signedIn: false,
 				uid: null,
 				budget: GUEST_BUDGET,
@@ -129,10 +191,13 @@ export function useLive(): Live {
 				tagScores: guest.tagScores,
 			};
 		}
+		const created = user?.metadata?.creationTime ? Date.parse(user.metadata.creationTime) : Number.NaN;
+		// a save the mobile app recorded without a timestamp is at least as old as the account, never "56 years ago"
+		const fallbackSavedAt = Number.isNaN(created) ? Date.now() : created;
 		const ids = account?.stakBrandIds ?? [];
 		const saves: SaveEntry[] = ids.map((id) => {
 			const e = account?.stakSavedAt?.[id];
-			return { ticker: tickerOfBrandId(id), savedAt: e?.savedAt ?? 0, priceAtSave: e?.priceAtSave ?? null };
+			return { ticker: tickerOfBrandId(id), savedAt: e?.savedAt ?? fallbackSavedAt, priceAtSave: e?.priceAtSave ?? null };
 		});
 		const positions: Position[] = Object.entries(account?.sandboxPortfolio ?? {}).map(([ticker, p]) => ({
 			ticker: normalizeTicker(ticker),
@@ -140,7 +205,6 @@ export function useLive(): Live {
 			priceAtAdd: p.priceAtAdd,
 			addedAt: p.addedAt,
 		}));
-		const created = user?.metadata?.creationTime ? Date.parse(user.metadata.creationTime) : Number.NaN;
 		return {
 			ready: !authLoading && !acct.accountLoading,
 			signedIn: true,
@@ -162,7 +226,7 @@ export function useLive(): Live {
 			preferences: (account?.preferences ?? {}) as Preferences,
 			tagScores: account?.tagScores ?? {},
 		};
-	}, [signedIn, guest, account, local, uid, user, authLoading, acct.accountLoading, sandboxCash]);
+	}, [signedIn, guest, account, local, uid, user, authLoading, guestReady, acct.accountLoading, sandboxCash]);
 
 	const actions = useMemo<LiveActions>(() => {
 		const updateLocal = (patch: (s: LocalState) => Partial<LocalState>) => {
@@ -181,7 +245,9 @@ export function useLive(): Live {
 					return;
 				}
 				const id = brandIdOfTicker(T);
+				const fresh = !(account?.stakBrandIds ?? []).includes(id);
 				await acct.saveToStak(id, priceAtSave);
+				if (fresh) learnTaste(uid, account?.tagScores, T, SAVE_POINTS);
 				const passed = account?.passedBrands ?? [];
 				if (passed.some((e) => e.id === id)) await acct.updatePassedBrands(passed.filter((e) => e.id !== id));
 			},
@@ -207,15 +273,16 @@ export function useLive(): Live {
 				const passed = account?.passedBrands ?? [];
 				const existing = passed.find((e) => e.id === id);
 				await acct.updatePassedBrands([...passed.filter((e) => e.id !== id), { id, at: Date.now(), count: (existing?.count ?? 0) + 1 }]);
+				learnTaste(uid, account?.tagScores, T, PASS_POINTS);
 			},
 			buy: async (ticker, dollars, price) => {
 				const T = normalizeTicker(ticker);
 				const amount = round2(dollars);
 				if (!(amount > 0) || !(price > 0)) throw new Error("invalid");
-				if (amount > state.cash + 0.005) throw new Error("insufficient");
-				const shares = round4(amount / price);
 				const now = Date.now();
 				if (!signedIn) {
+					if (amount > state.cash + 0.005) throw new Error("insufficient");
+					const shares = round4(amount / price);
 					guestStore().update((s) => {
 						const existing = s.positions.find((p) => p.ticker === T);
 						const positions = existing
@@ -231,11 +298,21 @@ export function useLive(): Live {
 							: [...s.positions, { ticker: T, shares, priceAtAdd: price, addedAt: now }];
 						return { positions, cash: round2(s.cash - amount) };
 					});
-					return { ticker: T, shares, priceAtAdd: price, addedAt: now };
+					return { ticker: T, shares, priceAtAdd: price, addedAt: now, cost: amount, cashAfter: round2(state.cash - amount) };
 				}
-				const qty = roundShares(shares);
+				// accounts hold 3-dp quantities: quantise first, then charge exactly what that quantity costs
+				const qty = roundShares(amount / price);
+				const cost = round2(qty * price);
+				if (!(qty > 0) || cost > state.cash + 0.005) throw new Error("insufficient");
+				const before = account?.sandboxPortfolio?.[T]?.shares ?? 0;
 				await acct.addToSandbox(T, price, qty);
-				return { ticker: T, shares: qty, priceAtAdd: price, addedAt: now };
+				// the account context declines silently when the live balance is short: read the position back before saying "filled"
+				if (uid) {
+					const snap = await getDoc(doc(db, "users", uid));
+					const after = (snap.data() as { sandboxPortfolio?: Record<string, { shares?: number }> } | undefined)?.sandboxPortfolio?.[T]?.shares ?? 0;
+					if (!(after > before + 1e-9)) throw new Error("insufficient");
+				}
+				return { ticker: T, shares: qty, priceAtAdd: price, addedAt: now, cost, cashAfter: round2(state.cash - cost) };
 			},
 			sell: async (ticker, shares, price) => {
 				const T = normalizeTicker(ticker);

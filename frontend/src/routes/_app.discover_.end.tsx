@@ -34,8 +34,8 @@ function EndOfDeckPage() {
 		preview || seen >= DECK_SIZE
 			? endOfDeck.body
 			: seen === 0
-				? "Today’s deck is waiting. Twelve cards, twelve signals for your taste graph."
-				: `${seen} of twelve cards so far. Every swipe sharpens your taste graph.`;
+				? "Today’s deck is waiting. Twelve cards, twelve signals."
+				: `${seen} of twelve so far. Every swipe sharpens your taste graph.`;
 	return (
 		<div className="relative h-[936px]">
 			<BackCrumb crumb={endOfDeck.crumb} onBack={() => navigate({ to: "/discover" })} className="absolute left-[38px] top-[-44px]" />

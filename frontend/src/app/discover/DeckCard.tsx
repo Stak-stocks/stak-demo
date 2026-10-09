@@ -72,7 +72,7 @@ export function DeckCard({ card, slot, saved = false, onSave }: Props) {
 					<div className="flex w-full flex-col items-start gap-[8px]">
 						<p className="whitespace-nowrap font-geist text-[10.611px] leading-[14px] text-[#819abb]">{card.ticker}</p>
 						<div className="flex w-full flex-col items-start gap-[8px]">
-							<p className="w-full font-geist text-[16.978px] leading-[24.405px] text-white">{card.headline}</p>
+							<p className="line-clamp-2 min-h-[48.81px] w-full font-geist text-[16.978px] leading-[24.405px] text-white">{card.headline}</p>
 							<div className="flex items-baseline gap-[10px] overflow-clip whitespace-nowrap">
 								<p className="font-sora text-[21.222px] font-semibold leading-[27px] text-white">{card.price}</p>
 								<p className={cn("font-geist text-[11.672px] font-medium leading-[15px]", card.change.startsWith("▼") ? "text-[#e5484d]" : "text-[#2fd08a]")}>
@@ -83,7 +83,7 @@ export function DeckCard({ card, slot, saved = false, onSave }: Props) {
 					</div>
 					<div className="flex w-full items-center gap-[8px] overflow-clip rounded-[10.611px] bg-[rgba(105,179,202,0.1)] px-[13px] py-[10px]">
 						<p className="whitespace-nowrap font-geist text-[10.611px] font-medium leading-[13.26px] tracking-[0.955px] text-[#69b3ca]">TIP</p>
-						<p className="min-w-px flex-1 font-geist text-[11.672px] leading-[15.917px] text-[#c8d2e0]">{card.tip}</p>
+						<p className="line-clamp-2 min-w-px flex-1 font-geist text-[11.672px] leading-[15.917px] text-[#c8d2e0]">{card.tip}</p>
 					</div>
 				</div>
 			</div>
