@@ -116,7 +116,6 @@ export async function fetchSupabaseAccount(): Promise<UserDoc | null> {
 		bonusSwipes: u.bonus_swipes,
 		totalSwipeCount: u.total_swipe_count,
 		totalIntelViews: u.total_intel_views,
-		deckOrder: u.deck_order ?? [],
 		searchHistory,
 		tagScores: u.tag_scores ?? {},
 		lastBriefDate: u.last_brief_date ?? undefined,
@@ -255,10 +254,6 @@ export async function deletePassedBrandSupabase(brandId: string): Promise<void> 
 // affected. Verified directly: a two-user test confirmed only the calling user's own
 // row is ever touched, never the other user's, despite this condition matching both
 // rows' WHERE clause in isolation.
-export async function updateDeckOrderSupabase(order: string[]): Promise<void> {
-	await supabase.from("users").update({ deck_order: order }).not("uid", "is", null);
-}
-
 export async function updatePreferencesSupabase(prefs: UserDoc["preferences"]): Promise<void> {
 	await supabase.from("users").update({ preferences: prefs ?? {} }).not("uid", "is", null);
 }

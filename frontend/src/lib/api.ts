@@ -463,17 +463,6 @@ export function getSandboxTrades(limit = 50) {
 	return apiRequest<{ trades: SandboxTrade[] }>(`/api/sandbox/trades?limit=${limit}`);
 }
 
-export function getDeckOrder() {
-	return apiRequest<{ order: string[] }>("/api/me/deck-order");
-}
-
-export function saveDeckOrder(order: string[]) {
-	return apiRequest("/api/me/deck-order", {
-		method: "PUT",
-		body: JSON.stringify({ order }),
-	});
-}
-
 export function getDailySwipeCount() {
 	return apiRequest<{ date: string; count: number }>("/api/me/daily-swipes");
 }
@@ -755,16 +744,6 @@ export interface RecommendationDebugStock {
 		diversityAdjustment: number;
 	};
 	matchedUserTags: string[];
-}
-
-export interface FreshnessSignals {
-	majorNewsLast48h: string[];
-	unusualMovers: string[];
-	analystUpdatesLast7d: string[];
-}
-
-export function getRecommendationFreshness() {
-	return apiRequest<FreshnessSignals>("/api/recommendations/freshness");
 }
 
 export function getRecommendationDebug(limit = 50) {

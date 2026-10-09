@@ -191,28 +191,4 @@ describe("meRouter", () => {
 		expect(res.status).toBe(200);
 		expect(res.body).toEqual({ accepted: false, count: 20, limit: 20 });
 	});
-
-	// ── PUT /deck-order ──────────────────────────────────────────────────────────
-
-	it("PUT /deck-order returns 400 when order contains non-strings", async () => {
-		const app = await buildApp();
-
-		const res = await request(app)
-			.put("/deck-order")
-			.send({ order: ["aapl", 42] }); // 42 is not a string
-
-		expect(res.status).toBe(400);
-		expect(res.body.error).toMatch(/invalid deck order/i);
-	});
-
-	it("PUT /deck-order saves valid string array", async () => {
-		const app = await buildApp();
-
-		const res = await request(app)
-			.put("/deck-order")
-			.send({ order: ["aapl", "tsla", "nvda"] });
-
-		expect(res.status).toBe(200);
-		expect(res.body.order).toEqual(["aapl", "tsla", "nvda"]);
-	});
 });
