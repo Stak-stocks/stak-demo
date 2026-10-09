@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
  * Ghost is the same frame without a fill.
  */
 const base =
-	"flex h-[52px] w-full items-center justify-center overflow-clip rounded-[6px] border-[0.361px] border-solid border-[rgba(101,158,173,0.63)] font-geist text-[14px] font-medium leading-[20.69px] text-white";
+	"stak-press flex h-[52px] w-full cursor-pointer items-center justify-center overflow-clip rounded-[6px] border-[0.361px] border-solid border-[rgba(101,158,173,0.63)] font-geist text-[14px] font-medium leading-[20.69px] text-white";
 
 const primaryBg =
 	"linear-gradient(180deg, rgb(166, 228, 247) 8.8889%, rgb(93, 168, 191) 39.189%, rgb(60, 152, 180) 72.549%), linear-gradient(90deg, rgb(44, 157, 188) 0%, rgb(44, 157, 188) 100%)";
@@ -37,7 +37,7 @@ export function SheetBackButton({ className, ...rest }: ComponentProps<"button">
 		<button
 			type="button"
 			className={cn(
-				"flex h-[51px] w-full items-center justify-center rounded-[5.781px] border-[0.361px] border-solid border-[rgba(52,59,79,0.33)] px-[14px] py-[7px] font-sora text-[14.453px] text-[#819abb]",
+				"stak-press flex h-[51px] w-full cursor-pointer items-center justify-center rounded-[5.781px] border-[0.361px] border-solid border-[rgba(52,59,79,0.33)] px-[14px] py-[7px] font-sora text-[14.453px] text-[#819abb]",
 				className,
 			)}
 			style={{

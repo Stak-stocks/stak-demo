@@ -77,7 +77,7 @@ function ContentColumn({ stock, saved, c }: StockDetailProps & { c: Colors }) {
 							<button
 								key={per}
 								type="button"
-								className="flex items-start overflow-clip rounded-[8px] px-[10px] py-[4px]"
+								className="stak-press flex cursor-pointer items-start overflow-clip rounded-[8px] px-[10px] py-[4px]"
 								style={on ? { background: c.inner } : undefined}
 							>
 								<span
@@ -95,7 +95,7 @@ function ContentColumn({ stock, saved, c }: StockDetailProps & { c: Colors }) {
 				<div className="absolute left-[40px] top-[20px] flex flex-col items-start gap-[4px] overflow-clip whitespace-nowrap">
 					<p className="font-geist text-[12px] leading-[16px] text-[#819abb]">{stock.ticker}</p>
 					<p className="font-sora text-[34px] font-semibold leading-[43px] text-[#f2f6fc]">{stock.price}</p>
-					<p className="font-geist text-[13px] font-medium leading-[17px] text-[#2fd08a]">{stock.change}</p>
+					<p className={cn("font-geist text-[13px] font-medium leading-[17px]", stock.change.startsWith("▼") ? "text-[#e5484d]" : "text-[#2fd08a]")}>{stock.change}</p>
 				</div>
 			</Card>
 
@@ -170,7 +170,7 @@ function ContentColumn({ stock, saved, c }: StockDetailProps & { c: Colors }) {
 			{/* News signal */}
 			<Card c={c} className="flex w-full flex-col items-start gap-[12px] px-[16px] py-[14px]">
 				<p className="whitespace-nowrap font-sora text-[15px] font-semibold leading-[19px] text-[#f2f6fc]">{stock.news.title}</p>
-				<p className="whitespace-nowrap font-geist text-[11px] font-medium leading-[14px] text-[#2fd08a]">{stock.news.move}</p>
+				<p className={cn("whitespace-nowrap font-geist text-[11px] font-medium leading-[14px]", stock.news.move.startsWith("▼") ? "text-[#e5484d]" : "text-[#2fd08a]")}>{stock.news.move}</p>
 				{stock.news.lines.map((l) => (
 					<p key={l} className="w-[45.787%] font-geist text-[11px] leading-[14px] text-[#819abb]">
 						{l}
@@ -222,9 +222,14 @@ function ActionRail({ stock, saved, open, c, onToggleSaved, onToggleOpen, onPrac
 
 			{/* Analyst view */}
 			<Card c={c} className="flex w-full flex-col items-start gap-[12px] px-[16px] py-[14px]">
-				{open ? (
+				{!an ? (
 					<>
-						<button type="button" onClick={onToggleOpen} className="flex items-start">
+						<p className="whitespace-nowrap font-sora text-[15px] font-semibold leading-[19px] text-[#f2f6fc]">Analyst view</p>
+						<p className="whitespace-nowrap font-geist text-[11px] font-medium leading-[14px] text-[#819abb]">No analyst coverage yet</p>
+					</>
+				) : open ? (
+					<>
+						<button type="button" onClick={onToggleOpen} className="stak-press flex cursor-pointer items-start">
 							<p className="whitespace-nowrap font-sora text-[15px] font-semibold leading-[19px] text-[#f2f6fc]">{an.title}</p>
 						</button>
 						<p className="whitespace-nowrap font-geist text-[10px] leading-[13px] tracking-[0.8px] text-[#819abb]">{an.rangeLabel}</p>
@@ -279,7 +284,7 @@ function ActionRail({ stock, saved, open, c, onToggleSaved, onToggleOpen, onPrac
 					</>
 				) : (
 					<>
-						<button type="button" onClick={onToggleOpen} className="flex w-full items-start justify-between">
+						<button type="button" onClick={onToggleOpen} className="stak-press flex w-full cursor-pointer items-start justify-between">
 							<p className="whitespace-nowrap font-sora text-[15px] font-semibold leading-[19px] text-[#f2f6fc]">{an.title}</p>
 							<img alt="" src={S.caret} className="size-[20px] shrink-0" />
 						</button>

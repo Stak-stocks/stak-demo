@@ -1,7 +1,46 @@
-/** Stock detail copy (Figma 2:3457 … 2:4161, 2:4970 … 2:5402 — AAPL), verbatim. */
-export type StockDetailData = typeof stockDetails.AAPL;
+/** Stock detail content. The AAPL entry is the frames' copy (2:3457 … 2:4161, 2:4970 … 2:5402), verbatim; every other ticker is built from the catalog and the live quote (see live.ts). */
 
-export const stockDetails = {
+export type StockStat = { label: string; value: string; note: string; good: boolean; outlined: boolean };
+export type StockArticle = { source: string; tone: string; text: string };
+export type AnalystView = {
+	title: string;
+	upside: string;
+	rangeLabel: string;
+	/** px of the 328-wide rail track, as authored */
+	rangeFill: number;
+	rangeMarker: number;
+	low: [string, string];
+	avg: [string, string];
+	high: [string, string];
+	consensusLabel: string;
+	consensusFill: number;
+	counts: string[];
+	recentLabel: string;
+	actions: { firm: string; rating: string; target: string }[];
+};
+
+export type StockDetailData = {
+	symbol: string;
+	name: string;
+	initial: string;
+	ticker: string;
+	price: string;
+	change: string;
+	changeShort: string;
+	shares: string;
+	periods: string[];
+	activePeriod: string;
+	saveIntro: { unsaved: string; saved: string; delta: string; body: string };
+	risk: { title: string; badge: string; low: string; high: string; markerLeft: number; note: string };
+	numbers: { title: string; stats: StockStat[]; footer: string };
+	news: { title: string; move: string; lines: string[]; articles: StockArticle[] };
+	cta: { save: string; unsave: string; buy: string; cash: string };
+	/** null when nobody covers the name yet */
+	analyst: AnalystView | null;
+	compare: { title: string; sub: string };
+};
+
+export const stockDetails: Record<string, StockDetailData> = {
 	AAPL: {
 		symbol: "AAPL",
 		name: "Apple Inc",
@@ -87,7 +126,7 @@ export const stockDetails = {
 		},
 		compare: { title: "Compare and learn", sub: "vs MSFT · GOOGL" },
 	},
-} as const;
+};
 
 /** The practice-buy ticket as the deck shows it for NVDA (Figma 2:3239). */
 export const deckTicket = {

@@ -49,7 +49,8 @@ async function fetchQuote(ticker: string): Promise<Quote | null> {
 	return { ticker, price: q.price, change: q.change ?? 0, changePercent: q.changePercent ?? 0, live: true };
 }
 
-const quoteQuery = (ticker: string, enabled: boolean) => ({
+/** The shared quote query (same key as useQuote / useQuotes) for screens that must know when a live quote is still loading. */
+export const quoteQuery = (ticker: string, enabled: boolean) => ({
 	queryKey: ["quote", ticker],
 	queryFn: () => fetchQuote(ticker),
 	enabled,
