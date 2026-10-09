@@ -1,15 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { usePaperPortfolio } from "@/hooks/usePaperPortfolio";
+import { usePaperPortfolio, usePortfolioHistory } from "@/hooks/usePaperPortfolio";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PortfolioHistoryDesktop } from "@/components/simulate/desktop/PortfolioHistoryDesktop";
-import { isUp, monthDay, signedUsd, usd } from "@/lib/simFormat";
+import { isUp, monthDay, signedPct, signedUsd, usd, wholeUsd } from "@/lib/simFormat";
 import { Badge, EmptyStateCard, Kicker, SIM } from "@/components/simulate/simKit";
 import { PortfolioRow } from "@/components/simulate/SimSections";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { BackCircle, PRESS, PhonePage, SettingsChip, f, focusRing, sheetCard } from "@/components/phone/phone";
 import { ShareCircle } from "@/components/simulate/simKit";
 import { portfolioShareText, shareText } from "@/lib/share";
+import { sharePicture, useShareCardPrep, type ShareCardSpec } from "@/lib/shareCard";
 
 export const Route = createFileRoute("/simulate_/portfolio")({
 	component: PortfolioRoute,
@@ -57,13 +58,33 @@ function PortfolioPage() {
 	const openPick = (ticker: string) => navigate({ to: "/simulate/pick/$symbol", params: { symbol: ticker } });
 	const count = paper.picks.length === 1 ? "1 pick" : `${paper.picks.length} picks`;
 	const empty = paper.picks.length === 0 && paper.realized.length === 0;
+	// The share picture's chart: the whole account, since it began (this page has no range of its own).
+	const { values: allValues } = usePortfolioHistory(paper.trades, paper.paperStart, "all", { cash: paper.cash + paper.openOrders.reduce((s, o) => s + o.amount, 0), shares: Object.fromEntries(paper.picks.map((p) => [p.ticker, p.shares])), value: paper.portfolioValue });
+	const allTimePct = paper.paperStart > 0 ? (paper.allTimeGain / paper.paperStart) * 100 : 0;
+	const allTimeUp = isUp(paper.allTimeGain);
+	// Nothing held or sold yet: no picture - the invite, in words.
+	const shareSpec: ShareCardSpec | null = empty ? null : {
+		kicker: "MY PORTFOLIO",
+		title: "My STAK portfolio",
+		subtitle: `Paper portfolio · started with ${wholeUsd(paper.paperStart)}`,
+		figure: usd(paper.portfolioValue),
+		line: `${allTimeUp ? "▲" : "▼"} ${signedUsd(paper.allTimeGain)} (${signedPct(allTimePct)}) since I started`,
+		up: allTimeUp,
+		values: allValues ?? [],
+	};
+	useShareCardPrep(shareSpec);
+	const share = () => {
+		const text = portfolioShareText(allTimePct, empty);
+		if (!shareSpec) { void shareText(text, "STAK"); return; }
+		void sharePicture(shareSpec, text, "stak-portfolio.png");
+	};
 
 	return (
 		<PhonePage>
 			<div className="relative flex items-center justify-between" style={{ padding: `${cu(8)} ${cu(18)}` }}>
 				<BackCircle onClick={() => navigate({ to: "/simulate" })} label="Back to Simulate" />
 				<h1 className="pointer-events-none absolute inset-x-0 text-center" style={{ font: f(600, 16, 20, "heading"), color: "#fff" }}>Your portfolio</h1>
-				<ShareCircle onClick={() => { void shareText(portfolioShareText((paper.allTimeGain / paper.paperStart) * 100, empty), "STAK"); }} />
+				<ShareCircle onClick={share} />
 			</div>
 
 			<div style={{ display: "flex", flexDirection: "column", gap: cu(16), padding: `${cu(6)} ${cu(20)} ${cu(26)}` }}>

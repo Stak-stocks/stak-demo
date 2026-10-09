@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { RANGE_SPOKEN } from "@/components/simulate/simKit";
 import { ArrowLeft, Bookmark, BookmarkCheck, LineChart, Sparkles } from "lucide-react";
 import type { ChartRange, LiveMetrics, StockUpdateDto } from "@/lib/api";
 import { usd } from "@/lib/simFormat";
@@ -8,7 +9,7 @@ import { DESK, DeskButton, deskFocus, deskPageBg } from "@/components/desktop/de
 import { Sparkline } from "@/components/desktop/Sparkline";
 import { AnalystCard, CompareCard, LessonCard, NewsSignalCard, NumbersCard, RiskAndWatch, SinceYouSavedCard } from "./StockModules";
 
-const RANGES: ReadonlyArray<readonly [ChartRange, string]> = [["1d", "1D"], ["1w", "1W"], ["1m", "1M"], ["3m", "3M"], ["ytd", "YTD"], ["1y", "1Y"]];
+const RANGES: ReadonlyArray<readonly [ChartRange, string]> = [["1d", "1D"], ["1w", "1W"], ["1m", "1M"], ["3m", "3M"], ["ytd", "YTD"], ["1y", "1Y"], ["5y", "5Y"], ["max", "MAX"]];
 
 function Logo({ src, name }: { src: string | null; name: string }) {
 	const [failed, setFailed] = useState(false);
@@ -132,6 +133,7 @@ export function StockDesktop(p: StockDesktopProps) {
 												key={key}
 												type="button"
 												aria-pressed={on}
+												aria-label={RANGE_SPOKEN[key] ?? label}
 												onClick={() => p.onRange(key)}
 												className={`rounded-[8px] px-3 py-[5px] text-[12.5px] font-medium transition-colors ${deskFocus}`}
 												style={on ? { background: DESK.cyanSoft, color: DESK.cyan, boxShadow: `inset 0 0 0 1px ${DESK.borderStrong}` } : { color: DESK.muted }}

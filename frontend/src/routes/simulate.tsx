@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { SANDBOX_DEFAULT_STARTING_BALANCE } from "@stak/shared";
 import { useMemo, useState } from "react";
-import type { ChartRange } from "@/lib/api";
+import type { PortfolioRange } from "@/lib/api";
 import { useAccount } from "@/context/AccountContext";
 import { useMyStakData } from "@/hooks/useMyStakData";
 import { usePaperPortfolio } from "@/hooks/usePaperPortfolio";
@@ -49,7 +49,7 @@ function SimulatePage() {
 	const { account } = useAccount();
 	const { allBrands, swipedBrands } = useMyStakData();
 	const paper = usePaperPortfolio();
-	const [range, setRange] = useState<ChartRange>("3m");
+	const [range, setRange] = useState<PortfolioRange>("3m");
 	const [buying, setBuying] = useState<{ symbol: string; company: string } | null>(null);
 
 	// Newest saves first; the ticket for a saved stock opens on its live price.

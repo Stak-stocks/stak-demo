@@ -18,6 +18,8 @@ struct SimPortfolioView: View {
 
 	@State private var showSell = false
 	@State private var showClosed = false
+	/// The share picture's chart: the whole account, since it began (this page has no range of its own).
+	@State private var allHistory: [PortfolioHistory.Point]? = nil
 	// The authored chips now sort the rows (FigJam Simulate board, 2026-09-14):
 	// Top gainers = biggest dollar gain first, Newest = the ledger's order (a
 	// fresh buy sits at the top), Worst = smallest gain first.
@@ -49,14 +51,13 @@ struct SimPortfolioView: View {
 						.foregroundStyle(Color.white)
 						.accessibilityAddTraits(.isHeader)
 					Spacer()
-					ShareLink(item: portfolio.portfolioShareText) {
-						ZStack {
-							Circle().fill(Sim.cardBg)
-							Image("IcNewsShare")
-								.resizable()
-								.frame(width: 18 * u, height: 18 * u) // 1:4517 icon/share is 18 (exact-design audit 2026-09-04)
+					// The demo's authored figures, or an empty account: the invite, in words. Otherwise a picture.
+					Group {
+						if portfolio.demo || (portfolio.positions.isEmpty && portfolio.realized.isEmpty) {
+							ShareLink(item: portfolio.portfolioShareText) { shareIcon(u) }
+						} else {
+							Button { sharePortfolio() } label: { shareIcon(u) }
 						}
-						.frame(width: 40 * u, height: 40 * u)
 					}
 					.buttonStyle(.pressDim)
 					.accessibilityLabel("Share")
@@ -162,9 +163,49 @@ struct SimPortfolioView: View {
 				do { try await Task.sleep(nanoseconds: livePriceInterval) } catch { return }
 			}
 		}
+		// The share picture's chart, rebuilt when the ledger or what's held changes.
+		.task(id: historyKey) {
+			guard !portfolio.demo else { return }
+			allHistory = await PortfolioHistory.build(portfolio.trades, cash: portfolio.uninvested, holdings: portfolio.heldShares, range: "ALL")
+		}
 	}
 
 	private var heldSymbols: [String] { portfolio.positions.map(\.spec.symbol) }
+
+	/// The ledger's identity for the share chart: its size, its newest trade and what's held now.
+	private var historyKey: String {
+		let held = portfolio.heldShares.sorted { $0.key < $1.key }.map { "\($0.key):\($0.value)" }.joined(separator: ",")
+		return "\(portfolio.trades.count)-\(portfolio.trades.first?.amount ?? 0)-\(held)-\(portfolio.demo)"
+	}
+
+	/// The 40 share circle (1:4517 icon/share is 18 - exact-design audit 2026-09-04).
+	private func shareIcon(_ u: CGFloat) -> some View {
+		ZStack {
+			Circle().fill(Sim.cardBg)
+			Image("IcNewsShare")
+				.resizable()
+				.frame(width: 18 * u, height: 18 * u)
+		}
+		.frame(width: 40 * u, height: 40 * u)
+	}
+
+	/// The share: a picture of the account since it began - its value, return and line - with its line in words.
+	private func sharePortfolio() {
+		let gain = portfolio.allTimeGain
+		let up = gain.rounded() >= 0
+		let pct = portfolio.paperStart > 0 ? gain / portfolio.paperStart * 100 : 0
+		let values = allHistory.map { PortfolioHistory.endingToday($0, value: portfolio.portfolioValue).map(\.value) } ?? []
+		ShareCard.share(ShareCard.Spec(
+			kicker: "MY PORTFOLIO",
+			title: "My STAK portfolio",
+			subtitle: "Paper portfolio · started with \(PaperPortfolio.wholeDollars(portfolio.paperStart))",
+			figure: PaperPortfolio.money(portfolio.portfolioValue),
+			line: "\(up ? "▲" : "▼") \(PaperPortfolio.signedMoney(gain)) (\(PaperPortfolio.signedPct(pct))) since I started",
+			up: up,
+			note: nil,
+			values: values
+		), text: portfolio.portfolioShareText)
+	}
 }
 
 private struct FilterChip: View {

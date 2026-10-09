@@ -1,7 +1,11 @@
 import SwiftUI
 
-/// The six range labels every chart offers; "3M" is the authored default and keeps each frame's exported line.
-let rangeLabels = ["1D", "1W", "1M", "3M", "YTD", "1Y"]
+/// A stock chart's ranges (5Y weekly closes, MAX the whole listed history); "3M" is the authored default and keeps each
+/// frame's exported line. Mirrors android RANGE_LABELS.
+let rangeLabels = ["1D", "1W", "1M", "3M", "YTD", "1Y", "5Y", "MAX"]
+
+/// The portfolio chart's: a simulated account is new, so it has ALL (since it began) where a stock has 5Y and MAX.
+let portfolioRangeLabels = ["1D", "1W", "1M", "3M", "YTD", "1Y", "ALL"]
 
 /// The demo account's chart at a range. "3M" shows the authored export (`authored`); every other range draws the
 /// shared demo series in the same box - a `tint` 2-wide round stroke and nothing else: every authored "Chart line" is a
@@ -50,16 +54,19 @@ struct RangeLineChart: View {
 	}
 }
 
-/// The authored 39x22.5 teal pill row; `selected` follows the tap.
+/// The authored 39x22.5 teal pill row; `selected` follows the tap. Spread across the card's width, so seven or eight
+/// pills fit as six did.
 struct RangePills: View {
 	@Binding var selected: String
 	let tint: Color
 	let muted: Color
+	var labels: [String] = rangeLabels
 
 	var body: some View {
 		let u = figmaUnit
-		HStack(spacing: 37 * u) {
-			ForEach(rangeLabels, id: \.self) { label in
+		HStack(spacing: 0) {
+			ForEach(Array(labels.enumerated()), id: \.element) { index, label in
+				if index > 0 { Spacer(minLength: 0) }
 				Button { selected = label } label: {
 					if label == selected {
 						Text(label)
@@ -84,12 +91,15 @@ struct RangePills: View {
 				.accessibilityAddTraits(label == selected ? .isSelected : [])
 			}
 		}
+		.padding(.horizontal, 8 * u)
+		.frame(width: 343 * u)
 	}
 }
 
 /// What VoiceOver says for each range pill.
 let rangeSpoken: [String: String] = [
 	"1D": "1 day", "1W": "1 week", "1M": "1 month", "3M": "3 months", "YTD": "Year to date", "1Y": "1 year",
+	"5Y": "5 years", "MAX": "All time", "ALL": "Since you started",
 ]
 
 /// A line through `series` (fractions of the height, 0 = bottom) across its frame - a 2-wide round stroke, the authored

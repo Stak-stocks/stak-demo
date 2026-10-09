@@ -90,6 +90,13 @@ fun SimPortfolioScreen(
 	val scope = androidx.compose.runtime.rememberCoroutineScope()
 	val context = androidx.compose.ui.platform.LocalContext.current
 	val heldSymbols = PaperPortfolio.positions.map { it.spec.symbol }.distinct()
+	// The share picture's chart: the whole account, since it began (this page has no range of its own) - rebuilt
+	// when the ledger or what's held changes.
+	var allHistory by remember { mutableStateOf<List<PortfolioHistory.Point>?>(null) }
+	val ledgerKey = "${PaperPortfolio.trades.size}-${PaperPortfolio.trades.firstOrNull()?.amount}-${PaperPortfolio.heldShares}"
+	androidx.compose.runtime.LaunchedEffect(ledgerKey, PaperPortfolio.demo) {
+		if (!PaperPortfolio.demo) allHistory = PortfolioHistory.build(PaperPortfolio.trades, PaperPortfolio.uninvested, PaperPortfolio.heldShares, "ALL")
+	}
 	if (!PaperPortfolio.demo) {
 		com.stak.demo.ui.components.RefreshWhileVisible(key = heldSymbols, intervalMs = com.stak.demo.ui.components.LIVE_PRICE_INTERVAL_MS, tickOnResume = true) {
 			scope.launch { com.stak.demo.data.LiveQuotes.refresh(heldSymbols) }
@@ -125,9 +132,35 @@ fun SimPortfolioScreen(
 							indication = com.stak.demo.ui.theme.PressDim,
 							role = androidx.compose.ui.semantics.Role.Button,
 						) {
-							val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
-								.putExtra(android.content.Intent.EXTRA_TEXT, PaperPortfolio.portfolioShareText)
-							runCatching { context.startActivity(android.content.Intent.createChooser(send, "Share portfolio")) }
+							val text = PaperPortfolio.portfolioShareText
+							if (PaperPortfolio.demo || (PaperPortfolio.positions.isEmpty() && PaperPortfolio.realized.isEmpty())) {
+								// The demo's figures are authored, and an empty account has nothing to picture: the invite, in words.
+								val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+									.putExtra(android.content.Intent.EXTRA_TEXT, text)
+								runCatching { context.startActivity(android.content.Intent.createChooser(send, "Share portfolio")) }
+							} else {
+								val gain = PaperPortfolio.allTimeGain
+								val up = Math.round(gain) >= 0
+								val pct = if (PaperPortfolio.paperStart > 0.0) gain / PaperPortfolio.paperStart * 100.0 else 0.0
+								val values = allHistory?.let { PortfolioHistory.endingToday(it, PaperPortfolio.portfolioValue) }?.map { it.value }.orEmpty()
+								com.stak.demo.ui.components.ShareCard.share(
+									context,
+									scope,
+									com.stak.demo.ui.components.ShareCard.Spec(
+										kicker = "MY PORTFOLIO",
+										title = "My STAK portfolio",
+										subtitle = "Paper portfolio · started with " + "$" + String.format(java.util.Locale.US, "%,.0f", PaperPortfolio.paperStart),
+										figure = PaperPortfolio.usd(PaperPortfolio.portfolioValue),
+										line = "${if (up) "▲" else "▼"} ${PaperPortfolio.signedUsd(gain)} (${PaperPortfolio.signedPct(pct)}) since I started",
+										up = up,
+										note = null,
+										values = values,
+									),
+									text,
+									"Share portfolio",
+									"stak-portfolio.png",
+								)
+							}
 						},
 				) {
 					Image(painterResource(R.drawable.ic_news_share), "Share", modifier = Modifier.size((18 * u).dp)) // 1:4517 icon/share is 18 (exact-design audit 2026-09-04)

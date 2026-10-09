@@ -543,7 +543,9 @@ stockRouter.get("/trending", async (req, res) => {
 });
 
 const CATALOGUE_TICKERS = new Set(brands.map((b) => b.ticker.toUpperCase()));
-const CHART_RANGES = new Set(["1d", "1w", "1m", "3m", "ytd", "1y"]);
+// 2y is the portfolio's own (ALL on an account over a year old: daily closes, where 5y's weekly bars would price a
+// trade with its week's last close); no stock page offers it.
+const CHART_RANGES = new Set(["1d", "1w", "1m", "3m", "ytd", "1y", "2y", "5y", "max"]);
 
 /** Promise.all with at most `limit` of `fn` running at once; results keep input order. */
 async function mapWithLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
@@ -2225,6 +2227,17 @@ async function chartPricesFor(symbol: string, range: string): Promise<ChartPaylo
 	} else if (range === "1y") {
 		from = now - 365 * 24 * 60 * 60;
 		interval = "1d"; cacheTtl = 4 * 60 * 60 * 1000;
+	} else if (range === "2y") {
+		from = now - Math.round(2 * 365.25 * 24 * 60 * 60);
+		interval = "1d"; cacheTtl = 4 * 60 * 60 * 1000;
+	} else if (range === "5y") {
+		// Weekly closes: ~260 points, the same density the year has in days.
+		from = now - Math.round(5 * 365.25 * 24 * 60 * 60);
+		interval = "1wk"; cacheTtl = 12 * 60 * 60 * 1000;
+	} else if (range === "max") {
+		// The whole listed history, monthly (decades of it for the oldest companies).
+		from = 0;
+		interval = "1mo"; cacheTtl = 24 * 60 * 60 * 1000;
 	} else { // 1m default
 		from = now - 35 * 24 * 60 * 60;
 		interval = "1d"; cacheTtl = 4 * 60 * 60 * 1000;
@@ -2232,8 +2245,8 @@ async function chartPricesFor(symbol: string, range: string): Promise<ChartPaylo
 
 	try {
 		const prePostParam = prePost ? "&includePrePost=true" : "";
-		// 1d asks for the most recent session by name; every other range is a window.
-		const window = range === "1d" ? "range=1d" : `period1=${from}&period2=${now}`;
+		// 1d and max ask Yahoo by name (the latest session; everything there is); every other range is a window.
+		const window = range === "1d" ? "range=1d" : range === "max" ? "range=max" : `period1=${from}&period2=${now}`;
 		const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?${window}&interval=${interval}${prePostParam}`;
 		const r = await fetch(url, {
 			headers: { "User-Agent": "Mozilla/5.0" },
@@ -2284,6 +2297,15 @@ async function chartPricesFor(symbol: string, range: string): Promise<ChartPaylo
 		// on a daily bar it can be a real scare the stock recovered from the next
 		// morning, and throwing that away would be editing history rather than
 		// cleaning it. prePost is set for exactly the intraday ranges (1d, 1w).
+		// A recent listing's whole history is a handful of monthly bars (one, the month it listed): MAX draws it from
+		// the finer range that covers it instead - daily within a year, weekly within five.
+		if (range === "max" && prices.length < 24) {
+			const finer = await chartPricesFor(symbol, prices.length < 13 ? "1y" : "5y");
+			if (finer.prices.length > prices.length) {
+				await cacheSet(cacheKey, finer, cacheTtl);
+				return finer;
+			}
+		}
 		const payload = { prices: prePost ? withoutBadTicks(prices) : prices };
 		await cacheSet(cacheKey, payload, cacheTtl);
 		return payload;
@@ -2303,9 +2325,10 @@ async function emptyChart(cacheKey: string): Promise<ChartPayload> {
 	return payload;
 }
 
-// GET /api/stock/:symbol/chart?range=1d|1w|1m|3m|ytd|1y
+// GET /api/stock/:symbol/chart?range=1d|1w|1m|3m|ytd|1y|5y|max
 stockRouter.get("/:symbol/chart", async (req, res) => {
 	const symbol = (req.params["symbol"] as string).toUpperCase();
-	const range = (req.query.range as string) || "1m";
+	// An unknown range is 1m - and cached as 1m, not under its own key.
+	const range = CHART_RANGES.has(req.query.range as string) ? (req.query.range as string) : "1m";
 	res.json(await chartPricesFor(symbol, range));
 });

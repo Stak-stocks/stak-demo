@@ -96,10 +96,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			return;
 		}
 		setLoading(true);
+		// A newer run (another account, a sign-out) owns the state from here.
+		let cancelled = false;
+		let signingOut = false;
 		Promise.all([
 			supabase.rpc("current_firebase_uid"),
 			supabase.auth.getSession(),
-		]).then(([uidResult, sessionResult]) => {
+			// The saved session is trusted from storage until something asks the auth server, and the database accepts its
+			// token while it's unexpired - so a session the server has already ended (signed out elsewhere, timed out)
+			// used to open Home, then bounce to the landing page a moment later when its refresh failed. Ask first.
+			supabase.auth.getUser(),
+		]).then(([uidResult, sessionResult, userResult]) => {
+			if (cancelled) return;
+			// Only when the server says the session or the account is gone: the session-missing error, or those two codes.
+			// Not a bare 403 - an expired token on a device whose clock runs slow says that too, and its refresh still
+			// works - and not a network failure, which proves nothing.
+			const err = userResult.error as { name?: string; code?: string } | null;
+			if (err && (err.name === "AuthSessionMissingError" || err.code === "session_not_found" || err.code === "user_not_found")) {
+				signingOut = true;
+				// Cleared here whatever the sign-out call does (it also asks the server, which may be unreachable), so
+				// the spinner can't stay up: a null user ends the loading.
+				void supabase.auth.signOut({ scope: "local" }).catch(() => {}).finally(() => { if (!cancelled) setSupabaseUserId(null); });
+				return;
+			}
 			// current_firebase_uid() is null for brand-new Supabase-only users whose
 			// auth_identity_map row hasn't been created yet (first backend request
 			// triggers on-demand provisioning). Fall back to the Supabase UUID, which
@@ -117,7 +136,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 					createdAt: session.user.created_at ?? null,
 				});
 			}
-		}).finally(() => setLoading(false));
+		// Signing out keeps the spinner up until the user is cleared, which ends the loading.
+		}).finally(() => { if (!cancelled && !signingOut) setLoading(false); });
+		return () => { cancelled = true; };
 	}, [supabaseUserId]);
 
 	// Inactivity auto-logout: 30 minutes of no user activity signs the session out.

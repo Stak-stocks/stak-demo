@@ -335,11 +335,27 @@ internal object PaperPortfolio {
 	// The share buttons' lines (pick page, portfolio page): the return in percent, never the dollars. The demo's
 	// authored numbers aren't anyone's, and an empty portfolio has nothing to tell - both share the invite.
 	/** A pick's line - "just picked" while its gain still reads 0.0%. */
-	fun pickShareText(spec: PickSpec): String = when {
+	fun pickShareText(spec: PickSpec, range: RangeShare? = null): String = when {
 		demo -> com.stak.demo.ui.profile.STAK_INVITE_TEXT
+		range != null -> {
+			val shown = String.format(Locale.US, "%.1f", kotlin.math.abs(range.pct))
+			val move = if (shown == "0.0") "flat" else "${if (range.up) "up" else "down"} $shown%"
+			"I'm paper trading ${spec.symbol} on STAK - it's $move ${shareRangeWord(range.range)}. $SHARE_TAIL"
+		}
 		spec.gainPct == "0.0%" -> "I just picked ${spec.symbol} on STAK. $SHARE_TAIL"
 		else -> "I'm paper trading ${spec.symbol} on STAK - ${if (spec.up) "up" else "down"} ${spec.gainPct} since I picked it. $SHARE_TAIL"
 	}
+
+	/** A pick's move over the range on screen, for its share line ("it's up 6.9% past month"). */
+	data class RangeShare(val up: Boolean, val pct: Double, val range: String)
+
+	/**
+	 * A range's word in the sharer's own voice: "past month", "since I started" - and 1D's the picture's own session word
+	 * ("today", or "on Friday" before the open and at weekends; web's shareRangeWord).
+	 */
+	fun shareRangeWord(range: String): String =
+		if (range.equals("1D", ignoreCase = true)) com.stak.demo.data.StakClock.sessionChange("x today").removePrefix("x ")
+		else rangeWord(range).replace("since you started", "since I started")
 
 	/** The portfolio's line - its all-time return. */
 	val portfolioShareText: String
@@ -348,7 +364,7 @@ internal object PaperPortfolio {
 			val pct = allTimeGain / paperStart * 100
 			val shown = String.format(Locale.US, "%.1f", kotlin.math.abs(pct))
 			val move = if (shown == "0.0") "even" else "${if (pct > 0) "up" else "down"} $shown%"
-			return "My STAK paper portfolio is $move so far. $SHARE_TAIL"
+			return "My STAK paper portfolio is $move since I started. $SHARE_TAIL"
 		}
 
 	private const val SHARE_TAIL = "Practice investing with paper money: https://thestak.org"
@@ -781,7 +797,7 @@ internal object PaperPortfolio {
 
 	// The sign is the shown figure's: a gain that rounds to nothing reads "+$0", never a red "-$0" (cost rounding
 	// leaves a first buy a fraction of a cent down).
-	/** The US Eastern epoch day a range pill starts on (1W a week back, 1M a month, YTD January 1...). */
+	/** The US Eastern epoch day a range pill starts on (1W a week back, 1M a month, YTD January 1...); ALL from the start. */
 	fun rangeStartDay(range: String, now: java.time.LocalDate = java.time.LocalDate.now(java.time.ZoneId.of("America/New_York"))): Long =
 		when (range.uppercase(Locale.US)) {
 			"1W" -> now.minusDays(7)
@@ -789,6 +805,8 @@ internal object PaperPortfolio {
 			"3M" -> now.minusMonths(3)
 			"YTD" -> now.withDayOfYear(1)
 			"1Y" -> now.minusYears(1)
+			"5Y" -> now.minusYears(5)
+			"MAX", "ALL" -> java.time.LocalDate.ofEpochDay(0)
 			else -> now
 		}.toEpochDay()
 
@@ -823,6 +841,9 @@ internal object PaperPortfolio {
 		"3M" -> "past 3 months"
 		"YTD" -> "this year"
 		"1Y" -> "past year"
+		"5Y" -> "past 5 years"
+		"MAX" -> "all time"
+		"ALL" -> "since you started"
 		else -> ""
 	}
 

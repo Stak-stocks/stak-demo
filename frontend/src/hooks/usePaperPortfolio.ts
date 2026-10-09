@@ -5,7 +5,7 @@ import { useAccount, type SandboxOrder, type SandboxStrategyId } from "@/context
 import { useBrandsList } from "@/hooks/useBrandsList";
 import {
 	getBatchQuotes, getSandboxTrades, getStockChart, sandboxBuyAmount, sandboxCancelOrder, sandboxPlaceOrder, sandboxSellPortion, sandboxSetup,
-	type ChartRange, type SandboxTrade,
+	type PortfolioRange, type PriceRange, type SandboxTrade,
 } from "@/lib/api";
 import { buildLedgerSeries, type ChartValuePoint } from "@/lib/ledgerChart";
 import { dailyCloses, etDay } from "@/lib/chartSeries";
@@ -161,13 +161,22 @@ export function usePaperPortfolio(): PaperPortfolio {
 }
 
 /**
+ * The shortest daily price range that reaches back to [fromMs] (a trade's time), counted in market days as the apps
+ * count them: ALL's price range. Daily all the way - weekly bars would price a trade with its week's last close.
+ */
+export function rangeCovering(fromMs: number, now = Date.now()): PriceRange {
+	const days = Math.round((Date.parse(etDay(new Date(now).toISOString())) - Date.parse(etDay(new Date(fromMs).toISOString()))) / (24 * 60 * 60 * 1000));
+	return days <= 6 ? "1w" : days <= 30 ? "1m" : days <= 88 ? "3m" : days <= 360 ? "1y" : days <= 725 ? "2y" : "5y";
+}
+
+/**
  * The portfolio's value over time, replayed from the trade ledger at one point per trading day.
  * Null while there is nothing honest to draw ("No history yet").
  */
 export function usePortfolioHistory(
 	trades: SandboxTrade[],
 	paperStart: number,
-	range: ChartRange,
+	range: PortfolioRange,
 	/** Today's cash (with open orders' stakes) and shares - the replay runs backward from it (buildLedgerSeries). */
 	now?: { cash: number; shares: Record<string, number>; value?: number },
 ): { values: number[] | null; points: ChartValuePoint[] | null; loading: boolean } {
@@ -177,11 +186,14 @@ export function usePortfolioHistory(
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[trades, nowKey],
 	);
+	// ALL reads the shortest price range that reaches back to the first trade (the line starts there anyway).
+	const firstTradeMs = trades.length > 0 ? Math.min(...trades.map((t) => Date.parse(t.executedAt))) : Date.now();
+	const priceRange: PriceRange = range === "all" ? rangeCovering(firstTradeMs) : range;
 	const charts = useQueries({
 		queries: traded.map((ticker) => ({
-			queryKey: ["stock-chart", ticker, range],
-			queryFn: () => getStockChart(ticker, range),
-			staleTime: range === "1d" ? 5 * 60 * 1000 : 30 * 60 * 1000,
+			queryKey: ["stock-chart", ticker, priceRange],
+			queryFn: () => getStockChart(ticker, priceRange),
+			staleTime: priceRange === "1d" ? 5 * 60 * 1000 : 30 * 60 * 1000,
 			retry: 1,
 		})),
 	});

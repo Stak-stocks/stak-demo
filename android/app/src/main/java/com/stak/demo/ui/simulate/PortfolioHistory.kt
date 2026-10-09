@@ -45,6 +45,22 @@ internal object PortfolioHistory {
 		return closes
 	}
 
+	/**
+	 * The shortest daily price range that reaches back to [fromDay] (a trade's day): ALL's price range (web's
+	 * rangeCovering). Daily all the way - weekly bars would price a trade with its week's last close.
+	 */
+	fun rangeCovering(fromDay: Long, today: Long): String {
+		val days = today - fromDay
+		return when {
+			days <= 6 -> "1w"
+			days <= 30 -> "1m"
+			days <= 88 -> "3m"
+			days <= 360 -> "1y"
+			days <= 725 -> "2y"
+			else -> "5y"
+		}
+	}
+
 	/** One trading day's real portfolio value. */
 	internal data class Point(val epochDay: Long, val value: Double)
 
@@ -80,9 +96,12 @@ internal object PortfolioHistory {
 		val repo = repository ?: return null
 		val symbols = (holdings.keys.sorted() + trades.map { it.symbol }).distinct()
 		if (symbols.isEmpty()) return null
+		// ALL reads the shortest price range that reaches back to the first trade (the line starts there anyway).
+		val today = java.time.LocalDate.now(marketZone).toEpochDay()
+		val priceRange = if (range.equals("ALL", ignoreCase = true)) rangeCovering(trades.minOfOrNull { it.epochDay } ?: today, today) else range
 		// In parallel, as iOS does - one after another was N round trips before the line appeared.
 		val closesBySymbol = kotlinx.coroutines.coroutineScope {
-			symbols.map { sym -> async { closesFor(repo, sym, range)?.let { sym to it } } }.awaitAll()
+			symbols.map { sym -> async { closesFor(repo, sym, priceRange)?.let { sym to it } } }.awaitAll()
 		}.filterNotNull().toMap()
 		// Every symbol's history, or no line: a missing one would count its shares as $0 and
 		// draw a drop that never happened.

@@ -3,7 +3,7 @@ import { SANDBOX_DEFAULT_STARTING_BALANCE, SANDBOX_NAME_MAX_LENGTH, SANDBOX_STAR
 import type { SandboxStrategyId } from "@/context/AccountContext";
 import { DonutRing } from "@/components/DonutRing";
 import { useFigmaUnit } from "@/components/discover/useFigmaUnit";
-import type { ChartRange } from "@/lib/api";
+import type { PortfolioRange } from "@/lib/api";
 import type { PaperPortfolio, Pick } from "@/hooks/usePaperPortfolio";
 import { bucketColor, buckets, simInsight } from "@/lib/simBuckets";
 import { isUp, rangeLine, rangeStartMs, signedPct, signedUsd, signedWhole, usd, wholeUsd } from "@/lib/simFormat";
@@ -12,7 +12,7 @@ import { heldCountLabel } from "@/components/mystak/CollectionChip";
 import { Sparkle } from "@/components/mystak/TasteCard";
 import { DISC, cu, sessionWord } from "@/components/discover/discoverTheme";
 import { FIELD_EDGE, PRESS, SettingsChip, f, focusRing, sheetCard } from "@/components/phone/phone";
-import { Badge, ChartNote, DarkCta, Kicker, RangeChart, RangeChips, SIM, gradientBorder, tealShadow } from "./simKit";
+import { Badge, ChartNote, DarkCta, Kicker, PORTFOLIO_RANGES, RangeChart, RangeChips, SIM, gradientBorder, tealShadow } from "./simKit";
 
 const pickCountText = (n: number) => (n === 1 ? "1 pick" : `${n} picks`);
 
@@ -81,7 +81,7 @@ export function SetupLine({ paper }: { paper: PaperPortfolio }) {
 }
 
 // ── Score hero ───────────────────────────────────────────────────────────────────────────────────
-export function ScoreHero({ paper, range, onRange }: { paper: PaperPortfolio; range: ChartRange; onRange: (r: ChartRange) => void }) {
+export function ScoreHero({ paper, range, onRange }: { paper: PaperPortfolio; range: PortfolioRange; onRange: (r: PortfolioRange) => void }) {
 	const { values, loading } = usePortfolioHistory(paper.trades, paper.paperStart, range, { cash: paper.cash + paper.openOrders.reduce((s, o) => s + o.amount, 0), shares: Object.fromEntries(paper.picks.map((p) => [p.ticker, p.shares])), value: paper.portfolioValue });
 	const [whole, cents = "00"] = usd(paper.portfolioValue).split(".");
 	const gain = paper.allTimeGain;
@@ -96,7 +96,8 @@ export function ScoreHero({ paper, range, onRange }: { paper: PaperPortfolio; ra
 			const m = todaysMove(paper).usd;
 			return [m, paper.portfolioValue - m];
 		}
-		if (firstTradeMs !== null && firstTradeMs >= rangeStartMs(range)) return [gain, paper.paperStart];
+		// ALL is the whole account, from the money it started with - even when no trade is logged to date it.
+		if (range === "all" || (firstTradeMs !== null && firstTradeMs >= rangeStartMs(range))) return [gain, paper.paperStart];
 		const base = values?.[0] ?? 0;
 		return [base > 0 ? paper.portfolioValue - base : null, base];
 	})();
@@ -124,7 +125,7 @@ export function ScoreHero({ paper, range, onRange }: { paper: PaperPortfolio; ra
 			<div className="flex justify-center">
 				{values && values.length >= 2 ? <RangeChart values={values} /> : <ChartNote>{loading ? "" : "No history yet"}</ChartNote>}
 			</div>
-			<div style={{ paddingTop: cu(29) }}><RangeChips value={range} onChange={onRange} /></div>
+			<div style={{ paddingTop: cu(29) }}><RangeChips value={range} onChange={onRange} ranges={PORTFOLIO_RANGES} /></div>
 		</section>
 	);
 }

@@ -124,8 +124,14 @@ final class PaperPortfolio: ObservableObject {
 	// The share buttons' lines (pick page, portfolio page): the return in percent, never the dollars. The demo's
 	// authored numbers aren't anyone's, and an empty portfolio has nothing to tell - both share the invite.
 	/// A pick's line - "just picked" while its gain still reads 0.0%.
-	func pickShareText(_ spec: PickSpec) -> String {
+	func pickShareText(_ spec: PickSpec, range: (up: Bool, pct: Double, range: String)? = nil) -> String {
 		if demo { return inviteText }
+		if let range {
+			// Its move over the range on screen, as the picture shows it ("it's up 6.9% past month").
+			let shown = String(format: "%.1f", abs(range.pct))
+			let move = shown == "0.0" ? "flat" : "\(range.up ? "up" : "down") \(shown)%"
+			return "I'm paper trading \(spec.symbol) on STAK - it's \(move) \(PaperPortfolio.shareRangeWord(range.range)). \(PaperPortfolio.shareTail)"
+		}
 		if spec.gainPct == "0.0%" { return "I just picked \(spec.symbol) on STAK. \(PaperPortfolio.shareTail)" }
 		return "I'm paper trading \(spec.symbol) on STAK - \(spec.up ? "up" : "down") \(spec.gainPct) since I picked it. \(PaperPortfolio.shareTail)"
 	}
@@ -136,7 +142,15 @@ final class PaperPortfolio: ObservableObject {
 		let pct = allTimeGain / paperStart * 100
 		let shown = String(format: "%.1f", abs(pct))
 		let move = shown == "0.0" ? "even" : "\(pct > 0 ? "up" : "down") \(shown)%"
-		return "My STAK paper portfolio is \(move) so far. \(PaperPortfolio.shareTail)"
+		return "My STAK paper portfolio is \(move) since I started. \(PaperPortfolio.shareTail)"
+	}
+
+	/// A range's word in the sharer's own voice: "past month", "since I started" - and 1D's the picture's own session
+	/// word ("today", or "on Friday" before the open and at weekends; as Android and web).
+	nonisolated static func shareRangeWord(_ range: String) -> String {
+		range.uppercased() == "1D"
+			? String(StakClock.sessionChange("x today").dropFirst(2))
+			: rangeWord(range).replacingOccurrences(of: "since you started", with: "since I started")
 	}
 
 	private static let shareTail = "Practice investing with paper money: https://thestak.org"
@@ -796,6 +810,9 @@ final class PaperPortfolio: ObservableObject {
 		case "3M": start = cal.date(byAdding: .month, value: -3, to: now) ?? now
 		case "YTD": start = cal.date(from: cal.dateComponents([.year], from: now)) ?? now
 		case "1Y": start = cal.date(byAdding: .year, value: -1, to: now) ?? now
+		case "5Y": start = cal.date(byAdding: .year, value: -5, to: now) ?? now
+		// From the start: MAX's whole history, ALL since the account began.
+		case "MAX", "ALL": start = Date(timeIntervalSince1970: 0)
 		default: start = now
 		}
 		return MyStakHoldings.epochDay(start, in: zone)
@@ -810,6 +827,9 @@ final class PaperPortfolio: ObservableObject {
 		case "3M": return "past 3 months"
 		case "YTD": return "this year"
 		case "1Y": return "past year"
+		case "5Y": return "past 5 years"
+		case "MAX": return "all time"
+		case "ALL": return "since you started"
 		default: return ""
 		}
 	}

@@ -308,6 +308,9 @@ private struct ScoreHero: View {
 		if range == "1D" {
 			guard let move = portfolio.todayMove else { return nil }
 			change = move; base = value - move
+		} else if range == "ALL" {
+			// The whole account, from the money it started with - even when no trade is logged to date it.
+			change = portfolio.allTimeGain; base = portfolio.paperStart
 		} else if let firstTrade = portfolio.trades.map(\.epochDay).min(), firstTrade >= PaperPortfolio.rangeStartDay(range) {
 			change = portfolio.allTimeGain; base = portfolio.paperStart
 		} else {
@@ -385,7 +388,7 @@ private struct ScoreHero: View {
 			chart(u)
 				.frame(width: 343 * u, height: 73.56 * u)
 				.frame(maxWidth: .infinity)
-			RangePills(selected: $range, tint: Sim.teal, muted: Sim.muted)
+			RangePills(selected: $range, tint: Sim.teal, muted: Sim.muted, labels: portfolioRangeLabels)
 				.frame(maxWidth: .infinity)
 				// Authored chart→pills gap 40; the column gap contributes 11.
 				.padding(.top, 29 * u)
