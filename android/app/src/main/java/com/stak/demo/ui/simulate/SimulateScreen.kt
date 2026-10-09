@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -507,7 +508,8 @@ private fun ScoreHero() {
 		val rangeMove: Pair<Double, Double>? = when {
 			PaperPortfolio.demo -> null
 			range == "1D" -> PaperPortfolio.todayMove?.let { it to PaperPortfolio.portfolioValue - it }
-			firstTrade != null && firstTrade >= PaperPortfolio.rangeStartDay(range) -> PaperPortfolio.allTimeGain to PaperPortfolio.paperStart
+			// ALL is the whole account, from the money it started with - even when no trade is logged to date it.
+			range == "ALL" || (firstTrade != null && firstTrade >= PaperPortfolio.rangeStartDay(range)) -> PaperPortfolio.allTimeGain to PaperPortfolio.paperStart
 			else -> points?.firstOrNull()?.value?.let { (PaperPortfolio.portfolioValue - it) to it }
 		}?.takeIf { it.second > 0.0 }
 		val lineUp = if (rangeMove != null) Math.round(rangeMove.first) >= 0 else PaperPortfolio.weekUp
@@ -552,34 +554,15 @@ private fun ScoreHero() {
 				}
 			}
 		}
-		Row(
-			verticalAlignment = Alignment.CenterVertically,
-			horizontalArrangement = Arrangement.spacedBy((37 * u).dp),
+		com.stak.demo.ui.components.RangePillRow(
+			labels = com.stak.demo.ui.components.PORTFOLIO_RANGE_LABELS,
+			selected = range,
+			onSelect = { range = it },
+			tint = Sim.Teal,
+			muted = Sim.Muted,
 			// Authored chart→pills gap 40; the column gap contributes 11.
-			modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = (29 * u).dp),
-		) {
-			listOf("1D", "1W", "1M", "3M", "YTD", "1Y").forEach { label ->
-				val select = Modifier.clickable(
-					interactionSource = remember { MutableInteractionSource() },
-					indication = com.stak.demo.ui.theme.PressDim,
-				) { range = label }
-				if (label == range) {
-					Box(
-						contentAlignment = Alignment.Center,
-						modifier = Modifier
-							.size((39 * u).dp, (22.5 * u).dp)
-							.clip(RoundedCornerShape((11.25 * u).dp))
-							.background(Color(0x292C9DBC))
-							.border((0.75 * u).dp, Color(0x662C9DBC), RoundedCornerShape((11.25 * u).dp))
-							.then(select),
-					) {
-						Text(label, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Sim.Teal)
-					}
-				} else {
-					Text(label, style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Sim.Muted, modifier = select)
-				}
-			}
-		}
+			modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = (29 * u).dp).offset(y = (-5.75 * u).dp),
+		)
 	}
 }
 

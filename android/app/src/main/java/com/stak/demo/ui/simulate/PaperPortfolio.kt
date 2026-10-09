@@ -781,7 +781,7 @@ internal object PaperPortfolio {
 
 	// The sign is the shown figure's: a gain that rounds to nothing reads "+$0", never a red "-$0" (cost rounding
 	// leaves a first buy a fraction of a cent down).
-	/** The US Eastern epoch day a range pill starts on (1W a week back, 1M a month, YTD January 1...). */
+	/** The US Eastern epoch day a range pill starts on (1W a week back, 1M a month, YTD January 1...); ALL from the start. */
 	fun rangeStartDay(range: String, now: java.time.LocalDate = java.time.LocalDate.now(java.time.ZoneId.of("America/New_York"))): Long =
 		when (range.uppercase(Locale.US)) {
 			"1W" -> now.minusDays(7)
@@ -789,6 +789,8 @@ internal object PaperPortfolio {
 			"3M" -> now.minusMonths(3)
 			"YTD" -> now.withDayOfYear(1)
 			"1Y" -> now.minusYears(1)
+			"5Y" -> now.minusYears(5)
+			"MAX", "ALL" -> java.time.LocalDate.ofEpochDay(0)
 			else -> now
 		}.toEpochDay()
 
@@ -823,6 +825,9 @@ internal object PaperPortfolio {
 		"3M" -> "past 3 months"
 		"YTD" -> "this year"
 		"1Y" -> "past year"
+		"5Y" -> "past 5 years"
+		"MAX" -> "all time"
+		"ALL" -> "since you started"
 		else -> ""
 	}
 

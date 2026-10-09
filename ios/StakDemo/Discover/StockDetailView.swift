@@ -1169,6 +1169,8 @@ private func rangeChangeText(_ pct: Double, _ range: String) -> String {
 	case "1M": "past month"
 	case "3M": "past 3 months"
 	case "YTD": "year to date"
+	case "5Y": "past 5 years"
+	case "MAX": "all time"
 	default: "past year"
 	}
 	return "\(pct < 0 ? "▼" : "▲") \(String(format: "%.1f", abs(pct)))% \(period)"

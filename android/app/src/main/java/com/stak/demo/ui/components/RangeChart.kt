@@ -10,9 +10,97 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.stak.demo.ui.theme.FIGMA_LINE_BOX
+import com.stak.demo.ui.theme.Geist
 
-/** The six range labels every chart offers; "3M" is the authored default and keeps each frame's exported line. */
-internal val RANGE_LABELS = listOf("1D", "1W", "1M", "3M", "YTD", "1Y")
+/** A stock chart's ranges (5Y weekly closes, MAX the whole listed history); "3M" is the authored default and keeps each
+ *  frame's exported line. Mirrors web STOCK_RANGES. */
+internal val RANGE_LABELS = listOf("1D", "1W", "1M", "3M", "YTD", "1Y", "5Y", "MAX")
+
+/** The portfolio chart's: a simulated account is new, so it has ALL (since it began) where a stock has 5Y and MAX. */
+internal val PORTFOLIO_RANGE_LABELS = listOf("1D", "1W", "1M", "3M", "YTD", "1Y", "ALL")
+
+/** What TalkBack says for each range pill (as iOS's rangeSpoken): "MAX" or "5Y" alone is cryptic read aloud. */
+internal val RANGE_SPOKEN = mapOf(
+	"1D" to "1 day", "1W" to "1 week", "1M" to "1 month", "3M" to "3 months", "YTD" to "Year to date", "1Y" to "1 year",
+	"5Y" to "5 years", "MAX" to "All time", "ALL" to "Since you started",
+)
+
+/**
+ * The range pills under a chart - the selected one in the authored 39x22.5 teal pill, the rest plain text - with what
+ * they mean for TalkBack and a tab's selected state. Stock Detail, Pick Detail and Simulate share it (one row, not
+ * three copies). Mirrors iOS RangePills.
+ */
+@Composable
+internal fun RangePillRow(labels: List<String>, selected: String, onSelect: (String) -> Unit, tint: Color, muted: Color, modifier: Modifier = Modifier) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	Row(
+		verticalAlignment = Alignment.CenterVertically,
+		// Spread across the card's width, so seven or eight pills fit as six did.
+		horizontalArrangement = Arrangement.SpaceBetween,
+		modifier = modifier.width((343 * u).dp).padding(horizontal = (8 * u).dp),
+	) {
+		labels.forEach { label ->
+			val on = label == selected
+			Box(
+				contentAlignment = Alignment.Center,
+				modifier = Modifier
+					// A taller target than the 22.5 pill (its row is pulled up by the same amount where it's placed).
+					.heightIn(min = (34 * u).dp)
+					.clickable(
+						interactionSource = remember { MutableInteractionSource() },
+						indication = com.stak.demo.ui.theme.PressDim,
+						role = Role.Tab,
+					) { onSelect(label) }
+					// TalkBack says "5 years, selected", not "5Y".
+					.semantics { contentDescription = RANGE_SPOKEN[label] ?: label; this.selected = on },
+			) {
+				val style = TextStyle(fontFamily = Geist, fontWeight = if (on) FontWeight.Medium else FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX)
+				if (on) {
+					Box(
+						contentAlignment = Alignment.Center,
+						modifier = Modifier
+							// At least the authored 39 wide, wider when large text needs it (MAX at 150%).
+							.widthIn(min = (39 * u).dp)
+							.height((22.5 * u).dp)
+							.clip(RoundedCornerShape((11.25 * u).dp))
+							.background(Color(0x292C9DBC))
+							.border((0.75 * u).dp, Color(0x662C9DBC), RoundedCornerShape((11.25 * u).dp))
+							.padding(horizontal = (5 * u).dp),
+					) {
+						Text(label, style = style, color = tint, maxLines = 1, softWrap = false)
+					}
+				} else {
+					Text(label, style = style, color = muted, maxLines = 1, softWrap = false)
+				}
+			}
+		}
+	}
+}
 
 /**
  * Demo stand-ins until the backend serves price history - each range's line

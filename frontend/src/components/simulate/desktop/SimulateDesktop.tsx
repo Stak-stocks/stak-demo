@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { RANGE_SPOKEN } from "@/components/simulate/simKit";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueries } from "@tanstack/react-query";
 import { BarChart3, BookOpen, Briefcase, History, MoreHorizontal, Plus, Star, Wallet, X } from "lucide-react";
 import { SANDBOX_STRATEGIES } from "@stak/shared";
-import { getStockChart, type ChartRange } from "@/lib/api";
+import { getStockChart, type PortfolioRange } from "@/lib/api";
 import { sharesLabel, signedUsd, usd, wholeUsd } from "@/lib/simFormat";
 import { useAccount } from "@/context/AccountContext";
 import { useMyStakData } from "@/hooks/useMyStakData";
@@ -15,7 +16,7 @@ import { ValueChart } from "@/components/desktop/ValueChart";
 import { PortfolioSetupCard } from "@/components/simulate/SimSections";
 import { TradePanel, type TradeMode } from "./TradePanel";
 
-const RANGES: ReadonlyArray<readonly [ChartRange, string]> = [["1w", "1W"], ["1m", "1M"], ["3m", "3M"], ["ytd", "YTD"], ["1y", "1Y"]];
+const RANGES: ReadonlyArray<readonly [PortfolioRange, string]> = [["1w", "1W"], ["1m", "1M"], ["3m", "3M"], ["ytd", "YTD"], ["1y", "1Y"], ["all", "ALL"]];
 const WATCHLIST_SHOWN = 5;
 /** A column that scrolls by itself on desktop, with no scrollbar drawn. */
 const COLUMN_SCROLL = "xl:overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
@@ -71,7 +72,7 @@ export function SimulateDesktop({ initialSymbol }: { initialSymbol?: string }) {
 	const { account } = useAccount();
 	const { allBrands, swipedBrands, batchQuotes } = useMyStakData();
 	const paper = usePaperPortfolio();
-	const [range, setRange] = useState<ChartRange>("3m");
+	const [range, setRange] = useState<PortfolioRange>("3m");
 	const [symbol, setSymbol] = useState<string | null>(initialSymbol ?? null);
 	const [mode, setMode] = useState<TradeMode>("buy");
 	const [explainerHidden, setExplainerHidden] = useState(() => { try { return localStorage.getItem(EXPLAINER_KEY) === "1"; } catch { return false; } });
@@ -147,7 +148,7 @@ export function SimulateDesktop({ initialSymbol }: { initialSymbol?: string }) {
 										{RANGES.map(([key, label]) => {
 											const on = key === range;
 											return (
-												<button key={key} type="button" aria-pressed={on} onClick={() => setRange(key)} className={`rounded-[8px] px-3 py-[4px] text-[12px] font-medium ${deskFocus}`} style={on ? { background: DESK.cyanSoft, color: DESK.cyan, boxShadow: `inset 0 0 0 1px ${DESK.borderStrong}` } : { color: DESK.muted }}>
+												<button key={key} type="button" aria-pressed={on} aria-label={RANGE_SPOKEN[key] ?? label} onClick={() => setRange(key)} className={`rounded-[8px] px-3 py-[4px] text-[12px] font-medium ${deskFocus}`} style={on ? { background: DESK.cyanSoft, color: DESK.cyan, boxShadow: `inset 0 0 0 1px ${DESK.borderStrong}` } : { color: DESK.muted }}>
 													{label}
 												</button>
 											);

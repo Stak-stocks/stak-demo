@@ -796,6 +796,9 @@ final class PaperPortfolio: ObservableObject {
 		case "3M": start = cal.date(byAdding: .month, value: -3, to: now) ?? now
 		case "YTD": start = cal.date(from: cal.dateComponents([.year], from: now)) ?? now
 		case "1Y": start = cal.date(byAdding: .year, value: -1, to: now) ?? now
+		case "5Y": start = cal.date(byAdding: .year, value: -5, to: now) ?? now
+		// From the start: MAX's whole history, ALL since the account began.
+		case "MAX", "ALL": start = Date(timeIntervalSince1970: 0)
 		default: start = now
 		}
 		return MyStakHoldings.epochDay(start, in: zone)
@@ -810,6 +813,9 @@ final class PaperPortfolio: ObservableObject {
 		case "3M": return "past 3 months"
 		case "YTD": return "this year"
 		case "1Y": return "past year"
+		case "5Y": return "past 5 years"
+		case "MAX": return "all time"
+		case "ALL": return "since you started"
 		default: return ""
 		}
 	}

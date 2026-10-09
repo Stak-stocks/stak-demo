@@ -16,8 +16,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -311,33 +313,14 @@ fun PickDetailScreen(
 							}
 						}
 					}
-					Row(
-						verticalAlignment = Alignment.CenterVertically,
-						horizontalArrangement = Arrangement.spacedBy((37 * u).dp),
-						modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = (40 * u).dp),
-					) {
-						RANGE_LABELS.forEach { label ->
-							val select = Modifier.clickable(
-								interactionSource = remember { MutableInteractionSource() },
-								indication = com.stak.demo.ui.theme.PressDim,
-							) { range = label }
-							if (label == range) {
-								Box(
-									contentAlignment = Alignment.Center,
-									modifier = Modifier
-										.size((39 * u).dp, (22.5 * u).dp)
-										.clip(RoundedCornerShape((11.25 * u).dp))
-										.background(Color(0x292C9DBC))
-										.border((0.75 * u).dp, Color(0x662C9DBC), RoundedCornerShape((11.25 * u).dp))
-										.then(select),
-								) {
-									Text(label, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp), color = Sim.Teal)
-								}
-							} else {
-								Text(label, style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp), color = Sim.Muted, modifier = select)
-							}
-						}
-					}
+					com.stak.demo.ui.components.RangePillRow(
+						labels = RANGE_LABELS,
+						selected = range,
+						onSelect = { range = it },
+						tint = Sim.Teal,
+						muted = Sim.Muted,
+						modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = (40 * u).dp).offset(y = (-5.75 * u).dp),
+					)
 				}
 				// Stats (1:4673): two 61-tall rows, 10 apart, 170-wide cells.
 				Column(verticalArrangement = Arrangement.spacedBy((10 * u).dp)) {

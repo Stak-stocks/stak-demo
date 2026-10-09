@@ -40,6 +40,19 @@ enum PortfolioHistory {
 		closesCache["\(symbol)|\(range)"] = (Date(), closes)
 	}
 
+	/// The shortest daily price range that reaches back to `fromDay` (a trade's day): ALL's price range (as Android).
+	/// Daily all the way - weekly bars would price a trade with its week's last close.
+	static func rangeCovering(from fromDay: Int, today: Int) -> String {
+		switch today - fromDay {
+		case ...6: return "1w"
+		case ...30: return "1m"
+		case ...88: return "3m"
+		case ...360: return "1y"
+		case ...725: return "2y"
+		default: return "5y"
+		}
+	}
+
 	/// `symbol`'s shares held at the end of `day`: today's count with every later trade undone.
 	private static func sharesHeld(at day: Int, _ symbol: String, now: Double, _ trades: [PaperPortfolio.Trade]) -> Double {
 		now - trades.filter { $0.symbol == symbol && $0.epochDay > day }.reduce(0) { $0 + ($1.isBuy ? $1.shares : -$1.shares) }
@@ -56,10 +69,13 @@ enum PortfolioHistory {
 	/// - Parameters:
 	///   - cash: today's cash plus the open limit orders' reserved stakes.
 	///   - holdings: today's shares by symbol.
-	static func build(_ trades: [PaperPortfolio.Trade], cash cashNow: Double, holdings: [String: Double], range: String) async -> [Point]? {
+	static func build(_ trades: [PaperPortfolio.Trade], cash cashNow: Double, holdings: [String: Double], range asked: String) async -> [Point]? {
 		var symbols: [String] = holdings.keys.sorted()
 		for t in trades where !symbols.contains(t.symbol) { symbols.append(t.symbol) }
 		guard !symbols.isEmpty else { return nil }
+		// ALL reads the shortest price range that reaches back to the first trade (the line starts there anyway).
+		let today = MyStakHoldings.epochDay(Date(), in: TimeZone(identifier: "America/New_York") ?? .current)
+		let range = asked.uppercased() == "ALL" ? rangeCovering(from: trades.map(\.epochDay).min() ?? today, today: today) : asked
 		let closesBySymbol: [String: [Int: Double]] = await withTaskGroup(of: (String, [Int: Double]?).self) { group in
 			for sym in symbols {
 				group.addTask {

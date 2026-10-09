@@ -393,37 +393,14 @@ fun StockDetailScreen(
 					}
 				}
 				Spacer(modifier = Modifier.height((40 * u).dp))
-				Row(
-					verticalAlignment = Alignment.CenterVertically,
-					horizontalArrangement = Arrangement.spacedBy((37 * u).dp),
-					modifier = Modifier.align(Alignment.CenterHorizontally),
-				) {
-					RANGE_LABELS.forEach { label ->
-						val select = Modifier.clickable(
-							interactionSource = remember { MutableInteractionSource() },
-							indication = com.stak.demo.ui.theme.PressDim,
-						) { range = label }
-						if (label == range) {
-							Box(
-								contentAlignment = Alignment.Center,
-								modifier = Modifier
-									.size((39 * u).dp, (22.5 * u).dp)
-									.clip(RoundedCornerShape((11.25 * u).dp))
-									.background(Color(0x292C9DBC))
-									.border((0.75 * u).dp, Color(0x662C9DBC), RoundedCornerShape((11.25 * u).dp))
-									.then(select),
-							) {
-								Text(
-									label,
-									style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp),
-									color = Teal,
-								)
-							}
-						} else {
-							Text(label, style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp), color = Muted, modifier = select)
-						}
-					}
-				}
+				com.stak.demo.ui.components.RangePillRow(
+					labels = RANGE_LABELS,
+					selected = range,
+					onSelect = { range = it },
+					tint = Teal,
+					muted = Muted,
+					modifier = Modifier.align(Alignment.CenterHorizontally).offset(y = (-5.75 * u).dp),
+				)
 				Column(
 					// Fractional gaps: Compose's per-gap px rounding drifted the last
 					// modules 2.5 below the frame (StakTest, 2026-09-05).
@@ -1482,6 +1459,8 @@ private fun rangeChangeText(pct: Double, range: String): String {
 		"1M" -> "past month"
 		"3M" -> "past 3 months"
 		"YTD" -> "year to date"
+		"5Y" -> "past 5 years"
+		"MAX" -> "all time"
 		else -> "past year"
 	}
 	return "$arrow " + String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(pct)) + "% $period"
