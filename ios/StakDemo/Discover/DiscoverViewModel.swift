@@ -131,6 +131,9 @@ final class DiscoverViewModel: ObservableObject {
 		let since = StakClock.deckDayStartISO()
 		async let statsTask = try? repo.getSwipes(since: since)
 		async let passedTask = try? repo.getPassed()
+		// Nil when it couldn't be read; empty when no device has picked today's deck yet.
+		let day = StakClock.deckDayKey()
+		async let sharedTask = try? repo.getDailyDeck(day: day)
 		let brandsResult: BrandsListResponse? = try? await repo.getBrands()
 
 		let dailySwipes = await dailySwipesTask
@@ -154,9 +157,10 @@ final class DiscoverViewModel: ObservableObject {
 			// News search reads the same list for ticker <-> name matching.
 			BrandNames.shared.fill(res.brands)
 			let recs = await recsTask
-			// Nil when unread: PUT replaces the server's list, so a pass is never written over one we couldn't read.
+			// Nil when unread.
 			passedAt = (await passedTask).map { res in Dictionary(res.entries.map { ($0.id, $0) }, uniquingKeysWith: { $1 }) }
-			let picks = todaysPicks(res.brands, ranked: recs?.brandIds ?? [], limit: limit, passed: passedAt ?? [:], categories: recs?.categories ?? [:])
+			let shared = (await sharedTask)?.tickers
+			let picks = await todaysPicks(res.brands, ranked: recs?.brandIds ?? [], limit: limit, passed: passedAt ?? [:], categories: recs?.categories ?? [:], shared: shared, day: day)
 			quotedRef = StakClock.lastCloseRef()
 			var quotes: [String: BatchQuote] = [:]
 			if !picks.isEmpty, let q = try? await repo.batchQuotes(picks.map(\.ticker)) {
@@ -197,21 +201,52 @@ final class DiscoverViewModel: ObservableObject {
 	/// Today's deck: the backend's personalised ranking (the same /api/recommendations order the web deck uses), minus
 	/// stocks already in My STAK, anything passed in the last 24h (older passes return at the back) and anything passed
 	/// `passHideCount` times, at most `maxPerCategory` per category, capped at the daily limit - every platform's rules.
-	/// Pinned per day so a relaunch or a refreshed ranking doesn't reshuffle a deck the user is part-way through.
-	private func todaysPicks(_ brands: [BrandSummaryDto], ranked: [String], limit: Int, passed: [String: PassedEntry], categories: [String: String]) -> [BrandSummaryDto] {
+	///
+	/// One deck a day across devices (Android's todaysPicks, web's lib/dailyDeck chooseDailyDeck): the deck another
+	/// device - or an earlier launch - picked (`shared`, kept by the server) comes first; else this phone's own pin; else
+	/// one picked now and offered to the server, which keeps the first one offered. A deck stands even when it's all been
+	/// saved since: today's picks are done, not re-picked.
+	private func todaysPicks(_ brands: [BrandSummaryDto], ranked: [String], limit: Int, passed: [String: PassedEntry], categories: [String: String], shared: [String]?, day key: String) async -> [BrandSummaryDto] {
 		let byTicker = Dictionary(brands.map { ($0.ticker, $0) }, uniquingKeysWith: { a, _ in a })
-		let key = StakClock.deckDayKey()
-		if StakStore.string(Self.picksDayKey) == key && StakStore.int(Self.picksVersionKey, default: 0) == Self.picksVersion {
-			// A stock saved since the deck was pinned (from a stock page, say) leaves it - undoing a swipe on it would
-			// have removed that earlier save.
-			let held = MyStakHoldings.shared.tickers
-			let pinned = (StakStore.string(Self.picksKey) ?? "").split(separator: ",").compactMap { byTicker[String($0)] }
-				.filter { !held.contains($0.ticker) }
-			if !pinned.isEmpty {
-				deckLabel = StakStore.string(Self.picksLabelKey) ?? Self.deckLabelFor(pinned, categories)
-				return pinned
+		let stored = (StakStore.string(Self.picksKey) ?? "").split(separator: ",").map(String.init)
+		let pinned: [String]? = !stored.isEmpty && StakStore.string(Self.picksDayKey) == key
+			&& StakStore.int(Self.picksVersionKey, default: 0) == Self.picksVersion ? stored : nil
+		// Only a real personalised ranking is shared or pinned. A fallback order (ranking unavailable - offline, or an
+		// expired session) must not decide the whole day.
+		var tickers: [String]?
+		if let shared, !shared.isEmpty {
+			tickers = shared
+		} else if pinned != nil || !ranked.isEmpty {
+			let mine = pinned ?? freshPicks(brands, ranked: ranked, limit: limit, passed: passed, categories: categories).map(\.ticker)
+			if shared == nil {
+				tickers = mine
+			} else {
+				let kept = (try? await repo.offerDailyDeck(day: key, tickers: mine))?.tickers ?? []
+				tickers = kept.isEmpty ? mine : kept
 			}
 		}
+		guard let tickers else {
+			let picks = freshPicks(brands, ranked: ranked, limit: limit, passed: passed, categories: categories)
+			deckLabel = Self.deckLabelFor(picks, categories)
+			return picks
+		}
+		// The label describes the whole day's deck, so it stays put as cards leave.
+		let all = tickers.compactMap { byTicker[$0] }
+		let label = tickers == pinned ? (StakStore.string(Self.picksLabelKey) ?? Self.deckLabelFor(all, categories)) : Self.deckLabelFor(all, categories)
+		StakStore.set(key, for: Self.picksDayKey)
+		StakStore.set(tickers.joined(separator: ","), for: Self.picksKey)
+		StakStore.set(Self.picksVersion, for: Self.picksVersionKey)
+		StakStore.set(label, for: Self.picksLabelKey)
+		deckLabel = label
+		// A stock saved since the deck was picked (on any device, or from a stock page) leaves it - undoing a swipe on it
+		// would have removed that earlier save.
+		let held = MyStakHoldings.shared.tickers
+		return all.filter { !held.contains($0.ticker) }
+	}
+
+	/// Today's picks from `ranked`: what `todaysPicks` shows when no deck is picked for the day yet.
+	private func freshPicks(_ brands: [BrandSummaryDto], ranked: [String], limit: Int, passed: [String: PassedEntry], categories: [String: String]) -> [BrandSummaryDto] {
+		let byTicker = Dictionary(brands.map { ($0.ticker, $0) }, uniquingKeysWith: { a, _ in a })
 		let rankedSet = Set(ranked)
 		let ordered = ranked.compactMap { byTicker[$0] } + brands.filter { !rankedSet.contains($0.ticker) }
 		let held = MyStakHoldings.shared.tickers
@@ -221,18 +256,7 @@ final class DiscoverViewModel: ObservableObject {
 			guard let pass = passed[brand.id] else { return true }
 			return pass.count < Self.passHideCount && pass.at <= dayAgo
 		}
-		let picks = Self.withCategoryCap(eligible.filter { passed[$0.id] == nil } + eligible.filter { passed[$0.id] != nil }, categories, limit)
-		let label = Self.deckLabelFor(picks, categories)
-		// Only a real personalised ranking is pinned. A fallback order (ranking unavailable - offline, or an expired
-		// session) must not decide the whole day.
-		if !ranked.isEmpty {
-			StakStore.set(key, for: Self.picksDayKey)
-			StakStore.set(picks.map(\.ticker).joined(separator: ","), for: Self.picksKey)
-			StakStore.set(Self.picksVersion, for: Self.picksVersionKey)
-			StakStore.set(label, for: Self.picksLabelKey)
-		}
-		deckLabel = label
-		return picks
+		return Self.withCategoryCap(eligible.filter { passed[$0.id] == nil } + eligible.filter { passed[$0.id] != nil }, categories, limit)
 	}
 
 	func recordSwipe(brandId: String, isSTAK: Bool, timeOnCardMs: Int64? = nil, categories: [String] = []) {

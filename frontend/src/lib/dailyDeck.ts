@@ -5,7 +5,9 @@ import type { PassedEntry } from "@/context/AccountContext";
  * Today's deck, picked by the same rules as the apps (android DiscoverViewModel.todaysPicks, iOS DiscoverViewModel):
  * the server's personalised ranking, minus what's already in My STAK, anything passed in the last day (older passes
  * come back at the end) and anything passed PASS_HIDE_COUNT times; at most MAX_PER_CATEGORY per category; capped at
- * the daily limit. Pinned for the day, so a reload or a refreshed ranking doesn't reshuffle a deck part-way through.
+ * the daily limit. Kept on the server for the day (/api/me/daily-deck), so every device shows the same deck and a
+ * reload or a refreshed ranking doesn't reshuffle it part-way through; pinned here too, for when the server can't be
+ * reached.
  * Categories come from the shared catalog - the same table the server's ranking sends the apps. Offline, the web ranks
  * by the account's own taste where the apps fall back to catalog order.
  */
@@ -61,24 +63,46 @@ export function eligibleInOrder(
 	return [...eligible.filter((b) => !passById.has(b.id)), ...eligible.filter((b) => passById.has(b.id))];
 }
 
-/** Bump when the picking rules change, so a deck pinned under the old rules is re-picked. */
-const PIN_VERSION = 1;
+/**
+ * Which deck today shows (tickers), or null for an unshared one picked fresh each load (no ranking reached the device).
+ * The deck another device - or an earlier visit - picked comes first; else this device's own pin; else one picked now.
+ * A new deck is offered to the server, which keeps the first one offered, so two devices opening at once agree.
+ */
+export async function chooseDailyDeck({ shared, pinned, ranked, pick, offer }: {
+	/** The server's deck for the day: [] when none yet, null when it couldn't be reached. */
+	shared: string[] | null;
+	pinned: string[] | null;
+	/** Whether the server's ranking came back (a local fallback ranking is never shared). */
+	ranked: boolean;
+	pick: () => string[];
+	offer: (tickers: string[]) => Promise<string[]>;
+}): Promise<string[] | null> {
+	if (shared?.length) return shared;
+	if (!pinned && !ranked) return null;
+	const mine = pinned ?? pick();
+	if (!shared) return mine;
+	const kept = await offer(mine).catch(() => mine);
+	return kept.length > 0 ? kept : mine;
+}
+
+/** Bump when the picking rules change, so a deck pinned under the old rules is re-picked (2: tickers, as the server). */
+const PIN_VERSION = 2;
 const pinKey = (uid: string) => `stak.dailyDeck.${uid}`;
 
-/** The deck pinned for `day` (brand ids), if there is one. */
+/** The deck pinned on this device for `day` (tickers), if there is one. */
 export function readPinnedDeck(uid: string, day: string): string[] | null {
 	try {
 		const raw = localStorage.getItem(pinKey(uid));
 		if (!raw) return null;
-		const pin = JSON.parse(raw) as { day?: unknown; version?: unknown; ids?: unknown };
-		if (pin.day !== day || pin.version !== PIN_VERSION || !Array.isArray(pin.ids)) return null;
-		return pin.ids.filter((id): id is string => typeof id === "string");
+		const pin = JSON.parse(raw) as { day?: unknown; version?: unknown; tickers?: unknown };
+		if (pin.day !== day || pin.version !== PIN_VERSION || !Array.isArray(pin.tickers)) return null;
+		return pin.tickers.filter((t): t is string => typeof t === "string");
 	} catch {
 		return null;
 	}
 }
 
-/** Pins `ids` as the deck for `day`. Only a real personalised ranking is pinned: a fallback mustn't decide the day. */
-export function pinDailyDeck(uid: string, day: string, ids: string[]): void {
-	try { localStorage.setItem(pinKey(uid), JSON.stringify({ day, version: PIN_VERSION, ids })); } catch { /* unpinned: re-picked next load */ }
+/** Pins `tickers` as this device's deck for `day` (the server's, or one picked from a real ranking - never a fallback). */
+export function pinDailyDeck(uid: string, day: string, tickers: string[]): void {
+	try { localStorage.setItem(pinKey(uid), JSON.stringify({ day, version: PIN_VERSION, tickers })); } catch { /* unpinned: re-picked next load */ }
 }

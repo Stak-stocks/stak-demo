@@ -16,13 +16,13 @@ import { QuickLookSheet } from "@/components/discover/QuickLookSheet";
 import { DEFAULT_DECK_LABEL, DISC, cu } from "@/components/discover/discoverTheme";
 import { PHONE_MAX_WIDTH, useFigmaUnit } from "@/components/discover/useFigmaUnit";
 import { toast } from "sonner";
-import { recordEngagement, getQuickLook, getSortedRecommendations } from "@/lib/api";
+import { recordEngagement, getQuickLook, getSortedRecommendations, getDailyDeck, offerDailyDeck } from "@/lib/api";
 import { useSwipeLimit, DAILY_SWIPE_LIMIT, getTodayKey } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
 import { useAuth } from "@/context/AuthContext";
 import { useAccount } from "@/context/AccountContext";
 import type { PassedEntry } from "@/context/AccountContext";
-import { eligibleInOrder, passKeepsOut, pinDailyDeck, readPinnedDeck, withCategoryCap, PASS_HIDE_COUNT } from "@/lib/dailyDeck";
+import { chooseDailyDeck, eligibleInOrder, passKeepsOut, pinDailyDeck, readPinnedDeck, withCategoryCap, PASS_HIDE_COUNT } from "@/lib/dailyDeck";
 
 const TICKER_TAG_MAP = new Map(
 	STAK_WEIGHTED_STOCK_TAGS.map((s) => [s.ticker.toUpperCase(), s]),
@@ -242,26 +242,31 @@ function App() {
 		setDeckPicked(false);
 		const held = new Set(account.stakBrandIds ?? []);
 		const passed = account.passedBrands ?? [];
-		const byId = new Map(allBrands.map((b) => [b.id, b]));
-		// A stock saved since it was pinned (from a stock page, say) leaves the deck.
-		const pinned = readPinnedDeck(uid, deckDay)?.flatMap((id) => byId.get(id) ?? []).filter((b) => !held.has(b.id));
-		const settle = (ranked: string[], pin: boolean) => {
+		const tagScores = account.tagScores ?? {};
+		const byTicker = new Map(allBrands.map((b) => [b.ticker, b]));
+		// A stock saved since the deck was picked (on any device, or from a stock page) leaves it.
+		const brandsOf = (tickers: string[]) => tickers.flatMap((t) => byTicker.get(t) ?? []).filter((b) => !held.has(b.id));
+		(async () => {
+			const [shared, recs] = await Promise.all([
+				getDailyDeck(deckDay).then((d) => d.tickers, () => null),
+				getSortedRecommendations().then((d) => d.brandIds ?? [], () => []),
+			]);
+			// Offline or signed out: the account's own taste, ranked here - not shared, so the next load can do better.
+			const eligible = eligibleInOrder(allBrands, recs.length > 0 ? recs : rankLocally(allBrands, tagScores), held, passed);
+			// A deck stands even when it's all been saved since: today's picks are done, not re-picked.
+			const tickers = await chooseDailyDeck({
+				shared,
+				pinned: readPinnedDeck(uid, deckDay),
+				ranked: recs.length > 0,
+				pick: () => withCategoryCap(eligible, DAILY_SWIPE_LIMIT).map((b) => b.ticker),
+				offer: (mine) => offerDailyDeck(deckDay, mine).then((d) => d.tickers),
+			});
 			if (pickedFor.current !== key) return;
-			const eligible = eligibleInOrder(allBrands, ranked, held, passed);
-			// A pinned deck stands even when it's all been saved since: today's picks are done, not re-picked.
-			const picks = pinned ?? withCategoryCap(eligible, DAILY_SWIPE_LIMIT);
-			if (pin && !pinned) pinDailyDeck(uid, deckDay, picks.map((b) => b.id));
-			setRecommendedOrder(picks);
+			if (tickers) pinDailyDeck(uid, deckDay, tickers);
+			setRecommendedOrder(tickers ? brandsOf(tickers) : withCategoryCap(eligible, DAILY_SWIPE_LIMIT));
 			setRankedPool(eligible);
 			setDeckPicked(true);
-		};
-		getSortedRecommendations()
-			.then((data) => {
-				const ranked = data.brandIds ?? [];
-				settle(ranked.length > 0 ? ranked : rankLocally(allBrands, account.tagScores ?? {}), ranked.length > 0);
-			})
-			// Offline or signed out: the account's own taste, ranked here - not pinned, so the next load can do better.
-			.catch(() => settle(rankLocally(allBrands, account.tagScores ?? {}), false));
+		})();
 	}, [account, allBrands, uid, deckDay]);
 
 	const handleLearnMore = useCallback((brand: BrandSummary) => {

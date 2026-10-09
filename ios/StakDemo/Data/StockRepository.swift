@@ -49,6 +49,10 @@ final class StockRepository {
     func getPassed() async throws -> PassedResponse { try await api.getPassed() }
     func putPassed(_ entries: [PassedEntry]) async throws -> PassedResponse { try await api.putPassed(PassedPutRequest(entries: entries)) }
     func addPass(_ brandId: String) async throws -> PassedAddResponse { try await api.addPass(brandId) }
+    func getDailyDeck(day: String) async throws -> DailyDeckDto { try await api.getDailyDeck(day: day) }
+    func offerDailyDeck(day: String, tickers: [String]) async throws -> DailyDeckDto {
+        try await api.offerDailyDeck(DailyDeckRequest(day: day, tickers: tickers))
+    }
     func getSwipes(since: String) async throws -> SwipeHistoryResponse { try await api.getSwipes(since: since) }
 
     // MARK: – Me / profile

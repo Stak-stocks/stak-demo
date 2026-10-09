@@ -944,6 +944,19 @@ export function patchStakBrandPrice(brandId: string, price: number) {
 	});
 }
 
+/** Today's deck, the same on every device: the tickers picked for `day` (the 9am deck day), or none yet. */
+export function getDailyDeck(day: string) {
+	return apiRequest<{ day: string; tickers: string[] }>(`/api/me/daily-deck?day=${encodeURIComponent(day)}`);
+}
+
+/** Offers `tickers` as `day`'s deck; the server keeps the first one offered and returns the day's deck either way. */
+export function offerDailyDeck(day: string, tickers: string[]) {
+	return apiRequest<{ day: string; tickers: string[] }>("/api/me/daily-deck", {
+		method: "PUT",
+		body: JSON.stringify({ day, tickers }),
+	});
+}
+
 // Sorted recommendations (server-scored, personalized)
 export function getSortedRecommendations(limit?: number) {
 	const q = limit ? `?limit=${limit}` : "";

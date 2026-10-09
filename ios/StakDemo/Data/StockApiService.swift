@@ -69,6 +69,8 @@ final class StockApiService {
     func recordEvent(_ body: EngagementEventRequest) async throws -> EventResponse { try await net.post("api/swipe/event", body: body) }
     func getPassed() async throws -> PassedResponse { try await net.get("api/me/passed") }
     func putPassed(_ body: PassedPutRequest) async throws -> PassedResponse { try await net.put("api/me/passed", body: body) }
+    func getDailyDeck(day: String) async throws -> DailyDeckDto { try await net.get("api/me/daily-deck", query: ["day": day]) }
+    func offerDailyDeck(_ body: DailyDeckRequest) async throws -> DailyDeckDto { try await net.put("api/me/daily-deck", body: body) }
     func addPass(_ brandId: String) async throws -> PassedAddResponse {
         try await net.post("api/me/passed/\(brandId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? brandId)", body: EmptyBody())
     }

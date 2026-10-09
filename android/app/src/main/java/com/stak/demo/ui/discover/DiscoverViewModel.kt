@@ -103,13 +103,16 @@ class DiscoverViewModel @Inject constructor(
         viewModelScope.launch {
             _loading.value = true
             _loadError.value = false
-            loadedDay = todayKey()
+            val day = todayKey()
+            loadedDay = day
             missingRetries = 0
             coroutineScope {
                 val dailySwipesDeferred = async { runCatching { repository.getDailySwipes() }.getOrNull() }
                 val recsDeferred = async { runCatching { repository.getRecommendations() }.getOrNull() }
                 val statsDeferred = async { runCatching { repository.getSwipes(swipeDayStartIso()).swipes }.getOrNull() }
                 val passedDeferred = async { runCatching { repository.getPassed().entries }.getOrNull() }
+                // Null when it couldn't be read; empty when no device has picked today's deck yet.
+                val sharedDeferred = async { runCatching { repository.getDailyDeck(day).tickers }.getOrNull() }
                 val brandsResult = runCatching { repository.getBrands() }
 
                 val dailySwipes = dailySwipesDeferred.await()
@@ -134,7 +137,7 @@ class DiscoverViewModel @Inject constructor(
                     com.stak.demo.data.BrandNames.fill(res.brands)
                     val recs = recsDeferred.await()
                     passedAt = passedDeferred.await()?.associateBy { it.id }?.toMutableMap()
-                    val picks = todaysPicks(res.brands, recs?.brandIds.orEmpty(), limit, passedAt.orEmpty(), recs?.categories.orEmpty())
+                    val picks = todaysPicks(res.brands, recs?.brandIds.orEmpty(), limit, passedAt.orEmpty(), recs?.categories.orEmpty(), sharedDeferred.await(), day)
                     quotedRef = StakClock.lastCloseRef()
                     val quotes = if (picks.isNotEmpty()) {
                         runCatching { repository.batchQuotes(picks.map { it.ticker }) }.getOrNull()?.quotes ?: emptyMap()
@@ -175,11 +178,59 @@ class DiscoverViewModel @Inject constructor(
      * /api/recommendations order the web deck uses), minus stocks already in
      * My STAK, anything passed in the last 24h (older passes return at the
      * back) and anything passed [PASS_HIDE_COUNT] times, at most [MAX_PER_CATEGORY]
-     * per category, capped at the daily limit - every platform's rules. Pinned per
-     * day so a relaunch or a refreshed ranking doesn't reshuffle a deck the user is
-     * part-way through.
+     * per category, capped at the daily limit - every platform's rules.
+     *
+     * One deck a day across devices (web's lib/dailyDeck chooseDailyDeck): the deck
+     * another device - or an earlier launch - picked ([shared], kept by the server)
+     * comes first; else this phone's own pin; else one picked now and offered to the
+     * server, which keeps the first one offered. A deck stands even when it's all been
+     * saved since: today's picks are done, not re-picked.
      */
-    private fun todaysPicks(
+    private suspend fun todaysPicks(
+        brands: List<BrandSummaryDto>,
+        ranked: List<String>,
+        limit: Int,
+        passed: Map<String, PassedEntry>,
+        categories: Map<String, String>,
+        shared: List<String>?,
+        key: String,
+    ): List<BrandSummaryDto> {
+        val byTicker = brands.associateBy { it.ticker }
+        val pinned = StakStore.getString(PICKS_KEY).orEmpty().split(",").filter { it.isNotBlank() }.takeIf {
+            it.isNotEmpty() && StakStore.getString(PICKS_DAY_KEY) == key && StakStore.getInt(PICKS_VERSION_KEY, 0) == PICKS_VERSION
+        }
+        // Only a real personalised ranking is shared or pinned. A fallback order (ranking
+        // unavailable - offline, or an expired session) must not decide the whole day.
+        val tickers = when {
+            !shared.isNullOrEmpty() -> shared
+            pinned == null && ranked.isEmpty() -> null
+            else -> {
+                val mine = pinned ?: freshPicks(brands, ranked, limit, passed, categories).map { it.ticker }
+                if (shared == null) mine
+                else runCatching { repository.offerDailyDeck(key, mine).tickers }.getOrNull()?.takeIf { it.isNotEmpty() } ?: mine
+            }
+        }
+        if (tickers == null) {
+            val picks = freshPicks(brands, ranked, limit, passed, categories)
+            _deckLabel.value = deckLabelFor(picks, categories)
+            return picks
+        }
+        // The label describes the whole day's deck, so it stays put as cards leave.
+        val label = if (tickers == pinned) StakStore.getString(PICKS_LABEL_KEY) ?: deckLabelFor(tickers.mapNotNull { byTicker[it] }, categories)
+        else deckLabelFor(tickers.mapNotNull { byTicker[it] }, categories)
+        StakStore.putString(PICKS_DAY_KEY, key)
+        StakStore.putString(PICKS_KEY, tickers.joinToString(","))
+        StakStore.putInt(PICKS_VERSION_KEY, PICKS_VERSION)
+        StakStore.putString(PICKS_LABEL_KEY, label)
+        _deckLabel.value = label
+        // A stock saved since the deck was picked (on any device, or from a stock page) leaves it - undoing a swipe on
+        // it would have removed that earlier save (iOS's filter).
+        val held = MyStakHoldings.tickers
+        return tickers.mapNotNull { byTicker[it] }.filter { it.ticker !in held }
+    }
+
+    /** Today's picks from [ranked]: what [todaysPicks] shows when no deck is picked for the day yet. */
+    private fun freshPicks(
         brands: List<BrandSummaryDto>,
         ranked: List<String>,
         limit: Int,
@@ -187,18 +238,6 @@ class DiscoverViewModel @Inject constructor(
         categories: Map<String, String>,
     ): List<BrandSummaryDto> {
         val byTicker = brands.associateBy { it.ticker }
-        val key = todayKey()
-        if (StakStore.getString(PICKS_DAY_KEY) == key && StakStore.getInt(PICKS_VERSION_KEY, 0) == PICKS_VERSION) {
-            // A stock saved since the deck was pinned (from a stock page, say) leaves it - undoing a swipe on it would
-            // have removed that earlier save (iOS's filter).
-            val held = MyStakHoldings.tickers
-            val pinned = StakStore.getString(PICKS_KEY).orEmpty().split(",").mapNotNull { byTicker[it] }
-                .filter { it.ticker !in held }
-            if (pinned.isNotEmpty()) {
-                _deckLabel.value = StakStore.getString(PICKS_LABEL_KEY) ?: deckLabelFor(pinned, categories)
-                return pinned
-            }
-        }
         val rankedSet = ranked.toSet()
         val ordered = ranked.mapNotNull { byTicker[it] } + brands.filter { it.ticker !in rankedSet }
         val held = MyStakHoldings.tickers
@@ -207,18 +246,7 @@ class DiscoverViewModel @Inject constructor(
             val pass = passed[brand.id]
             brand.ticker !in held && (pass == null || (pass.count < PASS_HIDE_COUNT && pass.at <= dayAgo))
         }
-        val picks = withCategoryCap(eligible.filter { it.id !in passed } + eligible.filter { it.id in passed }, categories, limit)
-        val label = deckLabelFor(picks, categories)
-        // Only a real personalised ranking is pinned. A fallback order (ranking
-        // unavailable - offline, or an expired session) must not decide the whole day.
-        if (ranked.isNotEmpty()) {
-            StakStore.putString(PICKS_DAY_KEY, key)
-            StakStore.putString(PICKS_KEY, picks.joinToString(",") { it.ticker })
-            StakStore.putInt(PICKS_VERSION_KEY, PICKS_VERSION)
-            StakStore.putString(PICKS_LABEL_KEY, label)
-        }
-        _deckLabel.value = label
-        return picks
+        return withCategoryCap(eligible.filter { it.id !in passed } + eligible.filter { it.id in passed }, categories, limit)
     }
 
     fun recordSwipe(brandId: String, isSTAK: Boolean, timeOnCardMs: Long? = null, categories: List<String> = emptyList()) {
@@ -437,7 +465,9 @@ private val CARD_COLOR_PALETTE = listOf(
 internal fun todayKey(): String {
     val now = Calendar.getInstance()
     if (now.get(Calendar.HOUR_OF_DAY) < DECK_DAY_START_HOUR) now.add(Calendar.DATE, -1)
-    return "%04d-%02d-%02d".format(
+    // Western digits whatever the phone's language: the server reads this key (and an Arabic or Persian locale's digits
+    // wouldn't match the other devices').
+    return String.format(Locale.US, "%04d-%02d-%02d",
         now.get(Calendar.YEAR),
         now.get(Calendar.MONTH) + 1,
         now.get(Calendar.DAY_OF_MONTH),
