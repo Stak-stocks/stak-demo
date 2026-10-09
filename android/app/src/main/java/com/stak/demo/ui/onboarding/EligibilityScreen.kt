@@ -1,7 +1,9 @@
 package com.stak.demo.ui.onboarding
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -12,11 +14,22 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Cake
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,28 +38,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.stak.demo.R
 import com.stak.demo.data.Eligibility
 import com.stak.demo.data.LegalDocs
 import com.stak.demo.ui.components.LegalSheet
-import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.PressDim
 import com.stak.demo.ui.theme.Sora
@@ -54,10 +66,10 @@ import com.stak.demo.ui.theme.StakColors
 import kotlinx.coroutines.launch
 
 /**
- * The screen for Eligibility: one sentence and one button, as most apps do it - tapping "Agree and continue" confirms
- * 18 or older, living in the United States, and agreement to the Terms of Service and Privacy Policy, which the sentence
- * links to (each opens in a sheet to read). Over the whole app until the account has confirmed. [onSignOut]: leave
- * without answering. Mirrors web EligibilityGate and iOS EligibilityView.
+ * The screen for Eligibility, as most apps do it: the STAK mark, a card spelling out what's being confirmed - 18 or
+ * older, living in the United States, and the Terms of Service and Privacy Policy (those two rows open the document
+ * to read) - then one sentence and "Agree and continue", which confirms all of it. Over the whole app until the
+ * account has confirmed. [onSignOut]: leave without answering. Mirrors web EligibilityGate and iOS EligibilityView.
  */
 @Composable
 internal fun EligibilityScreen(onSignOut: () -> Unit) {
@@ -72,18 +84,6 @@ internal fun EligibilityScreen(onSignOut: () -> Unit) {
 	// open, the sheet's own Back closes it.)
 	BackHandler(enabled = reading == null) { (context as? android.app.Activity)?.moveTaskToBack(true) }
 
-	// Built once: its links only open a document, so it never changes.
-	val agreement = remember {
-		val linkStyle = TextLinkStyles(SpanStyle(color = StakColors.Teal, fontWeight = FontWeight.Medium, textDecoration = TextDecoration.Underline))
-		buildAnnotatedString {
-			append("By tapping Agree and continue, I confirm that I am 18 years of age or older, that I currently reside in the United States, and that I agree to the ")
-			withLink(LinkAnnotation.Clickable("terms", linkStyle) { reading = LegalDocs.TERMS }) { append("Terms of Service") }
-			append(" and ")
-			withLink(LinkAnnotation.Clickable("privacy", linkStyle) { reading = LegalDocs.PRIVACY }) { append("Privacy Policy") }
-			append(".")
-		}
-	}
-
 	Box(
 		modifier = Modifier
 			.fillMaxSize()
@@ -91,13 +91,12 @@ internal fun EligibilityScreen(onSignOut: () -> Unit) {
 			// The gate is the whole screen: taps never reach the app beneath it (and it adds no node for TalkBack).
 			.pointerInput(Unit) { detectTapGestures { } },
 	) {
-		AuthWatermark()
 		Artboard {
 			Row(modifier = Modifier.fillMaxWidth().padding(start = (24 * u).dp, top = (10 * u).dp)) {
 				SignOutLink(onClick = onSignOut)
 			}
-			// Heading at the top, the sentence at the foot (right above the button it describes, so what tapping it means
-			// is in view when it's tapped). At a large font size the two scroll, so neither is ever pushed off the screen.
+			// The mark, heading and card at the top, the sentence at the foot (right above the button it describes, so what
+			// tapping it means is in view when it's tapped). At a large font size they scroll, so nothing is pushed off.
 			BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
 				Column(
 					verticalArrangement = Arrangement.SpaceBetween,
@@ -106,27 +105,45 @@ internal fun EligibilityScreen(onSignOut: () -> Unit) {
 						.verticalScroll(rememberScrollState())
 						.heightIn(min = maxHeight)
 						.padding(horizontal = (24 * u).dp)
-						.padding(top = (22 * u).dp, bottom = (14 * u).dp),
+						.padding(top = (12 * u).dp, bottom = (14 * u).dp),
 				) {
-					Column(verticalArrangement = Arrangement.spacedBy((12 * u).dp)) {
+					Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+						// The splash's glass ball, exported small for this size (the splash art itself is 1440px).
+						Image(painter = painterResource(R.drawable.stak_glass_mark), contentDescription = null, modifier = Modifier.size((88 * u).dp))
 						Text(
 							"Before we get started",
-							style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp, lineHeight = (33 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+							style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (26 * u).sp, lineHeight = (33 * u).sp, textAlign = TextAlign.Center),
 							color = StakColors.TextPrimary,
-							modifier = Modifier.semantics { heading() },
+							modifier = Modifier.padding(top = (18 * u).dp).semantics { heading() },
 						)
 						Text(
 							"STAK’s beta is open to adults in the United States.",
-							style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+							style = TextStyle(fontFamily = Geist, fontSize = maxOf(13f, 13 * u).sp, lineHeight = maxOf(18f, 18 * u).sp, textAlign = TextAlign.Center),
 							color = Auth.SubtitleGray,
+							modifier = Modifier.padding(top = (8 * u).dp),
 						)
+						Column(
+							modifier = Modifier
+								.padding(top = (24 * u).dp)
+								.fillMaxWidth()
+								.background(StakColors.Surface, RoundedCornerShape((16 * u).dp))
+								.border((1 * u).dp, StakColors.CardBorder, RoundedCornerShape((16 * u).dp)),
+						) {
+							ConfirmRow(Icons.Rounded.Cake, "I’m 18 or older")
+							RowDivider()
+							ConfirmRow(Icons.Rounded.LocationOn, "I live in the United States")
+							RowDivider()
+							ConfirmRow(Icons.Rounded.Description, "Terms of Service", onOpen = { reading = LegalDocs.TERMS })
+							RowDivider()
+							ConfirmRow(Icons.Rounded.Lock, "Privacy Policy", onOpen = { reading = LegalDocs.PRIVACY })
+						}
 					}
-					Column(verticalArrangement = Arrangement.spacedBy((14 * u).dp), modifier = Modifier.padding(top = (24 * u).dp)) {
+					Column(verticalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.padding(top = (24 * u).dp)) {
 						// Never below 13sp: what someone agrees to stays easy to read on a narrow phone.
 						Text(
-							agreement,
+							"By tapping Agree and continue, I confirm that I’m 18 or older and live in the United States, and I agree to the Terms of Service and Privacy Policy.",
 							style = TextStyle(fontFamily = Geist, fontSize = maxOf(13f, 13 * u).sp, lineHeight = maxOf(19f, 19 * u).sp),
-							color = StakColors.TextPrimary,
+							color = StakColors.Body,
 						)
 						error?.let {
 							Text(
@@ -154,6 +171,54 @@ internal fun EligibilityScreen(onSignOut: () -> Unit) {
 		}
 		reading?.let { doc -> LegalSheet(doc = doc, onClose = { reading = null }) }
 	}
+}
+
+/**
+ * One line of the card: a teal icon and what's being confirmed; with [onOpen], a button that opens the document (teal
+ * words and a chevron, so it reads as a link and the plain statements don't read as controls).
+ */
+@Composable
+private fun ConfirmRow(icon: ImageVector, label: String, onOpen: (() -> Unit)? = null) {
+	val u = figmaUnit()
+	Row(
+		verticalAlignment = Alignment.CenterVertically,
+		modifier = Modifier
+			.fillMaxWidth()
+			.then(
+				if (onOpen == null) Modifier
+				else Modifier.clickable(
+					interactionSource = remember { MutableInteractionSource() },
+					indication = PressDim,
+					role = Role.Button,
+					onClickLabel = "Read",
+					onClick = onOpen,
+				),
+			)
+			.heightIn(min = (54 * u).dp)
+			.padding(horizontal = (16 * u).dp, vertical = (10 * u).dp),
+	) {
+		Box(
+			contentAlignment = Alignment.Center,
+			modifier = Modifier.size((32 * u).dp).background(StakColors.Teal.copy(alpha = 0.14f), CircleShape),
+		) {
+			Icon(icon, contentDescription = null, tint = StakColors.Teal, modifier = Modifier.size((18 * u).dp))
+		}
+		Text(
+			label,
+			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = maxOf(14f, 14 * u).sp),
+			color = if (onOpen != null) StakColors.Teal else StakColors.TextPrimary,
+			modifier = Modifier.weight(1f).padding(start = (12 * u).dp),
+		)
+		if (onOpen != null) {
+			Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = StakColors.Muted, modifier = Modifier.size((20 * u).dp))
+		}
+	}
+}
+
+@Composable
+private fun RowDivider() {
+	val u = figmaUnit()
+	Box(modifier = Modifier.fillMaxWidth().padding(start = (60 * u).dp).height((1 * u).dp).background(StakColors.Divider))
 }
 
 @Composable
