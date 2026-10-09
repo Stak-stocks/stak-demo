@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { D } from "@/app/discover/assets";
 import { BackCrumb } from "@/app/discover/BackCrumb";
-import { GhostButton, PrimaryButton } from "@/app/discover/Button";
+import { GhostButton } from "@/app/discover/Button";
+import { PrimaryButton } from "@/app/ui/Button";
 import { endOfDeck } from "@/app/discover/data";
 import { colCentre } from "@/app/FitCanvas";
 import { DECK_SIZE, useDeck, useLive } from "@/app/live";

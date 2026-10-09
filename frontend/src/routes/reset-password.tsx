@@ -10,10 +10,10 @@ import {
 	FieldError,
 	FootRow,
 	passwordProblem,
-	PrimaryButton,
 	ShowToggle,
 	Spinner,
 } from "@/app/auth/ui";
+import { PrimaryButton } from "@/app/ui/Button";
 import { useAuth } from "../context/AuthContext";
 import { auth } from "../lib/firebase";
 
@@ -105,8 +105,8 @@ function ResetPasswordPage() {
 					<div className="flex w-full flex-col items-start">
 						<AuthHeading title="Invalid link" subtitle="This password reset link is invalid or has expired." />
 					</div>
-					<Link to="/forgot-password" className="w-full">
-						<PrimaryButton>Request a new link</PrimaryButton>
+					<Link to="/forgot-password" className="block w-full">
+						<PrimaryButton as="span">Request a new link</PrimaryButton>
 					</Link>
 				</div>
 				<div className="flex flex-col items-center justify-center">

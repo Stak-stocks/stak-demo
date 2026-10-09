@@ -9,7 +9,7 @@ import { type Quote, stockDataQuery, useApiHealth, useQuote } from "@/app/live/q
 import { useLive } from "@/app/live/store";
 import { N } from "@/app/news/assets";
 import { article } from "@/app/news/data";
-import { GradientButton } from "@/app/profile/ui";
+import { PrimaryButton } from "@/app/ui/Button";
 
 type DetailSearch = { saved?: boolean };
 
@@ -308,10 +308,10 @@ function Rail({ saved, busy, quote, onSave }: { saved: boolean; busy: boolean; q
 			</div>
 
 			{!saved && (
-				<GradientButton onClick={onSave} className={busy ? "stak-press cursor-wait opacity-80" : "stak-press cursor-pointer"}>
+				<PrimaryButton onClick={onSave} aria-busy={busy} className={busy ? "cursor-wait opacity-80" : undefined}>
 					<img alt="" src={N.plus} className="size-[12.6px]" />
-					<span className="whitespace-nowrap font-geist text-[14px] font-medium leading-[20.69px] text-white">{a.addToStak}</span>
-				</GradientButton>
+					{a.addToStak}
+				</PrimaryButton>
 			)}
 
 			<div className="h-px w-full bg-[#2a3346]" />

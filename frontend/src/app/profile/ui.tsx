@@ -1,38 +1,8 @@
 import { useNavigate } from "@tanstack/react-router";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** Button canon (00 References): r6, h52, Geist Medium, hairline + glow. Used by "Add to STAK" and "Save changes". */
-export const GRADIENT_BUTTON_STYLE: CSSProperties = {
-	backgroundImage:
-		"linear-gradient(180deg, rgb(166, 228, 247) 8.8889%, rgb(93, 168, 191) 39.189%, rgb(60, 152, 180) 72.549%), linear-gradient(90deg, rgb(44, 157, 188) 0%, rgb(44, 157, 188) 100%)",
-	boxShadow:
-		"0px 77.322px 21.679px 0px rgba(82,170,199,0), 0px 49.862px 19.511px 0px rgba(82,170,199,0.01), 0px 28.183px 16.621px 0px rgba(82,170,199,0.03)",
-};
-
 export const CHEVRON = "›";
-
-export function GradientButton({
-	children,
-	className,
-	onClick,
-	disabled,
-}: { children: ReactNode; className?: string; onClick?: () => void; disabled?: boolean }) {
-	return (
-		<button
-			type="button"
-			onClick={onClick}
-			disabled={disabled}
-			className={cn(
-				"stak-press flex h-[52px] w-full cursor-pointer items-center justify-center gap-[8px] overflow-clip rounded-[6px] border-[0.361px] border-[rgba(101,158,173,0.63)]",
-				className,
-			)}
-			style={GRADIENT_BUTTON_STYLE}
-		>
-			{children}
-		</button>
-	);
-}
 
 /** "Settings card" (Figma 2:2516): #10182b, r16, 4px vertical padding, 48px rows. */
 export function SettingsCard({ children, className }: { children: ReactNode; className?: string }) {

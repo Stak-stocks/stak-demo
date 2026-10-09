@@ -1,7 +1,7 @@
 import { fillHeight } from "@/app/FitCanvas";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PrimaryButton } from "@/app/auth/ui";
+import { PrimaryButton } from "@/app/ui/Button";
 import { BackControl, HeroBox, OnboardingChrome, StepHeading } from "@/app/onboarding/Chrome";
 import { GOAL_ICONS, OptionMatrix, RISK_ICONS } from "@/app/onboarding/OptionMatrix";
 import { SwipeCards } from "@/app/onboarding/SwipeCards";
@@ -325,7 +325,7 @@ function OnboardingPage() {
 							</div>
 						</div>
 						<PrimaryButton
-							className="w-[440px]"
+							width={440}
 							onClick={() => {
 								// the name chosen here is the one the sidebar, Home and Profile show
 								if (name.trim() && name.trim() !== PROFILE_DEFAULT_NAME) live.actions.setDisplayName(name).catch(() => {});

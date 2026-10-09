@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { AuthHeading, AuthInput, AuthLayout, authErrorMessage, FieldError, FootRow, isEmail, PrimaryButton } from "@/app/auth/ui";
+import { AuthHeading, AuthInput, AuthLayout, authErrorMessage, FieldError, FootRow, isEmail } from "@/app/auth/ui";
+import { PrimaryButton } from "@/app/ui/Button";
 import { useAuth } from "../context/AuthContext";
 
 type ForgotSearch = { email?: string };

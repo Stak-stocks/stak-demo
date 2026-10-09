@@ -1,6 +1,7 @@
 import { type CSSProperties, type ReactNode, useId } from "react";
 import { BackCrumb } from "@/app/discover/BackCrumb";
-import { GhostButton, PrimaryButton } from "@/app/discover/Button";
+import { GhostButton } from "@/app/discover/Button";
+import { PrimaryButton } from "@/app/ui/Button";
 import { colPlus } from "@/app/FitCanvas";
 import { cn } from "@/lib/utils";
 import { S } from "./assets";

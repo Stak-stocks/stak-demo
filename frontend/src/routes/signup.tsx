@@ -12,10 +12,10 @@ import {
 	isEmail,
 	OrDivider,
 	passwordProblem,
-	PrimaryButton,
 	ShowToggle,
 	SocialButton,
 } from "@/app/auth/ui";
+import { PrimaryButton } from "@/app/ui/Button";
 import { getProfile } from "@/lib/api";
 import { useAuth } from "../context/AuthContext";
 

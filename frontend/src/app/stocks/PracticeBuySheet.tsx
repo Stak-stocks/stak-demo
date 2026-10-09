@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { PrimaryButton, SheetBackButton } from "@/app/discover/Button";
+import { SheetBackButton } from "@/app/discover/Button";
+import { PrimaryButton } from "@/app/ui/Button";
 import { money, shares4 } from "@/app/live/format";
 import { Sheet } from "@/app/ui/Sheet";
 import { cn } from "@/lib/utils";
@@ -135,7 +136,7 @@ export function PracticeBuySheet({ ticker, name, initial, price, changeShort, ca
 				</div>
 			</div>
 			<div className="flex w-full flex-col items-start gap-[16px]">
-				<PrimaryButton className="px-[14px] py-[7px]" onClick={confirm} disabled={!canBuy} aria-disabled={!canBuy}>
+				<PrimaryButton onClick={confirm} disabled={!canBuy} aria-disabled={!canBuy}>
 					{busy ? "Placing order…" : ticketCopy.confirm}
 				</PrimaryButton>
 				<SheetBackButton onClick={onClose}>{ticketCopy.back}</SheetBackButton>

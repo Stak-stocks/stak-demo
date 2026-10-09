@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { CSSProperties, KeyboardEvent, ReactNode, Ref } from "react";
+import { GHOST_FILTER, GRADIENT, HAIRLINE_COLOR, hairline } from "@/app/ui/Button";
 import { cn } from "@/lib/utils";
 import { SA } from "./assets";
 
@@ -8,17 +9,8 @@ export type Palette = { card: string; inner: string };
 export const PALETTE: Palette = { card: "#181f30", inner: "#12203e" };
 export const PALETTE_ALT: Palette = { card: "#0e1a36", inner: "#12203e" };
 
-/** Button canon (00 References): r6 · h52 · Geist Medium · hairline + glow. */
-export const GRADIENT =
-	"linear-gradient(180deg, rgb(166, 228, 247) 8.8889%, rgb(93, 168, 191) 39.189%, rgb(60, 152, 180) 72.549%), linear-gradient(90deg, rgb(44, 157, 188) 0%, rgb(44, 157, 188) 100%)";
-export const GLOW_FILTER =
-	"drop-shadow(0px 77.322px 10.839px rgba(82,170,199,0)) drop-shadow(0px 49.862px 9.756px rgba(82,170,199,0.01)) drop-shadow(0px 28.183px 8.31px rgba(82,170,199,0.03))";
-export const GHOST_FILTER =
-	"drop-shadow(0px 77.322px 10.839px rgba(82,170,199,0)) drop-shadow(0px 49.862px 9.756px rgba(82,170,199,0.01)) drop-shadow(0px 28.183px 8.31px rgba(82,170,199,0.05)) drop-shadow(0px 12.285px 6.142px rgba(82,170,199,0.09)) drop-shadow(0px 2.891px 3.252px rgba(82,170,199,0.1))";
 const BUY_FILTER = "drop-shadow(0px 12.285px 6.142px rgba(82,170,199,0.04))";
 const SELL_FILTER = "drop-shadow(0px 12.285px 6.142px rgba(82,170,199,0.02))";
-/** Figma hairline strokes sit inside the box; an inset shadow keeps the layout size and the fractional width. */
-export const hairline = (width: number, color: string) => `inset 0 0 0 ${width}px ${color}`;
 
 /** Hover/pressed feedback for controls whose glow lives in an inline filter (so the shared .stak-press filter cannot apply). */
 const PRESS = "cursor-pointer transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.985] disabled:cursor-default disabled:opacity-60 disabled:active:scale-100";
@@ -120,39 +112,6 @@ export function Avatar({
 	);
 }
 
-export function GradientButton({
-	children,
-	onClick,
-	className,
-	height = 52,
-	disabled,
-	as = "button",
-}: {
-	children: ReactNode;
-	onClick?: () => void;
-	className?: string;
-	height?: number;
-	disabled?: boolean;
-	/** `span` draws the same box as plain content, for the inside of a Link that is the control itself (no button nested in the anchor). */
-	as?: "button" | "span";
-}) {
-	const classes = cn(PRESS, "flex w-full items-center justify-center rounded-[6px] px-[14px] py-[7px]", className);
-	const style: CSSProperties = { height, backgroundImage: GRADIENT, boxShadow: hairline(0.361, "rgba(101,158,173,0.63)"), filter: GLOW_FILTER };
-	const label = <span className="whitespace-nowrap font-geist text-[14px] font-medium leading-[20.69px] text-white">{children}</span>;
-	if (as === "span") {
-		return (
-			<span className={classes} style={style}>
-				{label}
-			</span>
-		);
-	}
-	return (
-		<button type="button" onClick={onClick} disabled={disabled} className={classes} style={style}>
-			{label}
-		</button>
-	);
-}
-
 /** "Back" / "Keep exploring" / "View portfolio" — bordered ghost button. */
 export function GhostButton({
 	children,
@@ -196,7 +155,7 @@ export function SellButton({ children, onClick, width, disabled }: { children: R
 			onClick={onClick}
 			disabled={disabled}
 			className={cn(PRESS, "flex h-[51px] items-center justify-center rounded-[6px] bg-[#12203e]", width ? "" : "w-full")}
-			style={{ width, boxShadow: hairline(0.361, "rgba(101,158,173,0.63)"), filter: SELL_FILTER }}
+			style={{ width, boxShadow: hairline(0.361, HAIRLINE_COLOR), filter: SELL_FILTER }}
 		>
 			<span className="whitespace-nowrap font-sora text-[14px] leading-[20.69px] text-white">{children}</span>
 		</button>
@@ -211,7 +170,7 @@ export function SmallBuyButton({ children, onClick, "aria-label": ariaLabel }: {
 			onClick={onClick}
 			aria-label={ariaLabel}
 			className={cn(PRESS, "flex h-[30px] w-[60px] shrink-0 items-center justify-center rounded-[5.781px] px-[10px] py-[7.226px]")}
-			style={{ backgroundImage: GRADIENT, boxShadow: hairline(0.361, "rgba(101,158,173,0.63)"), filter: BUY_FILTER }}
+			style={{ backgroundImage: GRADIENT, boxShadow: hairline(0.361, HAIRLINE_COLOR), filter: BUY_FILTER }}
 		>
 			<span className="whitespace-nowrap font-sora text-[12px] leading-[15px] text-white">{children}</span>
 		</button>

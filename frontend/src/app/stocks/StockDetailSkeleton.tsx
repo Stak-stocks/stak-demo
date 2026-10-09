@@ -1,7 +1,7 @@
 import { A } from "@/app/assets";
 import { colPlus } from "@/app/FitCanvas";
 import { Bar } from "@/app/SidebarSkeleton";
-import { GLOW_FILTER, GRADIENT, hairline } from "@/app/simulate/ui";
+import { GLOW_FILTER, GRADIENT, hairline } from "@/app/ui/Button";
 
 const CARD = "flex w-full flex-col items-start gap-[12px] overflow-clip rounded-[16px] bg-[#181f30] px-[16px] py-[14px]";
 const L = A.loading;

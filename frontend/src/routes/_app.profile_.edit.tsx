@@ -5,7 +5,8 @@ import { col } from "@/app/FitCanvas";
 import { useLive } from "@/app/live/store";
 import { PageHeader } from "@/app/PageHeader";
 import { editProfile } from "@/app/profile/data";
-import { GradientButton, RowLabel, RowValue, SectionLabel, SettingsCard, SettingsRow } from "@/app/profile/ui";
+import { RowLabel, RowValue, SectionLabel, SettingsCard, SettingsRow } from "@/app/profile/ui";
+import { PrimaryButton } from "@/app/ui/Button";
 import { useAccountDisplay } from "@/app/useAccountDisplay";
 
 export const Route = createFileRoute("/_app/profile_/edit")({
@@ -95,9 +96,9 @@ function EditProfilePage() {
 				<p className="w-full font-geist text-[12px] leading-[16px] text-[#819abb]">{editProfile.note}</p>
 
 				<div className="flex w-full flex-col items-center overflow-clip pb-[26px] pt-[8px]">
-					<GradientButton onClick={save} disabled={saving}>
-						<span className="whitespace-nowrap font-geist text-[14px] font-medium leading-[20.69px] text-white">{saving ? "Saving…" : editProfile.save}</span>
-					</GradientButton>
+					<PrimaryButton onClick={save} disabled={saving}>
+						{saving ? "Saving…" : editProfile.save}
+					</PrimaryButton>
 				</div>
 			</form>
 		</div>

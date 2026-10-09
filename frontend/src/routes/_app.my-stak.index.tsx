@@ -1,13 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { A } from "@/app/assets";
-import { PRIMARY_GRADIENT } from "@/app/auth/ui";
 import { col } from "@/app/FitCanvas";
 import { type AllocationRow, type CollectionGroup, countLabel, useCollections } from "@/app/live/collections";
 import { useDeck } from "@/app/live/deck";
 import { signedPct } from "@/app/live/format";
 import { MS } from "@/app/mystak/assets";
 import { ALLOCATION_DOTS, COLLECTION_ICONS, DISCOVER_CTA, EMPTY, INSIGHT_HEADING, OVERVIEW, PERFORMANCE } from "@/app/mystak/data";
-import { GradientButton } from "@/app/simulate/ui";
+import { PrimaryButton } from "@/app/ui/Button";
 import { cn } from "@/lib/utils";
 
 type MyStakSearch = { state?: "empty" };
@@ -46,8 +45,8 @@ function MyStakEmpty({ remaining }: { remaining: number }) {
 					<div className="size-[10px]" />
 					<p className="w-[460px] text-center font-geist text-[15px] leading-[22px] text-[#819abb]">{EMPTY.body}</p>
 					<div className="h-[28px] w-[10px]" />
-					<Link to="/discover" className="stak-press block w-[240px] cursor-pointer rounded-[6px]">
-						<GradientButton as="span">{EMPTY.cta}</GradientButton>
+					<Link to="/discover" className="block w-[240px]">
+						<PrimaryButton as="span">{EMPTY.cta}</PrimaryButton>
 					</Link>
 					<div className="h-[14px] w-[10px]" />
 					<p className="whitespace-nowrap text-center font-geist text-[13px] leading-[17px] text-[#819abb]">{EMPTY.caption(remaining)}</p>
@@ -104,13 +103,11 @@ function MyStakPage() {
 				</div>
 
 				<div className="mt-[33px] flex min-w-0 flex-col items-end gap-[31px]" style={{ flex: "350 1 0" }}>
-					<Link
-						to="/discover"
-						className="stak-press flex h-[52px] w-full cursor-pointer items-center justify-center gap-[8px] rounded-[6px] border-[0.361px] border-solid border-[rgba(101,158,173,0.63)] drop-shadow-[0px_77.322px_10.839px_rgba(82,170,199,0),0px_49.862px_9.756px_rgba(82,170,199,0.01),0px_28.183px_8.31px_rgba(82,170,199,0.03)]"
-						style={{ backgroundImage: PRIMARY_GRADIENT }}
-					>
-						<span className="whitespace-nowrap font-geist text-[14px] font-medium leading-[20.69px] text-white">{OVERVIEW.addMore}</span>
-						<img alt="" src={MS.plus} className="size-[14px]" />
+					<Link to="/discover" className="block w-full">
+						<PrimaryButton as="span">
+							{OVERVIEW.addMore}
+							<img alt="" src={MS.plus} className="size-[14px]" />
+						</PrimaryButton>
 					</Link>
 					<div className="flex w-full flex-col items-start gap-[14px]">
 						<SectionHeader title={OVERVIEW.breakdown} size="md" />

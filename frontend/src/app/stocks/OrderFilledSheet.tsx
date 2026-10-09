@@ -1,7 +1,8 @@
 import { money, shares4 } from "@/app/live/format";
 import { SA } from "@/app/simulate/assets";
 import { sheets } from "@/app/simulate/data";
-import { GhostButton, GradientButton } from "@/app/simulate/ui";
+import { GhostButton } from "@/app/simulate/ui";
+import { PrimaryButton } from "@/app/ui/Button";
 import { Sheet } from "@/app/ui/Sheet";
 import { cn } from "@/lib/utils";
 
@@ -59,7 +60,7 @@ export function OrderFilledSheet({ ticker, name, initial, price, changeShort, sh
 				</div>
 			</div>
 			<div className="flex w-full flex-col items-start gap-[16px]">
-				<GradientButton onClick={onPrimary}>{s.primary}</GradientButton>
+				<PrimaryButton onClick={onPrimary}>{s.primary}</PrimaryButton>
 				<GhostButton onClick={onSecondary} height={52} radius={6} fontSize={14}>
 					{s.secondary}
 				</GhostButton>

@@ -4,30 +4,6 @@ import { cn } from "@/lib/utils";
 import { fillHeight } from "@/app/FitCanvas";
 import { AU } from "./assets";
 
-/** Button canon (00 References): r6, h52, Geist Medium, hairline + glow, gradient fill. */
-export const PRIMARY_GRADIENT =
-	"linear-gradient(180deg, rgb(166, 228, 247) 8.8889%, rgb(93, 168, 191) 39.189%, rgb(60, 152, 180) 72.549%), linear-gradient(90deg, rgb(44, 157, 188) 0%, rgb(44, 157, 188) 100%)";
-
-export const PRIMARY_SHADOW =
-	"shadow-[0px_77.322px_21.679px_0px_rgba(82,170,199,0),0px_49.862px_19.511px_0px_rgba(82,170,199,0.01),0px_28.183px_16.621px_0px_rgba(82,170,199,0.03)]";
-
-export function PrimaryButton({ className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
-	return (
-		<button
-			type="button"
-			{...props}
-			className={cn(
-				"stak-press flex h-[52px] w-full cursor-pointer items-center justify-center overflow-clip rounded-[6px] border-[0.361px] border-solid border-[rgba(101,158,173,0.63)] disabled:cursor-not-allowed",
-				PRIMARY_SHADOW,
-				className,
-			)}
-			style={{ backgroundImage: PRIMARY_GRADIENT }}
-		>
-			<span className="whitespace-nowrap font-geist text-[14px] font-medium leading-[20.69px] text-white">{children}</span>
-		</button>
-	);
-}
-
 export function SocialButton({ icon, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { icon: string }) {
 	return (
 		<button

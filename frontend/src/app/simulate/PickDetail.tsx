@@ -25,7 +25,8 @@ import { SA } from "./assets";
 import { pickDetail, stocks } from "./data";
 import { SellConfirmSheet, SellSuccessSheet } from "./sheets";
 import { stockFor } from "./SimulateHome";
-import { Avatar, BackHeader, Card, Eyebrow, GhostButton, hairline, SellButton } from "./ui";
+import { hairline } from "@/app/ui/Button";
+import { Avatar, BackHeader, Card, Eyebrow, GhostButton, SellButton } from "./ui";
 
 export type PickDetailSearch = { modal?: "sell-confirm" | "sell-success"; portion?: number };
 

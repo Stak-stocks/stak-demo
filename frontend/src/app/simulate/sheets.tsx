@@ -4,7 +4,8 @@ import { Sheet } from "@/app/ui/Sheet";
 import { cn } from "@/lib/utils";
 import { SA } from "./assets";
 import { buyFailed, cashAvailable, pickDetail, sheets, type Stock } from "./data";
-import { AmountChip, Avatar, CustomChip, GhostButton, GradientButton, SellButton } from "./ui";
+import { PrimaryButton } from "@/app/ui/Button";
+import { AmountChip, Avatar, CustomChip, GhostButton, SellButton } from "./ui";
 
 /** Scrim + centred 480 sheet ("Sheet" 2:1421 et al.) on the native dialog. The scrim colour differs per frame in the Figma. */
 export function Modal({
@@ -164,9 +165,9 @@ export function AddConfirmSheet({
 				</div>
 			)}
 			<Buttons>
-				<GradientButton onClick={confirm} disabled={!valid || busy}>
+				<PrimaryButton onClick={confirm} disabled={!valid || busy}>
 					{s.confirm}
-				</GradientButton>
+				</PrimaryButton>
 				<GhostButton onClick={onClose}>{sheets.back}</GhostButton>
 			</Buttons>
 		</Modal>
@@ -203,7 +204,7 @@ export function AddSuccessSheet({
 				</div>
 			</div>
 			<Buttons>
-				<GradientButton onClick={onPrimary}>{s.primary}</GradientButton>
+				<PrimaryButton onClick={onPrimary}>{s.primary}</PrimaryButton>
 				<GhostButton onClick={onClose} height={52} radius={6} fontSize={14}>
 					{s.secondary}
 				</GhostButton>
@@ -271,9 +272,9 @@ export function SellConfirmSheet({
 				<BigLine before={s.youGetBack} big={money(worth * frac)} after={s.forShares(shares4(held * frac))} />
 			</div>
 			<Buttons>
-				<GradientButton onClick={confirm} disabled={!valid || busy}>
+				<PrimaryButton onClick={confirm} disabled={!valid || busy}>
 					{s.confirm}
-				</GradientButton>
+				</PrimaryButton>
 				<GhostButton onClick={onClose}>{sheets.back}</GhostButton>
 			</Buttons>
 		</Modal>
@@ -314,7 +315,7 @@ export function SellSuccessSheet({
 				<BigLine before={s.returned} big={money(proceeds)} after={s.toCash(signedMoney(pnl))} />
 			</div>
 			<Buttons>
-				<GradientButton onClick={onPrimary}>{s.primary}</GradientButton>
+				<PrimaryButton onClick={onPrimary}>{s.primary}</PrimaryButton>
 				<GhostButton onClick={onSecondary} height={52} radius={6} fontSize={14}>
 					{s.secondary}
 				</GhostButton>
@@ -414,7 +415,7 @@ export function BuyFailedSheet({
 			<StockRow stock={stock} name={stock.nameConfirm} />
 			<Description>{buyFailed.description}</Description>
 			<Buttons>
-				<GradientButton onClick={onRetry}>{buyFailed.retry}</GradientButton>
+				<PrimaryButton onClick={onRetry}>{buyFailed.retry}</PrimaryButton>
 				<GhostButton onClick={onClose}>{buyFailed.dismiss}</GhostButton>
 			</Buttons>
 		</Modal>

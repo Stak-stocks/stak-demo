@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { AuthHeading, AuthLayout, FootRow, PrimaryButton } from "@/app/auth/ui";
+import { AuthHeading, AuthLayout, FootRow } from "@/app/auth/ui";
+import { PrimaryButton } from "@/app/ui/Button";
 import { useAuth } from "../context/AuthContext";
 
 type CheckEmailSearch = { email?: string };

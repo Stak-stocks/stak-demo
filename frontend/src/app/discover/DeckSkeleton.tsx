@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { A } from "@/app/assets";
 import { colCentre } from "@/app/FitCanvas";
 import { Bar } from "@/app/SidebarSkeleton";
-import { GLOW_FILTER, GRADIENT, hairline } from "@/app/simulate/ui";
+import { GLOW_FILTER, GRADIENT, hairline } from "@/app/ui/Button";
 
 const L = A.loading;
 

@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { A } from "./assets";
 import { fillHeight } from "./FitCanvas";
-import { GradientButton } from "./simulate/ui";
+import { PrimaryButton } from "./ui/Button";
 
 /** The empty-state block of section 10 (empty box, Sora 26 title, 460-wide body, 240 button), for a path that does not exist. */
 export function NotFound() {
@@ -19,7 +19,7 @@ export function NotFound() {
 				</p>
 				<div className="h-[28px] w-[10px]" />
 				<Link to="/home" className="block w-[240px]">
-					<GradientButton as="span">Go home</GradientButton>
+					<PrimaryButton as="span">Go home</PrimaryButton>
 				</Link>
 			</div>
 		</main>

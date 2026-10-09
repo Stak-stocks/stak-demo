@@ -3,11 +3,12 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { colPlus } from "@/app/FitCanvas";
 import { changeLine, changeShort, companyInitial, companyName, type Fill, money, normalizeTicker, signedMoney, signedPct, usePortfolio, useQuotes, wholeMoney } from "@/app/live";
+import { PrimaryButton } from "@/app/ui/Button";
 import { cn } from "@/lib/utils";
 import { SA } from "./assets";
 import { simulateEmpty, simulateHome, stocks, type Stock } from "./data";
 import { AddConfirmSheet, AddSuccessSheet, BuyFailedSheet } from "./sheets";
-import { Avatar, Card, CardTitle, Eyebrow, GradientButton, GREEN, type Palette, RED, RED_ROW, SmallBuyButton } from "./ui";
+import { Avatar, Card, CardTitle, Eyebrow, GREEN, type Palette, RED, RED_ROW, SmallBuyButton } from "./ui";
 
 export type SimulateHomeSearch = {
 	variant?: "alt";
@@ -327,7 +328,7 @@ function SimulateEmpty({ budget }: { budget: number }) {
 					<p className="w-[460px] text-center font-geist text-[15px] leading-[22px] text-[#819abb]">{e.body}</p>
 					<div className="h-[28px] w-[10px]" />
 					<Link to="/discover" className="block w-[240px]">
-						<GradientButton as="span">{e.cta}</GradientButton>
+						<PrimaryButton as="span">{e.cta}</PrimaryButton>
 					</Link>
 				</div>
 			</div>
