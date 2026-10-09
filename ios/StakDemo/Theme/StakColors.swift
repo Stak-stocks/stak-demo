@@ -39,8 +39,6 @@ enum StakColors {
 
 	/// Muted blue-gray: secondary text, placeholders, inactive tabs.
 	static let muted = Color(argb: 0xFF819ABB)
-	/// Body copy on navy (#C8D2E0).
-	static let body = Color(argb: 0xFFC8D2E0)
 
 	static let textPrimary = Color.white
 	/// rgba(255,255,255,0.62) body copy on cards.
