@@ -2884,7 +2884,9 @@ function MobileLanding390({ scale, onSignup, onEmail, onSubscribe, onScrollTo }:
 /* ═══════════════════════════════════════════════════════════════════ */
 /*  ROOT: LandingPage                                                   */
 /* ═══════════════════════════════════════════════════════════════════ */
-export function LandingPage() {
+/* Not exported on purpose: an exported component cannot be code-split, and this file is 133 kB of
+   minified landing page that app pages should not download. The route owns it. */
+function LandingPage() {
 	const { user, loading, onboardingCompleted } = useAuth();
 	const navigate = useNavigate();
 	const scrollRef = useRef<HTMLDivElement>(null);

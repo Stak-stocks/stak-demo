@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import { loadCatalog } from "../catalog";
 import { buildDeckOrder, DECK_SIZE, DECK_THEMES, fitHeadline, HEADLINE_MAX } from "../deck";
 import { emptyLocal, sanitize, seedGuest } from "../guest";
 import { demoQuote, hasDemoQuote } from "../quotes";
@@ -37,6 +38,7 @@ describe("sanitize", () => {
 });
 
 describe("buildDeckOrder", () => {
+	beforeAll(() => loadCatalog());
 	it("is deterministic, twelve long, pins the frame's three companies and skips exclusions", () => {
 		const theme = DECK_THEMES[0]!;
 		const a = buildDeckOrder(theme, new Set(["MSFT"]), "2026-10-09:ai-chips:guest", true);

@@ -3,7 +3,7 @@
  * person's tag scores (the same five buckets the mobile profile uses), risk style and goal come
  * from the onboarding answers. The frames' strings are the fallback for an empty profile.
  */
-import { computeDisplayCategoryPercentages, DISPLAY_CATEGORY_LABELS, type DisplayCategoryKey } from "@stak/shared";
+import { computeDisplayCategoryPercentages, DISPLAY_CATEGORY_LABELS, type DisplayCategoryKey } from "@stak/shared/displayCategories";
 import { useMemo } from "react";
 import { tasteRisk } from "@/app/profile/data";
 import { useLive } from "./store";

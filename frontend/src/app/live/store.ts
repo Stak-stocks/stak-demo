@@ -5,7 +5,7 @@
  * (AccountContext) plus a per-uid local store; signed out, the guest persona in localStorage.
  * Screens never branch on the backend; they read `live` and call `live.actions`.
  */
-import { ACTION_POINTS, xpToTier } from "@stak/shared";
+import { xpToTier } from "@stak/shared/tierConfig";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { useAccount } from "@/context/AccountContext";
@@ -13,7 +13,7 @@ import { useAuth } from "@/context/AuthContext";
 import { updateProfile } from "@/lib/api";
 import { db } from "@/lib/firebase";
 import { roundShares } from "@/lib/utils";
-import { brandIdOfTicker, normalizeTicker, tagsOf, tickerOfBrandId } from "./catalog";
+import { actionPoints, brandIdOfTicker, normalizeTicker, tagsOf, tickerOfBrandId } from "./catalog";
 import { round2, round4 } from "./format";
 import {
 	type DeckProgress,
@@ -32,9 +32,6 @@ const BUDGET_BY_TIER: Record<number, number> = { 1: 1000, 2: 3000, 3: 5000, 4: 1
 /** The guest persona's budget (the empty Simulate frame says $10,000). */
 const GUEST_BUDGET = 10000;
 
-const points = ACTION_POINTS as unknown as Record<string, number>;
-const SAVE_POINTS = points.save ?? 3;
-const PASS_POINTS = points.pass ?? -1;
 
 /** Guests learn taste locally the way the backend does for accounts: tag weights × action points. */
 function bumpTags(scores: Record<string, number>, ticker: string, pts: number): Record<string, number> {
@@ -240,14 +237,14 @@ export function useLive(): Live {
 					guestStore().update((s) => ({
 						saves: s.saves.some((x) => x.ticker === T) ? s.saves : [...s.saves, { ticker: T, savedAt: Date.now(), priceAtSave }],
 						passed: s.passed.filter((p) => p !== T),
-						tagScores: s.saves.some((x) => x.ticker === T) ? s.tagScores : bumpTags(s.tagScores, T, SAVE_POINTS),
+						tagScores: s.saves.some((x) => x.ticker === T) ? s.tagScores : bumpTags(s.tagScores, T, actionPoints("save")),
 					}));
 					return;
 				}
 				const id = brandIdOfTicker(T);
 				const fresh = !(account?.stakBrandIds ?? []).includes(id);
 				await acct.saveToStak(id, priceAtSave);
-				if (fresh) learnTaste(uid, account?.tagScores, T, SAVE_POINTS);
+				if (fresh) learnTaste(uid, account?.tagScores, T, actionPoints("save"));
 				const passed = account?.passedBrands ?? [];
 				if (passed.some((e) => e.id === id)) await acct.updatePassedBrands(passed.filter((e) => e.id !== id));
 			},
@@ -265,7 +262,7 @@ export function useLive(): Live {
 				if (!signedIn) {
 					guestStore().update((s) => ({
 						passed: s.passed.includes(T) ? s.passed : [...s.passed, T],
-						tagScores: bumpTags(s.tagScores, T, PASS_POINTS),
+						tagScores: bumpTags(s.tagScores, T, actionPoints("pass")),
 					}));
 					return;
 				}
@@ -273,7 +270,7 @@ export function useLive(): Live {
 				const passed = account?.passedBrands ?? [];
 				const existing = passed.find((e) => e.id === id);
 				await acct.updatePassedBrands([...passed.filter((e) => e.id !== id), { id, at: Date.now(), count: (existing?.count ?? 0) + 1 }]);
-				learnTaste(uid, account?.tagScores, T, PASS_POINTS);
+				learnTaste(uid, account?.tagScores, T, actionPoints("pass"));
 			},
 			buy: async (ticker, dollars, price) => {
 				const T = normalizeTicker(ticker);

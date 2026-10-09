@@ -15,6 +15,7 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@": resolve(import.meta.dirname, "./src"),
+			"@stak/shared": resolve(import.meta.dirname, "../shared/src"),
 		},
 	},
 	test: {

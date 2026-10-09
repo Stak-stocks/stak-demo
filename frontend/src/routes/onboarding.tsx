@@ -18,6 +18,7 @@ import {
 	RISKS,
 	TASTE_BARS,
 } from "@/app/onboarding/data";
+import { warmCatalog } from "@/app/live/catalog";
 import { useLive } from "@/app/live/store";
 import { useAccount } from "@/context/AccountContext";
 import { trackEvent, updateProfile } from "@/lib/api";
@@ -53,6 +54,7 @@ function OnboardingPage() {
 	const { account, accountLoading, updatePreferences, updateDeckOrder, updateLastBriefDate } = useAccount();
 	const navigate = useNavigate();
 	const live = useLive();
+	useEffect(warmCatalog, []); // the catalog arrives during the steps, before /home needs it
 	const hasProgressed = useRef(false);
 	const completed = useRef(false);
 

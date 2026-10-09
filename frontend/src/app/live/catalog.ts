@@ -2,30 +2,123 @@
  * The company catalog behind every live screen: the 333 brands the mobile app ships in
  * @stak/shared (ids, tickers, names, logo sources, financial snapshots) and their category
  * tags. Tickers are the UI key; the account stores brand ids, so both directions map here.
+ *
+ * The catalog is ~1 MB of source, so it travels as its own chunk, fetched the first time an app
+ * route mounts (`useCatalog` in the _app layout): the landing, auth and onboarding pages never
+ * pay for it. Until it lands the helpers answer as they do for an unknown ticker and the layout
+ * keeps the route's loading frame up, so no screen renders against an empty catalog.
  */
-import { STAK_WEIGHTED_STOCK_TAGS, type StakStockTagConfig } from "@stak/shared";
-// the catalog itself is deliberately kept out of the package index (~1 MB); the deep import is its door
-import { brands, getBrandFallbackLogoUrl, getBrandLogoUrl, getBrandUltimateFallbackUrl, type BrandProfile } from "@stak/shared/brands";
+import { useEffect, useSyncExternalStore } from "react";
+import type { StakStockTagConfig } from "@stak/shared/stockTags";
+import type { BrandProfile } from "@stak/shared/brands";
 
 export type CollectionSlug = "ai-tech" | "finance" | "green-energy" | "real-estate" | "healthcare" | "consumer" | "other";
 
-const byTicker = new Map<string, BrandProfile>();
-const byId = new Map<string, BrandProfile>();
-for (const b of brands) {
-	byTicker.set(b.ticker.toUpperCase(), b);
-	byId.set(b.id, b);
+type LogoUrl = (brand: BrandProfile) => string;
+type Catalog = {
+	byTicker: Map<string, BrandProfile>;
+	byId: Map<string, BrandProfile>;
+	tags: readonly StakStockTagConfig[];
+	tagsByTicker: Map<string, StakStockTagConfig>;
+	actionPoints: Record<string, number>;
+	logo: { primary: LogoUrl; fallback: LogoUrl; ultimate: LogoUrl };
+};
+
+export type CatalogStatus = "idle" | "loading" | "ready" | "failed";
+export type CatalogFailure = "fetch" | "timeout";
+
+let catalog: Catalog | null = null;
+let status: CatalogStatus = "idle";
+let failure: CatalogFailure | null = null;
+let pending: Promise<void> | null = null;
+const listeners = new Set<() => void>();
+const notify = () => {
+	for (const l of listeners) l();
+};
+/** A chunk that has not arrived after this long is reported as failed; if it still lands later it is used. */
+const TIMEOUT_MS = 25_000;
+
+/**
+ * Fetch the catalog chunk, once per page. The browser remembers a failed module fetch for the life of
+ * the page, so a second import() of the same URL can never succeed: there is no retry here, and the
+ * failure panel offers a reload instead.
+ */
+export function loadCatalog(): Promise<void> {
+	if (catalog) return Promise.resolve();
+	if (pending) return pending;
+	status = "loading";
+	failure = null;
+	notify();
+	const fetchChunks = (async () => {
+		const [b, t] = await Promise.all([import("./brands"), import("@stak/shared/stockTags")]);
+		const byTicker = new Map<string, BrandProfile>();
+		const byId = new Map<string, BrandProfile>();
+		for (const brand of b.brands) {
+			byTicker.set(brand.ticker.toUpperCase(), brand);
+			byId.set(brand.id, brand);
+		}
+		const tagsByTicker = new Map<string, StakStockTagConfig>();
+		for (const tag of t.STAK_WEIGHTED_STOCK_TAGS) tagsByTicker.set(tag.ticker.toUpperCase(), tag);
+		catalog = {
+			byTicker,
+			byId,
+			tags: t.STAK_WEIGHTED_STOCK_TAGS,
+			tagsByTicker,
+			actionPoints: t.ACTION_POINTS as unknown as Record<string, number>,
+			logo: { primary: b.getBrandLogoUrl, fallback: b.getBrandFallbackLogoUrl, ultimate: b.getBrandUltimateFallbackUrl },
+		};
+		status = "ready";
+		failure = null;
+		notify();
+	})();
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const timeout = new Promise<never>((_, reject) => {
+		timer = setTimeout(() => reject(new Error("timeout")), TIMEOUT_MS);
+	});
+	fetchChunks.finally(() => clearTimeout(timer)).catch(() => {}); // a late arrival or failure after the timeout is observed above
+	pending = Promise.race([fetchChunks, timeout]).catch((error: unknown) => {
+		if (catalog) return;
+		status = "failed";
+		failure = error instanceof Error && error.message === "timeout" ? "timeout" : "fetch";
+		notify();
+		throw error;
+	});
+	return pending;
 }
-const tagsByTicker = new Map<string, StakStockTagConfig>();
-for (const t of STAK_WEIGHTED_STOCK_TAGS) tagsByTicker.set(t.ticker.toUpperCase(), t);
+
+export const catalogStatus = (): CatalogStatus => status;
+export const catalogFailure = (): CatalogFailure | null => failure;
+export const subscribeCatalog = (listener: () => void): (() => void) => {
+	listeners.add(listener);
+	return () => {
+		listeners.delete(listener);
+	};
+};
+
+/** The catalog's status, and the request for it: the first app mount fetches it. */
+export function useCatalog(): CatalogStatus {
+	const current = useSyncExternalStore(subscribeCatalog, catalogStatus, catalogStatus);
+	useEffect(() => {
+		loadCatalog().catch(() => {});
+	}, []);
+	return current;
+}
+
+/** Start the fetch early, where the person is about to enter the app (sign-in, onboarding); failures surface in the app. */
+export const warmCatalog = (): void => {
+	loadCatalog().catch(() => {});
+};
 
 export const normalizeTicker = (ticker: string) => ticker.trim().toUpperCase();
-export const brandByTicker = (ticker: string): BrandProfile | undefined => byTicker.get(normalizeTicker(ticker));
-export const brandById = (id: string): BrandProfile | undefined => byId.get(id);
-export const tickerOfBrandId = (id: string): string => byId.get(id)?.ticker.toUpperCase() ?? id.toUpperCase();
+export const brandByTicker = (ticker: string): BrandProfile | undefined => catalog?.byTicker.get(normalizeTicker(ticker));
+export const brandById = (id: string): BrandProfile | undefined => catalog?.byId.get(id);
+export const tickerOfBrandId = (id: string): string => catalog?.byId.get(id)?.ticker.toUpperCase() ?? id.toUpperCase();
 export const brandIdOfTicker = (ticker: string): string => brandByTicker(ticker)?.id ?? ticker.toLowerCase();
-export const tagsOf = (ticker: string): StakStockTagConfig | undefined => tagsByTicker.get(normalizeTicker(ticker));
-export const isKnownTicker = (ticker: string) => byTicker.has(normalizeTicker(ticker));
-export const allTickers = (): string[] => [...byTicker.keys()];
+export const tagsOf = (ticker: string): StakStockTagConfig | undefined => catalog?.tagsByTicker.get(normalizeTicker(ticker));
+export const isKnownTicker = (ticker: string) => catalog?.byTicker.has(normalizeTicker(ticker)) ?? false;
+export const allTickers = (): string[] => (catalog ? [...catalog.byTicker.keys()] : []);
+/** The points an action earns in the taste graph (the shared table; its own defaults until the catalog lands). */
+export const actionPoints = (action: "save" | "pass"): number => catalog?.actionPoints[action] ?? (action === "save" ? 3 : -1);
 
 export const companyName = (ticker: string): string => brandByTicker(ticker)?.name ?? normalizeTicker(ticker);
 export const companyInitial = (ticker: string): string => companyName(ticker).charAt(0).toUpperCase();
@@ -120,14 +213,14 @@ export const COLLECTION_DESCRIPTIONS: Record<CollectionSlug, string> = {
 /** Logo sources for a ticker: the Brandfetch CDN, then the catalog's own logo, then a favicon. */
 export function logoSources(ticker: string): { primary: string; fallback: string; ultimate: string } | null {
 	const b = brandByTicker(ticker);
-	if (!b) return null;
-	return { primary: getBrandLogoUrl(b), fallback: getBrandFallbackLogoUrl(b), ultimate: getBrandUltimateFallbackUrl(b) };
+	if (!b || !catalog) return null;
+	return { primary: catalog.logo.primary(b), fallback: catalog.logo.fallback(b), ultimate: catalog.logo.ultimate(b) };
 }
 
 /** Catalog tickers whose primary category is one of the given ones (tag order preserved). */
 export function tickersInCategories(categories: readonly string[]): string[] {
+	if (!catalog) return [];
 	const set = new Set(categories);
-	return STAK_WEIGHTED_STOCK_TAGS.filter((t) => set.has(t.primaryCategory) && byTicker.has(t.ticker.toUpperCase())).map((t) =>
-		t.ticker.toUpperCase(),
-	);
+	const known = catalog.byTicker;
+	return catalog.tags.filter((t) => set.has(t.primaryCategory) && known.has(t.ticker.toUpperCase())).map((t) => t.ticker.toUpperCase());
 }

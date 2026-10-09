@@ -20,7 +20,11 @@ vi.mock("@/context/AuthContext", () => ({
 	useAuth: () => ({ user: null, loading: false, onboardingCompleted: false }),
 }));
 
-import { LandingPage } from "../welcome";
+import type { ComponentType } from "react";
+import { Route } from "../welcome";
+
+/* createFileRoute is mocked to return its options, so the route object is `{ component }`. */
+const LandingPage = (Route as unknown as { component: ComponentType }).component;
 
 /* The page sizes itself from the scroll container's clientWidth (jsdom
    defaults to 0, which would always select the phone layout). */

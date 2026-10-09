@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { marketSessionBucket, getEasternDateKey } from "@stak/shared";
+import { marketSessionBucket, getEasternDateKey } from "@stak/shared/marketSession";
 
 export { marketSessionBucket, getEasternDateKey };
 

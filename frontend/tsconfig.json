@@ -30,6 +30,8 @@
     
     "paths": {
       "@/*": ["./src/*"],
+      "@stak/shared": ["../shared/src/index.ts"],
+      "@stak/shared/*": ["../shared/src/*"],
     }
   }
 }

@@ -18,7 +18,7 @@ import { arrayUnion, doc, increment, onSnapshot, runTransaction, updateDoc } fro
 import { db } from "../lib/firebase";
 import { getProfile, incrementSwipeCountServer, type SwipeLimitIncrementResponse } from "../lib/api";
 import { useAuth } from "./AuthContext";
-import { xpToTier } from "@stak/shared";
+import { xpToTier } from "@stak/shared/tierConfig";
 import { roundShares } from "../lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────

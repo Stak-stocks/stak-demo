@@ -4,7 +4,7 @@
  * first theme. Progress persists per day; signed-in swipes count against the account's daily
  * limit the way the mobile app's do.
  */
-import { DAILY_SWIPE_LIMIT } from "@stak/shared";
+import { DAILY_SWIPE_LIMIT } from "@stak/shared/swipeLimit";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { deckCards as authoredCards, deckHeader, type DeckArt, type DeckCardData } from "@/app/discover/data";
 import { useAccount } from "@/context/AccountContext";

@@ -1,7 +1,8 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import type { ButtonHTMLAttributes, CSSProperties, InputHTMLAttributes, ReactNode } from "react";
+import { type ButtonHTMLAttributes, type CSSProperties, type InputHTMLAttributes, type ReactNode, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { fillHeight } from "@/app/FitCanvas";
+import { warmCatalog } from "@/app/live/catalog";
 import { AU } from "./assets";
 
 export function SocialButton({ icon, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { icon: string }) {
@@ -157,6 +158,8 @@ export function authErrorMessage(error: unknown, fallback: string): string {
  * top is the frame's own value.
  */
 export function AuthLayout({ formTop, backTo, children }: { formTop: number; backTo?: string; children: ReactNode }) {
+	// the app's catalog chunk starts downloading while the person signs in, so /home is ready when they land
+	useEffect(warmCatalog, []);
 	// Frame 1440x1024: brand panel 600 wide, form column 840 wide with the 460 form block centred (x 790).
 	// On a bigger window both panels stretch; their content stays inside a 1024 band centred vertically.
 	const panel = "max(600px, 41.6667%)";
