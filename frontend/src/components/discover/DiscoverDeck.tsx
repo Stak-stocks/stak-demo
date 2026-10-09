@@ -26,8 +26,9 @@ interface DiscoverDeckProps {
 	/** Swipes the server (or the optimistic bump) has counted today. */
 	swipeCount: number;
 	stakSize: number;
-	initialSaved: number;
-	initialPassed: number;
+	/** Today's saves and passes on every device, this deck's included (the end-of-deck receipt). */
+	savedToday: number;
+	passedToday: number;
 	onSave: (brand: BrandSummary) => "full" | Undo;
 	onPass: (brand: BrandSummary) => Undo;
 	onLearnMore: (brand: BrandSummary) => void;
@@ -207,7 +208,7 @@ function StakButton({ ratio, onClick, label, size }: { ratio: number; onClick: (
  * the server only hears about it once that window closes, exactly as on Android.
  */
 export function DiscoverDeck({
-	brands, paletteOf, limit, swipeCount, stakSize, initialSaved, initialPassed,
+	brands, paletteOf, limit, swipeCount, stakSize, savedToday, passedToday,
 	onSave, onPass, onLearnMore, onReview, bumpOptimistic, reportSwipeResult,
 	Card = MemoCard, onProgress, buttonSize = 56, onFrontChange, unit: unitOverride, stack = "phone",
 }: DiscoverDeckProps) {
@@ -218,8 +219,6 @@ export function DiscoverDeck({
 	const [returning, setReturning] = useState(false);
 	const [ghosts, setGhosts] = useState<Ghost[]>([]);
 	const [pending, setPending] = useState(0);
-	const [saved, setSaved] = useState(initialSaved);
-	const [passed, setPassed] = useState(initialPassed);
 	const [undoToast, setUndoToast] = useState<UndoToastState | null>(null);
 	const [fullNotice, setFullNotice] = useState(0);
 	// The tallest the front card has been: its height changes as its TIP loads, and the buttons below must not jump with it.
@@ -343,7 +342,6 @@ export function DiscoverDeck({
 		setReturning(false);
 		setDrag(0);
 		setPending((p) => p + 1);
-		if (direction === "right") setSaved((n) => n + 1); else setPassed((n) => n + 1);
 		setUndoToast({ id, brand: front, saved: direction === "right" });
 	}, [front, onSave, onPass, paletteOf, post, snapBack, unit, threshold]);
 
@@ -361,7 +359,6 @@ export function DiscoverDeck({
 		// The card comes back to the front; it can be decided again.
 		decidedId.current = null;
 		setPending((p) => Math.max(0, p - 1));
-		if (d.direction === "right") setSaved((n) => Math.max(0, n - 1)); else setPassed((n) => Math.max(0, n - 1));
 	}, [undoToast, removeGhost]);
 
 	const dismissToast = useCallback(() => setUndoToast(null), []);
@@ -405,7 +402,8 @@ export function DiscoverDeck({
 	};
 
 	const ratio = clamp(drag / threshold, -1, 1);
-	const shownSeen = Math.min(seen, limit);
+	// Saves and passes from another device can be in before the swipe count catches up: Seen is never fewer.
+	const shownSeen = Math.min(Math.max(seen, atEnd ? savedToday + passedToday : 0), limit);
 	const ringCount = atEnd ? shownSeen : Math.min(seen + 1, limit);
 	useLayoutEffect(() => { onProgress?.(ringCount, atEnd); }, [onProgress, ringCount, atEnd]);
 
@@ -421,7 +419,7 @@ export function DiscoverDeck({
 			</div>
 
 			{atEnd ? (
-				<EndOfDeck seen={shownSeen} saved={saved} passed={passed} onReview={onReview} />
+				<EndOfDeck seen={shownSeen} saved={savedToday} passed={passedToday} onReview={onReview} />
 			) : (
 				<>
 					<div className="relative" style={{ padding: `0 ${geo.sidePad}`, zIndex: 1 }}>

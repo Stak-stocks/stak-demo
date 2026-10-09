@@ -40,6 +40,7 @@ vi.mock("@/lib/api", () => ({
 	recordEngagement: vi.fn(),
 	getQuickLook: vi.fn(),
 	getSortedRecommendations: vi.fn(),
+	getSwipesSince: vi.fn().mockResolvedValue({ swipes: [] }),
 	getBrandsList: vi.fn(),
 }));
 

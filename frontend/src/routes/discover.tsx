@@ -279,16 +279,20 @@ function App() {
 	// as add, add, remove and leave a card that looks saved but isn't. Same for a pass and its undo.
 	const brandOps = useRef(new Map<string, Promise<unknown>>());
 
-	// Cards swiped on another device while this tab stayed open: dropped when the tab is looked at again, so they aren't
-	// swiped twice. (A swipe here is only sent once its undo window closes, so the list never holds an undone card.)
-	// The apps send a swipe only once their 3s undo has passed too.
-	const [swipedElsewhere, setSwipedElsewhere] = useState<Set<string>>(new Set());
-	useEffect(() => setSwipedElsewhere(new Set()), [deckDay, uid]);
+	// Today's swipes on every device (card -> its latest direction), read when Discover opens and again when the tab is
+	// looked at: a card swiped on the phone while this tab stayed open leaves the deck rather than be swiped twice, and
+	// the end-of-deck receipt counts them (as Android counts its own). Every platform sends a swipe only once its undo
+	// window has passed, so the list never holds an undone card.
+	const [swipedToday, setSwipedToday] = useState<Map<string, string>>(new Map());
+	const signedIn = !!appUser;
 	useEffect(() => {
-		if (!appUser) return;
+		setSwipedToday(new Map());
+		if (!signedIn) return;
 		// One check at a time, and not again within a few seconds: a tab switch fires both events below.
 		let inFlight = false;
 		let lastAt = 0;
+		// Another account (or day) since this was asked: its answer is not this deck's.
+		let cancelled = false;
 		const sync = () => {
 			if (document.visibilityState !== "visible" || inFlight || Date.now() - lastAt < 3000) return;
 			inFlight = true;
@@ -297,29 +301,39 @@ function App() {
 			getSwipesSince(getDeckDayStart())
 				.then(({ swipes }) => {
 					// An answer from before the 9am rollover belongs to yesterday's deck.
-					if (getTodayKey() !== day) return;
-					// A card with a decision still being written here is this tab's own.
-					const ids = swipes.map((s) => s.brandId).filter((id) => !brandOps.current.has(id));
-					setSwipedElsewhere((prev) => {
-						const next = new Set([...prev, ...ids]);
-						return next.size === prev.size ? prev : next;
-					});
+					if (cancelled || getTodayKey() !== day) return;
+					// Newest first: each card's latest decision is the one kept.
+					const latest = new Map<string, string>();
+					for (const s of swipes) if (!latest.has(s.brandId)) latest.set(s.brandId, s.direction);
+					setSwipedToday((prev) => (prev.size === latest.size && [...latest].every(([id, d]) => prev.get(id) === d) ? prev : latest));
 				})
 				.catch(() => {})
 				.finally(() => { inFlight = false; });
 		};
+		sync();
 		// Coming back to the tab, or to a window left open beside the phone.
 		document.addEventListener("visibilitychange", sync);
 		window.addEventListener("focus", sync);
 		return () => {
+			cancelled = true;
 			document.removeEventListener("visibilitychange", sync);
 			window.removeEventListener("focus", sync);
 		};
-	}, [appUser]);
+	}, [signedIn, deckDay, uid]);
 	// An open Quick Look on a card just dropped closes with it.
 	useEffect(() => {
-		if (quickLookBrand && swipedElsewhere.has(quickLookBrand.id)) setQuickLookBrand(null);
-	}, [swipedElsewhere, quickLookBrand]);
+		if (quickLookBrand && swipedToday.has(quickLookBrand.id)) setQuickLookBrand(null);
+	}, [swipedToday, quickLookBrand]);
+
+	// This tab's own decisions today (an undone one taken back out), counted at once - the server hears of each only
+	// after its undo window.
+	const [decidedHere, setDecidedHere] = useState<Map<string, string>>(new Map());
+	useEffect(() => setDecidedHere(new Map()), [deckDay, uid]);
+	const decide = (id: string, direction: "left" | "right" | null) => setDecidedHere((cur) => {
+		const next = new Map(cur);
+		if (direction) next.set(id, direction); else next.delete(id);
+		return next;
+	});
 	const inOrder = <T,>(brandId: string, op: () => Promise<T>): Promise<T> => {
 		const run = (brandOps.current.get(brandId) ?? Promise.resolve()).catch(() => {}).then(op);
 		brandOps.current.set(brandId, run);
@@ -334,6 +348,7 @@ function App() {
 	 *  Reads and updates the refs as well as state, so two decisions before the next render both count. */
 	const handleSave = (brand: BrandSummary): "full" | Undo => {
 		if (swipedBrandsRef.current.length >= STAK_CAPACITY) return "full";
+		decide(brand.id, "right");
 		const wasPassed = passedBrandIdsRef.current.has(brand.id);
 		const passedBefore = passedEntriesRef.current.find((e) => e.id === brand.id);
 		swipedBrandsRef.current = [...swipedBrandsRef.current, brand];
@@ -355,6 +370,7 @@ function App() {
 		});
 		return () => {
 			// Only this card comes out; anything decided since stays as it is.
+			decide(brand.id, null);
 			backToFront(brand);
 			swipedBrandsRef.current = swipedBrandsRef.current.filter((b) => b.id !== brand.id);
 			setSwipedBrands((cur) => cur.filter((b) => b.id !== brand.id));
@@ -375,12 +391,14 @@ function App() {
 		const wasPassed = passedBrandIdsRef.current.has(brand.id);
 		const prev = passedEntriesRef.current.find((e) => e.id === brand.id);
 		const next: PassedEntry = { id: brand.id, at: Date.now(), count: (prev?.count ?? 0) + 1 };
+		decide(brand.id, "left");
 		passedBrandIdsRef.current = new Set([...passedBrandIdsRef.current, brand.id]);
 		setPassedBrandIds((cur) => new Set([...cur, brand.id]));
 		passedEntriesRef.current = prev ? passedEntriesRef.current.map((e) => e.id === brand.id ? { ...e, ...next } : e) : [...passedEntriesRef.current, next];
 		inOrder(brand.id, () => updatePassedBrands([next])).catch((e) => console.error("Failed to save passed brands:", e));
 		return () => {
 			// Only this card comes back; passes made since stay passed.
+			decide(brand.id, null);
 			backToFront(brand);
 			if (!wasPassed) {
 				passedBrandIdsRef.current = new Set([...passedBrandIdsRef.current].filter((id) => id !== brand.id));
@@ -393,10 +411,10 @@ function App() {
 	};
 
 	// Stable brands array for the deck — prevents it recreating on every unrelated render.
-	// Saved, passed, or swiped on another device: out of the deck.
+	// Saved, passed, or swiped today on any device: out of the deck.
 	const stillOpen = useCallback(
-		(brand: BrandSummary) => !swipedBrands.some((b) => b.id === brand.id) && !passedBrandIds.has(brand.id) && !swipedElsewhere.has(brand.id),
-		[swipedBrands, passedBrandIds, swipedElsewhere],
+		(brand: BrandSummary) => !swipedBrands.some((b) => b.id === brand.id) && !passedBrandIds.has(brand.id) && !swipedToday.has(brand.id),
+		[swipedBrands, passedBrandIds, swipedToday],
 	);
 	const filteredBrands = useMemo(() => recommendedOrder.filter(stillOpen), [recommendedOrder, stillOpen]);
 	const deckBrands = useMemo(
@@ -418,11 +436,13 @@ function App() {
 	}, [paletteIndexById]);
 	const closeQuickLook = useCallback(() => setQuickLookBrand(null), []);
 
-	const todayStart = new Date();
-	todayStart.setHours(0, 0, 0, 0);
-	const todayMs = todayStart.getTime();
-	const todayPassed = (account?.passedBrands ?? []).filter(e => e.at > todayMs).length;
-	const todaySaved = Object.values(account?.stakSavedAt ?? {}).filter(e => e.savedAt > todayMs).length;
+	// Today's saves and passes for the end-of-deck receipt: this tab's own, with the server's latest over them (a card
+	// decided again on another device counts as its newer decision).
+	let savedToday = 0;
+	let passedToday = 0;
+	for (const direction of new Map([...decidedHere, ...swipedToday]).values()) {
+		if (direction === "right") savedToday++; else passedToday++;
+	}
 
 	const deckLoading = !deckPicked && !hasReachedLimit;
 	const loadFailed = brandsError && allBrands.length === 0;
@@ -434,8 +454,8 @@ function App() {
 		limit: DAILY_SWIPE_LIMIT,
 		swipeCount,
 		stakSize: account?.stakBrandIds?.length ?? 0,
-		initialSaved: todaySaved,
-		initialPassed: todayPassed,
+		savedToday,
+		passedToday,
 		onSave: handleSave,
 		onPass: handlePass,
 		onLearnMore: handleLearnMore,

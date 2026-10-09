@@ -28,8 +28,8 @@ function setup(overrides: Partial<React.ComponentProps<typeof DiscoverDeck>> = {
 		limit: 10,
 		swipeCount: 0,
 		stakSize: 0,
-		initialSaved: 0,
-		initialPassed: 0,
+		savedToday: 0,
+		passedToday: 0,
 		onSave: vi.fn(() => undoSave),
 		onPass: vi.fn(() => undoPass),
 		onLearnMore: vi.fn(),
@@ -175,6 +175,13 @@ describe("DiscoverDeck", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Review saves in My STAK" }));
 		expect(props.onReview).toHaveBeenCalled();
 		expect(screen.getByText("Three cards, three signals. Your taste graph got smarter.")).toBeInTheDocument();
+	});
+
+	it("the receipt shows today's saves and passes, and never fewer seen than that", () => {
+		setup({ brands: [], swipeCount: 2, savedToday: 3, passedToday: 2 });
+		expect(screen.getByText("Saved").parentElement).toHaveTextContent("3");
+		expect(screen.getByText("Passed").parentElement).toHaveTextContent("2");
+		expect(screen.getByText("Seen").parentElement).toHaveTextContent("5");
 	});
 
 	it("says so when there was nothing to show", () => {
