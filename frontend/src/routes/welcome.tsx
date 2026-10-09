@@ -99,6 +99,9 @@ const PILL_BG = "rgba(23,32,56,0.73)";
 const SECTION_BG = "#0a1020";
 const CARD_BG = "#10172a";
 const BODY_DIM = "rgba(255,255,255,0.62)";
+/** Body copy on navy, and the app's teal (Android StakColors.Body / Teal). */
+const BODY_TEXT = "#C8D2E0";
+const TEAL = "#69B3CA";
 
 /** The label colour on the teal CTA gradient: navy, not white - white reads 1.4-3.3:1 on it, navy 5.7-13.6:1 (WCAG AA). */
 const CTA_INK = "#0A1020";
@@ -888,6 +891,49 @@ function FaqRow({ i, q, a, open, onToggle }: { i: number; q: string; a: string; 
 	);
 }
 
+/** Where "Email Us" writes to. */
+const SUPPORT_EMAIL = "support@thestak.org";
+
+/**
+ * The support address under "Email Us", with a Copy button: the button opens the visitor's email app, and where none is
+ * set up (a Mac whose Mail app was never configured, say) it does nothing - the address is still right there.
+ */
+function SupportAddress() {
+	const [copied, setCopied] = useState(false);
+	const addressRef = useRef<HTMLSpanElement>(null);
+	const timer = useRef<number | undefined>(undefined);
+	useEffect(() => () => window.clearTimeout(timer.current), []);
+	// No clipboard (or it refused): select the address instead, so Cmd/Ctrl+C takes it.
+	const selectAddress = () => {
+		const el = addressRef.current;
+		const sel = window.getSelection();
+		if (!el || !sel) return;
+		const range = document.createRange();
+		range.selectNodeContents(el);
+		sel.removeAllRanges();
+		sel.addRange(range);
+	};
+	const copy = () => {
+		if (!navigator.clipboard) { selectAddress(); return; }
+		navigator.clipboard.writeText(SUPPORT_EMAIL).then(() => {
+			setCopied(true);
+			window.clearTimeout(timer.current);
+			timer.current = window.setTimeout(() => setCopied(false), 2000);
+		}).catch(selectAddress);
+	};
+	return (
+		<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 14, lineHeight: "20px", color: BODY_TEXT, margin: 0, textAlign: "center" }}>
+			{/* One click selects all of it (Safari reads only the prefixed property). */}
+			<span ref={addressRef} style={{ userSelect: "all", WebkitUserSelect: "all" }}>{SUPPORT_EMAIL}</span>
+			<span aria-hidden="true"> · </span>
+			<button type="button" onClick={copy} style={{ ...btnReset, color: TEAL, fontWeight: 400, textDecoration: "underline", textUnderlineOffset: 3 }}>
+				{copied ? "Copied" : "Copy"}
+			</button>
+			<span role="status" className="sr-only">{copied ? "Email address copied" : ""}</span>
+		</p>
+	);
+}
+
 function Faq({ onEmail }: { onEmail: () => void }) {
 	const l = useLayout();
 	const desktop = l === "desktop";
@@ -903,7 +949,10 @@ function Faq({ onEmail }: { onEmail: () => void }) {
 			</Column>
 			<div style={{ display: "flex", flexDirection: "column", gap: 30, alignItems: "center", marginTop: desktop ? 125 : 83.805, paddingInline: 16 }}>
 				<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 18, lineHeight: "25px", color: "#fff", margin: 0, textAlign: "center" }}>Have more questions?</p>
-				<CtaButton label="Email Us" onClick={onEmail} fontSize={14.453} arrowSize={{ w: 13.775, h: 11.48 }} />
+				<div style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "center" }}>
+					<CtaButton label="Email Us" onClick={onEmail} fontSize={14.453} arrowSize={{ w: 13.775, h: 11.48 }} />
+					<SupportAddress />
+				</div>
 			</div>
 		</Section>
 	);
@@ -1476,7 +1525,7 @@ function LandingPage() {
 	}, []);
 
 	const handleEmail = useCallback(() => {
-		window.location.href = "mailto:support@thestak.org";
+		window.location.href = `mailto:${SUPPORT_EMAIL}`;
 	}, []);
 	const handleSubscribe = useCallback((email: string) => {
 		if (!email) return;
