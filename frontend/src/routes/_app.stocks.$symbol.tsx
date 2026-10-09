@@ -68,14 +68,11 @@ function StockPage() {
 	const analystOpen = open ?? !!search.open;
 
 	const toggleSaved = async () => {
-		if (detail.saved && !search.saved) {
+		// the real save decides; `?saved=1` only previews the look until the person acts
+		if (live.savedTickers.has(stock.symbol.toUpperCase())) {
 			await live.actions.unsave(stock.symbol);
 			toast("Removed from My STAK");
-		} else if (!detail.saved) {
-			await live.actions.save(stock.symbol, price || null);
-			toast("Saved to My STAK");
 		} else {
-			// the preview said "saved" but the person has not saved it: make it real
 			await live.actions.save(stock.symbol, price || null);
 			toast("Saved to My STAK");
 		}

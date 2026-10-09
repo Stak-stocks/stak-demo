@@ -201,8 +201,10 @@ export function useDeck(): Deck {
 	const acct = useAccount();
 	const healthy = useApiHealth();
 	const date = getLocalDateKey();
-	const theme = DECK_THEMES[live.completedDecks % DECK_THEMES.length]!;
-	const progress = live.deck && live.deck.date === date && live.deck.theme === theme.key ? live.deck : null;
+	// today's stored deck decides the theme (so finishing it does not rotate it away); the rotation only picks the NEXT deck
+	const stored = live.deck && live.deck.date === date ? live.deck : null;
+	const theme = DECK_THEMES.find((t) => t.key === stored?.theme) ?? DECK_THEMES[live.completedDecks % DECK_THEMES.length]!;
+	const progress = stored;
 	const [limitReached, setLimitReached] = useState(false);
 
 	const order = useMemo(() => {
@@ -287,8 +289,12 @@ export function useDeck(): Deck {
 	const go = useCallback((i: number) => patch((p) => ({ index: Math.max(0, Math.min(p.order.length, i)) })), [patch]);
 	const finish = useCallback(() => {
 		if (progress?.completed) return;
-		patch((p) => ({ index: p.order.length, completed: true }));
-		live.actions.completeDeck();
+		let already = false;
+		patch((p) => {
+			already = !!p.completed;
+			return { index: p.order.length, completed: true };
+		});
+		if (!already) live.actions.completeDeck(); // the effect and toEnd() can both call finish() in one tick
 	}, [patch, progress?.completed, live.actions]);
 	const restart = useCallback(() => live.actions.setDeck(null), [live.actions]);
 

@@ -169,7 +169,7 @@ export function useStockDetail(symbol: string, opts: { previewSaved?: boolean } 
 		base.cta.cash = `Cash available  ${money(cash)}`;
 
 		// the person's own save: real delta and age, unless the frame preview asks for the authored line
-		if (saved && !opts.previewSaved && entry) {
+		if (entry) {
 			const since = entry.priceAtSave && price ? ((price - entry.priceAtSave) / entry.priceAtSave) * 100 : null;
 			base.saveIntro.delta = since === null ? "" : signedPct(since);
 			base.saveIntro.body =

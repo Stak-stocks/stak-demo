@@ -108,7 +108,7 @@ export function useLive(): Live {
 	const state = useMemo<LiveState>(() => {
 		if (!signedIn) {
 			return {
-				ready: true,
+				ready: !authLoading,
 				signedIn: false,
 				uid: null,
 				budget: GUEST_BUDGET,

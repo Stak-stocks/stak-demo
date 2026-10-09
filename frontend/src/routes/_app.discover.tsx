@@ -170,7 +170,11 @@ function DiscoverPage() {
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key === "ArrowLeft") onPass();
 			else if (e.key === "ArrowRight") onSave();
-			else if (e.key === "Enter" && centre) setPhase({ kind: "buy" });
+			else if (e.key === "Enter") {
+				const t = e.target instanceof HTMLElement ? e.target : null;
+				if (t && t !== document.body && t.closest("button, a, input, select, textarea, [tabindex]")) return; // the focused control owns Enter
+				if (centre) setPhase({ kind: "buy" });
+			}
 			else if (e.key === "Escape") clearPreview();
 		};
 		window.addEventListener("keydown", onKey);
