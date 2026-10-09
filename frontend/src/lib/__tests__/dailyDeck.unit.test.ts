@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { BrandSummary } from "@stak/shared";
 import type { PassedEntry } from "@/context/AccountContext";
-import { eligibleInOrder, MAX_PER_CATEGORY, PASS_HIDE_COUNT, passKeepsOut, pinDailyDeck, readPinnedDeck, withCategoryCap } from "../dailyDeck";
+import { chooseDailyDeck, eligibleInOrder, MAX_PER_CATEGORY, PASS_HIDE_COUNT, passKeepsOut, pinDailyDeck, readPinnedDeck, withCategoryCap } from "../dailyDeck";
 
 /** Today's picks, as the page takes them. */
 const pickDailyDeck = (brands: BrandSummary[], ranked: string[], held: Set<string>, passed: PassedEntry[], limit: number, now: number) =>
@@ -43,6 +43,32 @@ describe("daily deck - the apps' rules on the web", () => {
 		expect(picks.map((b) => b.ticker)).toEqual(["WMT", "JPM", "NVDA"]);
 		expect(passKeepsOut({ id: "x", at: NOW - 25 * HOUR, count: 4 }, NOW)).toBe(false);
 		expect(passKeepsOut({ id: "x", at: NOW - 25 * HOUR, count: 5 }, NOW)).toBe(true);
+	});
+
+	describe("one deck a day across devices", () => {
+		const base = { pinned: null, ranked: true, pick: () => ["NVDA"], offer: async (t: string[]) => t };
+
+		it("shows the deck another device already picked", async () => {
+			expect(await chooseDailyDeck({ ...base, shared: ["AMD"] })).toEqual(["AMD"]);
+		});
+
+		it("offers a new deck and shows the one the server keeps (another device may have got there first)", async () => {
+			expect(await chooseDailyDeck({ ...base, shared: [], offer: async () => ["AMD"] })).toEqual(["AMD"]);
+			expect(await chooseDailyDeck({ ...base, shared: [], offer: async () => { throw new Error("offline"); } })).toEqual(["NVDA"]);
+		});
+
+		it("shares this device's earlier pin before picking again", async () => {
+			const offered: string[][] = [];
+			const deck = await chooseDailyDeck({ ...base, shared: [], pinned: ["WMT"], offer: async (t) => { offered.push(t); return t; } });
+			expect(deck).toEqual(["WMT"]);
+			expect(offered).toEqual([["WMT"]]);
+		});
+
+		it("server unreachable: this device's pin, or its own pick; no ranking at all: an unshared deck", async () => {
+			expect(await chooseDailyDeck({ ...base, shared: null, pinned: ["WMT"] })).toEqual(["WMT"]);
+			expect(await chooseDailyDeck({ ...base, shared: null })).toEqual(["NVDA"]);
+			expect(await chooseDailyDeck({ ...base, shared: [], ranked: false })).toBeNull();
+		});
 	});
 
 	describe("pinned for the day", () => {

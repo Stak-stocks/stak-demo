@@ -3,7 +3,8 @@
 -- swipes saved at the same moment could each read the old score and one update was lost. It is now a
 -- single UPDATE (the row stays locked from read to write). Scores were also unbounded ("technology"
 -- reached 65 after 22 swipes); they now stay in -10..30, the range the ranking reads them in
--- (shared/src/recommendationScoring.ts TAG_SCORE_MIN / TAG_SCORE_MAX). Safe to re-run.
+-- (shared/src/recommendationScoring.ts TAG_SCORE_MIN / TAG_SCORE_MAX). And today's deck becomes
+-- server-only (at the end). Safe to re-run.
 
 create or replace function update_user_taste_profile(p_uid text, p_deltas jsonb)
 returns void as $$
@@ -29,3 +30,8 @@ where jsonb_typeof(u.tag_scores) = 'object'
 		select 1 from jsonb_each_text(u.tag_scores) e
 		where e.value::numeric > 30 or e.value::numeric < -10
 	);
+
+-- ── today's deck: written only by the server ─────────────────────────────────────────────────
+-- users.deck_order now holds the day's deck, the same on every device ([day, ...tickers], /api/me/daily-deck): the
+-- server keeps the first deck offered each day. The web no longer writes it directly, so a signed-in user can't either.
+revoke update (deck_order) on users from authenticated;

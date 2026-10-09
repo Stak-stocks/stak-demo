@@ -535,6 +535,58 @@ meRouter.post("/swipes/increment", authMiddleware, async (req: AuthenticatedRequ
 	}
 });
 
+// ── Today's deck ─────────────────────────────────────────────────────────────────
+// One deck a day per account, the same on every device: the first device to open Discover that day picks it, and
+// the rest load it. Kept in users.deck_order as [day, ...tickers]; only the server writes it (migration 20261010000000).
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
+const deckOf = (stored: string[] | null | undefined, day: string): string[] =>
+	stored && stored[0] === day ? stored.slice(1) : [];
+
+// GET /api/me/daily-deck?day=YYYY-MM-DD — the deck picked for that deck day (empty: none yet)
+meRouter.get("/daily-deck", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const day = String(req.query.day ?? "");
+		if (!DAY_KEY.test(day)) {
+			res.status(400).json({ error: "day must be YYYY-MM-DD" });
+			return;
+		}
+		const result = await pgQuery<{ deck_order: string[] | null }>(`select deck_order from users where uid = $1`, [req.user!.uid]);
+		res.json({ day, tickers: deckOf(result.rows[0]?.deck_order, day) });
+	} catch (error) {
+		console.error("Error fetching daily deck:", error);
+		res.status(500).json({ error: "Failed to fetch daily deck" });
+	}
+});
+
+// PUT /api/me/daily-deck { day, tickers } — offers a deck for the day. The first one offered is kept (two devices
+// opening at once agree on it), and only a later day replaces it - a device still on yesterday (another time zone, a
+// clock behind) can't overwrite today's. An old saved order from before (brand ids, no day) is replaced. The response is the day's deck either way (empty: that day's is gone).
+meRouter.put("/daily-deck", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const uid = req.user!.uid;
+		const { day, tickers } = req.body ?? {};
+		if (typeof day !== "string" || !DAY_KEY.test(day)
+			|| !Array.isArray(tickers) || tickers.length === 0 || tickers.length > 50
+			|| !tickers.every((t) => typeof t === "string" && t.length > 0 && t.length <= 15)) {
+			res.status(400).json({ error: "send { day: YYYY-MM-DD, tickers: [...] }" });
+			return;
+		}
+		await ensureUserRow(uid, req.user!.email);
+		const saved = await pgQuery<{ deck_order: string[] }>(
+			`update users set deck_order = $2::text[]
+			 where uid = $1 and (cardinality(deck_order) = 0 or deck_order[1] !~ '^\\d{4}-\\d{2}-\\d{2}$' or deck_order[1] < $3)
+			 returning deck_order`,
+			[uid, [day, ...tickers], day],
+		);
+		const stored = saved.rows[0]?.deck_order
+			?? (await pgQuery<{ deck_order: string[] | null }>(`select deck_order from users where uid = $1`, [uid])).rows[0]?.deck_order;
+		res.json({ day, tickers: deckOf(stored, day) });
+	} catch (error) {
+		console.error("Error saving daily deck:", error);
+		res.status(500).json({ error: "Failed to save daily deck" });
+	}
+});
+
 // ── Search history ─────────────────────────────────────────────────────────────
 const MAX_SEARCH_HISTORY = 20;
 
