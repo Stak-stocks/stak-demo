@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../context/AuthContext";
-import { useEffect, useState, useRef, useCallback, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useId, useState, useRef, useCallback, type CSSProperties, type ReactNode } from "react";
 
 export const Route = createFileRoute("/welcome")({
 	component: LandingPage,
@@ -84,6 +84,7 @@ const A = {
 	ctaMqE0: "/images/landing-v2/cta-mq-e0.jpg",
 	ctaMqBb: "/images/landing-v2/cta-mq-bb.jpg",
 	navMenu: "/images/landing-v2/nav-button.svg",
+	navClose: "/images/landing-v2/nav-close.svg",
 	// Problem
 	problemApp: "/images/landing-v2/problem-app-composite.png",
 	problemEllipse: "/images/landing-v2/problem-ellipse.svg",
@@ -162,6 +163,16 @@ const btnReset: CSSProperties = {
 	cursor: "pointer",
 	whiteSpace: "nowrap",
 };
+
+/* ─── PREVIEW SWITCHES (URL search params) ───────────────────────────── */
+/* Read when the view mounts (not once per chunk), so a later param-less visit in the same
+   session shows the default page. `?menu=1` opens the mobile/tablet taskbar menu on load (the
+   harness captures the authored open panel, 00 References 2:8135 / 2:8168, through it).
+   `?faq=figma` previews the flat FAQ blocks from 00 References (2:8226) in place of the
+   hand-tuned Netflix rows, on every view, so the user can rule which one ships. */
+function usePreviewParam(name: string, value: string): boolean {
+	return useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get(name) === value)[0];
+}
 
 /* ─── REUSABLE: Pill badge ──────────────────────────────────────────── */
 /* Pill — the small "section label" chip used at the top of every section
@@ -806,6 +817,67 @@ const FAQS = [
 	},
 ];
 
+/* The five FAQ blocks of 00 References (component sets 2:8227, composed stack 2:8303),
+   copy verbatim. Shown only behind `?faq=figma` — see usePreviewParam. */
+const FIGMA_FAQS = [
+	{
+		q: "What is STAK",
+		a: "STAK is an investing app built for beginners. It lets you discover, learn about, and practice investing in stocks through a swipe-based interface — no jargon, no pressure, no finance degree needed.",
+	},
+	{
+		q: "How does STAK know what stocks to show me?",
+		a: "You take a quick risk quiz when you sign up. STAK uses your answers to match you with stocks that fit your goals and personality.",
+	},
+	{
+		q: "Is STAK available to students?",
+		a: "Yes. STAK is already active on the Fisk University campus in Nashville and is growing across college communities.",
+	},
+	{
+		q: 'What is "STAKing" a stock?',
+		a: "When you swipe right on a stock, you STAK it — saving it to your personal list to track, practice with, or eventually invest in.",
+	},
+	{
+		q: "Do I need investing experience to use STAK?",
+		a: "None at all. STAK is built specifically for people who are new to investing. Everything is explained in plain English.",
+	},
+];
+
+function FlatFaqRow({ q, a, open, onToggle, width = 306, qSize = 16, aSize = 12 }: { q: string; a: string; open: boolean; onToggle: () => void; width?: number; qSize?: number; aSize?: number }) {
+	/* The flat FAQ row as authored in 00 References (2:8227 variants "Frame 206" closed /
+	   "Frame 198" open, composed in 2:8303 at 306 wide): no fill, the question (Sora SemiBold,
+	   25px lines) with a plus (18×18) or minus (18×1.5) at the right, the answer (Sora Light,
+	   25px lines, 70% white) 10px under an open question, and a 0.5px #656060 rule 17px under
+	   every row. The 306-wide phone block is Figma-exact (16/12); the 586-wide tablet/desktop
+	   rows keep the pre-Netflix flat sizes (20/14) since the Figma only authored the 306 block.
+	   The Figma groups question and answer in one button; here the button is the question row
+	   alone (the disclosure), and the answer is its own panel, so it reads and selects as text. */
+	const answerId = useId();
+	return (
+		<div style={{ width, display: "flex", flexDirection: "column", gap: 17, alignItems: "flex-start" }}>
+			<div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start" }}>
+				<button
+					type="button"
+					aria-expanded={open}
+					aria-controls={open ? answerId : undefined}
+					onClick={onToggle}
+					style={{ ...btnReset, width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", whiteSpace: "normal", textAlign: "left" }}
+				>
+					<p style={{ fontFamily: SR, fontWeight: 600, fontSize: qSize, lineHeight: "25px", color: "#fff", margin: 0, textAlign: "left", width: width - 38, whiteSpace: "normal", wordBreak: "break-word" }}>{q}</p>
+					<div style={{ width: 18, height: open ? 1.5 : 18, flexShrink: 0 }}>
+						<img src={open ? A.faqMinus : A.faqPlus} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
+					</div>
+				</button>
+				{open && a && (
+					<p id={answerId} style={{ fontFamily: SR, fontWeight: 300, fontSize: aSize, lineHeight: "25px", color: "rgba(255,255,255,0.7)", margin: 0, textAlign: "left", width: "100%", whiteSpace: "normal", wordBreak: "break-word" }}>{a}</p>
+				)}
+			</div>
+			<div style={{ width: "100%", height: 0, position: "relative" }}>
+				<img src={A.faqDivider} alt="" style={{ position: "absolute", left: 0, top: -0.25, width: "100%", height: 0.5, display: "block" }} />
+			</div>
+		</div>
+	);
+}
+
 function FaqRow({ q, a, open, onToggle }: { q: string; a: string; open: boolean; onToggle: () => void }) {
 	/* Netflix-style accordion row (user-directed redesign, modeled on netflix.com's
 	   FAQ): solid card rows, ONLY the question bar lightens on hover, a drawn "+"
@@ -864,7 +936,8 @@ function Faq({ onEmail }: { onEmail: () => void }) {
 	   a plus icon. Clicking any closed row opens it AND automatically closes
 	   the previously-open one. Clicking the currently-open row collapses it
 	   (returning to the all-closed state). */
-	const [openIdx, setOpenIdx] = useState<number | null>(null);
+	const figmaFaq = usePreviewParam("faq", "figma");
+	const [openIdx, setOpenIdx] = useState<number | null>(figmaFaq ? 0 : null);
 	const toggle = (i: number) => {
 		setOpenIdx((prev) => (prev === i ? null : i));
 	};
@@ -880,12 +953,20 @@ function Faq({ onEmail }: { onEmail: () => void }) {
 						</div>
 					</div>
 					<div style={{ width: 586, display: "flex", flexDirection: "column", alignItems: "center" }}>
-						{/* Netflix-style card stack: tight 8px gaps between solid rows. */}
-						<div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8 }}>
-							{FAQS.map((f, i) => (
-								<FaqRow key={i} q={f.q} a={f.a} open={openIdx === i} onToggle={() => toggle(i)} />
-							))}
-						</div>
+						{figmaFaq ? (
+							<div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
+								{FIGMA_FAQS.map((f, i) => (
+									<FlatFaqRow key={i} q={f.q} a={f.a} width={586} qSize={20} aSize={14} open={openIdx === i} onToggle={() => toggle(i)} />
+								))}
+							</div>
+						) : (
+							/* Netflix-style card stack: tight 8px gaps between solid rows. */
+							<div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8 }}>
+								{FAQS.map((f, i) => (
+									<FaqRow key={i} q={f.q} a={f.a} open={openIdx === i} onToggle={() => toggle(i)} />
+								))}
+							</div>
+						)}
 					</div>
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", gap: 30, alignItems: "center", justifyContent: "center" }}>
@@ -1702,44 +1783,101 @@ const MOBILE_WIDTH = 810;
 const MOBILE390_WIDTH = 390;
 
 function MobileNavBar({ width = 650, left = 80.367, padX = 16.4, onScrollTo, onSignup }: { width?: number; left?: number; padX?: number; onScrollTo?: (k: keyof typeof SEC) => void; onSignup?: () => void } = {}) {
-	/* Figma-exact mobile/tablet bar: logo + hamburger only (Frames 220/222 have
-	   no nav CTA). The hamburger opens a real menu (Home / Features / How It
-	   Works / FAQ wired to onScrollTo). onSignup is accepted so a layout CAN
-	   opt into a bar CTA, but none do by design — do not pass it to match Figma. */
-	const [menuOpen, setMenuOpen] = useState(false);
-	const go = (k: keyof typeof SEC) => {
+	/* The taskbar component sets of 00 References (mobile 2:8111, tablet 2:8167). Closed =
+	   logo + hamburger only (Frames 220/222 have no nav CTA). The hamburger turns the bar into
+	   the authored menu panel in place — phone 330×292 (fixed), tablet 650×293.35 (hug): logo
+	   + close X, the four links (Sora 16, 20 apart) and the "Get started" button, which is the
+	   only place onSignup is used. The Figma's fourth link reads "Blog"; it stays "FAQ" here
+	   (standing override: there is no blog page). */
+	const phone = width < 400;
+	const menuOpenOnLoad = usePreviewParam("menu", "1");
+	const [menuOpen, setMenuOpen] = useState(menuOpenOnLoad);
+	const menuId = useId();
+	const toggleRef = useRef<HTMLButtonElement>(null);
+	/* Closing from inside the panel (Escape, a link) unmounts the focused control, so focus returns to the toggle. */
+	const close = () => {
 		setMenuOpen(false);
+		toggleRef.current?.focus({ preventScroll: true });
+	};
+	const go = (k: keyof typeof SEC) => {
+		close();
 		if (onScrollTo) onScrollTo(k);
 	};
+	useEffect(() => {
+		if (!menuOpen) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === "Escape") close();
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [menuOpen]);
+	const logo = (
+		<div style={{ position: "relative", width: 90.259, height: 21.899, overflow: "hidden", flexShrink: 0 }}>
+			<div style={{ position: "absolute", inset: 0, width: "24.26%" }}>
+				<img src={A.logo1} alt="STAK" style={{ width: "100%", height: "100%", display: "block" }} />
+			</div>
+			<div style={{ position: "absolute", left: "28.38%", top: "21.77%", right: 0, bottom: "21.64%" }}>
+				<img src={A.logo2} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
+			</div>
+		</div>
+	);
+	/* One toggle for both states — the hamburger becomes the X in place — so focus and
+	   aria-expanded stay on the same control while the panel opens and closes. */
+	const toggle = (
+		<button
+			ref={toggleRef}
+			type="button"
+			aria-label={menuOpen ? "Close menu" : "Menu"}
+			aria-expanded={menuOpen}
+			aria-controls={menuOpen ? menuId : undefined}
+			onClick={() => setMenuOpen((o) => !o)}
+			style={{ ...btnReset, width: menuOpen ? 22.269 : 31.922, height: menuOpen ? 22.266 : 14.188, flexShrink: 0, cursor: "pointer" }}
+		>
+			<img src={menuOpen ? A.navClose : A.navMenu} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
+		</button>
+	);
+	/* "Frame 241": the 268-wide links column — four 20px lines 20 apart, then 26 to the button. */
+	const links = (
+		<div id={menuId} style={{ width: 268, display: "flex", flexDirection: "column", alignItems: "flex-start", flexShrink: 0 }}>
+			<div style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "flex-start" }}>
+				{([["Home", "hero"], ["Features", "features"], ["How It Works", "howItWorks"], ["FAQ", "faq"]] as [string, keyof typeof SEC][]).map(([label, k]) => (
+					<button key={k} type="button" onClick={() => go(k)} style={{ ...btnReset, fontFamily: SR, fontWeight: 400, fontSize: 16, lineHeight: "20px", color: "#fff", textAlign: "left" }}>
+						{label}
+					</button>
+				))}
+			</div>
+			<div style={{ marginTop: 26, width: "100%", display: "flex", alignItems: "center" }}>
+				<button
+					type="button"
+					onClick={() => {
+						close();
+						if (onSignup) onSignup();
+					}}
+					style={{ ...btnReset, background: CTA_GRADIENT, boxShadow: "inset 0 0 0 0.361px rgba(101,158,173,0.63)", borderRadius: 5.781, height: 32.453, padding: "7.226px 14.453px", boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", filter: CTA_SHADOW, cursor: "pointer" }}
+				>
+					<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, lineHeight: "18px", color: "#fff", whiteSpace: "nowrap" }}>Get started</span>
+				</button>
+			</div>
+		</div>
+	);
+	/* The header keeps one tree shape in every state (wrapper > row > logo + toggle), so the
+	   toggle is never remounted: closed = the 21.899 row, phone open = the 22.266 row, tablet
+	   open = the nested 630×45.899 bar (its own 12/10 padding) around a 607.527 row. */
+	const tabletOpen = menuOpen && !phone;
 	return (
 		<div style={{ position: "absolute", left, top: 26, width, zIndex: 20 }}>
-			<div style={{ width: "100%", height: 45.899, background: "#1a1d31", borderRadius: 10.752, display: "flex", alignItems: "center", justifyContent: "space-between", padding: `12px ${padX}px`, boxSizing: "border-box" }}>
-				<div style={{ position: "relative", width: 90.259, height: 21.899, overflow: "hidden", flexShrink: 0 }}>
-					<div style={{ position: "absolute", inset: 0, width: "24.26%" }}>
-						<img src={A.logo1} alt="STAK" style={{ width: "100%", height: "100%", display: "block" }} />
-					</div>
-					<div style={{ position: "absolute", left: "28.38%", top: "21.77%", right: 0, bottom: "21.64%" }}>
-						<img src={A.logo2} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
+			<div
+				className="landing-taskbar"
+				style={{ width: "100%", height: menuOpen ? (phone ? 292 : 293.352) : 45.899, background: "#1a1d31", borderRadius: 10.752, overflow: menuOpen ? "hidden" : "visible", boxSizing: "border-box", padding: `12px ${menuOpen ? 10 : padX}px`, display: "flex", flexDirection: "column", alignItems: "center", gap: phone ? 38 : 25 }}
+			>
+				<div style={tabletOpen ? { width: "100%", height: 45.899, boxSizing: "border-box", padding: "12px 10px", display: "flex", justifyContent: "center", flexShrink: 0 } : { width: "100%", display: "flex", justifyContent: "center", flexShrink: 0 }}>
+					<div style={{ width: tabletOpen ? 607.527 : "100%", height: menuOpen ? 22.266 : 21.899, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+						{logo}
+						{toggle}
 					</div>
 				</div>
-				<div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-					{onSignup && (
-						<CtaButton label="Get started" withArrow={false} fontSize={12} onClick={onSignup} style={{ padding: "5px 10px", borderRadius: 5 }} />
-					)}
-					<button type="button" aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)} style={{ ...btnReset, width: 31.922, height: 14.188, flexShrink: 0, cursor: "pointer" }}>
-						<img src={A.navMenu} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
-					</button>
-				</div>
+				{menuOpen && (phone ? links : <div style={{ width: 604.269, display: "flex", alignItems: "flex-start", flexShrink: 0 }}>{links}</div>)}
 			</div>
-			{menuOpen && (
-				<div style={{ marginTop: 8, background: "#1a1d31", borderRadius: 10.752, padding: "8px 0", display: "flex", flexDirection: "column", boxShadow: "0 12px 32px rgba(0,0,0,0.45)" }}>
-					{([["Home", "hero"], ["Features", "features"], ["How It Works", "howItWorks"], ["FAQ", "faq"]] as [string, keyof typeof SEC][]).map(([label, k]) => (
-						<button key={k} type="button" onClick={() => go(k)} style={{ ...btnReset, textAlign: "left", padding: "10px 18px", fontFamily: SR, fontWeight: 400, fontSize: 15, color: "#fff", cursor: "pointer" }}>
-							{label}
-						</button>
-					))}
-				</div>
-			)}
 		</div>
 	);
 }
@@ -1755,7 +1893,7 @@ function MobileHero({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo
 				<img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-179.01%", left: "-108.2%", width: "316.4%", height: "458.02%", maxWidth: "none" }} />
 			</div>
 
-			<MobileNavBar onScrollTo={onScrollTo} />
+			<MobileNavBar onScrollTo={onScrollTo} onSignup={onSignup} />
 
 			<div style={{ position: "absolute", left: "50%", top: 110, transform: "translateX(-50%)", width: 601, display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
@@ -2089,7 +2227,8 @@ function MobileFaqRow({ q, a, open, onToggle, width = 586, qSize = 20, aSize = 1
 }
 
 function MobileFaq({ onEmail }: { onEmail: () => void }) {
-	const [openIdx, setOpenIdx] = useState<number | null>(null);
+	const figmaFaq = usePreviewParam("faq", "figma");
+	const [openIdx, setOpenIdx] = useState<number | null>(figmaFaq ? 0 : null);
 	return (
 		<section style={{ position: "absolute", left: 0, top: 5356, width: MOBILE_WIDTH, height: 1236, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 102.66, top: 110, width: 605.683, display: "flex", flexDirection: "column", alignItems: "center", gap: 183 }}>
@@ -2111,10 +2250,14 @@ function MobileFaq({ onEmail }: { onEmail: () => void }) {
 					</div>
 				</div>
 				<div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 83.805 }}>
-					<div style={{ width: 586, display: "flex", flexDirection: "column", gap: 8 }}>
-						{FAQS.map((f, i) => (
-							<MobileFaqRow key={i} q={f.q} a={f.a} open={openIdx === i} onToggle={() => setOpenIdx((p) => (p === i ? null : i))} />
-						))}
+					<div style={{ width: 586, display: "flex", flexDirection: "column", gap: figmaFaq ? 20 : 8 }}>
+						{figmaFaq
+							? FIGMA_FAQS.map((f, i) => (
+									<FlatFaqRow key={i} q={f.q} a={f.a} width={586} qSize={20} aSize={14} open={openIdx === i} onToggle={() => setOpenIdx((p) => (p === i ? null : i))} />
+								))
+							: FAQS.map((f, i) => (
+									<MobileFaqRow key={i} q={f.q} a={f.a} open={openIdx === i} onToggle={() => setOpenIdx((p) => (p === i ? null : i))} />
+								))}
 					</div>
 					<div style={{ display: "flex", flexDirection: "column", gap: 30, alignItems: "center" }}>
 						<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 18, lineHeight: "25px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>Have more questions?</p>
@@ -2302,7 +2445,7 @@ function MobileHero390({ onSignup, onScrollTo }: { onSignup: () => void; onScrol
 			<div style={{ position: "absolute", left: 191, top: 441, width: 359, height: 217, overflow: "visible", pointerEvents: "none" }}>
 				<img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-179.01%", left: "-108.2%", width: "316.4%", height: "458.02%", maxWidth: "none" }} />
 			</div>
-			<MobileNavBar width={330.2} left={29.8} padX={10} onScrollTo={onScrollTo} />
+			<MobileNavBar width={330.2} left={29.8} padX={10} onScrollTo={onScrollTo} onSignup={onSignup} />
 			<div style={{ position: "absolute", left: 38, top: 110, width: 315, display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
@@ -2557,7 +2700,8 @@ function MobileEarlyMomentum390({ onSignup }: { onSignup: () => void }) {
 }
 
 function MobileFaq390({ onEmail }: { onEmail: () => void }) {
-	const [openIdx, setOpenIdx] = useState<number | null>(null);
+	const figmaFaq = usePreviewParam("faq", "figma");
+	const [openIdx, setOpenIdx] = useState<number | null>(figmaFaq ? 0 : null);
 	return (
 		<section style={{ position: "absolute", left: 0, top: 6356, width: MOBILE390_WIDTH, height: 1230, background: SECTION_BG, overflow: "hidden" }}>
 			<div style={{ position: "absolute", left: 41.5, top: 70, width: 308, display: "flex", flexDirection: "column", alignItems: "center", gap: 160 }}>
@@ -2571,10 +2715,14 @@ function MobileFaq390({ onEmail }: { onEmail: () => void }) {
 					</div>
 				</div>
 				<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 83.805 }}>
-					<div style={{ width: 306, display: "flex", flexDirection: "column", gap: 8 }}>
-							{FAQS.map((f, i) => (
-								<MobileFaqRow key={i} q={f.q} a={f.a} width={306} qSize={16} aSize={12} open={openIdx === i} onToggle={() => setOpenIdx((pv) => (pv === i ? null : i))} />
-							))}
+					<div style={{ width: 306, display: "flex", flexDirection: "column", gap: figmaFaq ? 20 : 8 }}>
+							{figmaFaq
+								? FIGMA_FAQS.map((f, i) => (
+										<FlatFaqRow key={i} q={f.q} a={f.a} width={306} qSize={16} aSize={12} open={openIdx === i} onToggle={() => setOpenIdx((pv) => (pv === i ? null : i))} />
+									))
+								: FAQS.map((f, i) => (
+										<MobileFaqRow key={i} q={f.q} a={f.a} width={306} qSize={16} aSize={12} open={openIdx === i} onToggle={() => setOpenIdx((pv) => (pv === i ? null : i))} />
+									))}
 						</div>
 					<div style={{ display: "flex", flexDirection: "column", gap: 30, alignItems: "center" }}>
 						<p style={{ fontFamily: SR, fontWeight: 300, fontSize: 18, lineHeight: "25px", color: "#fff", margin: 0, whiteSpace: "nowrap" }}>Have more questions?</p>
@@ -2817,6 +2965,14 @@ export function LandingPage() {
 				}
 				.landing-canvas input::placeholder {
 					color: rgba(255,255,255,0.53);
+				}
+				.landing-taskbar {
+					transition: height 200ms ease;
+				}
+				@media (prefers-reduced-motion: reduce) {
+					.landing-taskbar {
+						transition: none;
+					}
 				}
 			`}</style>
 			{isPhone ? (
