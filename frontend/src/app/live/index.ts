@@ -7,6 +7,7 @@ export * from "./deck";
 export * from "./format";
 export type { DeckProgress, Position, Preferences, SaveEntry, SoldEntry } from "./guest";
 export * from "./notifications";
+export * from "./portfolio";
 export * from "./quotes";
 export * from "./store";
 export * from "./taste";

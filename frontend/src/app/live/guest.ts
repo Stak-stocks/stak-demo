@@ -8,7 +8,7 @@ import { useSyncExternalStore } from "react";
 
 export type SaveEntry = { ticker: string; savedAt: number; priceAtSave: number | null };
 export type Position = { ticker: string; shares: number; priceAtAdd: number | null; addedAt: number };
-export type SoldEntry = { ticker: string; shares: number; proceeds: number; pnl: number; stake: number; soldAt: number };
+export type SoldEntry = { ticker: string; shares: number; proceeds: number; pnl: number; stake: number; soldAt: number; addedAt?: number };
 export type DeckProgress = {
 	date: string;
 	theme: string;
@@ -106,7 +106,7 @@ export function seedGuest(): GuestState {
 			{ ticker: "COIN", shares: 0.4209, stake: 100, proceeds: 92, pnl: -8, soldAt: on(6, 15) },
 		],
 		preferences: { familiarity: "buy", goal: "grow", interests: [], onboardingSwipes: ["apple", "nvidia", "tesla"] },
-		tagScores: { semiconductor: 4, ai: 3, enterprise_software: 2, consumer_brand: 2, high_growth: 2, retail: 1, ecommerce: 1 },
+		tagScores: { semiconductor: 4, ai: 3, enterprise_software: 2, consumer_brand: 2, high_growth: 1, retail: 1, ecommerce: 1 }, // Tech Curious > High Growth > Consumer Brands, as the frames rank them
 	};
 }
 

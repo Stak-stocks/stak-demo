@@ -20,6 +20,9 @@ const SELL_FILTER = "drop-shadow(0px 12.285px 6.142px rgba(82,170,199,0.02))";
 /** Figma hairline strokes sit inside the box; an inset shadow keeps the layout size and the fractional width. */
 export const hairline = (width: number, color: string) => `inset 0 0 0 ${width}px ${color}`;
 
+/** Hover/pressed feedback for controls whose glow lives in an inline filter (so the shared .stak-press filter cannot apply). */
+const PRESS = "cursor-pointer transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.985] disabled:cursor-default disabled:opacity-60 disabled:active:scale-100";
+
 export function Card({
 	className,
 	style,
@@ -55,7 +58,7 @@ export function BackHeader({ crumb, to, style }: { crumb: string; to: string; st
 			<Link
 				to={to}
 				aria-label="Back"
-				className="flex size-[40px] shrink-0 items-center justify-center overflow-clip rounded-[20px] bg-[#192238]"
+				className="stak-press flex size-[40px] shrink-0 cursor-pointer items-center justify-center overflow-clip rounded-[20px] bg-[#192238]"
 			>
 				<img alt="" src={SA.back} className="size-[22px]" />
 			</Link>
@@ -84,8 +87,9 @@ export function FilterChip({
 		<button
 			type="button"
 			onClick={onClick}
+			aria-pressed={active}
 			className={cn(
-				"flex items-start overflow-clip rounded-[999px] px-[14px] py-[6px] font-geist text-[12px] font-medium leading-[16px]",
+				"stak-press flex cursor-pointer items-start overflow-clip rounded-[999px] px-[14px] py-[6px] font-geist text-[12px] font-medium leading-[16px]",
 				active ? "text-[#f2f6fc]" : "text-[#819abb]",
 			)}
 			style={active ? { backgroundColor: activeBg } : { boxShadow: hairline(1, "rgba(255,255,255,0.1)") }}
@@ -121,12 +125,14 @@ export function GradientButton({
 	onClick,
 	className,
 	height = 52,
-}: { children: ReactNode; onClick?: () => void; className?: string; height?: number }) {
+	disabled,
+}: { children: ReactNode; onClick?: () => void; className?: string; height?: number; disabled?: boolean }) {
 	return (
 		<button
 			type="button"
 			onClick={onClick}
-			className={cn("flex w-full items-center justify-center rounded-[6px] px-[14px] py-[7px]", className)}
+			disabled={disabled}
+			className={cn(PRESS, "flex w-full items-center justify-center rounded-[6px] px-[14px] py-[7px]", className)}
 			style={{ height, backgroundImage: GRADIENT, boxShadow: hairline(0.361, "rgba(101,158,173,0.63)"), filter: GLOW_FILTER }}
 		>
 			<span className="whitespace-nowrap font-geist text-[14px] font-medium leading-[20.69px] text-white">{children}</span>
@@ -147,7 +153,7 @@ export function GhostButton({
 		<button
 			type="button"
 			onClick={onClick}
-			className={cn("flex w-full items-center justify-center px-[14px] py-[7px]", className)}
+			className={cn(PRESS, "flex w-full items-center justify-center px-[14px] py-[7px]", className)}
 			style={{ height, borderRadius: radius, boxShadow: hairline(0.361, "rgba(52,59,79,0.33)"), filter: GHOST_FILTER }}
 		>
 			<span className="whitespace-nowrap font-sora leading-[18px] text-[#819abb]" style={{ fontSize }}>
@@ -158,12 +164,13 @@ export function GhostButton({
 }
 
 /** "Sell" — dark teal-hairlined button (pick detail rail, portfolio sell sheet). */
-export function SellButton({ children, onClick, width }: { children: ReactNode; onClick?: () => void; width?: number }) {
+export function SellButton({ children, onClick, width, disabled }: { children: ReactNode; onClick?: () => void; width?: number; disabled?: boolean }) {
 	return (
 		<button
 			type="button"
 			onClick={onClick}
-			className={cn("flex h-[51px] items-center justify-center rounded-[6px] bg-[#12203e]", width ? "" : "w-full")}
+			disabled={disabled}
+			className={cn(PRESS, "flex h-[51px] items-center justify-center rounded-[6px] bg-[#12203e]", width ? "" : "w-full")}
 			style={{ width, boxShadow: hairline(0.361, "rgba(101,158,173,0.63)"), filter: SELL_FILTER }}
 		>
 			<span className="whitespace-nowrap font-sora text-[14px] leading-[20.69px] text-white">{children}</span>
@@ -177,7 +184,7 @@ export function SmallBuyButton({ children, onClick }: { children: ReactNode; onC
 		<button
 			type="button"
 			onClick={onClick}
-			className="flex h-[30px] w-[60px] shrink-0 items-center justify-center rounded-[5.781px] px-[10px] py-[7.226px]"
+			className={cn(PRESS, "flex h-[30px] w-[60px] shrink-0 items-center justify-center rounded-[5.781px] px-[10px] py-[7.226px]")}
 			style={{ backgroundImage: GRADIENT, boxShadow: hairline(0.361, "rgba(101,158,173,0.63)"), filter: BUY_FILTER }}
 		>
 			<span className="whitespace-nowrap font-sora text-[12px] leading-[15px] text-white">{children}</span>
@@ -191,7 +198,7 @@ export function SmallSellButton({ children, onClick }: { children: ReactNode; on
 		<button
 			type="button"
 			onClick={onClick}
-			className="flex h-[30px] w-[60px] shrink-0 items-center justify-center rounded-[5.781px] px-[10px] py-[7.226px]"
+			className="stak-press flex h-[30px] w-[60px] shrink-0 cursor-pointer items-center justify-center rounded-[5.781px] px-[10px] py-[7.226px]"
 			style={{ boxShadow: hairline(1, "rgba(255,255,255,0.14)") }}
 		>
 			<span className="whitespace-nowrap font-sora text-[12px] leading-[15px] text-[#819abb]">{children}</span>
@@ -205,14 +212,46 @@ export function AmountChip({ selected, children, onClick }: { selected: boolean;
 		<button
 			type="button"
 			onClick={onClick}
+			aria-pressed={selected}
 			className={cn(
-				"flex min-w-px flex-1 items-center justify-center overflow-clip rounded-[10px] py-[8px] font-geist text-[12px] font-medium leading-[16px]",
+				"stak-press flex min-w-px flex-1 cursor-pointer items-center justify-center overflow-clip rounded-[10px] py-[8px] font-geist text-[12px] font-medium leading-[16px]",
 				selected ? "bg-[#0f2a38] text-[#a6e4f7]" : "bg-[#0b1430] text-[#dce7f7]",
 			)}
 			style={{ boxShadow: selected ? hairline(0.5, "#5da8bf") : hairline(1, "rgba(255,255,255,0.12)") }}
 		>
 			<span className="whitespace-nowrap">{children}</span>
 		</button>
+	);
+}
+
+/** The "Custom" chip turned into a field: the chip's geometry with a sign and a number input. */
+export function CustomChip({
+	prefix,
+	suffix,
+	value,
+	onChange,
+	max,
+	label = "Custom amount",
+}: { prefix?: string; suffix?: string; value: string; onChange: (v: string) => void; max?: number; label?: string }) {
+	return (
+		<label
+			className="flex min-w-px flex-1 items-center justify-center overflow-clip rounded-[10px] bg-[#0f2a38] py-[8px] font-geist text-[12px] font-medium leading-[16px] text-[#a6e4f7]"
+			style={{ boxShadow: hairline(0.5, "#5da8bf") }}
+		>
+			{prefix && <span>{prefix}</span>}
+			<input
+				type="number"
+				inputMode="decimal"
+				min={1}
+				max={max}
+				step={1}
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				aria-label={label}
+				className="w-[44px] bg-transparent text-center text-[#a6e4f7] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+			/>
+			{suffix && <span>{suffix}</span>}
+		</label>
 	);
 }
 

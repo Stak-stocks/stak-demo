@@ -29,6 +29,8 @@ import {
 
 /** Paper budget by XP tier — the same table AccountContext uses to initialise sandboxCash. */
 const BUDGET_BY_TIER: Record<number, number> = { 1: 1000, 2: 3000, 3: 5000, 4: 10000, 5: 25000 };
+/** The guest persona's budget (the empty Simulate frame says $10,000). */
+const GUEST_BUDGET = 10000;
 
 const points = ACTION_POINTS as unknown as Record<string, number>;
 const SAVE_POINTS = points.save ?? 3;
@@ -48,6 +50,8 @@ export type LiveState = {
 	ready: boolean;
 	signedIn: boolean;
 	uid: string | null;
+	/** the paper starting budget: $10,000 for the guest persona, the XP-tier budget for accounts */
+	budget: number;
 	displayName: string;
 	createdAt: number | null;
 	saves: SaveEntry[];
@@ -107,6 +111,7 @@ export function useLive(): Live {
 				ready: true,
 				signedIn: false,
 				uid: null,
+				budget: GUEST_BUDGET,
 				displayName: guest.displayName,
 				createdAt: guest.createdAt,
 				saves: guest.saves,
@@ -140,6 +145,7 @@ export function useLive(): Live {
 			ready: !authLoading && !acct.accountLoading,
 			signedIn: true,
 			uid,
+			budget: BUDGET_BY_TIER[xpToTier(account?.totalXp ?? 0)] ?? 1000,
 			displayName: (account?.displayName || user?.displayName || "").trim(),
 			createdAt: Number.isNaN(created) ? null : created,
 			saves,
@@ -238,7 +244,7 @@ export function useLive(): Live {
 				const qty = Math.min(round4(shares), pos.shares);
 				const proceeds = round2(qty * price);
 				const basis = pos.priceAtAdd ?? price;
-				const entry: SoldEntry = { ticker: T, shares: qty, proceeds, pnl: round2(qty * (price - basis)), stake: round2(qty * basis), soldAt: Date.now() };
+				const entry: SoldEntry = { ticker: T, shares: qty, proceeds, pnl: round2(qty * (price - basis)), stake: round2(qty * basis), soldAt: Date.now(), addedAt: pos.addedAt };
 				if (!signedIn) {
 					guestStore().update((s) => {
 						const remaining = round4(pos.shares - qty);
