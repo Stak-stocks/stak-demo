@@ -178,7 +178,7 @@ const WORD_TICKERS = new Set([
  * Matching the catalogue string alone lost real stories: "Will Ford's $1B Kentucky
  * Investment..." never says "Ford Motor".
  */
-function nameVariants(name: string): string[] {
+export function nameVariants(name: string): string[] {
 	const out = new Set<string>();
 	const bracketed = [...name.matchAll(/\(([^)]+)\)/g)].map((m) => m[1]!.trim());
 	let base = name.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim().replace(/^the\s+/i, "");
@@ -446,10 +446,12 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 	if (companyName) {
 		console.info(`Finnhub returned 0 articles for ${symbol} — falling back to NewsAPI for "${companyName}"`);
 		const fallback = await getNewsApiArticles(companyName, limit);
-		if (fallback.length > 0) await cacheSet(cacheKey, fallback, NEWS_CACHE_TTL_MS);
+		// No news anywhere is an answer too (when Finnhub did answer): cached, so a quiet ticker doesn't spend a call each time.
+		if (fallback.length > 0 || res?.ok) await cacheSet(cacheKey, fallback, NEWS_CACHE_TTL_MS);
 		return fallback;
 	}
 
+	if (res?.ok) await cacheSet(cacheKey, [], NEWS_CACHE_TTL_MS);
 	return [];
 }
 
