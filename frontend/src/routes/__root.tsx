@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { createRootRoute, Outlet, redirect, useLocation, useNavigate } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BottomNav } from "@/components/BottomNav";
@@ -18,12 +18,19 @@ import { NAV_ITEMS } from "@/lib/navItems";
 import { useStakTickers } from "@/hooks/useStakTickers";
 import { useSwipeLimit } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
-import { JOIN_WAITLIST, WEB_GOOGLE_SIGN_IN_KEY, WEB_SIGNUP_OPEN, isBrandNewAccount } from "@/lib/earlyAccess";
+import { JOIN_WAITLIST, LEGAL_PATHS, WEB_GOOGLE_SIGN_IN_KEY, WEB_SIGNUP_OPEN, hasSavedWebSession, isBrandNewAccount, isLockedPath, isWebLockedOut, takeTeamAccessChange } from "@/lib/earlyAccess";
 import { useFirstRunPending } from "@/lib/firstRun";
 import { EligibilityGate } from "@/components/onboarding/EligibilityGate";
 import { pageTitle } from "@/lib/pageTitle";
 
+/** Set once the "web is paused" note has shown in this tab, so it isn't repeated on every page load. */
+const WEB_PAUSED_SHOWN_KEY = "stak.webPausedShown";
+
 export const Route = createRootRoute({
+	// Web lock: every page but the landing page, Terms and Privacy goes to the landing page (see earlyAccess.ts).
+	beforeLoad: ({ location }) => {
+		if (isLockedPath(location.pathname)) throw redirect({ to: "/welcome", replace: true });
+	},
 	component: Root,
 });
 
@@ -48,10 +55,21 @@ function Root() {
 	const isOnboardingRoute = location.pathname === "/onboarding" || location.pathname.startsWith("/onboarding/");
 	const needsAuthForOnboardingStep = isOnboardingRoute;
 	// The Terms and Privacy pages open for anyone, signed in or not - the gate below links to them.
-	const isLegalPage = location.pathname === "/terms" || location.pathname === "/privacy";
+	const isLegalPage = LEGAL_PATHS.includes(location.pathname);
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password"].includes(location.pathname) || isOnboardingRoute || isLegalPage;
 	// Every page names itself in the browser tab (WCAG 2.4.2).
 	useEffect(() => { document.title = pageTitle(location.pathname); }, [location.pathname]);
+	// Web lock (earlyAccess.ts): says what a team link just did, once there's a screen to say it on; and tells someone
+	// who used the web app before the lock why they only find the landing page (once a tab).
+	useEffect(() => {
+		const teamAccessChange = takeTeamAccessChange();
+		if (teamAccessChange === "unlocked") toast("Team access is on", { description: "This browser can open all of STAK. Visit with ?team=off to lock it again.", duration: 8000 });
+		else if (teamAccessChange === "relocked") toast("Team access is off", { description: "This browser now sees only the landing page." });
+		else if (teamAccessChange === "wrong") toast("That team link didn't work", { description: "Check the link and try again." });
+		if (!isWebLockedOut() || !hasSavedWebSession()) return;
+		try { if (sessionStorage.getItem(WEB_PAUSED_SHOWN_KEY)) return; sessionStorage.setItem(WEB_PAUSED_SHOWN_KEY, "1"); } catch { /* no storage: say it anyway */ }
+		toast("STAK on the web is paused for now", { description: "Your account and your STAK are safe. Keep using STAK in the app, and we'll let you know when the web is back.", duration: 8000 });
+	}, []);
 	const [searchOpen, setSearchOpen] = useState(false);
 	const isFeedPage = location.pathname === "/feed";
 	const scrollRef = useRef<HTMLDivElement>(null);
