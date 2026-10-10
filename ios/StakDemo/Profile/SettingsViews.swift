@@ -532,10 +532,13 @@ private struct AppSettingsView: View {
 		}
 		deleting = true
 		deleteError = nil
+		// The server ends the session as it deletes: requests still in flight are refused, and that's this.
+		Session.shared.leaving = true
 		Task {
 			let error = await authVM.deleteAccount()
 			deleting = false
 			if let error {
+				Session.shared.leaving = false
 				deleteError = error
 				return
 			}

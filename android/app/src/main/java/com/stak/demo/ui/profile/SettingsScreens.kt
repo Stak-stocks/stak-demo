@@ -409,9 +409,12 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 		} else {
 			deleting = true
 			deleteError = null
+			// The server ends the session as it deletes: requests still in flight are refused, and that's this.
+			Session.leaving = true
 			scope.launch {
 				val error = viewModel.deleteAccount()
 				deleting = false
+				if (error != null) Session.leaving = false
 				if (error == null) {
 					// Drops the SDK's live session for the now-deleted account (audit
 					// 2026-09-19) - the same fix as Log out, so nothing signed up or

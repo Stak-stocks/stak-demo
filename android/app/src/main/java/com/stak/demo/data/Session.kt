@@ -53,6 +53,26 @@ object Session {
 	var accountId: String? = null
 		private set
 
+	/**
+	 * Set when the account's sign-in was ended somewhere else (a password change, or a sign-out that ended every
+	 * device's session): the network layer can't renew it, so the app signs out and Sign in says why. Cleared at the
+	 * next sign-in.
+	 */
+	var endedElsewhere by mutableStateOf(false)
+		private set
+
+	/** The network layer's report that Supabase refused this account's session for good - once (several refused
+	 *  requests report it together). A signed-out app, or one on its way out, ignores it. */
+	fun reportEndedElsewhere() {
+		if (signedIn && !demoAccount && !endedElsewhere && !leaving) endedElsewhere = true
+	}
+
+	/**
+	 * Set while the user is logging out or deleting the account: a request still in flight then fails its refresh too,
+	 * and must not be taken for a sign-in ended somewhere else. Cleared at the next sign-in, or when a delete fails.
+	 */
+	@Volatile var leaving = false
+
 	/** True when this launch started already signed in - the returning-user path. */
 	var resumedSignedIn = false
 		private set
@@ -136,6 +156,8 @@ object Session {
 	 * restores the account's own.
 	 */
 	fun signIn(demo: Boolean, answeredOnboarding: Boolean = false) {
+		endedElsewhere = false
+		leaving = false
 		signedIn = true
 		demoAccount = demo
 		accountGeneration++

@@ -8,6 +8,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.exception.AuthRestException
+import io.github.jan.supabase.auth.exception.AuthSessionMissingException
+import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.runBlocking
 import okhttp3.Authenticator
 import okhttp3.OkHttpClient
@@ -51,14 +54,35 @@ object NetworkModule {
         val fresh = runBlocking {
             runCatching {
                 supabase.auth.awaitInitialization()
+                // No saved session at all, or Supabase saying the session is gone (DEAD_SESSION_CODES): the sign-in was
+                // ended somewhere else, and no retry can bring it back - the app goes to Sign in. A network failure or an
+                // auth outage is only a bad moment, and changes nothing.
+                when (supabase.auth.sessionStatus.value) {
+                    is SessionStatus.NotAuthenticated -> {
+                        Session.reportEndedElsewhere()
+                        return@runCatching null
+                    }
+                    // Supabase unreachable: the SDK keeps retrying with the refresh token it still holds.
+                    is SessionStatus.RefreshFailure -> return@runCatching null
+                    else -> Unit
+                }
                 supabase.auth.refreshCurrentSession()
                 supabase.auth.currentAccessTokenOrNull()
-            }.getOrNull()
+            }.onFailure { if (isDeadSession(it)) Session.reportEndedElsewhere() }.getOrNull()
         }
         if (fresh == null || fresh == sent) return@Authenticator null
         Session.setToken(fresh)
         response.request.newBuilder().header("Authorization", "Bearer $fresh").build()
     }
+
+    /** Supabase's answers that mean the session is over for good - the same list as iOS NetworkModule.deadSessionCodes. */
+    private val DEAD_SESSION_CODES = setOf(
+        "refresh_token_not_found", "refresh_token_already_used", "session_not_found", "session_expired",
+        "user_not_found", "user_banned",
+    )
+
+    private fun isDeadSession(error: Throwable): Boolean =
+        error is AuthSessionMissingException || (error is AuthRestException && error.errorCode?.value in DEAD_SESSION_CODES)
 
     @Provides
     @Singleton

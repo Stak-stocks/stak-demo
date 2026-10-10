@@ -212,6 +212,8 @@ final class AuthViewModel: ObservableObject {
 
     /// Drops the SDK's live session locally. Mirrors android AuthViewModel.clearSession().
     func clearSession() async {
+        // On the way out: a refused request now is this, not a sign-in ended elsewhere.
+        Session.shared.leaving = true
         try? await supabase.auth.signOut(scope: .local)
     }
 

@@ -42,6 +42,23 @@ final class Session: ObservableObject {
 
 	/// True when this launch started already signed in - the returning-user path.
 	private(set) var resumedSignedIn: Bool
+
+	/// Set when the account's sign-in was ended somewhere else (a password change, or a sign-out that ended every
+	/// device's session): the network layer can't renew it, so the app signs out and Sign in says why. Cleared at the
+	/// next sign-in. Mirrors android Session.endedElsewhere.
+	@Published private(set) var endedElsewhere = false
+
+	/// The network layer's report that Supabase refused this account's session for good - once (several refused
+	/// requests report it together, and @Published would announce each). A signed-out app, or one on its way out,
+	/// ignores it.
+	func reportEndedElsewhere() {
+		if signedIn && !demoAccount && !endedElsewhere && !leaving { endedElsewhere = true }
+	}
+
+	/// Set while the user is logging out or deleting the account: a request still in flight then fails its refresh too,
+	/// and must not be taken for a sign-in ended somewhere else. Cleared at the next sign-in, or when a delete fails.
+	/// Mirrors android Session.leaving.
+	var leaving = false
 	/// Which account this is (product audit, 2026-09-05; mirrors Android): Sign in = the
 	/// DEMO account with the authored history, Create account = a NEW account that starts
 	/// empty and earns its numbers. Persisted with the sign-in.
@@ -125,6 +142,8 @@ final class Session: ObservableObject {
 	/// Any other sign-in drops them - they may be a different account's, or a half-finished onboarding - and
 	/// ProfileSync restores the account's own. Mirrors android Session.signIn.
 	func signIn(demo: Bool, answeredOnboarding: Bool = false) {
+		endedElsewhere = false
+		leaving = false
 		accountGeneration += 1
 		signedIn = true
 		demoAccount = demo

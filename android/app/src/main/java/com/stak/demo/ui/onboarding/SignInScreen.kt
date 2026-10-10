@@ -101,7 +101,8 @@ fun SignInScreen(
 						color = StakColors.TextPrimary,
 					)
 					Text(
-						text = "Your deck kept learning while you were away.",
+						// Why Sign in is up when the sign-in was ended somewhere else (Session.endedElsewhere).
+						text = if (com.stak.demo.data.Session.endedElsewhere) "Your session ended. Sign in again to continue." else "Your deck kept learning while you were away.",
 						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 						color = Auth.SubtitleGray,
 					)
