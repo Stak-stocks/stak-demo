@@ -65,9 +65,9 @@ interface Slot {
 
 // Authored poses (HomeScreen.kt): the front card straight, the two behind tilted; dx/dy are from the card's centre.
 const SLOTS: Slot[] = [
-	{ bg: HOME.paper, weight: 300, size: 12, gap: 12, dx: 6.2, dy: 59.73, rot: 0, maxUp: 0.4 },
-	{ bg: HOME.teal, weight: 400, size: 11.89, gap: 17, dx: 8.33, dy: 164.44, rot: -3.72, maxUp: 105.2 },
-	{ bg: HOME.paper, weight: 300, size: 12, gap: 12, dx: -0.02, dy: 239.57, rot: -7.68, maxUp: 180.7 },
+	{ bg: HOME.paper, weight: 300, size: 12, gap: 12, dx: 6.2, dy: 34.73, rot: 0, maxUp: 0 },
+	{ bg: HOME.teal, weight: 400, size: 11.89, gap: 17, dx: 8.33, dy: 139.44, rot: -3.72, maxUp: 80.2 },
+	{ bg: HOME.paper, weight: 300, size: 12, gap: 12, dx: -0.02, dy: 214.57, rot: -7.68, maxUp: 155.7 },
 ];
 const DECK_W = 236.86;
 const DECK_H = 278.45;
