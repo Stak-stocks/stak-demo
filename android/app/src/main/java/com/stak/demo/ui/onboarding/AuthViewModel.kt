@@ -270,6 +270,8 @@ class AuthViewModel @Inject constructor(
      * it instead of creating a real new one).
      */
     suspend fun clearSession() {
+        // On the way out: a refused request now is this, not a sign-in ended elsewhere.
+        com.stak.demo.data.Session.leaving = true
         runCatching { supabase.auth.clearSession() }
     }
 

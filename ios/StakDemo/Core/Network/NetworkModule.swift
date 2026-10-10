@@ -1,4 +1,5 @@
 import Foundation
+import Supabase
 
 /// URLSession-based HTTP client for the STAK backend.
 /// Mirrors android/core/network/NetworkModule.kt:
@@ -117,11 +118,32 @@ actor NetworkModule {
         if !current.isEmpty, current != sent {
             fresh = current
         } else {
-            guard let refreshed = try? await supabase.auth.refreshSession().accessToken, !refreshed.isEmpty, refreshed != sent else { return nil }
-            fresh = refreshed
+            do {
+                let refreshed = try await supabase.auth.refreshSession().accessToken
+                guard !refreshed.isEmpty, refreshed != sent else { return nil }
+                fresh = refreshed
+            } catch {
+                // No saved session, or Supabase saying the session is gone: the sign-in was ended somewhere else and no
+                // retry can bring it back - the app goes to Sign in (as android's authenticator). A network failure or
+                // an auth outage is only a bad moment, and changes nothing.
+                if Self.isDeadSession(error) { await MainActor.run { Session.shared.reportEndedElsewhere() } }
+                return nil
+            }
         }
         await MainActor.run { Session.shared.setToken(fresh) }
         return fresh
+    }
+
+    /// Supabase's answers that mean the session is over for good - the same list as android NetworkModule.
+    private static let deadSessionCodes: Set<String> = [
+        "refresh_token_not_found", "refresh_token_already_used", "session_not_found", "session_expired",
+        "user_not_found", "user_banned",
+    ]
+
+    private static func isDeadSession(_ error: Error) -> Bool {
+        guard let auth = error as? AuthError else { return false }
+        if case .sessionMissing = auth { return true }
+        return deadSessionCodes.contains(auth.errorCode.rawValue)
     }
 
     private func perform<T: Decodable>(_ request: URLRequest) async throws -> T {

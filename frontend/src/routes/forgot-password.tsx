@@ -79,7 +79,8 @@ function ForgotPasswordPage() {
 		setBusy(true);
 		try {
 			await confirmResetSupabase(newPassword);
-			// Drop the recovery session so the user must sign in fresh with the new password.
+			// Drop the recovery session so the user must sign in fresh with the new password - on every device, on
+			// purpose: a changed password should end sessions started with the old one.
 			await supabase.auth.signOut();
 			setStep("done");
 		} catch (err) {

@@ -134,6 +134,25 @@ struct RootFlowView: View {
 		return (flowDrag > 0 || flowSwipeLive) && stack.count > 1 ? Array(stack.suffix(2)) : [top]
 	}
 
+	/// Log out's local half: the session cleared and Sign in dissolved in, the account forgotten.
+	private func logOutToSignIn() async {
+		// The SDK's live session goes first (android, audit 2026-09-19) - local, no network call, so a fast re-signup
+		// right after can never inherit this account's session.
+		await authVM.clearSession()
+		pendingConfirmation = nil
+		drafts.clear()
+		authVM.resetState()
+		// B21 (171:995): Home leaves at once and Sign in dissolves in (350), the session stack cleared. Sign up sits
+		// beneath so a swipe back from Sign in still reaches it.
+		anim = .reveal
+		stack = [.createAccount, .signIn]
+		withAnimation(FlowAnim.reveal.animation) { phase = .flow }
+		// After the page has gone, so the blanked name never shows (android navigates, then signs out).
+		Session.shared.signOut()
+		// A lock raised for this account doesn't carry over to the next one.
+		relocked = false
+	}
+
 	var body: some View {
 		ZStack {
 			switch phase {
@@ -155,19 +174,7 @@ struct RootFlowView: View {
 				ZStack {
 					MainTabsView(onLogOut: {
 						Task {
-							// The SDK's live session goes first (android, audit 2026-09-19) - local, no network call, so a
-							// fast re-signup right after can never inherit this account's session.
-							await authVM.clearSession()
-							pendingConfirmation = nil
-							drafts.clear()
-							authVM.resetState()
-							// B21 (171:995): Home leaves at once and Sign in dissolves in (350), the session stack
-							// cleared. Sign up sits beneath so a swipe back from Sign in still reaches it.
-							anim = .reveal
-							stack = [.createAccount, .signIn]
-							withAnimation(FlowAnim.reveal.animation) { phase = .flow }
-							// After the page has gone, so the blanked name never shows (android navigates, then signs out).
-							Session.shared.signOut()
+							await logOutToSignIn()
 							// Best-effort: the refresh token revoked server-side too.
 							authVM.revokeSessionRemotely()
 						}
@@ -220,14 +227,7 @@ struct RootFlowView: View {
 					onSignOut: {
 						// As Log out on Profile: Sign in, with Sign up beneath it.
 						Task {
-							await authVM.clearSession()
-							pendingConfirmation = nil
-							drafts.clear()
-							authVM.resetState()
-							anim = .reveal
-							stack = [.createAccount, .signIn]
-							withAnimation(FlowAnim.reveal.animation) { phase = .flow }
-							Session.shared.signOut()
+							await logOutToSignIn()
 							authVM.revokeSessionRemotely()
 						}
 					}
@@ -236,6 +236,12 @@ struct RootFlowView: View {
 			}
 		}
 		.task { EligibilityGate.shared.check() }
+		// The account's sign-in was ended somewhere else (Session.endedElsewhere): out to Sign in, as Log out does - Home
+		// would otherwise sit there signed in but empty, every request refused (android StakRoot).
+		.onReceive(Session.shared.$endedElsewhere) { ended in
+			guard ended, Session.shared.signedIn else { return }
+			Task { await logOutToSignIn() }
+		}
 		.onChange(of: scenePhase) { _, next in
 			// Opening the app reads the notifications: the icon's badge (asked for when one arrives in front) clears.
 			if next == .active { UNUserNotificationCenter.current().setBadgeCount(0) }

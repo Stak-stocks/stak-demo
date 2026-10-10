@@ -152,6 +152,8 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 		) {
 			SplashScreen(
 				onContinue = {
+					// The sign-in ended during the splash: Sign in is already up, with its note.
+					if (com.stak.demo.data.Session.endedElsewhere) return@SplashScreen
 					// Returning user (signed in before) goes straight to Home;
 					// a first-time user is taken to create an account
 					// (user, 2026-08-23).
@@ -170,6 +172,8 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			exitTransition = { fadeOut(tween(350, easing = EaseOut)) },
 		) {
 			com.stak.demo.ui.onboarding.BiometricGate(onUnlocked = {
+				// A face unlock that finishes after the sign-in ended stays where it is (Sign in).
+				if (!com.stak.demo.data.Session.signedIn) return@BiometricGate
 				// From the splash the gate is the whole stack - Home follows; a re-lock
 				// sits over the place the user left, so unlocking pops back to it.
 				if (navController.previousBackStackEntry != null) navController.popBackStack()
@@ -750,7 +754,19 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 	// A paper order's background server call failed after the ticket already showed it
 	// filled - shown over every screen, not only Simulate, since the ticket also opens
 	// from Discover and the stock page.
-	com.stak.demo.ui.simulate.PaperTradeErrorBanner(modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter))
+	// Not over Sign in, after a sign-in ended mid-order.
+	if (com.stak.demo.data.Session.signedIn) {
+		com.stak.demo.ui.simulate.PaperTradeErrorBanner(modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter))
+	}
+	// The account's sign-in was ended somewhere else (Session.endedElsewhere): out to Sign in, as Log out does - Home
+	// would otherwise sit there signed in but empty, every request refused.
+	val endedAuthVm: AuthViewModel = hiltViewModel()
+	LaunchedEffect(com.stak.demo.data.Session.endedElsewhere) {
+		if (!com.stak.demo.data.Session.endedElsewhere || !com.stak.demo.data.Session.signedIn) return@LaunchedEffect
+		endedAuthVm.clearSession()
+		navController.navigate(StakRoutes.SIGN_IN) { popUpTo(0) { inclusive = true } }
+		com.stak.demo.data.Session.signOut()
+	}
 	// "Before we get started" (18+, U.S., Terms / Privacy) over every screen while the account hasn't confirmed - a new
 	// account right after it signs up, an existing one the next time the app opens. Asked when the UI starts, not at
 	// process start (a push can do that).

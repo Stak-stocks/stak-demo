@@ -32,6 +32,7 @@ struct SignInView: View {
 		if case .error(let msg) = authVM.uiState { return msg }
 		return nil
 	}
+	@ObservedObject private var session = Session.shared
 
 	var body: some View {
 		let u = figmaUnit
@@ -46,7 +47,8 @@ struct SignInView: View {
 								.font(StakFont.sora(26 * u, .semiBold))
 								.stakLineHeight(33 * u, size: 26 * u, face: .sora)
 								.foregroundStyle(StakColors.textPrimary)
-							Text("Your deck kept learning while you were away.")
+							// Why Sign in is up when the sign-in was ended somewhere else (Session.endedElsewhere).
+							Text(session.endedElsewhere ? "Your session ended. Sign in again to continue." : "Your deck kept learning while you were away.")
 								.font(StakFont.geist(12 * u))
 								.stakLineHeight(16 * u, size: 12 * u, face: .geist)
 								.foregroundStyle(Auth.subtitleGray)
