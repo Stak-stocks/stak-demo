@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useRef } from "react";
 import {
 	ago,
+	allTickers,
 	betaOf,
 	brandByTicker,
 	changeLine,
@@ -18,6 +19,7 @@ import {
 	money,
 	normalizeTicker,
 	pct1,
+	primaryCategoryOf,
 	quoteQuery,
 	shares4,
 	signedPct,
@@ -49,6 +51,41 @@ function statFor(label: string, raw: string | undefined, kind: "pe" | "growth" |
 	if (kind === "pe") return { label, value: v.toFixed(1), note: v < 20 ? "Cheap" : v <= 35 ? "In line" : "Pricey", good: v < 20, outlined: false };
 	if (kind === "growth") return { label, value: `${v.toFixed(1)}%`, note: v < 5 ? "Slower" : v <= 15 ? "Steady" : "Fast", good: v > 15, outlined: v > 15 };
 	return { label, value: `${v.toFixed(1)}%`, note: v > 20 ? "Excellent" : v >= 10 ? "Healthy" : "Thin", good: v > 20, outlined: v > 20 };
+}
+
+type Fin = ReturnType<typeof financialsOf>;
+
+/**
+ * The line the stat footer promises, from the catalog itself: "sector" averages the names that share
+ * the ticker's primary category, "peers" its peer list; a figure nobody reports is left out.
+ */
+export function benchmarksFor(T: string): string | undefined {
+	const category = primaryCategoryOf(T);
+	const sector = category ? allTickers().filter((t) => t !== T && primaryCategoryOf(t) === category) : [];
+	const peers = (brandByTicker(T)?.peerTickers ?? []).map((t) => t.toUpperCase()).filter((t) => t !== T);
+	// medians, so one outlier (a 300x P/E, a 400% growth spurt) cannot drag a sector figure
+	const median = (tickers: string[], pick: (f: Fin) => string | undefined, keep: (v: number) => boolean) => {
+		const values = tickers
+			.map((t) => num(pick(financialsOf(t))))
+			.filter((v): v is number => v !== null && keep(v))
+			.sort((a, b) => a - b);
+		if (!values.length) return null;
+		const mid = values.length >> 1;
+		return values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+	};
+	const any = () => true;
+	const part = (label: string, pick: (f: Fin) => string | undefined, fmt: (v: number) => string, keep: (v: number) => boolean = any) => {
+		const s = median(sector, pick, keep);
+		const p = median(peers, pick, keep);
+		if (s === null && p === null) return null;
+		return `${label} ${[s === null ? null : `sector ${fmt(s)}`, p === null ? null : `peers ${fmt(p)}`].filter(Boolean).join(" · ")}.`;
+	};
+	const parts = [
+		part("P/E", (f) => f?.peRatio.value, (v) => `${v.toFixed(1)}x`, (v) => v > 0),
+		part("Growth", (f) => f?.revenueGrowth.value, (v) => `${v.toFixed(1)}%`),
+		part("Margin", (f) => f?.profitMargin.value, (v) => `${v.toFixed(1)}%`),
+	].filter((x): x is string => x !== null);
+	return parts.length ? `Benchmarks: ${parts.join(" ")}` : undefined;
 }
 
 /** Risk fit from beta against the person's risk style band. */
@@ -175,6 +212,7 @@ export function useStockDetail(symbol: string, opts: { previewSaved?: boolean } 
 			base.shares = shares4(25 / price);
 		}
 		base.cta.cash = `Cash available  ${money(cash)}`;
+		base.numbers.benchmarks = benchmarksFor(T) ?? base.numbers.benchmarks;
 
 		// the person's own save: real delta and age, unless the frame preview asks for the authored line
 		if (entry) {

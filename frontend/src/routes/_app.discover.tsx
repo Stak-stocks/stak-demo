@@ -1,11 +1,12 @@
 import { DeckSkeleton } from "@/app/discover/DeckSkeleton";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { D } from "@/app/discover/assets";
 import { GhostButton } from "@/app/discover/Button";
 import { PrimaryButton } from "@/app/ui/Button";
 import { DeckCard } from "@/app/discover/DeckCard";
+import { ExampleDeck } from "@/app/discover/ExampleDeck";
 import { deckCopy, deckHeader } from "@/app/discover/data";
 import { colCentre } from "@/app/FitCanvas";
 import { DECK_SIZE, changeShort, companyInitial, companyName, useDeck, useLive } from "@/app/live";
@@ -14,13 +15,15 @@ import { OrderFilledSheet } from "@/app/stocks/OrderFilledSheet";
 import { PracticeBuySheet } from "@/app/stocks/PracticeBuySheet";
 import { cn } from "@/lib/utils";
 
-type DeckSearch = { state?: "saved" | "buy" | "filled"; i?: number; loading?: boolean };
+type DeckSearch = { state?: "saved" | "buy" | "filled"; i?: number; loading?: boolean; variant?: "example" };
 
 export const Route = createFileRoute("/_app/discover")({
 	validateSearch: (s: Record<string, unknown>): DeckSearch => ({
 		state: s.state === "saved" || s.state === "buy" || s.state === "filled" ? s.state : undefined,
 		loading: s.loading === true || s.loading === 1 || s.loading === "1" ? true : undefined,
 		i: typeof s.i === "number" && s.i >= 0 && s.i < DECK_SIZE ? s.i : undefined,
+		// the References frame 2:6451 (one card, ‹ › arrows, keyboard hints) as an alternative layout of the same deck
+		variant: s.variant === "example" ? "example" : undefined,
 	}),
 	component: DiscoverPage,
 });
@@ -45,10 +48,12 @@ const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(pre
  * Figma 2:2944 "Desktop · Discover deck", 2:3089 "deck · saved", 2:3239 "Deck · Practice buy confirm",
  * on today's live deck. `?i=` / `?state=saved|buy|filled` are previews for the capture harness: they
  * override what is shown without touching progress; a real action syncs the pointer and clears them.
- * Keys follow the reference frame 2:6451: ← pass · → save · ↵ practice buy.
+ * Keys follow the reference frame 2:6451: ← pass · → save · ↵ practice buy. `?variant=example` renders that
+ * reference frame's layout (ExampleDeck) on the same state machine.
  */
 function DiscoverPage() {
-	const { state, i, loading } = Route.useSearch();
+	const { state, i, loading, variant } = Route.useSearch();
+	const keep = useMemo(() => (variant ? { variant } : {}), [variant]); // previews clear back to the same layout
 	const navigate = useNavigate();
 	const live = useLive();
 	const deck = useDeck();
@@ -89,8 +94,8 @@ function DiscoverPage() {
 	}, [loading, previewing, n, deck.done, deck.limitReached, deck.finish, navigate]);
 
 	const clearPreview = useCallback(() => {
-		if (previewing) navigate({ to: "/discover", search: {}, replace: true });
-	}, [previewing, navigate]);
+		if (previewing) navigate({ to: "/discover", search: keep, replace: true });
+	}, [previewing, navigate, keep]);
 
 	const toEnd = useCallback(() => {
 		deck.finish();
@@ -145,7 +150,7 @@ function DiscoverPage() {
 	const onPrevious = useCallback(() => {
 		if (index === 0) return;
 		if (previewing) {
-			navigate({ to: "/discover", search: { i: index - 1 } });
+			navigate({ to: "/discover", search: { ...keep, i: index - 1 } });
 			return;
 		}
 		deck.go(index - 1);
@@ -197,6 +202,84 @@ function DiscoverPage() {
 	}, [ticketUp, filledUp, phase.kind, onPass, onSave, centre, clearPreview]);
 
 	if (loading || !deck.ready) return <DeckSkeleton />;
+
+	const sheets = (
+		<>
+			{ticketUp && centre && (
+				<PracticeBuySheet
+					ticker={centre.symbol}
+					name={companyName(centre.symbol)}
+					initial={companyInitial(centre.symbol)}
+					price={price}
+					changeShort={centre.quote ? changeShort(centre.quote.changePercent) : centre.change.replace(" today", "")}
+					cash={live.cash}
+					offsetY={88.5}
+					onClose={() => {
+						setPhase({ kind: "idle" });
+						if (state === "buy") clearPreview();
+					}}
+					onConfirm={confirmBuy}
+				/>
+			)}
+			{phase.kind === "failed" && centre && (
+				<BuyFailedSheet
+					stock={{
+						name: companyName(centre.symbol),
+						nameConfirm: companyName(centre.symbol),
+						price,
+						pct: centre.quote ? changeShort(centre.quote.changePercent) : "",
+						up: (centre.quote?.changePercent ?? 0) >= 0,
+						initial: companyInitial(centre.symbol),
+					}}
+					onRetry={() => setPhase({ kind: "buy" })}
+					onClose={() => setPhase({ kind: "idle" })}
+				/>
+			)}
+			{filledUp && centre && (
+				<OrderFilledSheet
+					ticker={centre.symbol}
+					name={companyName(centre.symbol)}
+					initial={companyInitial(centre.symbol)}
+					price={price}
+					changeShort={centre.quote ? changeShort(centre.quote.changePercent) : ""}
+					shares={phase.kind === "filled" ? phase.shares : price ? Math.round((25 / price) * 10000) / 10000 : 0}
+					cash={phase.kind === "filled" ? phase.cash : Math.max(0, live.cash - 25)}
+					onPrimary={() => navigate({ to: "/my-stak" })}
+					onSecondary={keepExploring}
+					onClose={() => {
+						setPhase({ kind: "idle" });
+						if (state === "filled") clearPreview();
+					}}
+				/>
+			)}
+		</>
+	);
+
+	if (variant === "example") {
+		return (
+			<div className="relative">
+				<style>{DECK_MOTION_CSS}</style>
+				<div role="status" aria-live="polite" className="sr-only">
+					{savedToast ? deckCopy.toast : ""}
+				</div>
+				<ExampleDeck
+					card={centre}
+					saved={centreSaved}
+					kicker={deck.theme.kicker}
+					counter={counter}
+					total={deck.total}
+					leaving={leaving}
+					entering={entering}
+					toast={state === "saved" || savedToast}
+					onPass={onPass}
+					onSave={onSave}
+					onBuy={() => centre && setPhase({ kind: "buy" })}
+					onLearnMore={() => centre && navigate({ to: "/stocks/$symbol", params: { symbol: centre.symbol }, search: { variant: "example" } })}
+				/>
+				{sheets}
+			</div>
+		);
+	}
 
 	return (
 		<div className="relative -mt-[30px]">
@@ -279,53 +362,7 @@ function DiscoverPage() {
 				</div>
 			)}
 
-			{ticketUp && centre && (
-				<PracticeBuySheet
-					ticker={centre.symbol}
-					name={companyName(centre.symbol)}
-					initial={companyInitial(centre.symbol)}
-					price={price}
-					changeShort={centre.quote ? changeShort(centre.quote.changePercent) : centre.change.replace(" today", "")}
-					cash={live.cash}
-					offsetY={88.5}
-					onClose={() => {
-						setPhase({ kind: "idle" });
-						if (state === "buy") clearPreview();
-					}}
-					onConfirm={confirmBuy}
-				/>
-			)}
-			{phase.kind === "failed" && centre && (
-				<BuyFailedSheet
-					stock={{
-						name: companyName(centre.symbol),
-						nameConfirm: companyName(centre.symbol),
-						price,
-						pct: centre.quote ? changeShort(centre.quote.changePercent) : "",
-						up: (centre.quote?.changePercent ?? 0) >= 0,
-						initial: companyInitial(centre.symbol),
-					}}
-					onRetry={() => setPhase({ kind: "buy" })}
-					onClose={() => setPhase({ kind: "idle" })}
-				/>
-			)}
-			{filledUp && centre && (
-				<OrderFilledSheet
-					ticker={centre.symbol}
-					name={companyName(centre.symbol)}
-					initial={companyInitial(centre.symbol)}
-					price={price}
-					changeShort={centre.quote ? changeShort(centre.quote.changePercent) : ""}
-					shares={phase.kind === "filled" ? phase.shares : price ? Math.round((25 / price) * 10000) / 10000 : 0}
-					cash={phase.kind === "filled" ? phase.cash : Math.max(0, live.cash - 25)}
-					onPrimary={() => navigate({ to: "/my-stak" })}
-					onSecondary={keepExploring}
-					onClose={() => {
-						setPhase({ kind: "idle" });
-						if (state === "filled") clearPreview();
-					}}
-				/>
-			)}
+			{sheets}
 		</div>
 	);
 }

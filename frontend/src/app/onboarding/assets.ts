@@ -11,6 +11,8 @@ export const OB = {
 		profile: `${base}/bd5e6.svg`,
 	},
 	back: `${base}/f0c2a.svg`,
+	/** 2:6682: the nine-dot pager of the EXAMPLE centered card (00 References 2:6664), the fifth dot lit. */
+	examplePager: `${base}/5de3d.svg`,
 	hero: {
 		v67: `${base}/14170.svg`,
 		v56: `${base}/25239.svg`,

@@ -6,6 +6,7 @@ import { colPlus } from "@/app/FitCanvas";
 import { cn } from "@/lib/utils";
 import { S } from "./assets";
 import type { StockDetailData } from "./data";
+import { StatGrid } from "./StatGrid";
 
 export type StockDetailProps = {
 	stock: StockDetailData;
@@ -147,25 +148,7 @@ function ContentColumn({ stock, saved, c }: StockDetailProps & { c: Colors }) {
 			{/* Numbers that matter */}
 			<Card c={c} className="flex w-full flex-col items-start gap-[12px] whitespace-nowrap px-[16px] py-[14px]">
 				<p className="font-sora text-[15px] font-semibold leading-[19px] text-[#f2f6fc]">{stock.numbers.title}</p>
-				<div className="flex w-full items-start gap-[8px] overflow-clip">
-					{stock.numbers.stats.map((st) => (
-						<div
-							key={st.label}
-							className={cn(
-								"flex min-w-px flex-1 flex-col items-start gap-[4px] overflow-clip rounded-[12px] p-[10px]",
-								st.outlined && "shadow-[inset_0_0_0_1px_#212d4b]",
-							)}
-							style={{ background: c.inner }}
-						>
-							<p className="font-geist text-[10px] leading-[13px] text-[#819abb]">{st.label}</p>
-							<p className="font-sora text-[17px] font-semibold leading-[21px] text-[#f2f6fc]">{st.value}</p>
-							<p className={cn("font-geist text-[10px] font-medium leading-[13px]", st.good ? "text-[#2fd08a]" : "text-[#819abb]")}>
-								{st.note}
-							</p>
-						</div>
-					))}
-				</div>
-				<p className="font-geist text-[10px] leading-[13px] text-[#819abb]">{stock.numbers.footer}</p>
+				<StatGrid stats={stock.numbers.stats} footer={stock.numbers.footer} benchmarks={stock.numbers.benchmarks} inner={c.inner} />
 			</Card>
 
 			{/* News signal */}

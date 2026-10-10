@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PrimaryButton } from "@/app/ui/Button";
 import { BackControl, HeroBox, OnboardingChrome, StepHeading } from "@/app/onboarding/Chrome";
+import { EXAMPLE_DEFAULT_RISK, ExampleStepCard } from "@/app/onboarding/ExampleCard";
 import { GOAL_ICONS, OptionMatrix, RISK_ICONS } from "@/app/onboarding/OptionMatrix";
 import { SwipeCards } from "@/app/onboarding/SwipeCards";
 import {
@@ -26,7 +27,7 @@ import { logEvent } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../context/AuthContext";
 
-type OnboardingSearch = { step: number; hold?: boolean; preview?: boolean };
+type OnboardingSearch = { step: number; hold?: boolean; preview?: boolean; variant?: "example" };
 
 const flag = (v: unknown) => (v === true || v === 1 || v === "1" ? true : undefined);
 
@@ -38,6 +39,8 @@ export const Route = createFileRoute("/onboarding")({
 			// hold=1 freezes the Preparing-deck step (no auto-advance), preview=1 skips the sign-in guards
 			hold: flag(search.hold),
 			preview: flag(search.preview),
+			// variant=example: the risk step as the centered card of 00 References 2:6664
+			variant: search.variant === "example" ? "example" : undefined,
 		};
 	},
 	component: OnboardingPage,
@@ -49,7 +52,7 @@ export const Route = createFileRoute("/onboarding")({
  * on the Preparing-deck step, exactly where the old flow ran them.
  */
 function OnboardingPage() {
-	const { step, hold, preview } = Route.useSearch();
+	const { step, hold, preview, variant } = Route.useSearch();
 	const { user, loading, onboardingCompleted: claimsOnboardingCompleted, refreshClaims } = useAuth();
 	const { account, accountLoading, updatePreferences, updateDeckOrder, updateLastBriefDate } = useAccount();
 	const navigate = useNavigate();
@@ -60,15 +63,16 @@ function OnboardingPage() {
 
 	const [picks, setPicks] = useState<string[]>(DEFAULT_BRAND_PICKS);
 	const [goal, setGoal] = useState<string>(DEFAULT_GOAL);
-	const [risk, setRisk] = useState<string>(DEFAULT_RISK);
+	// each frame starts on its own selection: the matrix on "Sell some", the example card on "A little drama"
+	const [risk, setRisk] = useState<string>(variant === "example" ? EXAMPLE_DEFAULT_RISK : DEFAULT_RISK);
 	const [name, setName] = useState(PROFILE_DEFAULT_NAME);
 
 	const goTo = useCallback(
 		(next: number) => {
 			hasProgressed.current = true;
-			navigate({ to: "/onboarding", search: { step: next } });
+			navigate({ to: "/onboarding", search: variant ? { step: next, variant } : { step: next } });
 		},
-		[navigate],
+		[navigate, variant],
 	);
 	const back = useCallback(() => {
 		// prototype: Back on the Taste reveal returns to the Risk matrix, skipping the Preparing step
@@ -202,7 +206,11 @@ function OnboardingPage() {
 				</>
 			)}
 
-			{step === 5 && (
+			{step === 5 && variant === "example" && (
+				<ExampleStepCard risk={risk} onSelect={setRisk} onContinue={() => goTo(6)} onBack={back} />
+			)}
+
+			{step === 5 && variant !== "example" && (
 				<>
 					<OnboardingChrome label="STEP 5 OF 6" logoText="picks" progress={5} onBack={back} />
 					<div className="absolute left-1/2 top-[calc(50%+0.5px)] flex w-[776px] -translate-x-1/2 -translate-y-1/2 flex-col items-end gap-[84px]">

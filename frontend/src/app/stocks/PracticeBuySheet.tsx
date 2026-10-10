@@ -19,6 +19,10 @@ type Props = {
 	/** vertical offset of the sheet centre from the viewport centre (Figma: +88.5 on the 1024 deck, +0.5 on the 1200 detail) */
 	offsetY: number;
 	scrim?: string;
+	/** `example`: the centered modal of 00 References 2:6486 (12px ticket gaps, a ✕ at the top right) */
+	layout?: "frame" | "example";
+	/** px of scrim left clear on the left (the sidebar), see Sheet */
+	scrimInset?: number;
 	defaultAmount?: number;
 	onClose: () => void;
 	onConfirm: (amount: number, shares: number) => void | Promise<void>;
@@ -27,7 +31,7 @@ type Props = {
 const AMOUNTS = [10, 25, 50, 100] as const;
 
 /** "Sheet" 480 wide over a scrim — the practice-buy ticket (Figma 2:3385 / 2:4321 / 2:5365), priced live. */
-export function PracticeBuySheet({ ticker, name, initial, price, changeShort, cash, offsetY, scrim, defaultAmount = 25, onClose, onConfirm }: Props) {
+export function PracticeBuySheet({ ticker, name, initial, price, changeShort, cash, offsetY, scrim, layout = "frame", scrimInset, defaultAmount = 25, onClose, onConfirm }: Props) {
 	const [amount, setAmount] = useState(defaultAmount);
 	const [custom, setCustom] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -35,6 +39,7 @@ export function PracticeBuySheet({ ticker, name, initial, price, changeShort, ca
 	const short = amount > cash + 0.005;
 	const canBuy = amount > 0 && !short && price > 0 && !busy;
 	const down = changeShort.startsWith("▼");
+	const example = layout === "example";
 
 	const confirm = async () => {
 		if (!canBuy) return;
@@ -53,7 +58,7 @@ export function PracticeBuySheet({ ticker, name, initial, price, changeShort, ca
 		);
 
 	return (
-		<Sheet label={`Buy ${ticker}?`} scrim={scrim ?? "rgba(0,0,0,0.66)"} offsetY={offsetY} onClose={onClose}>
+		<Sheet label={`Buy ${ticker}?`} scrim={scrim ?? "rgba(0,0,0,0.66)"} scrimInset={scrimInset} offsetY={offsetY} onClose={onClose}>
 			<p className="whitespace-nowrap font-sora text-[18px] font-semibold leading-[23px] text-white">Buy {ticker}?</p>
 			<div className="flex w-full items-center gap-[11px] overflow-clip rounded-[5.78px] bg-[rgba(105,179,202,0.1)] px-[14px] py-[12px]">
 				<div className="flex size-[38px] shrink-0 items-center justify-center overflow-clip rounded-[19px] bg-[#242b3d]">
@@ -66,8 +71,8 @@ export function PracticeBuySheet({ ticker, name, initial, price, changeShort, ca
 				<p className={cn("whitespace-nowrap font-geist text-[12px] font-medium leading-[16px]", down ? "text-[#e5484d]" : "text-[#2fd08a]")}>{changeShort}</p>
 			</div>
 			<p className="w-full font-geist text-[12px] leading-[18px] text-[#c8d2e0]">{ticketCopy.body}</p>
-			<div className="flex w-full flex-col items-start gap-[24px] overflow-clip">
-				<div className="flex w-full flex-col items-start gap-[15px]">
+			<div className={cn("flex w-full flex-col items-start overflow-clip", example ? "gap-[12px]" : "gap-[24px]")}>
+				<div className={cn("flex w-full flex-col items-start", example ? "gap-[12px]" : "gap-[15px]")}>
 					<div className="flex items-center gap-[6px] overflow-clip whitespace-nowrap font-geist text-[12px] leading-[16px]">
 						<span className="text-[#819abb]">{ticketCopy.cashLabel}</span>
 						<span className={cn("font-medium", short ? "text-[#e5484d]" : "text-[#f2f6fc]")}>{money(cash)}</span>
@@ -141,6 +146,17 @@ export function PracticeBuySheet({ ticker, name, initial, price, changeShort, ca
 				</PrimaryButton>
 				<SheetBackButton onClick={onClose}>{ticketCopy.back}</SheetBackButton>
 			</div>
+			{/* the ✕ of 2:6663 at the sheet's top right; last in the DOM so the first chip keeps the initial focus */}
+			{example && (
+				<button
+					type="button"
+					aria-label="Close"
+					onClick={onClose}
+					className="stak-press absolute right-[21px] top-[18px] h-[18px] w-[13px] cursor-pointer text-center font-geist text-[14px] font-medium leading-[18px] text-[#819abb]"
+				>
+					✕
+				</button>
+			)}
 		</Sheet>
 	);
 }

@@ -32,7 +32,8 @@ export type StockDetailData = {
 	activePeriod: string;
 	saveIntro: { unsaved: string; saved: string; delta: string; body: string };
 	risk: { title: string; badge: string; low: string; high: string; markerLeft: number; note: string };
-	numbers: { title: string; stats: StockStat[]; footer: string };
+	/** `benchmarks` is the line the footer promises, hidden until a stat is tapped (Figma 2:3516 / 2:6364) */
+	numbers: { title: string; stats: StockStat[]; footer: string; benchmarks?: string };
 	news: { title: string; move: string; lines: string[]; articles: StockArticle[] };
 	cta: { save: string; unsave: string; buy: string; cash: string };
 	/** null when nobody covers the name yet */
@@ -74,6 +75,7 @@ export const stockDetails: Record<string, StockDetailData> = {
 				{ label: "Profit margin", value: "24.3%", note: "Excellent", good: true, outlined: true },
 			],
 			footer: "Tap a stat for sector and peer benchmarks",
+			benchmarks: "Benchmarks: P/E sector 28.0x · peers 33.5x. Growth sector 9.0% · peers 7.4%. Margin sector 11.0% · peers 21.2%.",
 		},
 		news: {
 			title: "News signal",

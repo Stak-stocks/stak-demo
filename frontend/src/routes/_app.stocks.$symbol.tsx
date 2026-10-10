@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useLive } from "@/app/live";
 import { NotFound } from "@/app/NotFound";
 import { BuyFailedSheet } from "@/app/simulate/sheets";
+import { ExampleDetail } from "@/app/stocks/ExampleDetail";
 import { useStockDetail } from "@/app/stocks/live";
 import { OrderFilledSheet } from "@/app/stocks/OrderFilledSheet";
 import { PracticeBuySheet } from "@/app/stocks/PracticeBuySheet";
@@ -21,6 +22,8 @@ type StockSearch = {
 	/** the practice-buy ticket was confirmed: "Order filled" sheet */
 	filled?: boolean;
 	loading?: boolean;
+	/** `example`: the two-column layout of 00 References 2:6311 (and its centered ticket 2:6486 with ?ticket=1) */
+	variant?: "example";
 };
 
 const flag = (v: unknown) => (v === true || v === 1 || v === "1" || v === "true" ? true : undefined);
@@ -35,9 +38,13 @@ export const Route = createFileRoute("/_app/stocks/$symbol")({
 		collection: typeof s.collection === "string" && s.collection ? s.collection : undefined,
 		filled: flag(s.filled),
 		loading: flag(s.loading),
+		variant: s.variant === "example" ? "example" : undefined,
 	}),
 	component: StockPage,
 });
+
+/** The example modal dims the content area only: the scrim starts where the sidebar ends. */
+const navInset = () => (document.querySelector("aside[data-nav]")?.getAttribute("data-nav") === "closed" ? 72 : 216);
 
 type Phase = { kind: "idle" } | { kind: "buy" } | { kind: "failed" } | { kind: "filled"; shares: number; cash: number };
 
@@ -66,6 +73,7 @@ function StockPage() {
 	const update = (patch: StockSearch) => navigate({ to: "/stocks/$symbol", params: { symbol }, search: { ...search, ...patch }, replace: true });
 	const ticketUp = phase.kind === "buy" || !!search.ticket || !!search.sheet;
 	const analystOpen = open ?? !!search.open;
+	const example = search.variant === "example";
 
 	const toggleSaved = async () => {
 		// the real save decides; `?saved=1` only previews the look until the person acts
@@ -103,21 +111,25 @@ function StockPage() {
 
 	return (
 		<>
-			<StockDetail
-				stock={stock}
-				saved={detail.saved}
-				open={analystOpen}
-				dim={phase.kind === "buy" || !!search.ticket}
-				from={from}
-				onBack={() => {
-					if (from !== "my-stak") navigate({ to: "/discover" });
-					else if (search.collection) navigate({ to: "/my-stak/$collection", params: { collection: search.collection } });
-					else navigate({ to: "/my-stak" });
-				}}
-				onToggleSaved={() => void toggleSaved()}
-				onToggleOpen={() => setOpen(!analystOpen)}
-				onPracticeBuy={() => setPhase({ kind: "buy" })}
-			/>
+			{example ? (
+				<ExampleDetail stock={stock} saved={detail.saved} onToggleSaved={() => void toggleSaved()} onPracticeBuy={() => setPhase({ kind: "buy" })} />
+			) : (
+				<StockDetail
+					stock={stock}
+					saved={detail.saved}
+					open={analystOpen}
+					dim={phase.kind === "buy" || !!search.ticket}
+					from={from}
+					onBack={() => {
+						if (from !== "my-stak") navigate({ to: "/discover" });
+						else if (search.collection) navigate({ to: "/my-stak/$collection", params: { collection: search.collection } });
+						else navigate({ to: "/my-stak" });
+					}}
+					onToggleSaved={() => void toggleSaved()}
+					onToggleOpen={() => setOpen(!analystOpen)}
+					onPracticeBuy={() => setPhase({ kind: "buy" })}
+				/>
+			)}
 			{ticketUp && (
 				<PracticeBuySheet
 					ticker={stock.symbol}
@@ -127,7 +139,9 @@ function StockPage() {
 					changeShort={stock.changeShort}
 					cash={live.cash}
 					offsetY={0.5}
-					scrim={search.sheet ? "rgba(3,4,9,0.83)" : undefined}
+					scrim={example ? "rgba(2,5,14,0.66)" : search.sheet ? "rgba(3,4,9,0.83)" : undefined}
+					layout={example ? "example" : undefined}
+					scrimInset={example ? navInset() : undefined}
 					onClose={closeTicket}
 					onConfirm={confirmBuy}
 				/>

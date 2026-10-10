@@ -5,6 +5,8 @@ import { type NavKey, Sidebar } from "./Sidebar";
 import { SidebarSkeleton } from "./SidebarSkeleton";
 
 const NAV_KEY = "stak.nav.open";
+/** The slot inside <main> that ExampleTopBar renders into. */
+export const EXAMPLE_TOPBAR_ID = "stak-example-topbar";
 
 function readNavOpen(): boolean {
 	try {
@@ -51,7 +53,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 			{loading ? (
 				<SidebarSkeleton active={activeFromPath(pathname) === "discover" ? "discover" : "home"} />
 			) : <Sidebar open={navOpen} active={activeFromPath(pathname)} onToggle={toggle} />}
-			<main className="min-w-0 flex-1">
+			{/* relative: the EXAMPLE frames' 64px top bar (ExampleTopBar) is positioned against the content area */}
+			<main className="relative min-w-0 flex-1">
+				{/* the EXAMPLE frames' 64px top bar portals here (ExampleTopBar), above the page's own positioned wrappers */}
+				<div id={EXAMPLE_TOPBAR_ID} className="pointer-events-none absolute inset-x-0 top-0 h-[64px]" />
 				<div className="pr-[50px] pt-[88px] transition-[padding-left] duration-[280ms] ease-in-out" style={{ paddingLeft: navOpen ? 40 : 24 }}>
 					{children}
 				</div>

@@ -13,6 +13,8 @@ type Props = {
 	onClose: () => void;
 	/** the scrim colour, which the frames vary per sheet */
 	scrim?: string;
+	/** px from the left edge the scrim leaves clear (the EXAMPLE modal 2:6486 dims the content area, not the sidebar) */
+	scrimInset?: number;
 	/** vertical offset of the panel centre from the viewport centre (Figma: +88.5 on the deck, +0.5 on the detail) */
 	offsetY?: number;
 	width?: number;
@@ -31,7 +33,7 @@ type Props = {
  * always unmounted to close, and React detaches the <dialog> before this effect's cleanup runs,
  * so the native focus return cannot fire: the opener is remembered on open and refocused here.
  */
-export function Sheet({ label, role, labelledBy, describedBy, onClose, scrim = "rgba(0,0,0,0.66)", offsetY = 0, width = 480, className, children }: Props) {
+export function Sheet({ label, role, labelledBy, describedBy, onClose, scrim = "rgba(0,0,0,0.66)", scrimInset, offsetY = 0, width = 480, className, children }: Props) {
 	const ref = useRef<HTMLDialogElement>(null);
 	const close = useRef(onClose);
 	close.current = onClose;
@@ -74,7 +76,7 @@ export function Sheet({ label, role, labelledBy, describedBy, onClose, scrim = "
 			aria-labelledby={labelledBy}
 			aria-describedby={describedBy}
 			className="stak-dialog stak-sheet-in"
-			style={{ "--stak-scrim": scrim } as CSSProperties}
+			style={{ "--stak-scrim": scrimInset ? `linear-gradient(to right, transparent ${scrimInset}px, ${scrim} ${scrimInset}px)` : scrim } as CSSProperties}
 			data-sheet
 		>
 			<div
@@ -82,7 +84,7 @@ export function Sheet({ label, role, labelledBy, describedBy, onClose, scrim = "
 					"absolute left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-start gap-[14px] overflow-clip rounded-[20px] bg-[#181f30] px-[20px] pt-[10px] pb-[30px]",
 					className,
 				)}
-				style={{ top: `calc(50% + ${offsetY}px)`, width }}
+				style={{ top: `calc(50% + ${offsetY}px)`, left: scrimInset ? `calc(50% + ${scrimInset / 2}px)` : undefined, width }}
 			>
 				<div className="flex w-full items-start justify-center overflow-clip pb-[4px]">
 					<div className="h-[4px] w-[40px] rounded-[2px] bg-[#2a3346]" />
