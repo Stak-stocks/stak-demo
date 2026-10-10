@@ -77,6 +77,10 @@ final class DiscoverViewModel: ObservableObject {
 	private var quoteTask: Task<Void, Never>? = nil
 	/// The deck day (StakClock.deckDayKey) the deck on screen was loaded for.
 	private var loadedDay: String? = nil
+	/// Whether the deck on screen is the day's shared one; one picked while the server was out of reach isn't.
+	private var deckShared = true
+	/// A shared-deck check in flight: the tick doesn't start another.
+	private var checkingShared = false
 	/// StakClock.lastCloseRef when the deck was last priced - a changed one means the prices predate a session boundary.
 	private var quotedRef: String? = nil
 	/// Out-of-hours attempts to price cards whose quote never came back; capped so one bad symbol can't poll all night.
@@ -120,7 +124,8 @@ final class DiscoverViewModel: ObservableObject {
 		return data
 	}
 
-	private func fetchDeck() async {
+	/// `repick`: a reload into the day's shared deck - on failure the deck on screen stays, and the count never drops.
+	private func fetchDeck(repick: Bool = false) async {
 		loading = true
 		loadError = false
 		loadedDay = StakClock.deckDayKey()
@@ -138,7 +143,9 @@ final class DiscoverViewModel: ObservableObject {
 
 		let dailySwipes = await dailySwipesTask
 		let limit = (dailySwipes?.limit ?? 0) > 0 ? dailySwipes!.limit : Self.fallbackDailyLimit
-		let swiped = (dailySwipes != nil && dailySwipes!.date == StakClock.deckDayKey()) ? dailySwipes!.count : 0
+		let served = (dailySwipes != nil && dailySwipes!.date == StakClock.deckDayKey()) ? dailySwipes!.count : 0
+		// The server hasn't heard of swipes still in their undo window, or ones made offline.
+		let swiped = repick ? max(swipedToday, served + pendingSwipeTasks.count) : served
 		dailyLimit = limit
 		swipedToday = swiped
 		// Set both ways: a deck reloaded at the 9am rollover starts under the limit again.
@@ -191,7 +198,7 @@ final class DiscoverViewModel: ObservableObject {
 			if resetSessionOnLoad { DeckSession.shared.load(); resetSessionOnLoad = false }
 			prefetchTips(cards)
 			prefetchQuickLooks(cards)
-		} else {
+		} else if !repick {
 			deck = []
 			loadError = true
 		}
@@ -225,6 +232,8 @@ final class DiscoverViewModel: ObservableObject {
 				tickers = kept.isEmpty ? mine : kept
 			}
 		}
+		// Shared only when the server had a say: a deck picked offline is this phone's alone until it can ask again.
+		deckShared = shared != nil && tickers != nil
 		guard let tickers else {
 			let picks = freshPicks(brands, ranked: ranked, limit: limit, passed: passed, categories: categories)
 			deckLabel = Self.deckLabelFor(picks, categories)
@@ -332,14 +341,42 @@ final class DiscoverViewModel: ObservableObject {
 
 	/// Each tick while Discover is on screen, with the symbols of the cards it shows (none on the end-of-deck screen).
 	/// Past the 9am rollover the next deck is loaded; otherwise the visible cards are re-priced.
-	func onVisibleTick(_ visible: [String]) {
+	func onVisibleTick(_ visible: [String], busy: Bool = false) {
 		if loading { return }
 		if let loadedDay, loadedDay != StakClock.deckDayKey() {
 			resetSessionOnLoad = true
 			Task { await fetchDeck() }
 			return
 		}
+		// Not mid-swipe: a card being dragged, flying off, open in Quick Look or inside its undo window stays put.
+		if !deckShared && !busy && pendingSwipeTasks.isEmpty { checkSharedDeck() }
 		refreshQuotes(visible)
+	}
+
+	/// A deck picked while the server was out of reach: once it answers - the day's shared deck, or a ranking to pick
+	/// one from - the deck reloads into the shared one (cards swiped today stay out). Nothing new to load, nothing
+	/// changes - so a phone still offline isn't reloaded every tick. Mirrors android checkSharedDeck.
+	private func checkSharedDeck() {
+		guard !checkingShared else { return }
+		checkingShared = true
+		Task {
+			defer { checkingShared = false }
+			guard let shared = try? await repo.getDailyDeck(day: StakClock.deckDayKey()).tickers else { return }
+			let canPick: Bool
+			if !shared.isEmpty {
+				canPick = true
+			} else {
+				canPick = !((try? await repo.getRecommendations())?.brandIds ?? []).isEmpty
+			}
+			guard canPick, !loading, pendingSwipeTasks.isEmpty else { return }
+			// 9am passed while asking: the rollover's reload, not a re-pick.
+			if loadedDay != StakClock.deckDayKey() {
+				resetSessionOnLoad = true
+				await fetchDeck()
+			} else {
+				await fetchDeck(repick: true)
+			}
+		}
 	}
 
 	/// Re-prices the visible cards so each - and the price a save records - stays current: while the market is open,

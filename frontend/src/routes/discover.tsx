@@ -230,17 +230,24 @@ function App() {
 	}, []);
 	// Who and which day the deck was picked for: another account, or a new day, picks again.
 	const pickedFor = useRef("");
+	// Whether the deck on screen is the day's shared one; one picked while the server was out of reach isn't -
+	// `repick` picks again once the server answers.
+	const [deckShared, setDeckShared] = useState(true);
+	const [repick, setRepick] = useState(0);
+	const signedIn = !!appUser;
 	const swipedBrandsRef = useRef(swipedBrands);
 	useEffect(() => { swipedBrandsRef.current = swipedBrands; }, [swipedBrands]);
 	const passedBrandIdsRef = useRef(passedBrandIds);
 	useEffect(() => { passedBrandIdsRef.current = passedBrandIds; }, [passedBrandIds]);
 
 	useEffect(() => {
-		const key = `${uid}:${deckDay}`;
+		const day = `${uid}:${deckDay}`;
+		const key = `${day}:${repick}`;
 		if (pickedFor.current === key || !account || allBrands.length === 0) return;
 		// Picked once per account and day: the account refreshing (a save, a pass) must not re-pick the deck under the user.
+		// A re-pick (back online) keeps today's cards on screen until the shared ones are in.
+		if (!pickedFor.current.startsWith(`${day}:`)) setDeckPicked(false);
 		pickedFor.current = key;
-		setDeckPicked(false);
 		const held = new Set(account.stakBrandIds ?? []);
 		const passed = account.passedBrands ?? [];
 		const tagScores = account.tagScores ?? {};
@@ -263,12 +270,38 @@ function App() {
 				offer: (mine) => offerDailyDeck(deckDay, mine).then((d) => d.tickers),
 			});
 			if (pickedFor.current !== key) return;
+			setDeckShared(shared !== null && tickers !== null);
 			if (tickers) pinDailyDeck(uid, deckDay, tickers);
 			setRecommendedOrder(tickers ? brandsOf(tickers) : withCategoryCap(eligible, DAILY_SWIPE_LIMIT));
 			setRankedPool(eligible);
 			setDeckPicked(true);
 		})();
-	}, [account, allBrands, uid, deckDay]);
+	}, [account, allBrands, uid, deckDay, repick]);
+
+	// A deck picked offline: back online, or back on the tab, it's picked again once the server has something to give -
+	// the day's shared deck, or a ranking to pick one from. Nothing new, nothing changes, so the deck doesn't reload
+	// on every focus while the server is still out of reach. (The apps check the same on their 30s tick.)
+	useEffect(() => {
+		if (deckShared || !signedIn) return;
+		let checking = false;
+		const check = () => {
+			if (checking || document.visibilityState !== "visible") return;
+			checking = true;
+			getDailyDeck(deckDay)
+				.then(async (d) => d.tickers.length > 0 || ((await getSortedRecommendations()).brandIds ?? []).length > 0)
+				.then((canPick) => { if (canPick) setRepick((n) => n + 1); })
+				.catch(() => {})
+				.finally(() => { checking = false; });
+		};
+		window.addEventListener("online", check);
+		window.addEventListener("focus", check);
+		document.addEventListener("visibilitychange", check);
+		return () => {
+			window.removeEventListener("online", check);
+			window.removeEventListener("focus", check);
+			document.removeEventListener("visibilitychange", check);
+		};
+	}, [deckShared, signedIn, deckDay]);
 
 	const handleLearnMore = useCallback((brand: BrandSummary) => {
 		setQuickLookBrand(brand);
@@ -284,7 +317,6 @@ function App() {
 	// the end-of-deck receipt counts them (as Android counts its own). Every platform sends a swipe only once its undo
 	// window has passed, so the list never holds an undone card.
 	const [swipedToday, setSwipedToday] = useState<Map<string, string>>(new Map());
-	const signedIn = !!appUser;
 	useEffect(() => {
 		setSwipedToday(new Map());
 		if (!signedIn) return;
