@@ -23,11 +23,12 @@ vi.mock("../../services/geminiService.js", () => ({
 	geminiStreamUrl: () => "https://gemini.test/stream",
 }));
 const newsMock = vi.fn();
-vi.mock("../../services/finnhubService.js", () => ({ getCompanyNews: newsMock }));
+vi.mock("../../services/finnhubService.js", async (real) => ({ ...(await real<object>()), getCompanyNews: newsMock }));
 const stockLookups: string[] = [];
 vi.mock("../stock.js", () => ({
 	getStockSnapshot: async (t: string) => {
 		stockLookups.push(t);
+		if (t === "ZZNQ") return { quote: null, metrics: {} };
 		return { quote: { price: 100, changePercent: -3.2, marketState: "REGULAR" }, metrics: { peRatio: 30, marketCap: "1T", beta: 1.1 } };
 	},
 }));
@@ -172,6 +173,75 @@ describe("POST /chat", () => {
 		expect(stockLookups).toEqual([]);
 	});
 
+	it("a follow-up asking what's happening keeps the conversation's company", async () => {
+		db.conversation = { id: CONV_1, uid: "u1", context: null, last_tickers: ["APP"] };
+		const app = await buildApp();
+		await request(app).post("/chat").send({ message: "Any negative catalyst", conversationId: CONV_1 });
+		await request(app).post("/chat").send({ message: "lawsuit?", conversationId: CONV_1 });
+		expect(stockLookups).toEqual(["APP", "APP"]);
+	});
+
+	it("a follow-up naming a company we don't know doesn't get the last one's data", async () => {
+		db.conversation = { id: CONV_1, uid: "u1", context: null, last_tickers: ["APP"] };
+		await request(await buildApp()).post("/chat").send({ message: "Any news on Foobarco?", conversationId: CONV_1 });
+		expect(stockLookups).toEqual([]);
+	});
+
+	it("acronyms, days and market-wide questions don't confuse the follow-up rule", async () => {
+		db.conversation = { id: CONV_1, uid: "u1", context: null, last_tickers: ["APP"] };
+		const app = await buildApp();
+		await request(app).post("/chat").send({ message: "any lawsuit from the SEC on Monday?", conversationId: CONV_1 });
+		expect(stockLookups).toEqual(["APP"]);
+		await request(app).post("/chat").send({ message: "why is the market down today", conversationId: CONV_1 });
+		expect(stockLookups).toEqual(["APP"]);
+	});
+
+	it("after switching companies, the page it was opened from isn't re-noted beside the new one's data", async () => {
+		db.conversation = { id: CONV_1, uid: "u1", context: { type: "stock", ticker: "TSLA" }, last_tickers: ["NVDA"] };
+		await request(await buildApp()).post("/chat").send({ message: "lawsuit?", conversationId: CONV_1 });
+		expect(stockLookups).toEqual(["NVDA"]);
+		expect(promptText()).not.toContain("stock page");
+	});
+
+	it("news that times out is reported as not loaded, not as no news", async () => {
+		vi.useFakeTimers({ toFake: ["setTimeout"] });
+		newsMock.mockReturnValue(new Promise(() => {}));
+		const pending = request(await buildApp()).post("/chat").send({ message: "Why did $ZZQX jump?" }).then((r) => r);
+		await vi.advanceTimersByTimeAsync(3_100);
+		vi.useRealTimers();
+		await pending;
+		expect(promptText()).toContain("ZZQX (ZZQX): news couldn't be loaded just now.");
+	});
+
+	it("history breaks a turn's shared timestamp by id, so the question comes before its answer", async () => {
+		db.conversation = { id: CONV_1, uid: "u1", context: null, last_tickers: [] };
+		await request(await buildApp()).post("/chat").send({ message: "What is beta?", conversationId: CONV_1 });
+		const history = calls(/FROM stak_ai_messages WHERE conversation_id = \$1 ORDER BY/)[0]![0] as string;
+		expect(history).toMatch(/ORDER BY created_at DESC, id DESC/);
+		expect(history).toMatch(/ORDER BY created_at ASC, id ASC/);
+	});
+
+	it("a company with no quote or news is said to have none, not left for the model to fill in", async () => {
+		newsMock.mockResolvedValue([]);
+		await request(await buildApp()).post("/chat").send({ message: "Why did $ZZQX jump?" });
+		expect(promptText()).toContain("ZZQX (ZZQX): no headlines found from the past week.");
+	});
+
+	it("headlines carry their US Eastern date, so the model can tell today's news from last week's", async () => {
+		newsMock.mockResolvedValue([{ headline: "Kids ads lawsuit filed", url: "https://news.test/k", datetime: 1_760_000_000 }]);
+		await request(await buildApp()).post("/chat").send({ message: "Why did $ZZQX jump?" });
+		expect(promptText()).toContain("  - (Thu, Oct 9) Kids ads lawsuit filed");
+		// Undated: no made-up date.
+		newsMock.mockResolvedValue([{ headline: "Kids ads lawsuit filed", url: "https://news.test/k", datetime: 0 }]);
+		await request(await buildApp()).post("/chat").send({ message: "Why did $ZZQX jump?" });
+		expect(promptText()).toContain("  - Kids ads lawsuit filed");
+	});
+
+	it("a company with no quote is said to have none", async () => {
+		await request(await buildApp()).post("/chat").send({ message: "Why did $ZZNQ jump?" });
+		expect(promptText()).toContain("ZZNQ (ZZNQ): no live quote available right now");
+	});
+
 	it("re-sending the same page context doesn't drag a follow-up back to it", async () => {
 		db.conversation = { id: CONV_1, uid: "u1", context: { type: "stock", ticker: "TSLA" }, last_tickers: ["NVDA"] };
 		await request(await buildApp()).post("/chat").send({ message: "is that normal for it?", conversationId: CONV_1, context: { type: "stock", ticker: "TSLA" } });
@@ -248,6 +318,8 @@ describe("POST /chat", () => {
 		expect(system).toContain("Comparisons and financial-health questions are welcome");
 		expect(system).toContain("Never tell someone what to do with their money");
 		expect(system).toContain("assume a beginner");
+		expect(system).toContain("Never state a current or recent price");
+		expect(system).toContain("You can't browse, search or open pages");
 		// The fixed rules come before the per-user profile.
 		expect(system.indexOf("━━━ STYLE ━━━")).toBeLessThan(system.indexOf("━━━ ABOUT THIS USER ━━━"));
 	});
@@ -260,6 +332,27 @@ describe("helpers", () => {
 		expect(detectNamedTickers("Why did $NOW jump?")).toEqual(["NOW"]);
 		expect(detectNamedTickers("analysts raised the price target")).toEqual([]);
 		expect(detectNamedTickers("why is apple up")).toEqual(["AAPL"]);
+	});
+
+	it("finds companies the way people type them: everyday names, lowercase tickers, split names", async () => {
+		const { detectNamedTickers } = await import("../stakAi.js");
+		expect(detectNamedTickers("Any meaningful update on Applovin")).toEqual(["APP"]);
+		expect(detectNamedTickers("Why is app lovin down today")).toEqual(["APP"]);
+		expect(detectNamedTickers("What is avgo pe ratio")).toEqual(["AVGO"]);
+		expect(detectNamedTickers("Avgo")).toEqual(["AVGO"]);
+		expect(detectNamedTickers("why did ARM move")).toEqual(["ARM"]);
+		expect(detectNamedTickers("what's up with Sony")).toEqual(["SONY"]);
+		// Words stay words.
+		expect(detectNamedTickers("my arm hurts")).toEqual([]);
+		expect(detectNamedTickers("is there an app for this? what about mrna vaccines or a usb stick")).toEqual([]);
+		expect(detectNamedTickers("a lucid explanation of the riot")).toEqual([]);
+		expect(detectNamedTickers("what is a trade war, and is southern california pricey")).toEqual([]);
+		expect(detectNamedTickers("oh snap, is the fed an ally? Penn State grad here")).toEqual([]);
+		// Acronym names in any case; curly apostrophes and names ending in punctuation.
+		expect(detectNamedTickers("at&t news")).toEqual(["T"]);
+		expect(detectNamedTickers("tsmc down?")).toEqual(["TSM"]);
+		expect(detectNamedTickers("McDonald’s earnings")).toEqual(["MCD"]);
+		expect(detectNamedTickers("Why did Delta miss earnings")).toEqual(["DAL"]);
 	});
 
 	it("titles are capitalized and cut on a word with an ellipsis", async () => {

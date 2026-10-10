@@ -4,6 +4,7 @@ import { brandsChunk03 } from "./chunk-03";
 import { brandsChunk04 } from "./chunk-04";
 import type { BrandProfile } from "./types";
 import { getPeerTickers, buildPeerLookupIndex } from "../peerGroups";
+import { interestCategoriesFor } from "./interestFallback";
 
 export * from "./types";
 export * from "./logoHelpers";
@@ -30,4 +31,6 @@ const peerLookupIndex = buildPeerLookupIndex(rawBrands);
 export const brands: BrandProfile[] = rawBrands.map((b) => ({
 	...b,
 	peerTickers: getPeerTickers(b.ticker, rawBrands, 5, undefined, peerLookupIndex),
+	// Most entries carry none: derived from primaryCategory (interestFallback.ts) so every brand has some.
+	interestCategories: interestCategoriesFor(b.ticker, b.interestCategories),
 }));
