@@ -27,7 +27,7 @@ private struct DeckCard {
 
 /// Front card straight, the two behind rotated; later cards draw on top.
 /// Story text comes from NewsDeckFeed; card bottoms sit at
-/// 397.4/527.2/602.7 in the 397 card, so the up-drag clamps at bottom-397.
+/// 397.4/502.2/577.7 in the 397 card, so the up-drag clamps at bottom-397.
 private let deckCards: [DeckCard] = [
 	DeckCard(
 		bg: Home.paperWhite,
@@ -45,9 +45,9 @@ private let deckCards: [DeckCard] = [
 		bodySize: 11.89,
 		titleBodyGap: 17,
 		offsetX: 8.33,
-		offsetY: 189.44,
+		offsetY: 164.44,
 		rotation: -3.72,
-		maxUpU: 130.2
+		maxUpU: 105.2
 	),
 	DeckCard(
 		bg: Home.paperWhite,
@@ -55,9 +55,9 @@ private let deckCards: [DeckCard] = [
 		bodySize: 12,
 		titleBodyGap: 12,
 		offsetX: -0.02,
-		offsetY: 264.57,
+		offsetY: 239.57,
 		rotation: -7.68,
-		maxUpU: 205.7
+		maxUpU: 180.7
 	)
 ]
 
