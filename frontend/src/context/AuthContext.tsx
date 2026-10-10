@@ -148,7 +148,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		function resetTimer() {
 			if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
 			inactivityTimer.current = setTimeout(() => {
-				supabase.auth.signOut().catch(() => {});
+				// This browser only: Supabase's default ends the account's session on every device, and a tab left open
+				// signed the phone out after 30 minutes (2026-10-09).
+				supabase.auth.signOut({ scope: "local" }).catch(() => {});
 			}, INACTIVITY_MS);
 		}
 
@@ -227,7 +229,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	async function logout() {
 		// Another person signing in on this browser must not receive this account's alerts.
 		await disableWebPush().catch(() => {});
-		await supabase.auth.signOut();
+		// This browser only, as the apps' Log out: the phone stays signed in.
+		await supabase.auth.signOut({ scope: "local" });
 	}
 
 	const appUser = useMemo<AppUser | null>(() => {
