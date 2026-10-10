@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { N } from "@/app/news/assets";
 import { colPlus } from "@/app/FitCanvas";
 import { useApiHealth } from "@/app/live/quotes";
+import { useShowcase } from "@/app/live/showcase";
 import { useLive } from "@/app/live/store";
 import { ARTICLE_TICKERS, CHEVRON, IN_YOUR_STAK, type NewsCardData, newsListing, SEARCH } from "@/app/news/data";
 import { NewsColumn } from "@/app/news/NewsCard";
@@ -46,12 +47,14 @@ function NewsPage() {
 	};
 	const q = query.trim().toLowerCase();
 
+	const showcase = useShowcase();
 	const tagged = (cards: readonly NewsCardData[]): NewsCardData[] =>
 		cards
 			.filter((card) => !q || card.title.toLowerCase().includes(q))
 			.map((card) => {
 				const ticker = ARTICLE_TICKERS[card.id];
-				return { ...card, tag: ticker && live.savedTickers.has(ticker) ? IN_YOUR_STAK : card.tag };
+				// the untouched demo persona is the frame (2:4359: every card says "In your STAK"); otherwise only stories about a saved company do
+				return { ...card, tag: showcase || (ticker && live.savedTickers.has(ticker)) ? IN_YOUR_STAK : card.tag };
 			});
 
 	return (

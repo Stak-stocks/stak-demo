@@ -23,13 +23,19 @@ export type StockDetailProps = {
 
 type Colors = { card: string; inner: string; track: string };
 
+/** Figma's widths for the chart's range buttons (label box = text width rounded, plus 10px a side) and the news tone chips. */
+const RANGE_WIDTH: Record<string, number> = { "1D": 33, "1W": 36, "1M": 35, "1Y": 31 };
+const TONE_WIDTH: Record<string, number> = { Neutral: 51, Positive: 54, Negative: 59 };
+
 /** A px offset authored on a track of the given width, kept at the same fraction when the track stretches. */
 const pct = (px: number, of: number) => `${((px / of) * 100).toFixed(4)}%`;
 
 /**
  * Stock detail (Figma "Desktop · Stock detail · …", 1440 × 1200). Two columns, 744 + 40 + 360.
  * Entered from Discover the back block floats at (1, −44) and the columns start 72px into the
- * content box; entered from My STAK the same blocks flow top-down (back, 24px gap, columns).
+ * content box; a SAVED stock entered from My STAK flows top-down instead (back, 24px gap, columns:
+ * 2:4970 / 2:5130 / 2:5247 put the cards at y 204), while the unsaved My STAK ticket frame 2:5402
+ * keeps the floating back block (cards at y 160) like every Discover frame.
  */
 export function StockDetail(p: StockDetailProps) {
 	const c: Colors = p.dim
@@ -42,7 +48,7 @@ export function StockDetail(p: StockDetailProps) {
 			<ActionRail {...p} c={c} />
 		</div>
 	);
-	if (p.from === "my-stak") {
+	if (p.from === "my-stak" && p.saved) {
 		return (
 			<div className="flex min-h-[1112px] flex-col items-start gap-[24px]">
 				<BackCrumb crumb={crumb} onBack={p.onBack} />
@@ -79,8 +85,8 @@ function ContentColumn({ stock, saved, c }: StockDetailProps & { c: Colors }) {
 							<button
 								key={per}
 								type="button"
-								className="stak-press flex cursor-pointer items-start overflow-clip rounded-[8px] px-[10px] py-[4px]"
-								style={on ? { background: c.inner } : undefined}
+								className="stak-press flex cursor-pointer items-start justify-center overflow-clip rounded-[8px] px-[10px] py-[4px]"
+								style={{ width: RANGE_WIDTH[per], ...(on ? { background: c.inner } : {}) }}
 							>
 								<span
 									className={cn(
@@ -169,7 +175,7 @@ function ContentColumn({ stock, saved, c }: StockDetailProps & { c: Colors }) {
 						>
 							<div className="flex h-[22px] w-full items-center justify-between overflow-clip">
 								<p className="whitespace-nowrap font-geist text-[10px] leading-[13px] text-[#819abb]">{a.source}</p>
-								<div className="flex items-start overflow-clip rounded-[999px] bg-[rgba(255,255,255,0.08)] px-[8px] py-[3px]">
+								<div className="flex items-start justify-center overflow-clip rounded-[999px] bg-[rgba(255,255,255,0.08)] px-[8px] py-[3px]" style={{ width: TONE_WIDTH[a.tone] }}>
 									<p className="whitespace-nowrap font-geist text-[10px] font-medium leading-[13px] text-[#819abb]">{a.tone}</p>
 								</div>
 							</div>

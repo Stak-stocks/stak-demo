@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { col } from "@/app/FitCanvas";
 import { wholeMoney } from "@/app/live/format";
 import { localKey } from "@/app/live/guest";
+import { useShowcase } from "@/app/live/showcase";
 import { useLive } from "@/app/live/store";
 import { PageHeader } from "@/app/PageHeader";
 import { P } from "@/app/profile/assets";
@@ -45,9 +46,11 @@ function ProfilePage() {
 	const deleteTitleId = useId();
 	const deleteBodyId = useId();
 
+	const showcase = useShowcase();
 	const yourStak = [
 		{ label: profile.yourStak.rows[0].label, value: `${stats.taste.summary}  ${CHEVRON}`, href: "/profile/taste-risk" },
-		{ label: profile.yourStak.rows[1].label, value: `${wholeMoney(stats.value)}  ${CHEVRON}`, href: "/simulate/portfolio" },
+		// the untouched demo persona shows the frame's figure (live/showcase.ts)
+		{ label: profile.yourStak.rows[1].label, value: showcase ? profile.yourStak.rows[1].value : `${wholeMoney(stats.value)}  ${CHEVRON}`, href: "/simulate/portfolio" },
 		{ label: profile.yourStak.rows[2].label, value: `#${stats.rank} this week  ${CHEVRON}`, href: "/simulate/leaderboard" },
 	];
 

@@ -10,6 +10,9 @@ import { useMemo } from "react";
 import { seedGuest } from "./guest";
 import { type Live, useLive } from "./store";
 
+/** The frames' paper cash ("Cash available $8,800.00" on Simulate, stock detail and every ticket). */
+export const SHOWCASE_CASH = 8800;
+
 let seedSignature: string | null = null;
 const signature = (s: Pick<Live, "cash" | "positions" | "sold" | "saves">) =>
 	[

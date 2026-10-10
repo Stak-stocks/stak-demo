@@ -24,6 +24,8 @@ import {
 	shares4,
 	signedPct,
 	tickerLine,
+	isShowcase,
+	SHOWCASE_CASH,
 	useApiHealthState,
 	useLive,
 	useQuote,
@@ -153,7 +155,11 @@ export function useStockDetail(symbol: string, opts: { previewSaved?: boolean } 
 	const known = !!authored || isKnownTicker(T);
 	const live = useLive();
 	const taste = useTaste();
-	const { healthy, settled } = useApiHealthState();
+	// the untouched demo persona is the design itself: authored content and demo prices, no live API (live/showcase.ts)
+	const showcase = isShowcase(live);
+	const health = useApiHealthState();
+	const healthy = health.healthy && !showcase;
+	const settled = health.settled;
 	const quote = useQuote(T);
 	const q = useQuery(quoteQuery(T, healthy && known));
 	// the skeleton shows until the probe has answered and, with the API up, until the live quote is in;
@@ -169,7 +175,7 @@ export function useStockDetail(symbol: string, opts: { previewSaved?: boolean } 
 	const saved = !!opts.previewSaved || live.savedTickers.has(T);
 	const entry = live.saves.find((s) => s.ticker === T);
 	const held = live.positions.some((p) => p.ticker === T);
-	const cash = live.cash;
+	const cash = showcase ? SHOWCASE_CASH : live.cash;
 	const riskShort = taste.risk.short;
 
 	const data = useMemo<StockDetailData>(() => {

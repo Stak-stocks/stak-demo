@@ -165,7 +165,7 @@ export function AuthLayout({ formTop, backTo, children }: { formTop: number; bac
 	const panel = "max(600px, 41.6667%)";
 	const BAND = "var(--stak-band, 0px)";
 	return (
-		<div className="relative w-full overflow-clip bg-[#0a1020] font-geist antialiased" style={{ minHeight: fillHeight }}>
+		<div className="stak-figma relative w-full overflow-clip bg-[#0a1020] font-geist antialiased" style={{ minHeight: fillHeight }}>
 			<aside className="absolute inset-y-0 left-0 overflow-clip bg-[#060c1d]" style={{ width: panel }}>
 				<div className="absolute left-0 h-[1024px] w-full" style={{ top: BAND }}>
 					<div className="absolute left-[191.13px] top-[105.13px] flex size-[992.254px] -translate-x-1/2 -translate-y-1/2 items-center justify-center">

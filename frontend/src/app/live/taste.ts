@@ -41,6 +41,9 @@ export const GOALS: Record<string, Goal> = {
 
 const BUCKET_ORDER: DisplayCategoryKey[] = ["techCurious", "highGrowth", "consumerBrands", "incomeDividends", "speculativePlays"];
 
+/** "Tech Curious" -> "Tech curious": the profile row writes the chip in sentence case (Figma 2:2476); acronyms keep their caps. */
+const sentenceCase = (label: string) => label.split(" ").map((w, i) => (i === 0 || w === w.toUpperCase() ? w : w.toLowerCase())).join(" ");
+
 export function useTaste() {
 	const live = useLive();
 	return useMemo(() => {
@@ -54,7 +57,7 @@ export function useTaste() {
 			risk,
 			goal,
 			/** "Tech curious · Growth" — the profile row value */
-			summary: `${chips[0] ?? "Tech Curious"} · ${risk.short}`,
+			summary: `${sentenceCase(chips[0] ?? "Tech Curious")} · ${risk.short}`,
 			percentages: pct,
 		};
 	}, [live.tagScores, live.preferences.familiarity, live.preferences.goal]);

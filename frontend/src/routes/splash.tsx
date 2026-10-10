@@ -25,7 +25,7 @@ function SplashPage() {
 		<Link
 			to="/signup"
 			aria-label="Welcome to STAK, continue"
-			className="relative block w-full overflow-clip bg-[#0a1020] font-geist antialiased"
+			className="stak-figma relative block w-full overflow-clip bg-[#0a1020] font-geist antialiased"
 			style={{ minHeight: fillHeight }}
 		>
 			<div className="absolute left-[calc(50%-257px)] top-[calc(50%-1214px)] flex size-[1770.774px] items-center justify-center">

@@ -9,9 +9,10 @@ import { DeckCard } from "@/app/discover/DeckCard";
 import { ExampleDeck } from "@/app/discover/ExampleDeck";
 import { deckCopy, deckHeader } from "@/app/discover/data";
 import { colCentre } from "@/app/FitCanvas";
-import { DECK_SIZE, changeShort, companyInitial, companyName, useDeck, useLive } from "@/app/live";
+import { DECK_SIZE, changeShort, companyInitial, companyName, useDeck, useLive, isShowcase, SHOWCASE_CASH } from "@/app/live";
 import { BuyFailedSheet } from "@/app/simulate/sheets";
 import { OrderFilledSheet } from "@/app/stocks/OrderFilledSheet";
+import { stocks } from "@/app/simulate/data";
 import { PracticeBuySheet } from "@/app/stocks/PracticeBuySheet";
 import { cn } from "@/lib/utils";
 
@@ -208,11 +209,11 @@ function DiscoverPage() {
 			{ticketUp && centre && (
 				<PracticeBuySheet
 					ticker={centre.symbol}
-					name={companyName(centre.symbol)}
+					name={stocks[centre.symbol]?.nameConfirm ?? companyName(centre.symbol)}
 					initial={companyInitial(centre.symbol)}
 					price={price}
 					changeShort={centre.quote ? changeShort(centre.quote.changePercent) : centre.change.replace(" today", "")}
-					cash={live.cash}
+					cash={isShowcase(live) ? SHOWCASE_CASH : live.cash}
 					offsetY={88.5}
 					onClose={() => {
 						setPhase({ kind: "idle" });
@@ -238,12 +239,12 @@ function DiscoverPage() {
 			{filledUp && centre && (
 				<OrderFilledSheet
 					ticker={centre.symbol}
-					name={companyName(centre.symbol)}
+					name={stocks[centre.symbol]?.nameConfirm ?? companyName(centre.symbol)}
 					initial={companyInitial(centre.symbol)}
 					price={price}
 					changeShort={centre.quote ? changeShort(centre.quote.changePercent) : ""}
 					shares={phase.kind === "filled" ? phase.shares : price ? Math.round((25 / price) * 10000) / 10000 : 0}
-					cash={phase.kind === "filled" ? phase.cash : Math.max(0, live.cash - 25)}
+					cash={phase.kind === "filled" ? phase.cash : Math.max(0, (isShowcase(live) ? SHOWCASE_CASH : live.cash) - 25)}
 					onPrimary={() => navigate({ to: "/my-stak" })}
 					onSecondary={keepExploring}
 					onClose={() => {

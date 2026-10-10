@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useLive } from "@/app/live";
+import { isShowcase, SHOWCASE_CASH, useLive } from "@/app/live";
 import { NotFound } from "@/app/NotFound";
 import { BuyFailedSheet } from "@/app/simulate/sheets";
 import { ExampleDetail } from "@/app/stocks/ExampleDetail";
@@ -27,6 +27,9 @@ type StockSearch = {
 };
 
 const flag = (v: unknown) => (v === true || v === 1 || v === "1" || v === "true" ? true : undefined);
+
+/** 2:5402: the ticket opened from a My STAK entry stacks two scrims, #000 @66% and #030409 @55% (about 85%). */
+const MY_STAK_TICKET_SCRIM = "linear-gradient(rgba(3,4,9,0.55), rgba(3,4,9,0.55)), rgba(0,0,0,0.66)";
 
 export const Route = createFileRoute("/_app/stocks/$symbol")({
 	validateSearch: (s: Record<string, unknown>): StockSearch => ({
@@ -137,9 +140,9 @@ function StockPage() {
 					initial={stock.initial}
 					price={price}
 					changeShort={stock.changeShort}
-					cash={live.cash}
+					cash={isShowcase(live) ? SHOWCASE_CASH : live.cash}
 					offsetY={0.5}
-					scrim={example ? "rgba(2,5,14,0.66)" : search.sheet ? "rgba(3,4,9,0.83)" : undefined}
+					scrim={example ? "rgba(2,5,14,0.66)" : search.sheet ? "rgba(3,4,9,0.83)" : from === "my-stak" ? MY_STAK_TICKET_SCRIM : undefined}
 					layout={example ? "example" : undefined}
 					scrimInset={example ? navInset() : undefined}
 					onClose={closeTicket}
@@ -161,7 +164,7 @@ function StockPage() {
 					price={price}
 					changeShort={stock.changeShort}
 					shares={phase.kind === "filled" ? phase.shares : price ? Math.round((25 / price) * 10000) / 10000 : 0}
-					cash={phase.kind === "filled" ? phase.cash : Math.max(0, live.cash - 25)}
+					cash={phase.kind === "filled" ? phase.cash : Math.max(0, (isShowcase(live) ? SHOWCASE_CASH : live.cash) - 25)}
 					onPrimary={() => navigate({ to: "/my-stak" })}
 					onSecondary={() => {
 						setPhase({ kind: "idle" });

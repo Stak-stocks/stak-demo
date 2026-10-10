@@ -49,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 	const toggle = useCallback(() => setOpen((v) => !v), []);
 
 	return (
-		<div className="flex bg-[#0a1020] font-geist text-[#f2f6fc] antialiased" style={{ minHeight: viewportHeight() }}>
+		<div className="stak-figma flex bg-[#0a1020] font-geist text-[#f2f6fc] antialiased" style={{ minHeight: viewportHeight() }}>
 			{loading ? (
 				<SidebarSkeleton active={activeFromPath(pathname) === "discover" ? "discover" : "home"} />
 			) : <Sidebar open={navOpen} active={activeFromPath(pathname)} onToggle={toggle} />}

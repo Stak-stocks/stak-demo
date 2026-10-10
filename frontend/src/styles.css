@@ -468,3 +468,35 @@ input::-webkit-credentials-auto-fill-button {
 	/* the content column of the frames (1134 at 1440, nav open), as wide as the real window allows */
 	--stak-col: calc(var(--stak-vw, 1440px) - 306px);
 }
+
+/* Figma paints a text's baseline at a fraction of a pixel: top + (L - (A + D) * size) / 2 + A * size (A / D: the
+   font's ascent / descent per em, L: the line height). Chrome rounds the ascent and descent to whole pixels, floors
+   the ascent half of the leading and paints the baseline on the nearest pixel, so a text can land up to ~1.2px off
+   Figma's row. This shifts plain text by the exact difference (computed from the element's own em and lh), so
+   Chrome's rounding lands on the pixel nearest Figma's baseline. Only plain text: block text, or flex/grid items
+   that hold nothing but text and draw no box (no background, border, shadow, press state, offset or transform).
+   Scoped to .stak-figma (the desktop app shells); the landing page is untouched. */
+@layer base {
+	.font-geist { --stak-fa: 1.005; --stak-fd: 0.295; }
+	.font-sora { --stak-fa: 0.97; --stak-fd: 0.29; }
+	:where(.stak-figma) :where(p, h1, h2, h3, h4, h5, h6):where(:not(:has(*))):where(:not(.absolute, .fixed, .sticky, [class*="top-"], [class*="inset-"], [class*="bg-"], [class*="border"], [class*="shadow"], [class*="stak-press"], [class*="translate"], [class*="text-box"], [style*="top"], [style*="background"], [style*="transform"])),
+	:where(.stak-figma) :where(.flex, .inline-flex, .grid) > :where(span, a, button, label):where(:not(:has(*))):where(:not(.absolute, .fixed, .sticky, [class*="top-"], [class*="inset-"], [class*="bg-"], [class*="border"], [class*="shadow"], [class*="stak-press"], [class*="translate"], [class*="text-box"], [style*="top"], [style*="background"], [style*="transform"])) {
+		position: relative;
+		/* Figma's auto-height text boxes are n x line-height rounded UP to a whole pixel (a 15.43px line is a 16px box,
+		   two make 31), and its auto layout stacks those boxes; explicit heights still win. */
+		height: calc-size(auto, round(up, size, 1px));
+		top: calc(
+			var(--stak-fa, 1.005) * 1em + (1lh - (var(--stak-fa, 1.005) + var(--stak-fd, 0.295)) * 1em) / 2 -
+				round(nearest, var(--stak-fa, 1.005) * 1em, 1px) -
+				round(down, (1lh - round(nearest, var(--stak-fa, 1.005) * 1em, 1px) - round(nearest, var(--stak-fd, 0.295) * 1em, 1px)) / 2, 1px)
+		);
+	}
+}
+
+/* Figma draws text with grayscale anti-aliasing; Chrome on Windows draws it with coloured sub-pixel (LCD) edges that
+   read heavier. A text element in its own (transparent) opacity group is drawn grayscale, like Figma. */
+@layer base {
+	:where(.stak-figma, .stak-dialog) :where(p, span, h1, h2, h3, h4, h5, h6, a, button, label, input, textarea):where(:not(:has(*))) {
+		opacity: 0.999;
+	}
+}

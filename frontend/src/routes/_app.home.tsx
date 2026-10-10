@@ -124,7 +124,7 @@ function WhyCard({ techShare }: { techShare: number }) {
 			<div className="absolute left-[calc(50%-0.5px)] top-[calc(50%-0.5px)] flex w-[341px] -translate-x-1/2 -translate-y-1/2 items-center gap-[20px]">
 				<img alt="" src={A.cautionIcon} className="size-[108px] shrink-0 object-cover" width={108} height={108} loading="lazy" />
 				<div className="flex flex-col items-start gap-[6.171px]">
-					<p className="whitespace-nowrap font-sora text-[14.4px] leading-[16px] text-white">{homePromos.why.title}</p>
+					<p className="whitespace-nowrap font-sora text-[14.4px] leading-[15.429px] text-white">{homePromos.why.title}</p>
 					<p className="w-[203.657px] font-geist text-[12.343px] font-light leading-[15.429px] text-white">{body}</p>
 				</div>
 			</div>

@@ -129,7 +129,7 @@ function OnboardingPage() {
 	const togglePick = (id: string) => setPicks((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
 	return (
-		<div className="relative w-full overflow-clip bg-[#0a1020] font-geist antialiased" style={{ minHeight: fillHeight }}>
+		<div className="stak-figma relative w-full overflow-clip bg-[#0a1020] font-geist antialiased" style={{ minHeight: fillHeight }}>
 			<div className="absolute left-0 h-[1024px] w-full" style={{ top: "var(--stak-band, 0px)" }}>
 			{step === 1 && (
 				<>

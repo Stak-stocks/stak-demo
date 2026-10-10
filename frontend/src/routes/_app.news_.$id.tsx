@@ -6,6 +6,7 @@ import { colPlus } from "@/app/FitCanvas";
 import { financialsOf } from "@/app/live/catalog";
 import { money, signedPct } from "@/app/live/format";
 import { type Quote, stockDataQuery, useApiHealth, useQuote } from "@/app/live/quotes";
+import { useShowcase } from "@/app/live/showcase";
 import { useLive } from "@/app/live/store";
 import { N } from "@/app/news/assets";
 import { article } from "@/app/news/data";
@@ -31,6 +32,8 @@ function NewsDetailPage() {
 	const { saved: preview } = Route.useSearch();
 	const live = useLive();
 	const quote = useQuote(SYMBOL);
+	/** the untouched demo persona reads the frame's own rail (AAPL $308.63, +4.84%, $4.58T ...; live/showcase.ts) */
+	const showcase = useShowcase();
 	const saved = Boolean(preview) || live.savedTickers.has(SYMBOL);
 	const [busy, setBusy] = useState(false);
 	const a = article;
@@ -122,7 +125,7 @@ function NewsDetailPage() {
 					</article>
 				</div>
 
-				<Rail saved={saved} busy={busy} quote={quote} onSave={save} />
+				<Rail saved={saved} busy={busy} quote={showcase ? null : quote} authoredStats={showcase} onSave={save} />
 			</div>
 		</div>
 	);
@@ -246,9 +249,10 @@ function useKeyStats() {
 }
 
 /** Right rail: ticker card (unsaved / saved variants), key stats, Add to STAK, divider, chip, read next. */
-function Rail({ saved, busy, quote, onSave }: { saved: boolean; busy: boolean; quote: Quote | null; onSave: () => void }) {
+function Rail({ saved, busy, quote, authoredStats, onSave }: { saved: boolean; busy: boolean; quote: Quote | null; authoredStats: boolean; onSave: () => void }) {
 	const a = article;
-	const rows = useKeyStats();
+	const liveRows = useKeyStats();
+	const rows = authoredStats ? article.keyStats.rows : liveRows;
 	return (
 		<aside className="flex min-w-0 flex-col items-start gap-[16px] overflow-clip" style={{ flex: "360 1 0" }}>
 			{saved ? (

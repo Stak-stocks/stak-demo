@@ -7,8 +7,10 @@ import { GlassCoin } from "./GlassCoin";
 export type DeckSlot = "center" | "left" | "right";
 
 /**
- * One deck card at the centre geometry (371.385 × 456.731). The side slots are the same card
- * scaled (0.9 / 0.8455), tilted (+5° / −5°) and dimmed (.85 / .65) — exactly how Figma derived them.
+ * One deck card at the centre geometry (371.385 wide; 456.731 tall for a one-line tip). The card hugs its
+ * content the way Figma's auto layout does: the 2:2944 GOOGL card behind the deck is taller because its tip
+ * wraps to two lines. The side slots are the same card scaled (0.9 / 0.8455), tilted (+5° / −5°) and dimmed
+ * (.85 / .65), centred in wrappers sized to Figma's rotated bounding boxes.
  */
 const TONES: Record<DeckSlot, { from: string; frame: string; opacity: number; scale: number; rotate: number }> = {
 	center: { from: "#152a47", frame: "#142844", opacity: 1, scale: 1, rotate: 0 },
@@ -27,7 +29,7 @@ export function DeckCard({ card, slot, saved = false, onSave }: Props) {
 	const interactive = slot === "center" && !!onSave;
 	return (
 		<article
-			className="relative h-[456.731px] w-[371.385px] shrink-0"
+			className="relative w-[371.385px] shrink-0"
 			style={{ transform: `rotate(${tone.rotate}deg) scale(${tone.scale})` }}
 			data-slot={slot}
 			aria-label={`${card.ticker}: ${card.headline}`}
@@ -64,10 +66,8 @@ export function DeckCard({ card, slot, saved = false, onSave }: Props) {
 					<img alt="" src={saved ? D.bookmarkSaved : D.bookmark} className="size-[12.733px]" />
 				</button>
 			</div>
-			<div
-				className="absolute left-0 top-[273.992px] flex w-full flex-col items-start overflow-clip px-[19px] pb-[17px]"
-				style={{ opacity: tone.opacity }}
-			>
+			{/* the text block flows under the 4 + 243 image frame (Figma: ticker at 274, 20.739 below the tip) */}
+			<div className="relative flex w-full flex-col items-start overflow-clip px-[19px] pb-[20.739px] pt-[273.992px]" style={{ opacity: tone.opacity }}>
 				<div className="flex w-full flex-col items-start gap-[20px]">
 					<div className="flex w-full flex-col items-start gap-[8px]">
 						<p className="whitespace-nowrap font-geist text-[10.611px] leading-[14px] text-[#819abb]">{card.ticker}</p>

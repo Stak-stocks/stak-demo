@@ -4,8 +4,9 @@ import { col } from "@/app/FitCanvas";
 import { type AllocationRow, type CollectionGroup, countLabel, useCollections } from "@/app/live/collections";
 import { useDeck } from "@/app/live/deck";
 import { signedPct } from "@/app/live/format";
+import { useShowcase } from "@/app/live/showcase";
 import { MS } from "@/app/mystak/assets";
-import { ALLOCATION_DOTS, COLLECTION_ICONS, DISCOVER_CTA, EMPTY, INSIGHT_HEADING, OVERVIEW, PERFORMANCE } from "@/app/mystak/data";
+import { ALLOCATION_DOTS, COLLECTION_ICONS, DISCOVER_CTA, EMPTY, INSIGHT_HEADING, OVERVIEW, PERFORMANCE, SHOWCASE } from "@/app/mystak/data";
 import { PrimaryButton } from "@/app/ui/Button";
 import { cn } from "@/lib/utils";
 
@@ -66,7 +67,11 @@ function MyStakPage() {
 	const c = useCollections();
 	const deck = useDeck();
 	const remaining = Math.max(0, deck.total - deck.decided.size);
+	/** the untouched demo persona shows the frame's own figures (live/showcase.ts) */
+	const showcase = useShowcase();
 	if (state === "empty" || c.total === 0) return <MyStakEmpty remaining={remaining} />;
+	const allocation = showcase ? SHOWCASE.allocation : c.allocation;
+	const insight = showcase ? SHOWCASE.insight : c.insight;
 	const rows: CollectionGroup[][] = [];
 	for (let i = 0; i < c.visible.length; i += 2) rows.push(c.visible.slice(i, i + 2));
 	return (
@@ -88,16 +93,16 @@ function MyStakPage() {
 								))}
 							</div>
 						</div>
-						<PerformanceCard total={c.total} avgChange={c.avgChange} best={c.best} worst={c.worst} />
+						<PerformanceCard total={c.total} avgChange={c.avgChange} best={c.best} worst={c.worst} showcase={showcase} />
 					</div>
-					{c.insight && (
+					{insight && (
 						<div className="flex w-full flex-col items-start gap-[7px] overflow-clip rounded-[14px] bg-[#181f30] p-[16px]">
 							<div className="flex items-center gap-[8px] overflow-clip">
 								<img alt="" src={MS.sparkle} className="size-[24px]" />
 								<span className="whitespace-nowrap font-sora text-[14px] font-semibold leading-[18px] text-white">{INSIGHT_HEADING}</span>
 							</div>
-							<p className="whitespace-nowrap font-sora text-[15px] font-semibold leading-[19px] text-white">{c.insight.title}</p>
-							<p className="w-full font-geist text-[13px] leading-[19px] text-[#c8d2e0]">{c.insight.body}</p>
+							<p className="whitespace-nowrap font-sora text-[15px] font-semibold leading-[19px] text-white">{insight.title}</p>
+							<p className="w-full font-geist text-[13px] leading-[19px] text-[#c8d2e0]">{insight.body}</p>
 						</div>
 					)}
 				</div>
@@ -115,7 +120,7 @@ function MyStakPage() {
 							<p className="whitespace-nowrap font-sora text-[15px] font-semibold leading-[19px] text-white">{OVERVIEW.allocation}</p>
 							<img alt="" src={MS.donut} className="size-[150px]" />
 							<div className="flex w-full flex-col items-start gap-[12px] overflow-clip">
-								{c.allocation.map((row) => (
+								{allocation.map((row) => (
 									<AllocationLine key={row.key} row={row} />
 								))}
 							</div>
@@ -127,7 +132,7 @@ function MyStakPage() {
 					>
 						<span className="whitespace-nowrap font-geist text-[10px] font-medium leading-[13px] tracking-[0.6px] text-[#0e162b]">{DISCOVER_CTA.eyebrow}</span>
 						<span className="whitespace-nowrap font-sora text-[18px] font-semibold leading-[23px] text-[#0e162b]">{DISCOVER_CTA.title}</span>
-						<span className="w-full font-geist text-[12px] leading-[17px] text-[#0e162b]">{DISCOVER_CTA.body(remaining)}</span>
+						<span className="w-full font-geist text-[12px] leading-[17px] text-[#0e162b]">{showcase ? SHOWCASE.discoverBody : DISCOVER_CTA.body(remaining)}</span>
 						<span className="flex items-center gap-[4px] overflow-clip whitespace-nowrap pt-[4px] font-geist font-medium">
 							<span className="text-[13px] leading-[17px] text-[rgba(10,16,32,0.72)]">{DISCOVER_CTA.cta}</span>
 							<span className="text-[14px] leading-[18px] text-[#0e162b]">›</span>
@@ -190,20 +195,26 @@ function AllocationLine({ row }: { row: AllocationRow }) {
 
 type Mover = { ticker: string; changePercent: number } | null;
 
+/** 2:4667: the performance card's range labels are Figma text boxes (text width rounded) 63px apart. */
+const RANGE_LABEL_WIDTH: Record<string, number> = { "1D": 12, "1W": 15, "1M": 14, YTD: 20, "1Y": 11 };
+
 /** "Performance" card: today's equal-weight move across the saves, the best and worst movers; the chart line stays authored (no history yet). */
-function PerformanceCard({ total, avgChange, best, worst }: { total: number; avgChange: number | null; best: Mover; worst: Mover }) {
+function PerformanceCard({ total, avgChange, best, worst, showcase }: { total: number; avgChange: number | null; best: Mover; worst: Mover; showcase: boolean }) {
 	const p = PERFORMANCE;
+	const sc = SHOWCASE.performance;
 	return (
 		<div className="flex h-[303.11px] w-full flex-col items-center justify-center gap-[12px] rounded-[12.467px] bg-[#181f30]">
 			<div className="flex w-full flex-col items-start gap-[7px] pl-[18px]">
 				<div className="flex items-center">
-					<span className="whitespace-nowrap font-sora text-[10.606px] leading-[13px] text-[#819abb]">{p.eyebrow}</span>
+					<span className="whitespace-nowrap font-sora text-[10.606px] leading-[13px] text-[#819abb]">{showcase ? sc.eyebrow : p.eyebrow}</span>
 				</div>
 				<p className="whitespace-nowrap font-sora text-[38.889px] font-semibold leading-[49px] tracking-[-0.3889px] text-white">
-					{avgChange === null ? "—" : signedPct(avgChange)}
+					{showcase ? sc.value : avgChange === null ? "—" : signedPct(avgChange)}
 				</p>
 				<div className="flex items-center gap-[9px] whitespace-nowrap text-[12.374px] leading-[16px]">
-					<span className={cn("font-geist font-medium", avgChange !== null && avgChange < 0 ? RED : GREEN)}>{p.across(total)}</span>
+					<span className={cn("font-geist font-medium", !showcase && avgChange !== null && avgChange < 0 ? RED : GREEN)} style={showcase ? { width: 98 } : undefined}>
+							{showcase ? sc.across : p.across(total)}
+						</span>
 					<span className="font-sora text-[#819abb]">.</span>
 					<span className="font-geist text-[#819abb]">{p.period}</span>
 				</div>
@@ -226,7 +237,7 @@ function PerformanceCard({ total, avgChange, best, worst }: { total: number; avg
 								</span>
 							</span>
 						) : (
-							<span key={r} className="whitespace-nowrap text-center font-geist text-[10.606px] leading-[14px] text-[#819abb]">
+							<span key={r} className="shrink-0 whitespace-nowrap text-center font-geist text-[10.606px] leading-[14px] text-[#819abb]" style={{ width: RANGE_LABEL_WIDTH[r] }}>
 								{r}
 							</span>
 						),
@@ -235,19 +246,21 @@ function PerformanceCard({ total, avgChange, best, worst }: { total: number; avg
 			</div>
 			<div className="h-[0.884px] w-full bg-[#2a3346]" />
 			<div className="flex w-[calc(100%-21.818px)] items-center justify-between overflow-clip whitespace-nowrap">
-				{[
-					{ label: p.bestLabel, mover: best },
-					{ label: p.worstLabel, mover: worst },
-				].map(({ label, mover }) => (
+				{(showcase
+					? [
+							{ label: sc.best.label, ticker: sc.best.ticker, change: sc.best.change as string | null, down: false },
+							{ label: sc.worst.label, ticker: sc.worst.ticker, change: sc.worst.change as string | null, down: true },
+						]
+					: [
+							{ label: p.bestLabel, ticker: best?.ticker ?? "—", change: best ? signedPct(best.changePercent) : null, down: (best?.changePercent ?? 0) < 0 },
+							{ label: p.worstLabel, ticker: worst?.ticker ?? "—", change: worst ? signedPct(worst.changePercent) : null, down: (worst?.changePercent ?? 0) < 0 },
+						]
+				).map(({ label, ticker, change, down }) => (
 					<div key={label} className="flex flex-col items-start gap-[3px] overflow-clip">
 						<span className="font-geist text-[9.722px] leading-[13px] text-[#5c6b85]">{label}</span>
 						<span className="flex items-center gap-[5px] overflow-clip">
-							<span className="font-sora text-[11.49px] font-semibold leading-[14px] text-white">{mover?.ticker ?? "—"}</span>
-							{mover && (
-								<span className={cn("font-geist text-[10.606px] font-medium leading-[14px]", mover.changePercent < 0 ? RED : GREEN)}>
-									{signedPct(mover.changePercent)}
-								</span>
-							)}
+							<span className="font-sora text-[11.49px] font-semibold leading-[14px] text-white">{ticker}</span>
+							{change && <span className={cn("font-geist text-[10.606px] font-medium leading-[14px]", down ? RED : GREEN)}>{change}</span>}
 						</span>
 					</div>
 				))}
