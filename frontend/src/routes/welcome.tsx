@@ -6,7 +6,7 @@ import { EarlyAccessModal, INSTAGRAM_URL } from "../components/landing/EarlyAcce
 
 export const Route = createFileRoute("/welcome")({
 	component: LandingPage,
-	// ?join=1 (Sign in's "Get early access", or a brand-new account turned away) opens the early-access form.
+	// ?join=1 (a brand-new account turned away) opens the early-access form.
 	validateSearch: (search: Record<string, unknown>): { join?: "1" } => (search.join === "1" || search.join === 1 ? { join: "1" } : {}),
 });
 

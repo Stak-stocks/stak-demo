@@ -359,12 +359,12 @@ private fun BoxScope.NewsDeck(
 	// Recomputed when the news changes, not on every drag frame (both deck copies
 	// recompose while a card moves).
 	val stories = remember(DailyBriefHolder.news, DailyBriefHolder.newsFailed, DailyBriefHolder.newsSettled) { NewsDeckFeed.stories() }
-	// Per-slot authored styling; card bottoms sit at 397.4/527.2/602.7 in
+	// Per-slot authored styling; card bottoms sit at 397.4/502.2/577.7 in
 	// the 397 card, so the up-drag clamps at bottom-397.
 	val slots = listOf(
 		DeckSlot(Home.PaperWhite, FontWeight.Light, 12f, 12f, 6.2f, 59.73f, 0f, 0.4f),
-		DeckSlot(Home.Teal, FontWeight.Normal, 11.89f, 17f, 8.33f, 189.44f, -3.72f, 130.2f),
-		DeckSlot(Home.PaperWhite, FontWeight.Light, 12f, 12f, -0.02f, 264.57f, -7.68f, 205.7f),
+		DeckSlot(Home.Teal, FontWeight.Normal, 11.89f, 17f, 8.33f, 164.44f, -3.72f, 105.2f),
+		DeckSlot(Home.PaperWhite, FontWeight.Light, 12f, 12f, -0.02f, 239.57f, -7.68f, 180.7f),
 	)
 	slots.forEachIndexed { i, slot ->
 		val drag = drags[i]

@@ -7,7 +7,7 @@ import {
 	useState,
 	type ReactNode,
 } from "react";
-import { WEB_GOOGLE_SIGN_IN_KEY } from "../lib/earlyAccess";
+import { WEB_GOOGLE_SIGN_IN_KEY, isWebLockedOut } from "../lib/earlyAccess";
 import { supabase } from "../lib/supabase";
 import { disableWebPush } from "../lib/webPush";
 
@@ -57,6 +57,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
+		// Locked out of the web (earlyAccess.ts): only the landing page shows, so a saved session isn't loaded - no
+		// account, no Realtime, no prefetches - and they're treated as signed out. It's still there once unlocked.
+		if (isWebLockedOut()) {
+			sessionChecked.current = true;
+			setLoading(false);
+			return;
+		}
 		supabase.auth.getSession().then(({ data }) => {
 			sessionChecked.current = true;
 			const uid = data.session?.user.id ?? null;

@@ -13,7 +13,10 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import { AuthProvider } from "./context/AuthContext";
 import { AccountProvider } from "./context/AccountContext";
 import { OnboardingProvider } from "./context/OnboardingContext";
+import { applyTeamCode, takeTeamCodeFromUrl } from "./lib/earlyAccess";
 
+// A team link's code comes out of the address before the router reads it (see earlyAccess.ts).
+const teamCode = takeTeamCodeFromUrl();
 
 // Create a new router instance
 const router = createRouter({
@@ -33,9 +36,7 @@ declare module "@tanstack/react-router" {
 	}
 }
 
-// Render the app
-const rootElement = document.getElementById("app");
-if (rootElement && !rootElement.innerHTML) {
+function render(rootElement: HTMLElement) {
 	const root = ReactDOM.createRoot(rootElement);
 	root.render(
 		<StrictMode>
@@ -53,5 +54,11 @@ if (rootElement && !rootElement.innerHTML) {
 			</ThemeProvider>
 		</StrictMode>,
 	);
+}
+
+// Render the app, once a team link (if this was one) has unlocked or locked the web.
+const rootElement = document.getElementById("app");
+if (rootElement && !rootElement.innerHTML) {
+	void applyTeamCode(teamCode).then(() => render(rootElement));
 }
 

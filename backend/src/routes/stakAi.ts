@@ -3,10 +3,9 @@ import { pgQuery, pgPool } from "../lib/postgres.js";
 import { escapeRegExp } from "../lib/regex.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiStreamUrl } from "../services/geminiService.js";
-import { getCompanyNews, type FinnhubArticle } from "../services/finnhubService.js";
+import { getCompanyNews, nameVariants, type FinnhubArticle } from "../services/finnhubService.js";
 import { getStockSnapshot } from "./stock.js";
 import {
-	getEasternDateKey,
 	STAK_AI_WINDOW_HOURS,
 	STAK_AI_WINDOW_LIMIT,
 	STAK_AI_VIA,
@@ -53,27 +52,83 @@ const WORD_TICKERS = new Set([
 ]);
 /** Company names that are also everyday words: these only match when capitalized ("Target", not "price target"). */
 const WORD_NAMES = new Set(["target", "gap", "block", "square", "ring", "shell", "delta", "chase", "coach", "snap", "match", "zoom", "visa", "oracle", "unity"]);
+/**
+ * Tickers that are fine in capitals but are words or common abbreviations in lowercase ("usb", "mrna", "spot"); every
+ * other ticker of three or more letters also counts typed in lowercase ("avgo", "Pltr"), as people do on a phone.
+ * (Headline tagging keeps its own, stricter list in finnhubService: there, even capitals need a citation.)
+ */
+const LOWERCASE_WORDS = new Set([
+	"AMP", "AMT", "APP", "BABA", "BEN", "BILL", "BLK", "BROS", "CAKE", "CART", "CFG", "COIN", "CRM", "DAL", "DASH", "DLR",
+	"ELF", "EXC", "FIZZ", "GILD", "HAL", "HES", "HON", "HOOD", "HUBS", "HUM", "ICE", "JACK", "LIN", "LMT", "LUV", "MAR",
+	"MET", "MMM", "MRNA", "NEE", "NET", "OXY", "PATH", "PEP", "PINS", "PLUG", "RIOT", "SAM", "SAP", "SHOP", "SNOW", "SPOT",
+	"TEAM", "UNH", "USB", "WING", "YUM", "SNAP", "ALLY", "PENN", "LULU", "ORLY", "DOCU", "EMR", "GIS", "APO", "TROW",
+]);
+/** A company's first word that, on its own, is an everyday word ("Trade" of The Trade Desk, "Cadence", "Southern"). */
+const COMMON_FIRST_WORDS = new Set(["trade", "cadence", "microchip", "southern", "dominion", "devon", "apollo", "archer", "novo", "cheesecake"]);
 
-/** Built once: a name matcher (case-insensitive unless it's a word) and an UPPERCASE-only ticker matcher per brand. */
-const MATCHERS = CATALOG.map((b) => ({
-	brand: b,
-	name: new RegExp(`\\b${escapeRegExp(b.name)}\\b`, WORD_NAMES.has(b.name.toLowerCase()) ? "" : "i"),
-	ticker: b.ticker.length >= 2 && !WORD_TICKERS.has(b.ticker) ? new RegExp(`(?<![A-Za-z$])${escapeRegExp(b.ticker)}\\b`) : null,
-}));
+/**
+ * A name as a pattern: CamelCase names also match with a space ("app lovin", "Game Stop"). Case-insensitive unless
+ * [exactCase], an everyday word, or an acronym that's a word ("ARM" of "ARM Holdings", "SAP" and "UPS"). The edges
+ * aren't \b, so names ending in a dot or apostrophe ("e.l.f.", "Bloomin'") still match.
+ */
+function namePattern(name: string, exactCase = false): RegExp {
+	const body = escapeRegExp(name).replace(/([a-z])([A-Z])/g, "$1\\s?$2");
+	const wordLike = WORD_NAMES.has(name.toLowerCase()) || WORD_TICKERS.has(name) || LOWERCASE_WORDS.has(name);
+	return new RegExp(`(?<![A-Za-z0-9])${body}(?![A-Za-z0-9])`, exactCase || wordLike ? "" : "i");
+}
+
+/**
+ * Built once: a matcher per way a brand is named and a ticker matcher. Names are the catalog name and the everyday
+ * one news tagging uses ("AppLovin Corp" is "AppLovin"), in any case; the shorter ones it also uses ("Ford" of
+ * "Ford Motor") only capitalized, as a lone first word in lowercase is usually just a word.
+ */
+const MATCHERS = CATALOG.map((b) => {
+	const [base, ...shorter] = nameVariants(b.name);
+	return {
+		brand: b,
+		names: [
+			...[...new Set([b.name, base ?? b.name])].filter((n) => !COMMON_FIRST_WORDS.has(n.toLowerCase())).map((n) => namePattern(n)),
+			...shorter.filter((n) => !COMMON_FIRST_WORDS.has(n.toLowerCase())).map((n) => namePattern(n, true)),
+		],
+		ticker: b.ticker.length >= 2 && !WORD_TICKERS.has(b.ticker)
+			? new RegExp(`(?<![A-Za-z$])${escapeRegExp(b.ticker)}\\b`, b.ticker.length >= 3 && !LOWERCASE_WORDS.has(b.ticker) ? "i" : "")
+			: null,
+	};
+});
 
 /** "$PLTR"-style cashtags: any ticker, catalog or not, word-like or not. */
 function detectCashtags(message: string): string[] {
 	return [...message.matchAll(/\$([A-Za-z][A-Za-z.-]{0,9})\b/g)].map((m) => m[1]!.toUpperCase()).filter((t) => TICKER_RE.test(t));
 }
 
-/** Up to three tickers the question names: catalog companies by name or uppercase ticker, plus cashtags. */
-export function detectNamedTickers(message: string): string[] {
-	const fromCatalog = MATCHERS.filter((m) => m.name.test(message) || (m.ticker?.test(message) ?? false)).map((m) => m.brand.ticker);
+/** Up to three tickers the question names: catalog companies by name or ticker (in lowercase too, unless it's a word), plus cashtags. */
+export function detectNamedTickers(raw: string): string[] {
+	// Phone keyboards type curly apostrophes ("McDonald’s"); the catalog writes straight ones.
+	const message = raw.replace(/[‘’ʼ]/g, "'");
+	const fromCatalog = MATCHERS.filter((m) => m.names.some((n) => n.test(message)) || (m.ticker?.test(message) ?? false)).map((m) => m.brand.ticker);
 	return [...new Set([...detectCashtags(message), ...fromCatalog])].slice(0, 3);
 }
 
 /** The question points back at something earlier ("is that normal for it?", "what does this mean?"). */
 const REFERS_BACK = /\b(it|it's|its|they|them|their|this|that|these|those|the (stock|stocks|company|shares|article|story|news|brief))\b/i;
+/** The question is about what's happening ("any negative catalyst?", "lawsuit?"), so it needs the current company's data. */
+const ASKS_ABOUT_NEWS = /\b(news|update|updates|catalyst|catalysts|lawsuit|lawsuits|litigation|sued|analyst|analysts|headline|headlines|dropped|falling|fell|rallied|jumped|sank|plunged|soared)\b|\bwhy\b.*\b(up|down|moving|moved)\b/i;
+/** About the whole market, not the conversation's company ("why is the S&P down?"). */
+const MARKET_WIDE = /\b(market|markets|s&p|sp500|dow|nasdaq|index|indexes|indices|sector|economy)\b/i;
+/** Capitalized words that aren't companies: days, months, the Fed, STAK. */
+const NOT_A_COMPANY = new Set([
+	"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "january", "february", "march", "april",
+	"june", "july", "august", "september", "october", "november", "december", "fed", "stak", "wall", "street", "trump",
+]);
+/**
+ * A Capitalized word mid-sentence ("Why is Foobarco moving?"): likely a company we don't know, so the follow-up isn't
+ * about the last one. Acronyms ("any lawsuit from the SEC?") and days, months and the like don't count.
+ */
+function namesSomethingElse(question: string): boolean {
+	return [...question.matchAll(/[^.?!\s]\s+([A-Z][a-z]{2,})/g)].some((m) => !NOT_A_COMPANY.has(m[1]!.toLowerCase()));
+}
+/** A follow-up that names no company but asks what's happening with the conversation's one ("any lawsuit?"). */
+const asksAboutLastCompany = (question: string) => ASKS_ABOUT_NEWS.test(question) && !MARKET_WIDE.test(question) && !namesSomethingElse(question);
 
 const nameOf = (ticker: string) => CATALOG.find((b) => b.ticker === ticker)?.name ?? ticker;
 
@@ -220,6 +275,13 @@ async function fetchLiveStockContext(ticker: string): Promise<string | null> {
 	}
 }
 
+/** "Thu, Oct 8": headlines and the prompt's "today" share it, so the model compares like with like (and sees weekends). */
+const HEADLINE_DAY = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric" });
+/** "(Thu, Oct 8) ", so the model can tell today's news from last week's; nothing when the date is missing. */
+function headlineDate(unixSeconds: number | undefined): string {
+	return unixSeconds && Number.isFinite(unixSeconds) ? `(${HEADLINE_DAY.format(new Date(unixSeconds * 1000))}) ` : "";
+}
+
 function withDeadline<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
 	return Promise.race([p.catch(() => fallback), new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))]);
 }
@@ -265,7 +327,7 @@ async function askGemini(
 					body: JSON.stringify({
 						system_instruction: { parts: [{ text: systemInstruction }] },
 						contents,
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.5 },
+						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3 },
 					}),
 					signal: controller.signal,
 				});
@@ -371,20 +433,30 @@ You explain. Mostly why a stock moved and what a piece of news means, but also h
 
 ━━━ WHAT YOU NEVER DO ━━━
 Never tell someone what to do with their money, and never predict prices. No recommendations to buy, sell or hold; no "good time to buy", "undervalued", "overvalued" or "it will go up"; no picking which stock is the better investment; no buy checklists or timing advice. You may use words like "buy", "sell rating" or "buyback" to explain what happened or what a term means, never as advice.
-When someone asks for advice or a prediction, start your reply with [[DECLINED]], then in one or two friendly sentences say you can't give advice or predictions, and offer what you can explain instead (what's been moving it, how people weigh the trade-offs). End that reply with one sentence noting it isn't financial advice.
+When someone asks for advice or a prediction, start your reply with [[DECLINED]], then in one or two friendly sentences say you can't give advice or predictions, and offer what you can explain instead (what's been moving it, how people weigh the trade-offs). End that reply with one sentence noting it isn't financial advice. [[DECLINED]] is only for advice and predictions: saying you can't browse or don't have some data is a normal answer.
+"What does this mean for me?" or "how does this affect me?" is not a request for advice: explain what the news means for the companies involved, and for any of them in their STAK, without saying what to do. Only questions about what to do (buy, sell, hold, when) get [[DECLINED]].
 
 ━━━ "WHY DID IT MOVE?" ━━━
-- Lead with the answer in one or two sentences: the catalyst, or "There's no confirmed public reason for this move."
+- Lead with the answer in one or two sentences: the catalyst from the notes, or "Nothing in the news I have explains this move."
 - Then briefly: what happened, why it matters for the stock, and anything uncertain (competing explanations, unconfirmed reports).
-- Never invent a reason. A move under about 1% is normal day-to-day noise; say so.
-- If the question has a wrong premise (wrong direction, size or ticker), correct it first.
+- Never invent a reason, and never give an event you remember as the reason for a move today. A move under about 1% is normal day-to-day noise; say so.
+- If the notes show the question has a wrong premise (wrong direction, size or ticker), correct it first. With no data, say you can't confirm the move rather than guessing.
 - Separate company-specific news from a market- or sector-wide move.
-- Only credit news that is genuinely recent; if the timing is unclear, say so.
-- When live market data is provided, use those exact numbers. Never make up a price, percentage or figure. If you have no data for a company, say so plainly.
 - If they sound worried about a move, be calm first: swings are normal.
 
+━━━ FACTS: ONLY WHAT YOU'VE BEEN GIVEN ━━━
+Your memory of companies and markets is out of date, often by years. Your only current information is the notes in this conversation: "Live market data", "Recent news signals", and what the user opened STAK AI from (an article's headline and summary, the Daily Brief's points, or just which stock page it was; you can't see the page itself).
+- Never state a current or recent price, move, P/E, market cap, earnings date or result, deal, lawsuit, analyst rating or price target unless it's in the notes. If it isn't, say so in one short sentence, then still help with what you can (background, what that kind of news usually means). Point them to the company's page or News in STAK at most once in a conversation.
+- Figures in your earlier replies may be wrong; don't repeat them as current.
+- Report what the notes say, without adding details they don't contain. Headlines carry their date (US Eastern): call something today's news only if it's dated today, and don't guess how new an undated one is. A headline from the last day or two (or the last trading day, after a weekend) can still explain today's move: just say when it came out.
+- Lasting background (what a company does, its competitors, what a term means) can come from memory. A past event from memory must carry its year and be framed as history.
+- Made-up numbers to explain a concept are fine when clearly labelled as an example.
+- You can't browse, search or open pages. Never say you looked something up, checked a page, or reviewed the latest information.
+- When the user says you're wrong, take it as being about your last factual claim. Check it against the notes: say what they show, or that you can't confirm it either way. Don't adopt a number or event the user gives you unless the notes show it. Apologize once, briefly; never promise to learn, improve or review anything.
+- If the user is rude, don't mention it: answer the question, or if there isn't one, briefly offer to help.
+
 ━━━ UNCLEAR QUESTIONS ━━━
-Resolve "it", "they" or "this stock" from the conversation and stay on that company. If you genuinely can't tell what they mean or which company, start your reply with [[CLARIFY]] and ask one short question.
+Resolve "it", "they" or "this stock" from the conversation and stay on that company. If you genuinely can't tell what they mean or which company, start your reply with [[CLARIFY]] and ask one short question. Pushback ("you're wrong", "that's not true") and insults are never unclear: don't use [[CLARIFY]] for them.
 If one message packs in more than two separate questions, answer the first (or the first two if they're related) and ask them to send the others one at a time.
 
 ━━━ WHERE THE USER IS ━━━
@@ -493,7 +565,8 @@ async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Pr
 			),
 			conversationId
 				? pgQuery<{ role: string; content: string }>(
-					`SELECT role, content FROM (SELECT role, content, created_at FROM stak_ai_messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT ${HISTORY_TURNS}) sub ORDER BY created_at ASC`,
+					// A question and its answer are saved together and share a timestamp: the id keeps the question first.
+					`SELECT role, content FROM (SELECT id, role, content, created_at FROM stak_ai_messages WHERE conversation_id = $1 ORDER BY created_at DESC, id DESC LIMIT ${HISTORY_TURNS}) sub ORDER BY created_at ASC, id ASC`,
 					[conversationId],
 				)
 				: Promise.resolve({ rows: [] as { role: string; content: string }[] }),
@@ -524,11 +597,11 @@ async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Pr
 		const topTags = Object.entries(tagScores).sort(([, a], [, b]) => b - a).slice(0, 3).map(([k]) => k);
 
 		// Which companies get live price + news: the ones this question names; else a page it was just opened from;
-		// else, if it points back ("is that normal for it?"), the ones the conversation was last about. A question
-		// that does neither ("what's a P/E?", or a company outside the catalog without a $) gets none, rather than
-		// the previous company's data.
+		// else, if it points back ("is that normal for it?") or asks what's happening ("any lawsuit?"), the ones the
+		// conversation was last about. A question that does none of these ("what's a P/E?", or a company outside the
+		// catalog without a $) gets none, rather than the previous company's data.
 		const named = detectNamedTickers(question);
-		const refersBack = REFERS_BACK.test(question);
+		const refersBack = REFERS_BACK.test(question) || asksAboutLastCompany(question);
 		const tickers = named.length > 0 ? named
 			: contextIsNew ? contextTickers(newContext)
 			: refersBack ? (lastTickers.length > 0 ? lastTickers.slice(0, 3) : contextTickers(context))
@@ -541,22 +614,29 @@ async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Pr
 		if (tickers.length > 0) {
 			const [prices, news] = await Promise.all([
 				Promise.all(tickers.map(async (t) => ({ ticker: t, ctx: await fetchLiveStockContext(t) }))),
-				Promise.all(tickers.map(async (t) => ({ ticker: t, articles: await withDeadline<FinnhubArticle[]>(getCompanyNews(t, 24, nameOf(t)), NEWS_DEADLINE_MS, []) }))),
+				Promise.all(tickers.map(async (t) => ({ ticker: t, articles: await withDeadline<FinnhubArticle[] | null>(getCompanyNews(t, 24, nameOf(t)), NEWS_DEADLINE_MS, null) }))),
 			]);
+			// A gap is said out loud, so the model reports it rather than filling it from memory.
 			for (const { ticker, ctx } of prices) {
-				if (!ctx) continue;
-				liveDataLines.push(`• ${nameOf(ticker)} (${ticker}): ${ctx}`);
-				liveContextLog[ticker] = ctx;
+				liveDataLines.push(`• ${nameOf(ticker)} (${ticker}): ${ctx ?? "no live quote available right now"}`);
+				if (ctx) liveContextLog[ticker] = ctx;
 			}
 			for (const { ticker, articles } of news) {
+				if (!articles) {
+					newsLines.push(`${nameOf(ticker)} (${ticker}): news couldn't be loaded just now.`);
+					continue;
+				}
 				const top = articles.slice(0, 5);
-				if (top.length === 0) continue;
-				newsLines.push(`${nameOf(ticker)} (${ticker}) recent headlines:\n${top.map((a) => `  - ${a.headline}`).join("\n")}`);
+				if (top.length === 0) {
+					newsLines.push(`${nameOf(ticker)} (${ticker}): no headlines found from the past week.`);
+					continue;
+				}
+				newsLines.push(`${nameOf(ticker)} (${ticker}) recent headlines:\n${top.map((a) => `  - ${headlineDate(a.datetime)}${a.headline}`).join("\n")}`);
 				for (const a of top) sources.push({ ticker, headline: a.headline, ...(a.url ? { url: a.url } : {}) });
 			}
 		}
 
-		const systemInstruction = buildSystemContext({ familiarity, brandNames, topTags, easternDate: getEasternDateKey() });
+		const systemInstruction = buildSystemContext({ familiarity, brandNames, topTags, easternDate: HEADLINE_DAY.format(new Date()) });
 		const contents: { role: string; parts: { text: string }[] }[] = historyResult.rows.map((m) => ({
 			role: m.role === "assistant" ? "model" : "user",
 			parts: [{ text: m.content }],
@@ -564,7 +644,10 @@ async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Pr
 
 		// Where the user is (when they've just opened it, or point back at it), then live price + news, then the question.
 		const notes: string[] = [];
-		if (context && (contextIsNew || (named.length === 0 && refersBack))) notes.push(describeContext(context));
+		// The page is only re-noted when this question's data is that page's: after switching to another company, an
+		// "any lawsuit?" shouldn't come with "they opened this from the Tesla page" beside NVIDIA's numbers.
+		const dataIsThePage = tickers.every((t) => contextTickers(context).includes(t));
+		if (context && (contextIsNew || (named.length === 0 && refersBack && dataIsThePage))) notes.push(describeContext(context));
 		if (liveDataLines.length > 0) notes.push(`Live market data:\n${liveDataLines.join("\n")}`);
 		if (newsLines.length > 0) notes.push(`Recent news signals:\n${newsLines.join("\n\n")}`);
 		if (notes.length > 0) {
@@ -756,7 +839,7 @@ stakAiRouter.get("/conversations", authMiddleware, async (req: AuthenticatedRequ
 		const result = await pgQuery<{ id: string; title: string; context: StakAiContext | null; preview: string | null; created_at: string; updated_at: string }>(
 			`SELECT c.id, c.title, c.context, c.created_at, c.updated_at,
 			   (SELECT left(m.content, 140) FROM stak_ai_messages m
-			    WHERE m.conversation_id = c.id AND m.role = 'assistant' ORDER BY m.created_at DESC LIMIT 1) AS preview
+			    WHERE m.conversation_id = c.id AND m.role = 'assistant' ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS preview
 			 FROM stak_ai_conversations c
 			 WHERE c.uid = $1 AND ($2::timestamptz IS NULL OR c.updated_at < $2::timestamptz)
 			 ORDER BY c.updated_at DESC LIMIT 20`,
@@ -783,7 +866,7 @@ stakAiRouter.get("/conversations/:id/messages", authMiddleware, async (req: Auth
 		);
 		if (convResult.rows.length === 0) { fail(res, 404, "not_found", "Conversation not found"); return; }
 		const msgResult = await pgQuery<{ id: number; role: string; content: string; kind: StakAiAnswerKind; feedback: number | null; created_at: string }>(
-			`SELECT id::int AS id, role, content, kind, feedback, created_at FROM stak_ai_messages WHERE conversation_id = $1 AND uid = $2 ORDER BY created_at ASC`,
+			`SELECT id::int AS id, role, content, kind, feedback, created_at FROM stak_ai_messages WHERE conversation_id = $1 AND uid = $2 ORDER BY created_at ASC, id ASC`,
 			[id, uid],
 		);
 		const conv = convResult.rows[0]!;
