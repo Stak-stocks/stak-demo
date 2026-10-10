@@ -8,6 +8,7 @@ import { useRef } from "react";
 import { getMarketStatusLive, getStockData } from "@/lib/api";
 import { normalizeTicker } from "./catalog";
 import { DEMO_QUOTES } from "./demoQuotes";
+import { useShowcase } from "./showcase";
 import { round2 } from "./format";
 
 export type Quote = { ticker: string; price: number; change: number; changePercent: number; live: boolean };
@@ -89,17 +90,24 @@ function quoteSelector(ticker: string) {
 /** The shared quote query (the stock-data cache seen as a Quote) for screens that must know when a live quote is still loading. */
 export const quoteQuery = (ticker: string, enabled: boolean) => ({ ...stockDataQuery(ticker, enabled), select: quoteSelector(ticker) });
 
+/** Live quotes are for real use: the untouched demo persona is the design itself and prices everything at the frames' demo quotes (live/showcase.ts). */
+function useLiveQuotes(): boolean {
+	const healthy = useApiHealth();
+	const showcase = useShowcase();
+	return healthy && !showcase;
+}
+
 /** The live quote when the API has one, the demo quote otherwise, null for an unknown symbol. */
 export function useQuote(ticker: string): Quote | null {
 	const t = normalizeTicker(ticker);
-	const healthy = useApiHealth();
+	const healthy = useLiveQuotes();
 	const q = useQuery(quoteQuery(t, healthy && t.length > 0));
 	return q.data ?? demoQuote(t);
 }
 
 /** Quotes for a list of tickers, keyed by ticker (missing when neither source knows it). */
 export function useQuotes(tickers: readonly string[]): Record<string, Quote> {
-	const healthy = useApiHealth();
+	const healthy = useLiveQuotes();
 	const list = [...new Set(tickers.map(normalizeTicker).filter(Boolean))];
 	const results = useQueries({ queries: list.map((t) => quoteQuery(t, healthy)) });
 	const next: Record<string, Quote> = {};

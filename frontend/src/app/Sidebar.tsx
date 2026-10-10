@@ -69,10 +69,10 @@ export function Sidebar({ open, active, onToggle }: Props) {
 								className={cn(
 									"whitespace-nowrap font-geist",
 									isActive
-										? "text-[16px] font-semibold text-[#d9d9d9]"
+										? "text-[16px] font-semibold leading-[21px] text-[#d9d9d9]"
 										: onProfile
-											? "text-[13px] font-semibold text-[#aeaeae]"
-											: "text-[13px] font-medium text-[#aeaeae]",
+											? "text-[13px] font-semibold leading-[17px] text-[#aeaeae]"
+											: "text-[13px] font-medium leading-[17px] text-[#aeaeae]",
 								)}
 							>
 								{item.label}
@@ -82,9 +82,9 @@ export function Sidebar({ open, active, onToggle }: Props) {
 				);
 			})}
 
-			<div className="absolute bottom-[27px] left-0 flex flex-col items-center gap-[25px]" style={{ width }}>
-				{/* Vector 87: 0.5px #5F6471 @54% — drawn as a 1px line at the equivalent coverage */}
-				<div className="h-px w-full bg-[rgba(95,100,113,0.27)]" />
+			<div className="absolute bottom-[27px] left-0 flex flex-col items-center gap-[24px]" style={{ width }}>
+				{/* Vector 87: a 0.5px #5F6471 @54% stroke centred on y 924; Figma paints it as two rows at a quarter coverage each */}
+				<div className="h-[2px] w-full bg-[rgba(95,100,113,0.135)]" />
 				<AccountRow open={open} active={active === "profile"} />
 			</div>
 		</aside>
@@ -99,18 +99,20 @@ function AccountRow({ open, active }: { open: boolean; active: boolean }) {
 			aria-label="Profile"
 			className={cn(
 				"stak-press flex h-[48px] cursor-pointer items-center gap-[12px] overflow-clip rounded-[10px] bg-[#141b2c]",
-				open ? "w-[184px] px-[12px]" : "w-[40px] justify-center px-[6px]",
+				open ? "w-[184px] pl-[12px] pr-[11px]" : "w-[40px] justify-center px-[6px]",
 				active && "border border-[#242f4b]",
 			)}
 		>
-			<div className="flex size-[28px] shrink-0 items-center justify-center overflow-clip rounded-[14px] border-[0.778px] border-[#242f4b] bg-[#242b3d]">
-				<span className="whitespace-nowrap font-sora text-[9.625px] font-semibold text-[#9eadc7]">{account.initial}</span>
+			{/* the 0.778px #242F4B stroke sits OUTSIDE the 28px circle in Figma: a ring, not a border */}
+			<div className="flex size-[28px] shrink-0 items-center justify-center rounded-[14px] bg-[#242b3d] shadow-[0_0_0_0.778px_#242f4b]">
+				<span className="whitespace-nowrap font-sora text-[9.625px] font-semibold leading-[12px] text-[#9eadc7]">{account.initial}</span>
 			</div>
 			{open && (
 				<>
-					<div className="flex flex-col items-start gap-px overflow-clip whitespace-nowrap">
-						<span className="font-geist text-[13px] font-semibold text-[#d9d9d9]">{account.name}</span>
-						<span className="font-geist text-[8.5px] text-[#819abb]">{account.sidebarLine}</span>
+					{/* the column fills up to the settings icon (92px for the persona's address, as in Figma); long names truncate */}
+					<div className="flex min-w-0 flex-1 flex-col items-start gap-px overflow-clip whitespace-nowrap">
+						<span className="max-w-full truncate font-geist text-[13px] font-semibold leading-[17px] text-[#d9d9d9]">{account.name}</span>
+						<span className="max-w-full truncate font-geist text-[8.5px] leading-[11px] text-[#819abb]">{account.sidebarLine}</span>
 					</div>
 					<img alt="" src={A.settings} className="size-[17px] shrink-0" />
 				</>

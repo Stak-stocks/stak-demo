@@ -2,11 +2,11 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { colPlus } from "@/app/FitCanvas";
-import { changeLine, changeShort, companyInitial, companyName, type Fill, money, normalizeTicker, signedMoney, signedPct, usePortfolio, useQuotes, wholeMoney } from "@/app/live";
+import { changeLine, changeShort, companyInitial, companyName, type Fill, money, normalizeTicker, signedMoney, signedPct, usePortfolio, useQuotes, useShowcase, wholeMoney } from "@/app/live";
 import { PrimaryButton } from "@/app/ui/Button";
 import { cn } from "@/lib/utils";
 import { SA } from "./assets";
-import { simulateEmpty, simulateHome, stocks, type Stock } from "./data";
+import { cashAvailable, simulateEmpty, simulateHome, stocks, type Stock } from "./data";
 import { AddConfirmSheet, AddSuccessSheet, BuyFailedSheet } from "./sheets";
 import { Avatar, Card, CardTitle, Eyebrow, GREEN, type Palette, RED, RED_ROW, SmallBuyButton } from "./ui";
 
@@ -31,6 +31,9 @@ export function stockFor(symbol: string, price: number, pct: number): Stock {
 	return { name, nameConfirm: demo?.nameConfirm ?? name, price, pct: changeShort(pct), up: pct >= 0, initial: demo?.initial ?? companyInitial(symbol) };
 }
 
+/** The range buttons' Figma widths (2:634: each label box is its text width rounded up, plus 10px a side). */
+const RANGE_WIDTH: Record<string, number> = { "1D": 33, "1W": 36, "1M": 35, "1Y": 31 };
+
 /** "+$186" — the hero's whole-dollar move. */
 const wholeMove = (n: number) => `${n < 0 ? "-" : "+"}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`;
 
@@ -38,6 +41,8 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 	const navigate = useNavigate();
 	const pf = usePortfolio();
 	const live = pf.live;
+	/** the untouched demo persona shows the frames' own figures (see live/showcase.ts) */
+	const showcase = useShowcase();
 	const alt = search.variant === "alt";
 	const p = alt ? ALT : CANON;
 	const colGap = alt ? 40 : 22;
@@ -60,10 +65,24 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 		[candidates, quotes],
 	);
 	const picks = useMemo(() => [...pf.positions].sort((a, b) => b.gain - a.gain).slice(0, 3), [pf.positions]);
+	const savedList = showcase
+		? d.saved.rows.map((r) => ({ symbol: r.symbol, name: stocks[r.symbol]?.name ?? companyName(r.symbol), initial: stocks[r.symbol]?.initial ?? companyInitial(r.symbol), price: r.price, change: r.change, up: r.up }))
+		: savedRows.map((r) => ({
+				symbol: r.symbol,
+				name: stocks[r.symbol]?.name ?? companyName(r.symbol),
+				initial: stocks[r.symbol]?.initial ?? companyInitial(r.symbol),
+				price: money(r.quote!.price),
+				change: changeLine(r.quote!.changePercent),
+				up: r.quote!.changePercent >= 0,
+			}));
+	const pickList = showcase
+		? d.picks.rows.map((r) => ({ symbol: r.symbol, gain: r.gain, pct: r.pct, up: r.up }))
+		: picks.map((r) => ({ symbol: r.ticker, gain: signedMoney(r.gain), pct: signedPct(r.pct), up: r.gain >= 0 }));
+	const cash = showcase ? cashAvailable : pf.cash;
 
-	const price = quotes[symbol]?.price ?? pf.quotes[symbol]?.price ?? stocks[symbol]?.price ?? 0;
+	const price = (showcase ? stocks[symbol]?.price : undefined) ?? quotes[symbol]?.price ?? pf.quotes[symbol]?.price ?? stocks[symbol]?.price ?? 0;
 	const pct = quotes[symbol]?.changePercent ?? pf.quotes[symbol]?.changePercent ?? 0;
-	const stock = stockFor(symbol, price, pct);
+	const stock = showcase && stocks[symbol] ? stocks[symbol] : stockFor(symbol, price, pct);
 	const amount = search.amount ?? 25;
 	// the order that actually filled: the success sheet shows its quantity, cost and cash left rather than an estimate from the typed dollars
 	const [fill, setFill] = useState<Fill | null>(null);
@@ -96,15 +115,15 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 					<div className="flex w-full items-start" style={{ gap: colGap }}>
 						<PortfolioHero
 							palette={p}
-							value={money(pf.value)}
-							today={`${pf.today < 0 ? "▼" : "▲"} ${wholeMove(pf.today)} (${signedPct(pf.todayPct)}) today`}
-							todayUp={pf.today >= 0}
-							allTime={`${signedMoney(pf.allTime)} all time · #${pf.rank} on the leaderboard`}
+							value={showcase ? d.hero.value : money(pf.value)}
+							today={showcase ? d.hero.week : `${pf.today < 0 ? "▼" : "▲"} ${wholeMove(pf.today)} (${signedPct(pf.todayPct)}) today`}
+							todayUp={showcase || pf.today >= 0}
+							allTime={showcase ? d.hero.allTime : `${signedMoney(pf.allTime)} all time · #${pf.rank} on the leaderboard`}
 						/>
 						<div className="flex min-w-0 flex-col items-start gap-[11px]" style={{ flex: "360 1 0" }}>
 							<Card palette={p} className="w-full">
 								<Eyebrow>{d.cash.eyebrow}</Eyebrow>
-								<p className="whitespace-nowrap font-sora text-[24px] font-semibold leading-[30px] text-[#f2f6fc]">{money(pf.cash)}</p>
+								<p className="whitespace-nowrap font-sora text-[24px] font-semibold leading-[30px] text-[#f2f6fc]">{money(cash)}</p>
 								<p className="w-full font-geist text-[11px] leading-[14px] text-[#819abb]">{d.cash.note}</p>
 							</Card>
 							<Card palette={p} className="w-full">
@@ -126,36 +145,32 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 									{d.saved.link}
 								</Link>
 							</div>
-							{savedRows.length === 0 && (
+							{savedList.length === 0 && (
 								<p className="w-full font-geist text-[11px] leading-[14px] text-[#819abb]">Save a company from today’s deck and it shows up here, ready to buy.</p>
 							)}
-							{savedRows.map((row) => {
-								const q = row.quote!;
-								const demo = stocks[row.symbol];
-								return (
-									<div key={row.symbol} className="flex h-[44px] w-full items-center gap-[12px] overflow-clip">
-										<Avatar letter={demo?.initial ?? companyInitial(row.symbol)} size={36} radius={10} bg={p.inner} />
-										<Link
-											to="/stocks/$symbol"
-											params={{ symbol: row.symbol }}
-											search={{ saved: true, from: "my-stak" }}
-											className="flex min-w-px flex-1 flex-col items-start gap-px overflow-clip whitespace-nowrap"
-										>
-											<p className="font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{row.symbol}</p>
-											<p className="font-geist text-[11px] leading-[14px] text-[#819abb]">{demo?.name ?? companyName(row.symbol)}</p>
-										</Link>
-										<div className="flex flex-col items-end gap-px overflow-clip whitespace-nowrap">
-											<p className="font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{money(q.price)}</p>
-											<p className="font-geist text-[11px] leading-[14px]" style={{ color: q.changePercent >= 0 ? GREEN : RED_ROW }}>
-												{changeLine(q.changePercent)}
-											</p>
-										</div>
-										<SmallBuyButton aria-label={`Buy ${row.symbol}`} onClick={() => setSearch({ modal: "add-confirm", symbol: row.symbol })}>
-											{d.saved.buy}
-										</SmallBuyButton>
+							{savedList.map((row) => (
+								<div key={row.symbol} className="flex h-[44px] w-full items-center gap-[12px] overflow-clip">
+									<Avatar letter={row.initial} size={36} radius={10} bg={p.inner} />
+									<Link
+										to="/stocks/$symbol"
+										params={{ symbol: row.symbol }}
+										search={{ saved: true, from: "my-stak" }}
+										className="flex min-w-px flex-1 flex-col items-start gap-px overflow-clip whitespace-nowrap"
+									>
+										<p className="font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{row.symbol}</p>
+										<p className="font-geist text-[11px] leading-[14px] text-[#819abb]">{row.name}</p>
+									</Link>
+									<div className="flex flex-col items-end gap-px overflow-clip whitespace-nowrap">
+										<p className="font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{row.price}</p>
+										<p className="font-geist text-[11px] leading-[14px]" style={{ color: row.up ? GREEN : RED_ROW }}>
+											{row.change}
+										</p>
 									</div>
-								);
-							})}
+									<SmallBuyButton aria-label={`Buy ${row.symbol}`} onClick={() => setSearch({ modal: "add-confirm", symbol: row.symbol })}>
+										{d.saved.buy}
+									</SmallBuyButton>
+								</div>
+							))}
 						</Card>
 
 						<Card palette={p} className="min-w-0" style={{ flex: "320 1 0" }}>
@@ -167,9 +182,9 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 								</div>
 							))}
 							<div className="flex h-[30px] w-full items-center justify-between overflow-clip rounded-[8px] bg-[rgba(93,168,191,0.07)] px-[10px] py-[5px] font-geist text-[12px] font-medium leading-[16px]">
-								<p className="whitespace-pre text-[#a6e4f7]">{`#${pf.rank}  You`}</p>
-								<p className="whitespace-nowrap" style={{ color: pf.allTime >= 0 ? GREEN : RED }}>
-									{signedPct(pf.allTimePct)}
+								<p className="whitespace-pre text-[#a6e4f7]">{showcase ? d.leaderboard.you[0] : `#${pf.rank}  You`}</p>
+								<p className="whitespace-nowrap" style={{ color: showcase || pf.allTime >= 0 ? GREEN : RED }}>
+									{showcase ? d.leaderboard.you[1] : signedPct(pf.allTimePct)}
 								</p>
 							</div>
 							<Link to="/simulate/leaderboard" className="stak-press whitespace-nowrap font-geist text-[12px] font-medium leading-[16px] text-[#819abb]">
@@ -186,17 +201,17 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 							{d.picks.link}
 						</Link>
 					</div>
-					{picks.map((row) => (
+					{pickList.map((row) => (
 						<Link
-							key={row.ticker}
+							key={row.symbol}
 							to="/simulate/picks/$symbol"
-							params={{ symbol: row.ticker }}
+							params={{ symbol: row.symbol }}
 							className="stak-press flex h-[30px] w-full cursor-pointer items-center justify-between overflow-clip"
 						>
-							<p className="font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{row.ticker}</p>
-							<div className="flex items-start gap-[12px] overflow-clip" style={{ color: row.gain >= 0 ? GREEN : RED }}>
-								<p className="font-geist text-[13px] font-medium leading-[17px]">{signedMoney(row.gain)}</p>
-								<p className="font-geist text-[12px] leading-[16px]">{signedPct(row.pct)}</p>
+							<p className="font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{row.symbol}</p>
+							<div className="flex items-start gap-[12px] overflow-clip" style={{ color: row.up ? GREEN : RED }}>
+								<p className="font-geist text-[13px] font-medium leading-[17px]">{row.gain}</p>
+								<p className="font-geist text-[12px] leading-[16px]">{row.pct}</p>
 							</div>
 						</Link>
 					))}
@@ -204,7 +219,7 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 			</div>
 
 			{search.modal === "add-confirm" && (
-				<AddConfirmSheet symbol={symbol} stock={stock} alt={alt} cash={pf.cash} onConfirm={confirmBuy} onClose={() => setSearch({})} />
+				<AddConfirmSheet symbol={symbol} stock={stock} alt={alt} cash={cash} onConfirm={confirmBuy} onClose={() => setSearch({})} />
 			)}
 			{search.modal === "buy-failed" && (
 				<BuyFailedSheet stock={stock} onRetry={() => setSearch({ modal: "add-confirm", symbol })} onClose={() => setSearch({})} />
@@ -215,7 +230,7 @@ export function SimulateHome({ search }: { search: SimulateHomeSearch }) {
 					stock={stock}
 					amount={filled?.cost ?? amount}
 					shares={filled?.shares ?? (price > 0 ? amount / price : 0)}
-					cash={filled?.cashAfter ?? pf.cash}
+					cash={filled?.cashAfter ?? (showcase ? cashAvailable - amount : pf.cash)}
 					onPrimary={() => navigate({ to: "/my-stak" })}
 					onClose={() => {
 						setFill(null);
@@ -259,8 +274,8 @@ function PortfolioHero({
 							<button
 								key={r}
 								type="button"
-								className="stak-press flex cursor-pointer items-start overflow-clip rounded-[8px] px-[10px] py-[4px]"
-								style={active ? { backgroundColor: palette.inner } : undefined}
+								className="stak-press flex cursor-pointer items-start justify-center overflow-clip rounded-[8px] px-[10px] py-[4px]"
+								style={{ width: RANGE_WIDTH[r], ...(active ? { backgroundColor: palette.inner } : {}) }}
 							>
 								<span
 									className={cn("whitespace-nowrap font-geist text-[11px] font-medium leading-[14px]", active ? "text-[#f2f6fc]" : "text-[#819abb]")}
@@ -304,7 +319,8 @@ function SimulateEmpty({ budget }: { budget: number }) {
 								<button
 									key={r}
 									type="button"
-									className={cn("stak-press flex cursor-pointer items-start overflow-clip rounded-[8px] px-[10px] py-[4px]", active && "bg-[#181f30]")}
+									className={cn("stak-press flex cursor-pointer items-start justify-center overflow-clip rounded-[8px] px-[10px] py-[4px]", active && "bg-[#181f30]")}
+									style={{ width: RANGE_WIDTH[r] }}
 								>
 									<span
 										className={cn("whitespace-nowrap font-geist text-[11px] font-medium leading-[14px]", active ? "text-[#f2f6fc]" : "text-[#819abb]")}

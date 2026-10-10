@@ -74,7 +74,8 @@ export function FilterChip({
 	activeBg = PALETTE.card,
 	children,
 	onClick,
-}: { active: boolean; activeBg?: string; children: ReactNode; onClick?: () => void }) {
+	width,
+}: { active: boolean; activeBg?: string; children: ReactNode; onClick?: () => void; /** Figma's chip width (its label box is the text width rounded up) */ width?: number }) {
 	return (
 		<button
 			type="button"
@@ -84,7 +85,7 @@ export function FilterChip({
 				"stak-press flex cursor-pointer items-start overflow-clip rounded-[999px] px-[14px] py-[6px] font-geist text-[12px] font-medium leading-[16px]",
 				active ? "text-[#f2f6fc]" : "text-[#819abb]",
 			)}
-			style={active ? { backgroundColor: activeBg } : { boxShadow: hairline(1, "rgba(255,255,255,0.1)") }}
+			style={{ ...(active ? { backgroundColor: activeBg } : { boxShadow: hairline(1, "rgba(255,255,255,0.1)") }), ...(width ? { width, justifyContent: "center" } : {}) }}
 		>
 			<span className="whitespace-nowrap">{children}</span>
 		</button>

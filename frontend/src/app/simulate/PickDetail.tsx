@@ -17,6 +17,7 @@ import {
 	splitMoney,
 	useApiHealth,
 	usePortfolio,
+	useShowcase,
 	useQuote,
 	type PositionRow,
 } from "@/app/live";
@@ -35,6 +36,9 @@ const whole = (n: number) => `$${Math.abs(Math.round(n)).toLocaleString("en-US")
 /** The demo proxy for the market's move when no SPY quote exists. */
 const DEMO_MARKET_PCT = 0.4;
 
+/** The range labels' Figma boxes (2:850: text widths rounded up), so the 90px gaps land where Figma puts them. */
+const RANGE_LABEL_WIDTH: Record<string, number> = { "1D": 13, "1W": 16, "1M": 16, "3M": 19, YTD: 22, "1Y": 12 };
+
 /** 2:850 "Desktop · Pick detail" (+ 2:1458 Sell confirm, 2:1730 Sell success as ?modal=), on the live position. */
 export function PickDetail({ symbol: raw, search }: { symbol: string; search: PickDetailSearch }) {
 	const symbol = normalizeTicker(raw);
@@ -45,6 +49,8 @@ export function PickDetail({ symbol: raw, search }: { symbol: string; search: Pi
 	const spy = useQuote("SPY");
 	const healthy = useApiHealth();
 	const d = pickDetail;
+	/** the untouched demo persona on the frame's own pick shows the frame's figures verbatim (live/showcase.ts) */
+	const fig = useShowcase() && symbol === d.symbol;
 	const setSearch = (next: PickDetailSearch) =>
 		navigate({ to: "/simulate/picks/$symbol", params: { symbol }, search: next, replace: true });
 
@@ -76,11 +82,11 @@ export function PickDetail({ symbol: raw, search }: { symbol: string; search: Pi
 	const name = stocks[symbol]?.name ?? companyName(symbol);
 	const stock = stockFor(symbol, view.price, quote?.changePercent ?? 0);
 	const up = view.gain >= 0;
-	const gain = splitMoney(view.gain);
+	const gain = fig ? { whole: d.hero.gainWhole, cents: d.hero.gainCents } : splitMoney(view.gain);
 	const marketPct = healthy && spy ? spy.changePercent : DEMO_MARKET_PCT;
 	// today's move against the market's (SPY when the API is up): like for like, not the all-time gain against one day
 	const vsMarket = (quote?.changePercent ?? 0) - marketPct;
-	const stats = [
+	const stats = fig ? d.stats : [
 		[
 			{ label: "Today", value: signedMoney(view.today), up: view.today >= 0 },
 			{ label: "vs the market", value: `${signedPct(vsMarket)} ${vsMarket >= 0 ? "ahead" : "behind"}`, up: vsMarket >= 0 },
@@ -90,17 +96,25 @@ export function PickDetail({ symbol: raw, search }: { symbol: string; search: Pi
 			{ label: "Price now", value: money(quote?.price ?? view.price), up: false },
 		],
 	];
-	const note = up
+	const note = fig
+		? d.position.note
+		: up
 		? `Selling returns ${money(view.value)} to your cash: the ${whole(view.stake)} stake plus the ${whole(view.gain)} gain, locked in for good.`
 		: `Selling returns ${money(view.value)} to your cash: the ${whole(view.stake)} stake minus the ${whole(view.gain)} loss, locked in for good.`;
-	const insight = up
+	const insight = fig
+		? d.insight.text
+		: up
 		? `Your stake tracks the move live. If ${symbol} gives back gains, the dollars follow it down.`
 		: `Your stake tracks the move live. If ${symbol} recovers, the dollars follow it back up.`;
 
 	// the success sheet shows the sale that just happened, or a preview of selling the whole position
 	const justSold = lastSold && (!pos || lastSold.soldAt > Date.now() - 60_000) ? lastSold : null;
 	const portion = search.portion ?? 1;
-	const sale = justSold ?? { shares: view.shares * portion, stake: view.stake * portion, proceeds: view.value * portion, pnl: view.gain * portion };
+	const sale =
+		justSold ??
+		(fig
+			? { shares: d.position.shares * portion, stake: d.position.stake * portion, proceeds: d.position.value * portion, pnl: (d.position.value - d.position.stake) * portion }
+			: { shares: view.shares * portion, stake: view.stake * portion, proceeds: view.value * portion, pnl: view.gain * portion });
 
 	const confirmSell = async (frac: number) => {
 		if (!pos) return;
@@ -121,13 +135,13 @@ export function PickDetail({ symbol: raw, search }: { symbol: string; search: Pi
 				<div className="flex flex-col items-start gap-[4px] whitespace-nowrap">
 					<div className="flex flex-col items-start gap-[4px]">
 						<div className="flex flex-col items-start gap-[4px] text-[#819abb]">
-							<Eyebrow>{`PICKED ${dayLabel(view.addedAt).toUpperCase()} · ${whole(view.stake)} STAKE`}</Eyebrow>
+							<Eyebrow>{fig ? d.eyebrow : `PICKED ${dayLabel(view.addedAt).toUpperCase()} · ${whole(view.stake)} STAKE`}</Eyebrow>
 							<p className="font-geist text-[12px] leading-[16px]">{`${symbol} · ${name}`}</p>
 						</div>
-						<p className="font-sora text-[34px] font-semibold leading-[43px] text-[#f2f6fc]">{money(quote?.price ?? view.price)}</p>
+						<p className="font-sora text-[34px] font-semibold leading-[43px] text-[#f2f6fc]">{fig ? d.price : money(quote?.price ?? view.price)}</p>
 					</div>
 					<p className={cn("font-geist text-[13px] font-medium leading-[17px]", (quote?.changePercent ?? 0) >= 0 ? "text-[#2fd08a]" : "text-[#e5484d]")}>
-						{changeLine(quote?.changePercent ?? 0)}
+						{fig ? d.change : changeLine(quote?.changePercent ?? 0)}
 					</p>
 				</div>
 			</div>
@@ -138,14 +152,14 @@ export function PickDetail({ symbol: raw, search }: { symbol: string; search: Pi
 						<section className="flex w-full flex-col items-start gap-[11px] overflow-clip rounded-[16px] bg-[#181f30] p-[18px]">
 							<div className="flex items-center gap-[9px] overflow-clip">
 								<Avatar letter={stocks[symbol]?.initial ?? companyInitial(symbol)} size={38} radius={19} bg="#242b3d" />
-								<p className="whitespace-nowrap font-geist text-[12px] leading-[16px] text-[#819abb]">{`Picked ${dayLabel(view.addedAt)} at ${money(view.priceAtAdd ?? 0)}`}</p>
+								<p className="whitespace-nowrap font-geist text-[12px] leading-[16px] text-[#819abb]">{fig ? d.hero.picked : `Picked ${dayLabel(view.addedAt)} at ${money(view.priceAtAdd ?? 0)}`}</p>
 							</div>
 							<div className="flex items-baseline gap-[7px] overflow-clip whitespace-nowrap font-sora font-semibold">
 								<p className={cn("text-[38px] leading-[48px]", up ? "text-white" : "text-[#ff5a6a]")}>{gain.whole}</p>
 								<p className="text-[16px] leading-[20px] text-[#819abb]">{gain.cents}</p>
 							</div>
 							<p className="whitespace-nowrap font-geist text-[12px] font-light leading-[16px] text-[#819abb]">
-								{`That is ${up ? "up" : "down"} ${pct1(view.pct)} on a ${whole(view.stake)} paper stake`}
+								{fig ? d.hero.caption : `That is ${up ? "up" : "down"} ${pct1(view.pct)} on a ${whole(view.stake)} paper stake`}
 							</p>
 							<div className="flex w-full flex-col items-center gap-[40px]">
 								{/* "Chart line" 769.346x165; the export is 771.346x167 and overhangs 0.61% / 0.13% — the card clips the overflow */}
@@ -167,7 +181,7 @@ export function PickDetail({ symbol: raw, search }: { symbol: string; search: Pi
 												</p>
 											</div>
 										) : (
-											<p key={r} className="whitespace-nowrap text-center font-geist text-[12px] leading-[16px] text-[#819abb]">
+											<p key={r} className="shrink-0 whitespace-nowrap text-center font-geist text-[12px] leading-[16px] text-[#819abb]" style={{ width: RANGE_LABEL_WIDTH[r] }}>
 												{r}
 											</p>
 										),
@@ -204,7 +218,7 @@ export function PickDetail({ symbol: raw, search }: { symbol: string; search: Pi
 				<div className="flex min-w-0 flex-col items-start overflow-clip" style={{ flex: "390 1 0" }}>
 					<Card className="w-full">
 						<Eyebrow>{d.position.eyebrow}</Eyebrow>
-						<p className="whitespace-nowrap font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{`${shares4(view.shares)} shares · worth ${money(view.value)}`}</p>
+						<p className="whitespace-nowrap font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{fig ? d.position.line : `${shares4(view.shares)} shares · worth ${money(view.value)}`}</p>
 						<div className="flex w-full flex-col items-start gap-[16px]">
 							<SellButton onClick={() => setSearch({ modal: "sell-confirm" })} disabled={!pos}>
 								{d.position.sell}
@@ -219,7 +233,7 @@ export function PickDetail({ symbol: raw, search }: { symbol: string; search: Pi
 			</div>
 
 			{search.modal === "sell-confirm" && pos && (
-				<SellConfirmSheet symbol={symbol} stock={stock} shares={pos.shares} value={pos.value} onConfirm={confirmSell} onClose={() => setSearch({})} />
+				<SellConfirmSheet symbol={symbol} stock={stock} shares={fig ? d.position.shares : pos.shares} value={fig ? d.position.value : pos.value} onConfirm={confirmSell} onClose={() => setSearch({})} />
 			)}
 			{search.modal === "sell-success" && (
 				<SellSuccessSheet

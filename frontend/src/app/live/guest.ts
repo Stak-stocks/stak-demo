@@ -105,6 +105,8 @@ export function seedGuest(): GuestState {
 			{ ticker: "SHOP", shares: 1.5731, stake: 100, proceeds: 112, pnl: 12, soldAt: on(5, 30) },
 			{ ticker: "COIN", shares: 0.4209, stake: 100, proceeds: 92, pnl: -8, soldAt: on(6, 15) },
 		],
+		// Figma 2:2728: the two newest rows are unread (blue dot), the order, the recap and the deck row are read
+		read: ["seed-order", "seed-recap", "seed-deck"],
 		preferences: { familiarity: "buy", goal: "grow", interests: [], onboardingSwipes: ["apple", "nvidia", "tesla"] },
 		tagScores: { semiconductor: 4, ai: 3, enterprise_software: 2, consumer_brand: 2, high_growth: 1, retail: 1, ecommerce: 1 }, // Tech Curious > High Growth > Consumer Brands, as the frames rank them
 	};
@@ -212,7 +214,8 @@ export function storeFor<T extends object>(key: string, seed: () => T): Store<T>
 	return s;
 }
 
-export const GUEST_KEY = "stak.guest.v1";
+/** v2 (2026-10-10): the seed follows the frames' read state; bumping the key re-seeds demo browsers */
+export const GUEST_KEY = "stak.guest.v2";
 export const localKey = (uid: string) => `stak.local.${uid}.v1`;
 
 export const guestStore = () => storeFor<GuestState>(GUEST_KEY, seedGuest);

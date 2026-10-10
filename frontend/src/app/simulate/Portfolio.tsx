@@ -2,7 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { colPlus } from "@/app/FitCanvas";
-import { companyInitial, dayLabel, money, normalizeTicker, round4, signedMoney, signedPct, usePortfolio } from "@/app/live";
+import { companyInitial, dayLabel, money, normalizeTicker, round4, signedMoney, signedPct, usePortfolio, useShowcase } from "@/app/live";
 import { portfolio, stocks } from "./data";
 import { PortfolioSellSheet } from "./sheets";
 import { stockFor } from "./SimulateHome";
@@ -37,8 +37,32 @@ export function Portfolio({ search }: { search: PortfolioSearch }) {
 		return r;
 	}, [pf.positions, chip]);
 
+	/** the untouched demo persona shows the frame's own rows (live/showcase.ts); the frame's order is top gainer first and oldest first */
+	const showcase = useShowcase();
+	const list = showcase
+		? chip === 0
+			? d.picks.map((r) => ({ ...r }))
+			: [...d.picks].reverse().map((r) => ({ ...r }))
+		: rows.map((pick) => ({
+				symbol: pick.ticker,
+				initial: stocks[pick.ticker]?.initial ?? companyInitial(pick.ticker),
+				meta: `Picked ${dayLabel(pick.addedAt)} · ${stakeLabel(pick.stake)} stake`,
+				gain: signedMoney(pick.gain),
+				pct: signedPct(pick.pct),
+				up: pick.gain >= 0,
+			}));
+	const soldList = showcase
+		? d.sold.rows.map((r) => ({ key: r.symbol, symbol: r.symbol, meta: r.meta, amount: r.amount, up: r.up }))
+		: pf.sold.map((row) => ({
+				key: `${row.ticker}-${row.soldAt}`,
+				symbol: row.ticker,
+				meta: `Sold ${dayLabel(row.soldAt)} · ${row.pnl >= 0 ? "profit banked" : "loss realized"}`,
+				amount: signedMoney(row.pnl),
+				up: row.pnl >= 0,
+			}));
+
 	const pos = pf.positions.find((x) => x.ticker === symbol);
-	const stock = stockFor(symbol, pos?.price ?? pf.quotes[symbol]?.price ?? stocks[symbol]?.price ?? 0, pos?.quote?.changePercent ?? 0);
+	const stock = showcase && stocks[symbol] ? stocks[symbol] : stockFor(symbol, pos?.price ?? pf.quotes[symbol]?.price ?? stocks[symbol]?.price ?? 0, pos?.quote?.changePercent ?? 0);
 
 	// the Sell sheet only opens over a position actually held; a ?modal=sell-confirm for anything else is dropped once the portfolio is known
 	const stale = search.modal === "sell-confirm" && live.ready && !pos;
@@ -62,14 +86,14 @@ export function Portfolio({ search }: { search: PortfolioSearch }) {
 		<div className="flex flex-col items-start gap-[22px]" style={{ width: colPlus(10), marginTop: alt ? -44 : 0 }}>
 			<div className="flex w-[186px] flex-col items-start gap-[24px]">
 				<BackHeader crumb={d.crumb} to="/simulate" style={{ marginLeft: alt ? 2 : 0 }} />
-				<PageTitle title={d.title} subtitle={`${pf.positions.length} ${pf.positions.length === 1 ? "pick" : "picks"} · ${signedMoney(pf.allTime)} all time`} />
+				<PageTitle title={d.title} subtitle={showcase ? d.subtitle : `${pf.positions.length} ${pf.positions.length === 1 ? "pick" : "picks"} · ${signedMoney(pf.allTime)} all time`} />
 			</div>
 
 			<div className="flex w-full flex-col items-start gap-[16px]">
 				<div className="flex w-full flex-col items-start gap-[28px]">
 					<div className="flex items-start gap-[8px] overflow-clip">
 						{d.chips.map((label, i) => (
-							<FilterChip key={label} active={chip === i} activeBg={p.inner === p.card ? p.card : alt ? p.inner : p.card} onClick={() => setChip(i)}>
+							<FilterChip key={label} width={[93, 71, 62][i]} active={chip === i} activeBg={p.inner === p.card ? p.card : alt ? p.inner : p.card} onClick={() => setChip(i)}>
 								{label}
 							</FilterChip>
 						))}
@@ -77,29 +101,29 @@ export function Portfolio({ search }: { search: PortfolioSearch }) {
 
 					<div className="flex w-full flex-col items-start gap-[20px]">
 						<div className="flex w-full flex-col items-start overflow-clip rounded-[16px] px-[20px] py-[8px]" style={{ backgroundColor: p.card }}>
-							{rows.length === 0 && (
+							{list.length === 0 && (
 								<p className="w-full py-[16px] font-geist text-[12px] leading-[16px] text-[#819abb]">No open picks. Buy a saved company from Simulate and it lands here.</p>
 							)}
-							{rows.map((pick, i) => (
-								<div key={pick.ticker} className="contents">
+							{list.map((pick, i) => (
+								<div key={pick.symbol} className="contents">
 									{i > 0 && <div className="h-px w-full bg-[rgba(255,255,255,0.06)]" />}
 									<div className="flex h-[56px] w-full items-center gap-[14px] overflow-clip">
 										<Link
 											to="/simulate/picks/$symbol"
-											params={{ symbol: pick.ticker }}
+											params={{ symbol: pick.symbol }}
 											className="stak-press flex min-w-px flex-1 cursor-pointer items-center gap-[14px] overflow-clip"
 										>
-											<Avatar letter={stocks[pick.ticker]?.initial ?? companyInitial(pick.ticker)} size={36} radius={10} bg={p.inner} />
+											<Avatar letter={pick.initial} size={36} radius={10} bg={p.inner} />
 											<div className="flex min-w-px flex-1 flex-col items-start gap-px overflow-clip whitespace-nowrap">
-												<p className="font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{pick.ticker}</p>
-												<p className="font-geist text-[11px] leading-[14px] text-[#819abb]">{`Picked ${dayLabel(pick.addedAt)} · ${stakeLabel(pick.stake)} stake`}</p>
+												<p className="font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{pick.symbol}</p>
+												<p className="font-geist text-[11px] leading-[14px] text-[#819abb]">{pick.meta}</p>
 											</div>
 										</Link>
-										<div className="flex flex-col items-end gap-px overflow-clip whitespace-nowrap" style={{ color: pick.gain >= 0 ? GREEN : RED }}>
-											<p className="font-geist text-[13px] font-medium leading-[17px]">{signedMoney(pick.gain)}</p>
-											<p className="font-geist text-[11px] leading-[14px]">{signedPct(pick.pct)}</p>
+										<div className="flex flex-col items-end gap-px overflow-clip whitespace-nowrap" style={{ color: pick.up ? GREEN : RED }}>
+											<p className="font-geist text-[13px] font-medium leading-[17px]">{pick.gain}</p>
+											<p className="font-geist text-[11px] leading-[14px]">{pick.pct}</p>
 										</div>
-										<SmallSellButton aria-label={`Sell ${pick.ticker}`} onClick={() => navigate({ to: "/simulate/picks/$symbol", params: { symbol: pick.ticker } })}>
+										<SmallSellButton aria-label={`Sell ${pick.symbol}`} onClick={() => navigate({ to: "/simulate/picks/$symbol", params: { symbol: pick.symbol } })}>
 											{d.sell}
 										</SmallSellButton>
 									</div>
@@ -112,15 +136,15 @@ export function Portfolio({ search }: { search: PortfolioSearch }) {
 							style={{ backgroundColor: p.card }}
 						>
 							<Eyebrow>{d.sold.eyebrow}</Eyebrow>
-							{pf.sold.length === 0 && <p className="font-geist text-[11px] leading-[14px] text-[#819abb]">Nothing sold yet.</p>}
-							{pf.sold.map((row) => (
-								<div key={`${row.ticker}-${row.soldAt}`} className="flex h-[24px] w-full items-center justify-between overflow-clip">
+							{soldList.length === 0 && <p className="font-geist text-[11px] leading-[14px] text-[#819abb]">Nothing sold yet.</p>}
+							{soldList.map((row) => (
+								<div key={row.key} className="flex h-[24px] w-full items-center justify-between overflow-clip">
 									<div className="flex items-center gap-[10px] overflow-clip">
-										<p className="font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{row.ticker}</p>
-										<p className="font-geist text-[11px] leading-[14px] text-[#819abb]">{`Sold ${dayLabel(row.soldAt)} · ${row.pnl >= 0 ? "profit banked" : "loss realized"}`}</p>
+										<p className="font-geist text-[13px] font-medium leading-[17px] text-[#f2f6fc]">{row.symbol}</p>
+										<p className="font-geist text-[11px] leading-[14px] text-[#819abb]">{row.meta}</p>
 									</div>
-									<p className="font-geist text-[13px] font-medium leading-[17px]" style={{ color: row.pnl >= 0 ? GREEN : RED }}>
-										{signedMoney(row.pnl)}
+									<p className="font-geist text-[13px] font-medium leading-[17px]" style={{ color: row.up ? GREEN : RED }}>
+										{row.amount}
 									</p>
 								</div>
 							))}

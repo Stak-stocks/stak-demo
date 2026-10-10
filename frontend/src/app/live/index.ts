@@ -9,5 +9,6 @@ export type { DeckProgress, Position, Preferences, SaveEntry, SoldEntry } from "
 export * from "./notifications";
 export * from "./portfolio";
 export * from "./quotes";
+export * from "./showcase";
 export * from "./store";
 export * from "./taste";

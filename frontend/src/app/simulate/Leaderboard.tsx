@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { col } from "@/app/FitCanvas";
-import { rankFor, signedPct, usePortfolio } from "@/app/live";
+import { rankFor, signedPct, usePortfolio, useShowcase } from "@/app/live";
 import { leaderboard } from "./data";
 import { BackHeader, FilterChip, PageTitle } from "./ui";
 
@@ -9,6 +9,8 @@ export function Leaderboard() {
 	const [chip, setChip] = useState(0);
 	const pf = usePortfolio();
 	const d = leaderboard;
+	/** the untouched demo persona shows the frame's own row (#47 You +1.9%) on the week view (live/showcase.ts) */
+	const showcase = useShowcase() && chip === 0;
 	const youPct = chip === 0 ? pf.todayPct : pf.allTimePct;
 	const rank = rankFor(youPct);
 	return (
@@ -19,7 +21,7 @@ export function Leaderboard() {
 					<PageTitle title={d.title} subtitle={d.subtitle} />
 					<div className="flex items-start gap-[8px] overflow-clip">
 						{d.chips.map((label, i) => (
-							<FilterChip key={label} active={chip === i} onClick={() => setChip(i)}>
+							<FilterChip key={label} width={[85, 72][i]} active={chip === i} onClick={() => setChip(i)}>
 								{label}
 							</FilterChip>
 						))}
@@ -38,11 +40,11 @@ export function Leaderboard() {
 					<div className="h-px w-full bg-[rgba(255,255,255,0.06)]" />
 					<div className="flex h-[44px] w-full items-center justify-between overflow-clip rounded-[10px] bg-[rgba(93,168,191,0.07)] px-[12px] whitespace-nowrap">
 						<div className="flex items-center gap-[14px] overflow-clip text-[#a6e4f7]">
-							<p className="font-sora text-[14px] font-semibold leading-[18px]">{`#${rank}`}</p>
+							<p className="font-sora text-[14px] font-semibold leading-[18px]">{showcase ? d.you[0] : `#${rank}`}</p>
 							<p className="font-geist text-[13px] font-medium leading-[17px]">{d.you[1]}</p>
 						</div>
-						<p className="font-geist text-[13px] font-medium leading-[17px]" style={{ color: youPct >= 0 ? "#2fd08a" : "#ff5a6a" }}>
-							{signedPct(youPct)}
+						<p className="font-geist text-[13px] font-medium leading-[17px]" style={{ color: showcase || youPct >= 0 ? "#2fd08a" : "#ff5a6a" }}>
+							{showcase ? d.you[2] : signedPct(youPct)}
 						</p>
 					</div>
 				</section>

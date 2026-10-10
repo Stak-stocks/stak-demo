@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { A } from "@/app/assets";
 import { col } from "@/app/FitCanvas";
 import { HomeSkeleton } from "@/app/home/HomeSkeleton";
-import { useMarketStatus } from "@/app/home/useMarketStatus";
 import { PageHeader } from "@/app/PageHeader";
 import { useAccountDisplay } from "@/app/useAccountDisplay";
 import { homePromos, marketMood } from "@/app/data/home";
@@ -62,23 +61,14 @@ function HomeLive({ firstRun, notifications }: { firstRun: boolean; notification
 	);
 }
 
-/** The mood line follows the market: the frame's copy while the API is unknown, open / closed / holiday otherwise. */
-function moodSubtitle(status: ReturnType<typeof useMarketStatus>): string {
-	if (!status.known) return marketMood.subtitle;
-	if (status.holiday) return `Markets are closed for ${status.holiday}. Volatility is high, so consider being cautious.`;
-	if (status.isOpen) return "Markets are open. Volatility is high, so consider being cautious.";
-	return "Markets are closed. Volatility is high, so consider being cautious at the open.";
-}
-
 function MarketMoodCard() {
 	const [left, mid, right] = marketMood.deck;
-	const status = useMarketStatus();
 	return (
 		<Link to="/news" className="stak-press relative block h-[470px] w-full cursor-pointer overflow-clip rounded-[16px] bg-[#171d2c]">
 			<div className="absolute left-[28px] right-[24.563px] top-[26px] flex items-start justify-between">
 				<div className="flex w-[360px] flex-col items-start gap-[4px]">
 					<h2 className="w-full font-sora text-[22px] font-semibold leading-[28px] text-[#f2f6fc]">{marketMood.title}</h2>
-					<p className="w-full font-geist text-[13px] leading-[17px] text-[#819abb]">{moodSubtitle(status)}</p>
+					<p className="w-full font-geist text-[13px] leading-[17px] text-[#819abb]">{marketMood.subtitle}</p>
 				</div>
 				<img alt="" src={A.gauge} className="h-[33.163px] w-[65.437px] shrink-0" width={65.437} height={33.163} />
 			</div>
@@ -90,7 +80,7 @@ function MarketMoodCard() {
 						<p className="w-full font-sora text-[16.32px] font-medium leading-[21px]">{left.title}</p>
 						<p className="w-[193.1px] font-geist text-[12.24px] font-light leading-[16px]">{left.body}</p>
 					</div>
-					<p className="absolute left-[15.74px] top-[192.54px] whitespace-nowrap font-geist text-[10px] font-medium text-[rgba(14,22,43,0.55)]">
+					<p className="absolute left-[15.74px] top-[192.54px] whitespace-nowrap font-geist text-[10px] font-medium leading-[13px] text-[rgba(14,22,43,0.55)]">
 						{left.source}
 					</p>
 				</article>
@@ -102,7 +92,7 @@ function MarketMoodCard() {
 					<p className="w-full font-sora text-[16.96px] font-medium leading-[21px]">{mid.title}</p>
 					<p className="w-[200.673px] font-geist text-[12.598px] leading-[16px]">{mid.body}</p>
 				</div>
-				<p className="absolute left-[15px] top-[221px] whitespace-nowrap font-geist text-[10px] font-medium text-[rgba(14,22,43,0.55)]">
+				<p className="absolute left-[15px] top-[221px] whitespace-nowrap font-geist text-[10px] font-medium leading-[13px] text-[rgba(14,22,43,0.55)]">
 					{mid.source}
 				</p>
 			</article>
@@ -114,11 +104,15 @@ function MarketMoodCard() {
 						<p className="w-full font-sora text-[16.32px] font-medium leading-[21px]">{right.title}</p>
 						<p className="w-[193.1px] font-geist text-[12.24px] font-light leading-[16px]">{right.body}</p>
 					</div>
-					<p className="absolute left-[19.66px] top-[211.25px] whitespace-nowrap font-geist text-[10px] font-medium text-[rgba(14,22,43,0.55)]">
+					<p className="absolute left-[19.66px] top-[211.25px] whitespace-nowrap font-geist text-[10px] font-medium leading-[13px] text-[rgba(14,22,43,0.55)]">
 						{right.source}
 					</p>
 				</article>
 			</div>
+
+			{/* "Frame 1618869060" 2:469: a 900x103 Glass panel (frost 4) over the bottom of the stack, clipped by the card;
+			    only its blur and its faint top edge show (left -7, right -8, top 367) */}
+			<div aria-hidden="true" className="pointer-events-none absolute left-[-7px] right-[-8px] top-[367px] h-[103px] border-t border-[rgba(255,255,255,0.02)] backdrop-blur-[2px]" />
 		</Link>
 	);
 }
@@ -130,7 +124,7 @@ function WhyCard({ techShare }: { techShare: number }) {
 			<div className="absolute left-[calc(50%-0.5px)] top-[calc(50%-0.5px)] flex w-[341px] -translate-x-1/2 -translate-y-1/2 items-center gap-[20px]">
 				<img alt="" src={A.cautionIcon} className="size-[108px] shrink-0 object-cover" width={108} height={108} loading="lazy" />
 				<div className="flex flex-col items-start gap-[6.171px]">
-					<p className="whitespace-nowrap font-sora text-[14.4px] leading-[15.429px] text-white">{homePromos.why.title}</p>
+					<p className="whitespace-nowrap font-sora text-[14.4px] leading-[16px] text-white">{homePromos.why.title}</p>
 					<p className="w-[203.657px] font-geist text-[12.343px] font-light leading-[15.429px] text-white">{body}</p>
 				</div>
 			</div>
