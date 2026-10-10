@@ -99,7 +99,8 @@ class DiscoverViewModel @Inject constructor(
         fetchDeck()
     }
 
-    private fun fetchDeck() {
+    /** [repick]: a reload into the day's shared deck - on failure the deck on screen stays, and the count never drops. */
+    private fun fetchDeck(repick: Boolean = false) {
         viewModelScope.launch {
             _loading.value = true
             _loadError.value = false
@@ -117,7 +118,9 @@ class DiscoverViewModel @Inject constructor(
 
                 val dailySwipes = dailySwipesDeferred.await()
                 val limit = dailySwipes?.limit?.takeIf { it > 0 } ?: FALLBACK_DAILY_LIMIT
-                val swiped = if (dailySwipes != null && dailySwipes.date == todayKey()) dailySwipes.count else 0
+                val served = if (dailySwipes != null && dailySwipes.date == todayKey()) dailySwipes.count else 0
+                // The server hasn't heard of swipes still in their undo window, or ones made offline.
+                val swiped = if (repick) maxOf(_swipedToday.value, served + pendingSwipeJobs.size) else served
                 _dailyLimit.value = limit
                 _swipedToday.value = swiped
                 // Set both ways: a deck reloaded at the 9am rollover starts under the limit again.
@@ -165,8 +168,10 @@ class DiscoverViewModel @Inject constructor(
                     prefetchTips(cards)
                     prefetchQuickLooks(cards)
                 }.onFailure {
-                    _deck.value = emptyList()
-                    _loadError.value = true
+                    if (!repick) {
+                        _deck.value = emptyList()
+                        _loadError.value = true
+                    }
                 }
             }
             _loading.value = false
@@ -210,6 +215,8 @@ class DiscoverViewModel @Inject constructor(
                 else runCatching { repository.offerDailyDeck(key, mine).tickers }.getOrNull()?.takeIf { it.isNotEmpty() } ?: mine
             }
         }
+        // Shared only when the server had a say: a deck picked offline is this phone's alone until it can ask again.
+        deckShared = shared != null && tickers != null
         if (tickers == null) {
             val picks = freshPicks(brands, ranked, limit, passed, categories)
             _deckLabel.value = deckLabelFor(picks, categories)
@@ -324,6 +331,10 @@ class DiscoverViewModel @Inject constructor(
     private var quoteJob: Job? = null
     /** The deck day ([todayKey]) the deck on screen was loaded for. */
     private var loadedDay: String? = null
+    /** Whether the deck on screen is the day's shared one; one picked while the server was out of reach isn't. */
+    private var deckShared = true
+    /** A shared-deck check in flight: the tick doesn't start another. */
+    private var checkingShared = false
     /** A rollover reload: DeckSession resets with the new deck, not before it. */
     private var resetSessionOnLoad = false
     /** [StakClock.lastCloseRef] when the deck was last priced - a changed one means the prices predate a session boundary. */
@@ -336,7 +347,7 @@ class DiscoverViewModel @Inject constructor(
      * on the end-of-deck screen). Past the 9am rollover the next deck is loaded; otherwise
      * the visible cards are re-priced.
      */
-    fun onVisibleTick(visible: List<String>) {
+    fun onVisibleTick(visible: List<String>, busy: Boolean = false) {
         if (_loading.value) return
         if (loadedDay != null && loadedDay != todayKey()) {
             // The day's run resets only once the new cards are in (iOS's rule) - resetting first showed the previous
@@ -345,7 +356,36 @@ class DiscoverViewModel @Inject constructor(
             fetchDeck()
             return
         }
+        // Not mid-swipe: a card being dragged, flying off, open in Quick Look or inside its undo window stays put.
+        if (!deckShared && !busy && pendingSwipeJobs.isEmpty()) checkSharedDeck()
         refreshQuotes(visible)
+    }
+
+    /**
+     * A deck picked while the server was out of reach: once it answers - the day's shared deck, or a ranking to pick
+     * one from - the deck reloads into the shared one (cards swiped today stay out). Nothing new to load, nothing
+     * changes - so a phone still offline isn't reloaded every tick.
+     */
+    private fun checkSharedDeck() {
+        if (checkingShared) return
+        checkingShared = true
+        viewModelScope.launch {
+            try {
+                val shared = runCatching { repository.getDailyDeck(todayKey()).tickers }.getOrNull() ?: return@launch
+                val canPick = shared.isNotEmpty() ||
+                    runCatching { repository.getRecommendations().brandIds }.getOrNull().orEmpty().isNotEmpty()
+                if (!canPick || _loading.value || pendingSwipeJobs.isNotEmpty()) return@launch
+                // 9am passed while asking: the rollover's reload, not a re-pick.
+                if (loadedDay != todayKey()) {
+                    resetSessionOnLoad = true
+                    fetchDeck()
+                } else {
+                    fetchDeck(repick = true)
+                }
+            } finally {
+                checkingShared = false
+            }
+        }
     }
 
     /**

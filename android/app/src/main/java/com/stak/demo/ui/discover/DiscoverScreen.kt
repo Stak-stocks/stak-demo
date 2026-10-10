@@ -357,12 +357,6 @@ internal fun DiscoverScreen(
 	val remainingDeck = deck.filter { it.symbol !in savedCards && it.symbol !in passedCards }
 		.take((dailyLimit - swipedToday).coerceAtLeast(0))
 	val atEnd = remainingDeck.isEmpty() || hasReachedLimit
-	// Prices move while the deck sits open. Every 30s, for the front card and the two
-	// peeking behind it only - swiped cards and the end screen show no price.
-	RefreshWhileVisible(key = Unit, intervalMs = 30_000L, tickOnResume = true) {
-		viewModel.onVisibleTick(if (atEnd) emptyList() else remainingDeck.take(3).map { it.symbol })
-	}
-
 	val initialResetKey = remember { resetKey }
 	LaunchedEffect(Unit) { DeckSession.refreshDay() }
 	LaunchedEffect(resetKey) {
@@ -390,6 +384,13 @@ internal fun DiscoverScreen(
 	val flyOffset = remember { Animatable(0f) }
 	val flyFade = remember { Animatable(1f) }
 	val swipeOffset = remember { Animatable(0f) }
+	// Prices move while the deck sits open. Every 30s, for the front card and the two
+	// peeking behind it only - swiped cards and the end screen show no price. Busy while a
+	// card is in hand, so an offline deck isn't swapped for the shared one under it.
+	RefreshWhileVisible(key = Unit, intervalMs = 30_000L, tickOnResume = true) {
+		val busy = swipeOffset.value != 0f || flyingCard != null || quickLookCard != null || pendingUndo != null
+		viewModel.onVisibleTick(if (atEnd) emptyList() else remainingDeck.take(3).map { it.symbol }, busy)
+	}
 	val scope = rememberCoroutineScope()
 	val density = LocalDensity.current
 	val u = com.stak.demo.ui.onboarding.figmaUnit()

@@ -439,7 +439,9 @@ struct DiscoverView: View {
 	}
 
 	private func tick() {
-		discoverVM.onVisibleTick(atEnd ? [] : remainingDeck.prefix(3).map(\.symbol))
+		// Busy while a card is in hand, so an offline deck isn't swapped for the shared one under it.
+		let busy = dragActive || flyingCard != nil || quickLookCard != nil || pendingUndo != nil
+		discoverVM.onVisibleTick(atEnd ? [] : remainingDeck.prefix(3).map(\.symbol), busy: busy)
 	}
 
 	// MARK: - The deck
