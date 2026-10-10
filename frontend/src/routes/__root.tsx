@@ -63,7 +63,12 @@ function Root() {
 	// who used the web app before the lock why they only find the landing page (once a tab).
 	useEffect(() => {
 		const teamAccessChange = takeTeamAccessChange();
-		if (teamAccessChange === "unlocked") toast("Team access is on", { description: "This browser can open all of STAK. Visit with ?team=off to lock it again.", duration: 8000 });
+		if (teamAccessChange === "unlocked") {
+			toast("Team access is on", { description: "This browser can open all of STAK. Visit with ?team=off to lock it again.", duration: 8000 });
+			// The landing page has no way to sign in: a team link to it goes to Sign in (which sends someone already
+			// signed in on into the app).
+			if (location.pathname === "/" || location.pathname === "/welcome") navigate({ to: "/login", replace: true });
+		}
 		else if (teamAccessChange === "relocked") toast("Team access is off", { description: "This browser now sees only the landing page." });
 		else if (teamAccessChange === "wrong") toast("That team link didn't work", { description: "Check the link and try again." });
 		if (!isWebLockedOut() || !hasSavedWebSession()) return;
