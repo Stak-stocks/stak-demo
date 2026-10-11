@@ -95,9 +95,12 @@ function DiscoverPage() {
 	const ticketUp = phase.kind === "buy" || state === "buy";
 	const filledUp = phase.kind === "filled" || state === "filled";
 
+	// toEnd() already navigates: the effect below must not send a second navigation in the same tick
+	const ending = useRef(false);
+
 	// a finished (or metered-out) deck lands on the receipt — never while a frame preview is shown
 	useEffect(() => {
-		if (loading || previewing || n === 0) return;
+		if (loading || previewing || n === 0 || ending.current) return;
 		if (deck.done || deck.limitReached) {
 			deck.finish();
 			navigate({ to: "/discover/end", replace: true });
@@ -109,6 +112,7 @@ function DiscoverPage() {
 	}, [previewing, navigate, keep]);
 
 	const toEnd = useCallback(() => {
+		ending.current = true;
 		deck.finish();
 		navigate({ to: "/discover/end" });
 	}, [deck.finish, navigate]);
@@ -119,6 +123,8 @@ function DiscoverPage() {
 		busy.current = true;
 		setLeaving(true);
 		await new Promise((r) => setTimeout(r, reducedMotion() ? 0 : OUT_MS));
+		// passing the last card finishes the deck inside deck.pass: this handler routes to the receipt, not the effect
+		if (index + 1 >= n) ending.current = true;
 		const ok = await deck.pass(centre.symbol);
 		busy.current = false;
 		if (!mounted.current) return; // the person left mid-swipe: nothing to animate or route
