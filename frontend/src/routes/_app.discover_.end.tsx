@@ -50,12 +50,13 @@ function EndOfDeckPage() {
 				<h1 className="whitespace-nowrap font-sora text-[28px] font-semibold leading-[35px] text-[#f2f6fc]">
 					{preview || seen >= DECK_SIZE ? endOfDeck.title : "Deck in progress"}
 				</h1>
-				<p className="w-[400px] text-center font-geist text-[13px] leading-[17px] text-[#819abb]">{body}</p>
+				{/* 2:3433: Figma sets this line LEFT-aligned in its 400px box (x 560), not centred */}
+				<p className="w-[400px] text-left font-geist text-[13px] leading-[17px] text-[#819abb]">{body}</p>
 				<div className="flex items-start gap-[12px] overflow-clip whitespace-nowrap">
 					{receipt.map((r) => (
 						<div key={r.label} className="flex h-[60px] w-[150px] flex-col items-center gap-[2px] overflow-clip rounded-[12px] bg-[#181f30] py-[12px]">
 							<p className="font-geist text-[11px] leading-[14px] text-[#819abb]">{r.label}</p>
-							<p className="font-sora text-[20px] font-semibold leading-[20px] text-[#f2f6fc]">{r.value}</p>
+							<p className="font-sora text-[20px] font-semibold leading-[25px] text-[#f2f6fc]">{r.value}</p>
 						</div>
 					))}
 				</div>

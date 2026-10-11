@@ -6,7 +6,6 @@ import { colPlus } from "@/app/FitCanvas";
 import { financialsOf } from "@/app/live/catalog";
 import { money, signedPct } from "@/app/live/format";
 import { type Quote, stockDataQuery, useApiHealth, useQuote } from "@/app/live/quotes";
-import { useShowcase } from "@/app/live/showcase";
 import { useLive } from "@/app/live/store";
 import { N } from "@/app/news/assets";
 import { article } from "@/app/news/data";
@@ -32,8 +31,8 @@ function NewsDetailPage() {
 	const { saved: preview } = Route.useSearch();
 	const live = useLive();
 	const quote = useQuote(SYMBOL);
-	/** the untouched demo persona reads the frame's own rail (AAPL $308.63, +4.84%, $4.58T ...; live/showcase.ts) */
-	const showcase = useShowcase();
+	/** a signed-out visitor reads the frame's own rail (AAPL $308.63, +4.84%, $4.58T ...); accounts get the live one */
+	const authoredRail = !live.signedIn;
 	const saved = Boolean(preview) || live.savedTickers.has(SYMBOL);
 	const [busy, setBusy] = useState(false);
 	const a = article;
@@ -125,7 +124,7 @@ function NewsDetailPage() {
 					</article>
 				</div>
 
-				<Rail saved={saved} busy={busy} quote={showcase ? null : quote} authoredStats={showcase} onSave={save} />
+				<Rail saved={saved} busy={busy} quote={authoredRail ? null : quote} authoredStats={authoredRail} onSave={save} />
 			</div>
 		</div>
 	);

@@ -155,10 +155,11 @@ export function useStockDetail(symbol: string, opts: { previewSaved?: boolean } 
 	const known = !!authored || isKnownTicker(T);
 	const live = useLive();
 	const taste = useTaste();
-	// the untouched demo persona is the design itself: authored content and demo prices, no live API (live/showcase.ts)
+	// a signed-out visitor reads the authored page for the tickers the frames show (AAPL ...) for the whole visit;
+	// only tickers the design never covered, and every ticker for an account, come from the live API
 	const showcase = isShowcase(live);
 	const health = useApiHealthState();
-	const healthy = health.healthy && !showcase;
+	const healthy = health.healthy && (live.signedIn || !authored);
 	const settled = health.settled;
 	const quote = useQuote(T);
 	const q = useQuery(quoteQuery(T, healthy && known));

@@ -354,8 +354,9 @@ function DiscoverPage() {
 				</div>
 			</div>
 
+			{/* 2:3234 "Toast": over the front card (z above its z-2), bbox top at y 170 like the frame */}
 			{(state === "saved" || savedToast) && (
-				<div className="absolute top-[118.01px] flex h-[44.963px] w-[161.348px] items-center justify-center" style={{ left: colCentre(812, 303.33) }} aria-hidden="true">
+				<div className="absolute top-[112.01px] z-[3] flex h-[44.963px] w-[161.348px] items-center justify-center" style={{ left: colCentre(812, 303.33) }} aria-hidden="true">
 					<div className="stak-sheet-in flex rotate-[-2.15deg] items-center gap-[9px] overflow-clip rounded-[18px] bg-[rgba(36,43,61,0.48)] px-[16px] py-[11px]">
 						<img alt="" src={D.toastBookmark} className="size-[17px]" />
 						<p className="whitespace-nowrap font-geist text-[12px] font-medium leading-[16px] text-white">{deckCopy.toast}</p>

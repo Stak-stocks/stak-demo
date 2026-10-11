@@ -8,7 +8,7 @@ import { useRef } from "react";
 import { getMarketStatusLive, getStockData } from "@/lib/api";
 import { normalizeTicker } from "./catalog";
 import { DEMO_QUOTES } from "./demoQuotes";
-import { useShowcase } from "./showcase";
+import { useLive } from "./store";
 import { round2 } from "./format";
 
 export type Quote = { ticker: string; price: number; change: number; changePercent: number; live: boolean };
@@ -90,29 +90,33 @@ function quoteSelector(ticker: string) {
 /** The shared quote query (the stock-data cache seen as a Quote) for screens that must know when a live quote is still loading. */
 export const quoteQuery = (ticker: string, enabled: boolean) => ({ ...stockDataQuery(ticker, enabled), select: quoteSelector(ticker) });
 
-/** Live quotes are for real use: the untouched demo persona is the design itself and prices everything at the frames' demo quotes (live/showcase.ts). */
-function useLiveQuotes(): boolean {
+/**
+ * Which tickers may use the live API. Signed-in accounts: every ticker. Signed-out visitors are on the demo, the
+ * design itself: the tickers the frames price keep the frames' prices for the whole visit (no jump to live prices
+ * after the first save), and only tickers the design never priced are filled from the API.
+ */
+function useLiveFor(): (ticker: string) => boolean {
 	const healthy = useApiHealth();
-	const showcase = useShowcase();
-	return healthy && !showcase;
+	const signedIn = useLive().signedIn;
+	return (ticker: string) => healthy && ticker.length > 0 && (signedIn || !hasDemoQuote(ticker));
 }
 
 /** The live quote when the API has one, the demo quote otherwise, null for an unknown symbol. */
 export function useQuote(ticker: string): Quote | null {
 	const t = normalizeTicker(ticker);
-	const healthy = useLiveQuotes();
-	const q = useQuery(quoteQuery(t, healthy && t.length > 0));
-	return q.data ?? demoQuote(t);
+	const liveFor = useLiveFor();
+	const q = useQuery(quoteQuery(t, liveFor(t)));
+	return (liveFor(t) ? q.data : null) ?? demoQuote(t);
 }
 
 /** Quotes for a list of tickers, keyed by ticker (missing when neither source knows it). */
 export function useQuotes(tickers: readonly string[]): Record<string, Quote> {
-	const healthy = useLiveQuotes();
+	const liveFor = useLiveFor();
 	const list = [...new Set(tickers.map(normalizeTicker).filter(Boolean))];
-	const results = useQueries({ queries: list.map((t) => quoteQuery(t, healthy)) });
+	const results = useQueries({ queries: list.map((t) => quoteQuery(t, liveFor(t))) });
 	const next: Record<string, Quote> = {};
 	list.forEach((t, i) => {
-		const q = results[i]?.data ?? demoQuote(t);
+		const q = (liveFor(t) ? results[i]?.data : null) ?? demoQuote(t);
 		if (q) next[t] = q;
 	});
 	// hand back the previous record while nothing in it changed, so memos keyed on quotes hold between renders
