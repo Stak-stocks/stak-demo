@@ -47,6 +47,8 @@ export const deckCopy = {
 	save: "Save",
 	saved: "Saved",
 	toast: "Saved to My STAK",
+	/** a second press on Saved: the same 2:3234 pill with the outline glyph */
+	removed: "Removed from My STAK",
 	practiceBuy: "Practice buy",
 	learnMore: "Learn more",
 } as const;

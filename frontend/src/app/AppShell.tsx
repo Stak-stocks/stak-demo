@@ -1,6 +1,6 @@
 import { useRouterState } from "@tanstack/react-router";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { viewportHeight } from "./FitCanvas";
+import { fillHeight } from "./FitCanvas";
 import { type NavKey, Sidebar } from "./Sidebar";
 import { SidebarSkeleton } from "./SidebarSkeleton";
 
@@ -48,8 +48,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 	const toggle = useCallback(() => setOpen((v) => !v), []);
 
+	// at least the 1024 frame: a shorter window scrolls to the frame's bottom (the deck's buttons keep their 116px below)
 	return (
-		<div className="stak-figma flex bg-[#0a1020] font-geist text-[#f2f6fc] antialiased" style={{ minHeight: viewportHeight() }}>
+		<div className="stak-figma flex bg-[#0a1020] font-geist text-[#f2f6fc] antialiased" style={{ minHeight: fillHeight }}>
 			{loading ? (
 				<SidebarSkeleton active={activeFromPath(pathname) === "discover" ? "discover" : "home"} />
 			) : <Sidebar open={navOpen} active={activeFromPath(pathname)} onToggle={toggle} />}

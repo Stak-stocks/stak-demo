@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+import { D } from "@/app/discover/assets";
 import { isShowcase, SHOWCASE_CASH, useLive } from "@/app/live";
 import { NotFound } from "@/app/NotFound";
 import { BuyFailedSheet } from "@/app/simulate/sheets";
@@ -83,10 +84,10 @@ function StockPage() {
 		try {
 			if (live.savedTickers.has(stock.symbol.toUpperCase())) {
 				await live.actions.unsave(stock.symbol);
-				toast("Removed from My STAK");
+				toast("Removed from My STAK", { icon: <img alt="" src={D.bookmark} className="size-[17px]" /> });
 			} else {
 				await live.actions.save(stock.symbol, price || null);
-				toast("Saved to My STAK");
+				toast("Saved to My STAK", { icon: <img alt="" src={D.toastBookmark} className="size-[17px]" /> });
 			}
 		} catch {
 			toast("Could not update My STAK. Try again.");
@@ -98,9 +99,9 @@ function StockPage() {
 	const confirmBuy = async (amount: number) => {
 		try {
 			const pos = await live.actions.buy(stock.symbol, amount, price);
+			// the Order filled sheet is the confirmation (no second toast over it)
 			setPhase({ kind: "filled", shares: pos.shares, cash: pos.cashAfter });
 			if (search.ticket || search.sheet) update({ ticket: undefined, sheet: undefined });
-			toast("Order filled");
 		} catch {
 			setPhase({ kind: "failed" });
 			if (search.ticket || search.sheet) update({ ticket: undefined, sheet: undefined });

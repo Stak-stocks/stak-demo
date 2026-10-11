@@ -106,14 +106,8 @@ export function StockDetailSkeleton() {
 				<div className="flex min-w-0 flex-col items-start gap-[14px] overflow-clip" style={{ flex: "360 1 0" }}>
 					<div className="flex w-full flex-col items-start gap-[10px] overflow-clip rounded-[16px] bg-[#181f30] p-[16px]">
 						<div className="flex w-full flex-col items-start gap-[10px]">
-							<div
-								className="h-[52px] w-full rounded-[6px]"
-								style={{ backgroundImage: GRADIENT, boxShadow: hairline(0.361, "rgba(101,158,173,0.63)"), filter: GLOW_FILTER }}
-							/>
-							<div
-								className="flex h-[52px] w-full items-center justify-center overflow-clip rounded-[6px]"
-								style={{ boxShadow: hairline(0.361, "rgba(101,158,173,0.63)"), filter: GLOW_FILTER }}
-							>
+							<div className="stak-stroke h-[52px] w-full rounded-[6px]" style={{ backgroundImage: GRADIENT, filter: GLOW_FILTER }} />
+							<div className="stak-stroke flex h-[52px] w-full items-center justify-center overflow-clip rounded-[6px]" style={{ filter: GLOW_FILTER }}>
 								<Bar w={59.04} h={11.55} />
 							</div>
 						</div>

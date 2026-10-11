@@ -1,7 +1,7 @@
 /**
  * Today's deck: twelve real companies from the catalog, themed, excluding what the person already
- * saved or passed, with the three cards the frames illustrate (AAPL · NVDA · GOOGL) leading the
- * first theme. Progress persists per day; signed-in swipes count against the account's daily
+ * saved or passed, with the three cards the frames illustrate leading the first theme in the frames'
+ * stack order: NVDA in front, AAPL behind it (the left card), GOOGL behind that (the right card). Progress persists per day; signed-in swipes count against the account's daily
  * limit the way the mobile app's do.
  */
 import { DAILY_SWIPE_LIMIT } from "@stak/shared/swipeLimit";
@@ -25,7 +25,8 @@ export const DECK_THEMES: readonly DeckTheme[] = [
 		key: "ai-chips",
 		kicker: deckHeader.kicker,
 		categories: ["semiconductor", "semiconductor_equipment", "mega_cap_tech", "enterprise_software", "automation_ai", "database_data", "consumer_tech", "default_tech", "social_media"],
-		pinned: ["AAPL", "NVDA", "GOOGL"],
+		// 2:2944 opens on NVDA (1/12) with AAPL and GOOGL stacked behind it
+		pinned: ["NVDA", "AAPL", "GOOGL"],
 	},
 	{
 		key: "brands",
@@ -191,7 +192,7 @@ export type Deck = {
 	/** the card the pointer is on (0-based) */
 	index: number;
 	current: DeckCard | undefined;
-	/** "n" of "n/12": cards decided so far (the current one counts once it is saved) */
+	/** "n" of "n/12": the card being decided, 1 on a fresh deck (2:2944), one more for every decision (2:3089 reads 2/12 once the card is saved) */
 	counter: number;
 	total: number;
 	decided: Set<string>;
@@ -215,8 +216,12 @@ export function useDeck(opts: { quotes?: boolean } = {}): Deck {
 	const { healthy, settled } = useApiHealthState();
 	const date = getLocalDateKey();
 	// today's stored deck decides the theme (so finishing it does not rotate it away); the rotation only picks the NEXT deck
-	const stored = live.deck && live.deck.date === date ? live.deck : null;
-	const theme = DECK_THEMES.find((t) => t.key === stored?.theme) ?? DECK_THEMES[live.completedDecks % DECK_THEMES.length]!;
+	const today = live.deck && live.deck.date === date ? live.deck : null;
+	const theme = DECK_THEMES.find((t) => t.key === today?.theme) ?? DECK_THEMES[live.completedDecks % DECK_THEMES.length]!;
+	// an untouched deck stored before the frames' stack order (AAPL first) is rebuilt; one in progress keeps its cards
+	const pinned = theme.pinned ?? [];
+	const untouched = !!today && today.index === 0 && !today.completed && !today.saved.length && !today.passed.length && !today.bought.length;
+	const stored = today && untouched && pinned.length > 0 && today.order[0] !== pinned[0] ? null : today;
 	const progress = stored;
 	const [limitReached, setLimitReached] = useState(false);
 
@@ -242,7 +247,7 @@ export function useDeck(opts: { quotes?: boolean } = {}): Deck {
 		[progress],
 	);
 	const current = cards[index];
-	const counter = Math.max(index, decided.size - (current && decided.has(current.symbol) ? 1 : 0)) + (current && decided.has(current.symbol) ? 1 : 0);
+	const counter = Math.min(DECK_SIZE, Math.max(decided.size, index) + 1);
 
 	const patch = useCallback(
 		(fn: (p: DeckProgress) => Partial<DeckProgress>) =>

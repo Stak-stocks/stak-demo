@@ -45,7 +45,7 @@ describe("buildDeckOrder", () => {
 		const b = buildDeckOrder(theme, new Set(["MSFT"]), "2026-10-09:ai-chips:guest", true);
 		expect(a).toEqual(b);
 		expect(a).toHaveLength(DECK_SIZE);
-		expect(a.slice(0, 3)).toEqual(["AAPL", "NVDA", "GOOGL"]);
+		expect(a.slice(0, 3)).toEqual(["NVDA", "AAPL", "GOOGL"]);
 		expect(a).not.toContain("MSFT");
 		expect(new Set(a).size).toBe(DECK_SIZE);
 		expect(a.every(hasDemoQuote)).toBe(true);

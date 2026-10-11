@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { A } from "@/app/assets";
 import { colCentre } from "@/app/FitCanvas";
 import { Bar } from "@/app/SidebarSkeleton";
-import { GLOW_FILTER, GRADIENT, hairline } from "@/app/ui/Button";
+import { GLOW_FILTER, GRADIENT } from "@/app/ui/Button";
 
 const L = A.loading;
 
@@ -101,11 +101,8 @@ export function DeckSkeleton() {
 				</div>
 
 				<div className="flex w-[320px] flex-col items-center gap-[11px]">
-					<div
-						className="h-[52px] w-full rounded-[6px]"
-						style={{ backgroundImage: GRADIENT, boxShadow: hairline(0.361, "rgba(101,158,173,0.63)"), filter: GLOW_FILTER }}
-					/>
-					<div className="h-[52px] w-full rounded-[6px]" style={{ boxShadow: hairline(0.361, "rgba(101,158,173,0.63)"), filter: GLOW_FILTER }} />
+					<div className="stak-stroke h-[52px] w-full rounded-[6px]" style={{ backgroundImage: GRADIENT, filter: GLOW_FILTER }} />
+					<div className="stak-stroke h-[52px] w-full rounded-[6px]" style={{ filter: GLOW_FILTER }} />
 				</div>
 			</div>
 		</div>

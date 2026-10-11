@@ -180,6 +180,24 @@ input::-webkit-credentials-auto-fill-button {
 		height: 100%;
 		overflow: hidden;
 	}
+	/* The desktop app scrolls the document: its frames run 1024-2050px tall and a laptop window is ~730, so the
+	   rule above cut every page at the window's edge (Discover's Practice buy and Learn more, the article, Sign up)
+	   with no way to reach the rest. The scrollbar stays hidden like the landing's (the frames draw none),
+	   sideways overflow (a card leaving the deck) is clipped, and an open sheet holds the page still. */
+	html.stak-desktop,
+	html.stak-desktop body,
+	html.stak-desktop #app {
+		overflow: visible;
+	}
+	html.stak-desktop {
+		scrollbar-width: none;
+	}
+	html.stak-desktop body {
+		overflow-x: clip;
+	}
+	html.stak-desktop:has(dialog[open]) body {
+		overflow: hidden;
+	}
 	body {
 		@apply bg-background text-foreground;
 	}
@@ -493,10 +511,63 @@ input::-webkit-credentials-auto-fill-button {
 	}
 }
 
+/* Figma's button stroke (79 buttons in 42 frames: every primary, ghost, Sell and Buy button): 0.361px OUTSIDE the box,
+   a vertical gradient rgba(101,158,173,.63) -> rgba(22,54,63,.43) (gradientTransform t = 0.0323 + 0.9677 * y/h), so
+   the top edge reads and the bottom edge all but vanishes. A border or outline snaps to a whole pixel and a box-shadow
+   cannot take a gradient, so the ring is an SVG drawn in a box 1px around the button, its rect on the stroke's centre
+   line (1 - 0.18066). `-sm` is the 60x30 Buy pill (r 5.781, its own gradient span). */
+@layer components {
+	.stak-stroke {
+		position: relative;
+		overflow-clip-margin: 1px;
+	}
+	.stak-stroke::after {
+		content: "";
+		position: absolute;
+		inset: -1px;
+		pointer-events: none;
+		background: no-repeat
+			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3ClinearGradient id='s' x1='0' y1='-0.0297' x2='0' y2='0.99655'%3E%3Cstop stop-color='rgb(101,158,173)' stop-opacity='0.63'/%3E%3Cstop offset='1' stop-color='rgb(22,54,63)' stop-opacity='0.43'/%3E%3C/linearGradient%3E%3Crect style='x:0.81934px;y:0.81934px;width:calc(100%25 - 1.63868px);height:calc(100%25 - 1.63868px)' rx='6.18066' fill='none' stroke='url(%23s)' stroke-width='0.36132'/%3E%3C/svg%3E");
+	}
+	.stak-stroke-sm::after {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3ClinearGradient id='s' x1='0' y1='-0.02703' x2='0' y2='0.99405'%3E%3Cstop stop-color='rgb(101,158,173)' stop-opacity='0.63'/%3E%3Cstop offset='1' stop-color='rgb(22,54,63)' stop-opacity='0.43'/%3E%3C/linearGradient%3E%3Crect style='x:0.81934px;y:0.81934px;width:calc(100%25 - 1.63868px);height:calc(100%25 - 1.63868px)' rx='5.96171' fill='none' stroke='url(%23s)' stroke-width='0.36132'/%3E%3C/svg%3E");
+	}
+}
+
+/* The one toast the desktop frames draw (2:3234 "Saved to My STAK"): a #242b3d 48% pill, radius 18, 16 x 11 padding,
+   Geist Medium 12/16 white. Sonner keeps placing and stacking the toasts; this is their whole look. */
+.stak-toast {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	width: fit-content;
+	left: 0;
+	right: 0;
+	margin-inline: auto;
+	padding: 11px 16px;
+	border-radius: 18px;
+	background: rgba(36, 43, 61, 0.48);
+	color: #fff;
+	font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 16px;
+}
+.stak-toast [data-icon] {
+	display: flex;
+	flex-shrink: 0;
+}
+/* grayscale text like the rest of the app (the toaster renders outside .stak-figma) */
+.stak-toast [data-title] {
+	opacity: 0.999;
+}
+
 /* Figma draws text with grayscale anti-aliasing; Chrome on Windows draws it with coloured sub-pixel (LCD) edges that
-   read heavier. A text element in its own (transparent) opacity group is drawn grayscale, like Figma. */
+   read heavier. A text element in its own (transparent) opacity group is drawn grayscale, like Figma. `:is()` gives
+   the rule one class of specificity: preflight's `button, input, textarea { opacity: 1 }` sits in this layer too and
+   kept every button label (Practice buy, Learn more, Sign in...) on LCD edges. */
 @layer base {
-	:where(.stak-figma, .stak-dialog) :where(p, span, h1, h2, h3, h4, h5, h6, a, button, label, input, textarea):where(:not(:has(*))) {
+	:is(.stak-figma, .stak-dialog) :where(p, span, h1, h2, h3, h4, h5, h6, a, button, label, input, textarea):where(:not(:has(*))) {
 		opacity: 0.999;
 	}
 }

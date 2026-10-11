@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { CSSProperties, KeyboardEvent, ReactNode, Ref } from "react";
-import { GHOST_FILTER, GRADIENT, HAIRLINE_COLOR, hairline } from "@/app/ui/Button";
+import { GHOST_FILTER, GRADIENT, STROKE, hairline, outsideHairline } from "@/app/ui/Button";
 import { cn } from "@/lib/utils";
 import { SA } from "./assets";
 
@@ -139,7 +139,7 @@ export function GhostButton({
 			autoFocus={autoFocus}
 			data-autofocus={autoFocus || undefined}
 			className={cn(PRESS, "flex w-full items-center justify-center px-[14px] py-[7px]", className)}
-			style={{ height, borderRadius: radius, boxShadow: hairline(0.361, "rgba(52,59,79,0.33)"), filter: GHOST_FILTER }}
+			style={{ height, borderRadius: radius, boxShadow: outsideHairline(0.361, "rgba(52,59,79,0.33)"), filter: GHOST_FILTER }}
 		>
 			<span className="whitespace-nowrap font-sora leading-[18px] text-[#819abb]" style={{ fontSize }}>
 				{children}
@@ -155,8 +155,8 @@ export function SellButton({ children, onClick, width, disabled }: { children: R
 			type="button"
 			onClick={onClick}
 			disabled={disabled}
-			className={cn(PRESS, "flex h-[51px] items-center justify-center rounded-[6px] bg-[#12203e]", width ? "" : "w-full")}
-			style={{ width, boxShadow: hairline(0.361, HAIRLINE_COLOR), filter: SELL_FILTER }}
+			className={cn(PRESS, STROKE, "flex h-[51px] items-center justify-center rounded-[6px] bg-[#12203e]", width ? "" : "w-full")}
+			style={{ width, filter: SELL_FILTER }}
 		>
 			<span className="whitespace-nowrap font-sora text-[14px] leading-[20.69px] text-white">{children}</span>
 		</button>
@@ -170,8 +170,8 @@ export function SmallBuyButton({ children, onClick, "aria-label": ariaLabel }: {
 			type="button"
 			onClick={onClick}
 			aria-label={ariaLabel}
-			className={cn(PRESS, "flex h-[30px] w-[60px] shrink-0 items-center justify-center rounded-[5.781px] px-[10px] py-[7.226px]")}
-			style={{ backgroundImage: GRADIENT, boxShadow: hairline(0.361, HAIRLINE_COLOR), filter: BUY_FILTER }}
+			className={cn(PRESS, STROKE, "stak-stroke-sm flex h-[30px] w-[60px] shrink-0 items-center justify-center rounded-[5.781px] px-[10px] py-[7.226px]")}
+			style={{ backgroundImage: GRADIENT, filter: BUY_FILTER }}
 		>
 			<span className="whitespace-nowrap font-sora text-[12px] leading-[15px] text-white">{children}</span>
 		</button>

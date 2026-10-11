@@ -1,7 +1,6 @@
 import { DeckSkeleton } from "@/app/discover/DeckSkeleton";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
 import { D } from "@/app/discover/assets";
 import { GhostButton } from "@/app/discover/Button";
 import { PrimaryButton } from "@/app/ui/Button";
@@ -28,6 +27,9 @@ export const Route = createFileRoute("/_app/discover")({
 	}),
 	component: DiscoverPage,
 });
+
+/** The progress ring's circumference (r 21.6). */
+const RING_LENGTH = 2 * Math.PI * 21.6;
 
 const OUT_MS = 220;
 const IN_MS = 200;
@@ -61,7 +63,14 @@ function DiscoverPage() {
 	const [phase, setPhase] = useState<Phase>({ kind: "idle" });
 	const [leaving, setLeaving] = useState(false);
 	const [entering, setEntering] = useState(false);
-	const [savedToast, setSavedToast] = useState(false);
+	// the frame's toast pill (2:3234): "Saved to My STAK", or "Removed from My STAK" for a second press
+	const [note, setNote] = useState<"saved" | "removed" | null>(null);
+	const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const showNote = useCallback((kind: "saved" | "removed") => {
+		if (noteTimer.current) clearTimeout(noteTimer.current);
+		setNote(kind);
+		noteTimer.current = setTimeout(() => mounted.current && setNote(null), 2500);
+	}, []);
 	const busy = useRef(false);
 	const mounted = useRef(true);
 	useEffect(() => {
@@ -75,12 +84,13 @@ function DiscoverPage() {
 	const previewing = i !== undefined || state !== undefined;
 	const index = n === 0 ? 0 : Math.min(i ?? deck.index, n - 1);
 	const centre = deck.cards[index];
-	const left = n ? deck.cards[(index - 1 + n) % n] : undefined;
-	const right = n ? deck.cards[(index + 1) % n] : undefined;
+	// the frames' stack: the left card (85%, nearly full size) is the next one, the right card (65%, smaller) the one after
+	const left = deck.cards[index + 1];
+	const right = deck.cards[index + 2];
 	const centreSaved = state === "saved" || (!!centre && centre.saved);
-	const decidedBefore = deck.order.slice(0, index).filter((t) => deck.decided.has(t)).length;
-	const centreDecided = !!centre && (deck.decided.has(centre.symbol) || centreSaved);
-	const counter = Math.min(deck.total, Math.max(index, decidedBefore) + (centreDecided ? 1 : 0));
+	// "n/12" (deck.counter): 1/12 on a fresh deck (2:2944), 2/12 once that card is saved (2:3089); a preview counts its index
+	const previewDecision = state === "saved" && !!centre && !deck.decided.has(centre.symbol) ? 1 : 0;
+	const counter = Math.min(deck.total, Math.max(deck.counter, index + 1) + previewDecision);
 	const price = centre?.quote?.price ?? 0;
 	const ticketUp = phase.kind === "buy" || state === "buy";
 	const filledUp = phase.kind === "filled" || state === "filled";
@@ -130,7 +140,7 @@ function DiscoverPage() {
 		try {
 			if (centre.saved && state !== "saved") {
 				await deck.unsave(centre.symbol);
-				toast("Removed from My STAK");
+				if (mounted.current) showNote("removed");
 				return;
 			}
 			if (previewing) deck.go(index);
@@ -140,13 +150,12 @@ function DiscoverPage() {
 				toEnd();
 				return;
 			}
-			setSavedToast(true);
-			setTimeout(() => mounted.current && setSavedToast(false), 2500);
+			showNote("saved");
 			clearPreview();
 		} finally {
 			busy.current = false;
 		}
-	}, [centre, state, previewing, deck, index, price, toEnd, clearPreview]);
+	}, [centre, state, previewing, deck, index, price, toEnd, clearPreview, showNote]);
 
 	const onPrevious = useCallback(() => {
 		if (index === 0) return;
@@ -163,9 +172,9 @@ function DiscoverPage() {
 			const pos = await live.actions.buy(centre.symbol, amount, price);
 			if (previewing) deck.go(index);
 			deck.markBought(centre.symbol);
+			// the Order filled sheet is the confirmation (no second toast over it)
 			setPhase({ kind: "filled", shares: pos.shares, cash: pos.cashAfter });
 			if (state === "buy") clearPreview();
-			toast("Order filled");
 		} catch {
 			setPhase({ kind: "failed" });
 			if (state === "buy") clearPreview();
@@ -261,7 +270,7 @@ function DiscoverPage() {
 			<div className="relative">
 				<style>{DECK_MOTION_CSS}</style>
 				<div role="status" aria-live="polite" className="sr-only">
-					{savedToast ? deckCopy.toast : ""}
+					{note === "removed" ? deckCopy.removed : note === "saved" ? deckCopy.toast : ""}
 				</div>
 				<ExampleDeck
 					card={centre}
@@ -271,7 +280,7 @@ function DiscoverPage() {
 					total={deck.total}
 					leaving={leaving}
 					entering={entering}
-					toast={state === "saved" || savedToast}
+					toast={state === "saved" || note === "saved"}
 					onPass={onPass}
 					onSave={onSave}
 					onBuy={() => centre && setPhase({ kind: "buy" })}
@@ -287,7 +296,7 @@ function DiscoverPage() {
 			<style>{DECK_MOTION_CSS}</style>
 			{/* always mounted, so a save is announced when the text arrives (the visual toast below is decorative) */}
 			<div role="status" aria-live="polite" className="sr-only">
-				{savedToast ? deckCopy.toast : ""}
+				{note === "removed" ? deckCopy.removed : note === "saved" ? deckCopy.toast : ""}
 			</div>
 			<header className="flex h-[92px] w-full items-center justify-between pr-[47px]">
 				<div className="flex flex-col items-start gap-[6px] overflow-clip whitespace-nowrap">
@@ -295,7 +304,20 @@ function DiscoverPage() {
 					<p className="font-geist text-[11px] font-medium leading-[14px] tracking-[0.88px] text-[#819abb]">{deck.theme.kicker}</p>
 				</div>
 				<div className="relative size-[52.8px] overflow-clip" role="status" aria-label={`${counter} of ${deck.total} cards`}>
-					<img alt="" src={D.ring} className="absolute left-0 top-0 size-[52.8px]" />
+					{/* the frame's ring (5304b.svg: r 21.6, 4.8 stroke, #2A3346 track): its #69B3CA arc runs 30deg = 1/12 from the top and grows with the counter */}
+					<svg aria-hidden="true" viewBox="0 0 52.8 52.8" fill="none" className="absolute left-0 top-0 size-[52.8px]">
+						<circle cx="26.4" cy="26.4" r="21.6" stroke="#2A3346" strokeWidth="4.8" />
+						<circle
+							cx="26.4"
+							cy="26.4"
+							r="21.6"
+							stroke="#69B3CA"
+							strokeWidth="4.8"
+							strokeLinecap="round"
+							strokeDasharray={`${(Math.min(counter, deck.total) / deck.total) * RING_LENGTH} ${RING_LENGTH}`}
+							transform="rotate(-90 26.4 26.4)"
+						/>
+					</svg>
 					<p className="absolute left-[14.22px] top-[18.99px] whitespace-nowrap font-sora text-[13.2px] leading-[17px] text-white">
 						{counter}/{deck.total}
 					</p>
@@ -329,8 +351,10 @@ function DiscoverPage() {
 							type="button"
 							aria-label="Previous card"
 							onClick={onPrevious}
-							disabled={index === 0}
+							// 2:2944 opens the deck with both arrows at full strength: the first card's ‹ is announced as disabled, not dimmed
+							aria-disabled={index === 0 || undefined}
 							className="stak-press flex size-[40px] cursor-pointer items-center justify-center overflow-clip rounded-[20px] bg-[#192238]"
+							style={index === 0 ? { opacity: 1 } : undefined}
 						>
 							<img alt="" src={D.chevron} className="size-[22px]" />
 						</button>
@@ -355,11 +379,11 @@ function DiscoverPage() {
 			</div>
 
 			{/* 2:3234 "Toast": over the front card (z above its z-2), bbox top at y 170 like the frame */}
-			{(state === "saved" || savedToast) && (
+			{(state === "saved" || note) && (
 				<div className="absolute top-[112.01px] z-[3] flex h-[44.963px] w-[161.348px] items-center justify-center" style={{ left: colCentre(812, 303.33) }} aria-hidden="true">
-					<div className="stak-sheet-in flex rotate-[-2.15deg] items-center gap-[9px] overflow-clip rounded-[18px] bg-[rgba(36,43,61,0.48)] px-[16px] py-[11px]">
-						<img alt="" src={D.toastBookmark} className="size-[17px]" />
-						<p className="whitespace-nowrap font-geist text-[12px] font-medium leading-[16px] text-white">{deckCopy.toast}</p>
+					<div className="stak-sheet-in flex shrink-0 rotate-[-2.15deg] items-center gap-[9px] overflow-clip rounded-[18px] bg-[rgba(36,43,61,0.48)] px-[16px] py-[11px]">
+						<img alt="" src={note === "removed" ? D.bookmark : D.toastBookmark} className="size-[17px]" />
+						<p className="whitespace-nowrap font-geist text-[12px] font-medium leading-[16px] text-white">{note === "removed" ? deckCopy.removed : deckCopy.toast}</p>
 					</div>
 				</div>
 			)}

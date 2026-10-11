@@ -38,7 +38,8 @@ export function DeckCard({ card, slot, saved = false, onSave }: Props) {
 				className="absolute inset-0 overflow-clip rounded-[23.344px]"
 				style={{ opacity: tone.opacity, backgroundImage: `linear-gradient(to bottom, ${tone.from}, #0c1526)` }}
 			/>
-			<div className="absolute left-[5.3055px] top-[4px] h-[242.992px] w-[360.774px] overflow-clip rounded-[19.1px]">
+			{/* z-1: the text block below pads its top over this frame (it hugs the card), so the frame must sit above it or the Save chip cannot be clicked */}
+			<div className="absolute left-[5.3055px] top-[4px] z-[1] h-[242.992px] w-[360.774px] overflow-clip rounded-[19.1px]">
 				<div className="absolute inset-0" style={{ background: tone.frame, opacity: tone.opacity }} />
 				{card.art === "logo" ? (
 					<GlassCoin ticker={card.symbol} opacity={tone.opacity} />

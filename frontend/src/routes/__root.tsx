@@ -32,15 +32,21 @@ function Root() {
 
 	useEffect(() => {
 		document.documentElement.style.backgroundColor = isDesktopApp ? "#0a1020" : "";
+		// lets the document scroll (styles.css `html.stak-desktop`): the frames run 1024-2050 tall, a laptop window ~730
+		document.documentElement.classList.toggle("stak-desktop", isDesktopApp);
 	}, [isDesktopApp]);
 
 	useEffect(() => {
 		scrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
+		window.scrollTo({ top: 0, behavior: "instant" });
 		document.body.style.overflow = "";
 		logEvent("page_view", { page_path: location.pathname });
 	}, [location.pathname]);
 
-	const toaster = (
+	const toaster = isDesktopApp ? (
+		// the desktop app's toasts take the one toast its frames draw (2:3234, styles.css .stak-toast)
+		<Toaster position="top-center" theme="dark" toastOptions={{ unstyled: true, classNames: { toast: "stak-toast" } }} />
+	) : (
 		<Toaster
 			position="top-center"
 			theme="dark"
