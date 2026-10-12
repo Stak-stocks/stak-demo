@@ -31,7 +31,29 @@ struct StakAiChatView: View {
     @ObservedObject private var brands = BrandNames.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var submit: () -> Void {{ if !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && vm.canAsk { vm.send(draft); draft = "" } }}
+    /// What was just sent, and when: the keyboard can put it back (see `submit`).
+    @State private var lastSent: (text: String, at: Date)? = nil
+
+    /// Sends the draft and empties the box. A vertical field's Return arrives mid-edit, and when autocorrect or a
+    /// prediction is pending the keyboard re-applies its edit after this one, putting the sent question back: so the
+    /// box is emptied again on the next turn of the run loop, and an echo of the question in the next moment is
+    /// dropped (`dropEcho`).
+    private var submit: () -> Void {{
+        let text = draft
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, vm.canAsk else { return }
+        lastSent = (text, Date())
+        vm.send(text)
+        draft = ""
+        DispatchQueue.main.async { if draft == text || text.contains(draft.trimmingCharacters(in: .whitespacesAndNewlines)) { draft = "" } }
+    }}
+
+    /// True (and the box emptied) when [new] is the keyboard putting back part of the question just sent.
+    private func dropEcho(_ new: String) -> Bool {
+        let trimmed = new.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let sent = lastSent, Date().timeIntervalSince(sent.at) < 0.6, !trimmed.isEmpty, sent.text.contains(trimmed) else { return false }
+        draft = ""
+        return true
+    }
 
     var body: some View {
         let u = figmaUnit
@@ -473,6 +495,7 @@ struct StakAiChatView: View {
                         .submitLabel(.send)
                         // A vertical field takes Return as a new line: it sends instead, as Android's Send key does.
                         .onChange(of: draft) { _, new in
+                            if dropEcho(new) { return }
                             if new.hasSuffix("\n") {
                                 draft = String(new.dropLast())
                                 submit()
