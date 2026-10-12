@@ -4,7 +4,7 @@ import { escapeRegExp } from "../lib/regex.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiStreamUrl } from "../services/geminiService.js";
 import { getCompanyNews, nameVariants, type FinnhubArticle } from "../services/finnhubService.js";
-import { getStockSnapshot } from "./stock.js";
+import { getQuarterlyEps, getStockSnapshot, type QuarterlyEps } from "./stock.js";
 import {
 	STAK_AI_WINDOW_HOURS,
 	STAK_AI_WINDOW_LIMIT,
@@ -184,6 +184,15 @@ function detectTypos(message: string): string[] {
 const REFERS_BACK = /\b(it|it's|its|they|them|their|this|that|these|those|the (stock|stocks|company|shares|article|story|news|brief))\b/i;
 /** The question is about what's happening ("any negative catalyst?", "lawsuit?"), so it needs the current company's data. */
 const ASKS_ABOUT_NEWS = /\b(news|update|updates|catalyst|catalysts|lawsuit|lawsuits|litigation|sued|analyst|analysts|headline|headlines|dropped|falling|fell|rallied|jumped|sank|plunged|soared)\b|\bwhy\b.*\b(up|down|moving|moved)\b/i;
+/** The question touches reported results ("did they beat last quarter?", "Q2 earnings?"): its companies' past quarters are loaded. */
+const ASKS_ABOUT_EARNINGS = /\b(earnings?|eps|quarters?|quarterly|q[1-4]|results?|reports?|reported|beat|beats|miss|missed|misses|estimates?|expectations?)\b/i;
+/**
+ * Plainly a follow-up about the conversation's company's results ("and last quarter's earnings?", "did they beat
+ * estimates?") - narrower than the above, so "I don't want to miss out" doesn't bring the last company back.
+ */
+const ASKS_ABOUT_ITS_EARNINGS = /\b(earnings|eps|quarterly|q[1-4]|last quarter|(?:beat|beats|missed|miss|misses) (?:the )?(?:estimates?|expectations?|earnings))\b/i;
+/** A definition ("what does EPS mean?", "how do estimates work?"), which is about no company in particular. */
+const ASKS_WHAT_A_TERM_MEANS = /^\s*(?:what(?:'s| is| are| does| do)|how (?:do|does|is|are))\b.*\b(?:mean|means|work|works|a|an)\b/i;
 /** About the whole market, not the conversation's company ("why is the S&P down?"). */
 const MARKET_WIDE = /\b(market|markets|s&p|sp500|dow|nasdaq|index|indexes|indices|sector|economy)\b/i;
 /** Capitalized words that aren't companies: days, months, the Fed, STAK. */
@@ -199,9 +208,34 @@ function namesSomethingElse(question: string): boolean {
 	return [...question.matchAll(/[^.?!\s]\s+([A-Z][a-z]{2,})/g)].some((m) => !NOT_A_COMPANY.has(m[1]!.toLowerCase()));
 }
 /** A follow-up that names no company but asks what's happening with the conversation's one ("any lawsuit?"). */
-const asksAboutLastCompany = (question: string) => ASKS_ABOUT_NEWS.test(question) && !MARKET_WIDE.test(question) && !namesSomethingElse(question);
+const asksAboutLastCompany = (question: string) =>
+	(ASKS_ABOUT_NEWS.test(question) || (ASKS_ABOUT_ITS_EARNINGS.test(question) && !ASKS_WHAT_A_TERM_MEANS.test(question)))
+	&& !MARKET_WIDE.test(question) && !namesSomethingElse(question);
 
 const nameOf = (ticker: string) => CATALOG.find((b) => b.ticker === ticker)?.name ?? ticker;
+
+const QUARTER_MONTH = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", year: "numeric" });
+
+/**
+ * "Fiscal Q2 2027 (period listed as Sep 2026): $2.22 vs $2.14 estimate - beat by $0.08 (3.8%)". Finnhub's period is a
+ * calendar quarter end, not the company's own nor the day it reported (NVIDIA's fiscal Q2 2027 shows as Sep 30,
+ * 2026), so it's only a rough month. Compared in cents, as shown; the percent only where it means something - with an
+ * estimate near zero or below it, "missed by 300%" says nothing a beginner can use.
+ */
+function describeQuarter(q: QuarterlyEps): string {
+	const month = /^\d{4}-\d{2}-\d{2}$/.test(q.period) ? QUARTER_MONTH.format(new Date(`${q.period}T00:00:00Z`)) : q.period;
+	const name = q.quarter && q.year ? `Fiscal Q${q.quarter} ${q.year} (period listed as ${month})` : `Quarter listed as ${month}`;
+	const money = (v: number) => `${v < 0 ? "-" : ""}$${Math.abs(v).toFixed(2)}`;
+	if (q.actual == null) return `${name}: no reported figure`;
+	if (q.estimate == null) return `${name}: ${money(q.actual)}, no estimate on record`;
+	const actualCents = Math.round(q.actual * 100);
+	const estimateCents = Math.round(q.estimate * 100);
+	if (actualCents === estimateCents) return `${name}: ${money(q.actual)} vs ${money(q.estimate)} estimate - in line`;
+	const verdict = actualCents > estimateCents ? "beat" : "missed";
+	const pct = q.surprisePercent;
+	const showPct = pct != null && q.estimate > 0 && q.actual > 0 && Math.abs(pct) <= 100;
+	return `${name}: ${money(q.actual)} vs ${money(q.estimate)} estimate - ${verdict} by ${money(Math.abs(actualCents - estimateCents) / 100)}${showPct ? ` (${Math.abs(pct).toFixed(1)}%)` : ""}`;
+}
 
 // ── Context: what the chat was opened from ──────────────────────────────────
 
@@ -344,6 +378,17 @@ async function fetchLiveStockContext(ticker: string): Promise<string | null> {
 		if (week52Low != null && week52High != null) parts.push(`52-week range $${week52Low.toFixed(2)}-$${week52High.toFixed(2)} (as of last close)`);
 		if (yearReturn != null) parts.push(`past year ${signedPct(yearReturn)}`);
 		if (ytdReturn != null) parts.push(`year to date ${signedPct(ytdReturn)}`);
+		const { return5d, return13w, return26w, revenueGrowthQuarterYoy, epsGrowthQuarterYoy, profitMargin } = data.metrics;
+		if (return5d != null) parts.push(`past 5 trading days ${signedPct(return5d)} (to last close)`);
+		if (return13w != null) parts.push(`past 13 weeks (about a quarter) ${signedPct(return13w)} (to last close)`);
+		if (return26w != null) parts.push(`past 26 weeks ${signedPct(return26w)} (to last close)`);
+		// Growth: the latest reported quarter against the same quarter a year before.
+		const growth = [
+			revenueGrowthQuarterYoy != null ? `revenue ${signedPct(revenueGrowthQuarterYoy)}` : null,
+			epsGrowthQuarterYoy != null ? `EPS ${signedPct(epsGrowthQuarterYoy)}` : null,
+		].filter(Boolean);
+		if (growth.length > 0) parts.push(`latest reported quarter vs the same quarter a year earlier: ${growth.join(", ")}`);
+		if (profitMargin) parts.push(`net profit margin (last 12 months) ${profitMargin}`);
 		return parts.join(" | ");
 	} catch {
 		return null;
@@ -585,12 +630,14 @@ When someone asks for advice or a prediction, start your reply with [[DECLINED]]
 - If they sound worried about a move, be calm first: swings are normal.
 
 ━━━ FACTS: ONLY WHAT YOU'VE BEEN GIVEN ━━━
-Your memory of companies and markets is out of date, often by years. Your only current information is the notes in this conversation: "Live market data", "Recent news signals", and what the user opened STAK AI from (an article's headline and summary, the Daily Brief's points, or just which stock page it was; you can't see the page itself).
+Your memory of companies and markets is out of date, often by years. Your only current information is the notes in this conversation: "Live market data", "Recent news signals", "Past quarterly results", and what the user opened STAK AI from (an article's headline and summary, the Daily Brief's points, or just which stock page it was; you can't see the page itself).
 - Never state a current or recent price, move, P/E, market cap, earnings date or result, deal, lawsuit, analyst rating or price target unless it's in the notes. If it isn't, say so in one short sentence, then still help with what you can (background, what that kind of news usually means). Point them to the company's page or News in STAK at most once in a conversation.
 - Figures in your earlier replies may be wrong; don't repeat them as current.
 - Report what the notes say, without adding details they don't contain. A summary ending in "…" is cut off: never guess how it goes on or how things turned out (rulings, amounts, guidance).
 - "Older stories matching the question" are weeks old: use one to answer a question about that story, saying when it came out, but never as the reason for today's move.
-- Past-year and year-to-date changes cover months, and your headlines only the last few weeks: don't give a headline as the cause of a long-term move. Say what recent news shows, and that you don't have the news from earlier in the year that drove most of it. Headlines carry their date (US Eastern): call something today's news only if it's dated today, and don't guess how new an undated one is. A headline from the last day or two (or the last trading day, after a weekend) can still explain today's move: just say when it came out.
+- "Past quarterly results" give earnings per share against analysts' estimates for the last few reported quarters - nothing else: no revenue figures (only the growth rate in the live data), guidance or why. Use those exact figures. Quarters are the company's fiscal ones (a fiscal year can run ahead of the calendar), so name them as given and say "fiscal". They don't say when results were announced or when the next report is: never state either date. For anything they don't cover, say you don't have it.
+- Past-year, year-to-date, 26-week and 13-week changes cover months, and your headlines only the last few weeks: don't give a headline as the cause of a long-term move. Say what recent news shows, and that you don't have the news from earlier in the year that drove most of it. Headlines carry their date (US Eastern): call something today's news only if it's dated today, and don't guess how new an undated one is. A headline from the last day or two (or the last trading day, after a weekend) can still explain today's move: just say when it came out.
+- Growth figures compare the latest reported quarter with the same quarter a year before; say so when you use them, and don't turn them into a prediction.
 - Lasting background (what a company does, its competitors, what a term means) can come from memory. A past event from memory must carry its year and be framed as history.
 - Made-up numbers to explain a concept are fine when clearly labelled as an example.
 - You can't browse, search or open pages. Never say you looked something up, checked a page, or reviewed the latest information.
@@ -751,10 +798,12 @@ async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Pr
 
 		const liveDataLines: string[] = [];
 		const newsLines: string[] = [];
+		const earningsLines: string[] = [];
 		const liveContextLog: Record<string, string> = {};
 		const sources: StakAiSource[] = [];
 		if (tickers.length > 0) {
-			const [prices, news] = await Promise.all([
+			const wantsEarnings = ASKS_ABOUT_EARNINGS.test(question);
+			const [prices, news, earnings] = await Promise.all([
 				Promise.all(tickers.map(async (t) => ({ ticker: t, ctx: await fetchLiveStockContext(t) }))),
 				Promise.all(tickers.map(async (t) => {
 					// A question about a particular story ("the Unity lawsuit") also looks back a month for it - no NewsAPI
@@ -767,11 +816,21 @@ async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Pr
 					]);
 					return { ticker: t, articles, older };
 				})),
+				// Past quarterly results, only for a question about them ("did they beat last quarter?").
+				wantsEarnings
+					? Promise.all(tickers.map(async (t) => ({ ticker: t, quarters: await withDeadline<QuarterlyEps[] | null>(getQuarterlyEps(t), NEWS_DEADLINE_MS, null) })))
+					: Promise.resolve([]),
 			]);
 			// A gap is said out loud, so the model reports it rather than filling it from memory.
 			for (const { ticker, ctx } of prices) {
 				liveDataLines.push(`• ${nameOf(ticker)} (${ticker}): ${ctx ?? "no live quote available right now"}`);
 				if (ctx) liveContextLog[ticker] = ctx;
+			}
+			for (const { ticker, quarters } of earnings) {
+				const label = `${nameOf(ticker)} (${ticker})`;
+				if (!quarters) earningsLines.push(`${label}: past quarterly results couldn't be loaded just now.`);
+				else if (quarters.length === 0) earningsLines.push(`${label}: no past quarterly results available.`);
+				else earningsLines.push(`${label} last ${quarters.length} reported quarters, newest first (earnings per share, actual vs analysts' estimate):\n${quarters.map((q) => `  - ${describeQuarter(q)}`).join("\n")}`);
 			}
 			const item = (a: FinnhubArticle) => {
 				const summary = shortSummary(a.summary);
@@ -813,6 +872,7 @@ async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Pr
 		const dataIsThePage = tickers.every((t) => contextTickers(context).includes(t));
 		if (context && (contextIsNew || (named.length === 0 && refersBack && dataIsThePage))) notes.push(describeContext(context));
 		if (liveDataLines.length > 0) notes.push(`Live market data:\n${liveDataLines.join("\n")}`);
+		if (earningsLines.length > 0) notes.push(`Past quarterly results:\n${earningsLines.join("\n\n")}`);
 		if (newsLines.length > 0) notes.push(`Recent news signals:\n${newsLines.join("\n\n")}`);
 		// Said, not left implied: with nothing loaded it once answered "Apple is up 12.5% this year" from nowhere.
 		if (tickers.length === 0) {
