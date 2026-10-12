@@ -29,7 +29,7 @@ vi.mock("../stock.js", () => ({
 	getStockSnapshot: async (t: string) => {
 		stockLookups.push(t);
 		if (t === "ZZNQ") return { quote: null, metrics: {} };
-		return { quote: { price: 100, changePercent: -3.2, marketState: "REGULAR" }, metrics: { peRatio: 30, marketCap: "1T", beta: 1.1, week52Low: 80, week52High: 210.5, yearReturn: -53.06, ytdReturn: 4 } };
+		return { quote: { price: 100, changePercent: -3.2, marketState: "REGULAR" }, metrics: { peRatio: 30, marketCap: "1T", beta: 1.1, week52Low: 80, week52High: 210.5, yearReturn: -53.06, ytdReturn: 4, return5d: -4.03, return13w: 8.68, return26w: 28.74, revenueGrowthQuarterYoy: 105.85, epsGrowthQuarterYoy: -12, profitMargin: "63.7%" } };
 	},
 	getQuarterlyEps: async (t: string) => {
 		epsLookups.push(t);
@@ -153,6 +153,7 @@ describe("POST /chat", () => {
 		expect(stockLookups).toEqual(["NVDA"]);
 		expect(promptText()).toContain("stock page");
 		expect(promptText()).toContain("52-week range $80.00-$210.50 (as of last close) | past year -53.1% | year to date +4.0%");
+		expect(promptText()).toContain("past 5 trading days -4.0% (to last close) | past 13 weeks (about a quarter) +8.7% (to last close) | past 26 weeks +28.7% (to last close) | latest reported quarter vs the same quarter a year earlier: revenue +105.8%, EPS -12.0% | net profit margin (last 12 months) 63.7%");
 		const insert = calls(/^\s*INSERT INTO stak_ai_conversations/)[0]!;
 		expect(insert[1][1]).toMatch(/^.+: Why is it down today\?$/);
 		expect(JSON.parse(insert[1][2])).toEqual({ type: "stock", ticker: "NVDA" });

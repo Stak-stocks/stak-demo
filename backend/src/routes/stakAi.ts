@@ -378,6 +378,17 @@ async function fetchLiveStockContext(ticker: string): Promise<string | null> {
 		if (week52Low != null && week52High != null) parts.push(`52-week range $${week52Low.toFixed(2)}-$${week52High.toFixed(2)} (as of last close)`);
 		if (yearReturn != null) parts.push(`past year ${signedPct(yearReturn)}`);
 		if (ytdReturn != null) parts.push(`year to date ${signedPct(ytdReturn)}`);
+		const { return5d, return13w, return26w, revenueGrowthQuarterYoy, epsGrowthQuarterYoy, profitMargin } = data.metrics;
+		if (return5d != null) parts.push(`past 5 trading days ${signedPct(return5d)} (to last close)`);
+		if (return13w != null) parts.push(`past 13 weeks (about a quarter) ${signedPct(return13w)} (to last close)`);
+		if (return26w != null) parts.push(`past 26 weeks ${signedPct(return26w)} (to last close)`);
+		// Growth: the latest reported quarter against the same quarter a year before.
+		const growth = [
+			revenueGrowthQuarterYoy != null ? `revenue ${signedPct(revenueGrowthQuarterYoy)}` : null,
+			epsGrowthQuarterYoy != null ? `EPS ${signedPct(epsGrowthQuarterYoy)}` : null,
+		].filter(Boolean);
+		if (growth.length > 0) parts.push(`latest reported quarter vs the same quarter a year earlier: ${growth.join(", ")}`);
+		if (profitMargin) parts.push(`net profit margin (last 12 months) ${profitMargin}`);
 		return parts.join(" | ");
 	} catch {
 		return null;
@@ -624,8 +635,9 @@ Your memory of companies and markets is out of date, often by years. Your only c
 - Figures in your earlier replies may be wrong; don't repeat them as current.
 - Report what the notes say, without adding details they don't contain. A summary ending in "…" is cut off: never guess how it goes on or how things turned out (rulings, amounts, guidance).
 - "Older stories matching the question" are weeks old: use one to answer a question about that story, saying when it came out, but never as the reason for today's move.
-- "Past quarterly results" give earnings per share against analysts' estimates for the last few reported quarters - nothing else: no revenue, guidance or why. Use those exact figures. Quarters are the company's fiscal ones (a fiscal year can run ahead of the calendar), so name them as given and say "fiscal". They don't say when results were announced or when the next report is: never state either date. For anything they don't cover, say you don't have it.
-- Past-year and year-to-date changes cover months, and your headlines only the last few weeks: don't give a headline as the cause of a long-term move. Say what recent news shows, and that you don't have the news from earlier in the year that drove most of it. Headlines carry their date (US Eastern): call something today's news only if it's dated today, and don't guess how new an undated one is. A headline from the last day or two (or the last trading day, after a weekend) can still explain today's move: just say when it came out.
+- "Past quarterly results" give earnings per share against analysts' estimates for the last few reported quarters - nothing else: no revenue figures (only the growth rate in the live data), guidance or why. Use those exact figures. Quarters are the company's fiscal ones (a fiscal year can run ahead of the calendar), so name them as given and say "fiscal". They don't say when results were announced or when the next report is: never state either date. For anything they don't cover, say you don't have it.
+- Past-year, year-to-date, 26-week and 13-week changes cover months, and your headlines only the last few weeks: don't give a headline as the cause of a long-term move. Say what recent news shows, and that you don't have the news from earlier in the year that drove most of it. Headlines carry their date (US Eastern): call something today's news only if it's dated today, and don't guess how new an undated one is. A headline from the last day or two (or the last trading day, after a weekend) can still explain today's move: just say when it came out.
+- Growth figures compare the latest reported quarter with the same quarter a year before; say so when you use them, and don't turn them into a prediction.
 - Lasting background (what a company does, its competitors, what a term means) can come from memory. A past event from memory must carry its year and be framed as history.
 - Made-up numbers to explain a concept are fine when clearly labelled as an example.
 - You can't browse, search or open pages. Never say you looked something up, checked a page, or reviewed the latest information.

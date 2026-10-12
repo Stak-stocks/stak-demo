@@ -908,6 +908,11 @@ stockRouter.get("/portfolio-chart", async (req, res) => {
  * A stock's quote and key metrics, as GET /api/stock/:symbol serves them (cached: quote per quoteTtlMs, metrics 6h).
  * STAK AI calls this directly rather than over HTTP, which would queue behind the public rate limiter.
  */
+/** A Finnhub percent metric as a number, or null when it's missing, not a number, or beyond [cap] either way. */
+function percentMetric(v: unknown, cap = Infinity): number | null {
+	return typeof v === "number" && Number.isFinite(v) && Math.abs(v) <= cap ? v : null;
+}
+
 export async function getStockSnapshot(rawSymbol: string) {
 	const symbol = resolveSymbol(rawSymbol.toUpperCase());
 	const extended = isExtendedHours();
@@ -987,8 +992,16 @@ export async function getStockSnapshot(rawSymbol: string) {
 			week52High: m["52WeekHigh"] ?? null,
 			week52Low: m["52WeekLow"] ?? null,
 			// Price change over the last 52 weeks and since January, in percent (STAK AI's "why down 50% this year?").
-			yearReturn: m["52WeekPriceReturnDaily"] ?? null,
-			ytdReturn: m["yearToDatePriceReturnDaily"] ?? null,
+			yearReturn: percentMetric(m["52WeekPriceReturnDaily"]),
+			ytdReturn: percentMetric(m["yearToDatePriceReturnDaily"]),
+			// Shorter windows (13 weeks is about a quarter), and the latest quarter's growth on the same quarter a year
+			// before, in percent - STAK AI's "how has it done lately?" and "is it still growing?". Growth off a near-zero
+			// (or negative) year-ago figure runs to thousands of percent and means nothing, so it's left out past a cap.
+			return5d: percentMetric(m["5DayPriceReturnDaily"]),
+			return13w: percentMetric(m["13WeekPriceReturnDaily"]),
+			return26w: percentMetric(m["26WeekPriceReturnDaily"]),
+			revenueGrowthQuarterYoy: percentMetric(m.revenueGrowthQuarterlyYoy, 1000),
+			epsGrowthQuarterYoy: percentMetric(m.epsGrowthQuarterlyYoy, 500),
 		},
 	};
 }
