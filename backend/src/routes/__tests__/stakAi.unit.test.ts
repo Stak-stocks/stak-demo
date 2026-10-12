@@ -172,6 +172,8 @@ describe("POST /chat", () => {
 		await request(app).post("/chat").send({ message: "What's a P/E ratio?", conversationId: CONV_1 });
 		await request(app).post("/chat").send({ message: "Why is Foobarco moving?", conversationId: CONV_1 });
 		expect(stockLookups).toEqual([]);
+		// ...and it's told so, rather than left to fill the gap.
+		expect(promptText()).toContain("No live market data or news was loaded for this question");
 	});
 
 	it("a follow-up asking what's happening keeps the conversation's company", async () => {
@@ -392,6 +394,21 @@ describe("helpers", () => {
 			"is app up to date", "why is app down for me", "why did app crash", "which app stock", "the new app stock",
 			"best meme coin stocks", "crypto coin stocks", "what does net earnings mean", "net shares bought by insiders",
 			"why is snow falling", "team stock", "shop stocks to buy", "why is path down", "was jack up all night",
+		]) {
+			expect(detectNamedTickers(q), q).toEqual([]);
+		}
+	});
+
+	it("a one-letter slip in a long company name still finds it; everyday words don't", async () => {
+		const { detectNamedTickers } = await import("../stakAi.js");
+		expect(detectNamedTickers("Did unity and apploving have a court case")).toEqual(["APP"]);
+		expect(detectNamedTickers("is robinhod down")).toEqual(["HOOD"]);
+		expect(detectNamedTickers("Why had app lost 53% in a year")).toEqual(["APP"]);
+		expect(detectNamedTickers("mcdonalds earnings")).toEqual(["MCD"]);
+		for (const q of [
+			"the fed interest rate", "investing basics", "semiconductor stocks", "earnings season", "a general question",
+			"give me a synopsis of the news", "marvels movies", "goodman sachs", "why did app lose my streak",
+			"why has app lost my progress", "why is app losing my xp",
 		]) {
 			expect(detectNamedTickers(q), q).toEqual([]);
 		}

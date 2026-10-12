@@ -189,6 +189,9 @@ export function StakAiThread({ chat, variant, autoFocus = false, emptyTitle = "A
 
 interface ComposerHandle { focus: () => void }
 
+/** How soon after sending a reappearing bit of the question counts as the keyboard's echo, not new typing. */
+const ECHO_MS = 600;
+
 /** The input, the questions left and the disclaimer. Holds the draft, so typing doesn't re-render the conversation. */
 const Composer = forwardRef<ComposerHandle, { chat: StakAiChat; look: Look; variant: Variant; autoFocus: boolean }>(function Composer({ chat, look, variant, autoFocus }, ref) {
 	const { s } = look;
@@ -210,10 +213,22 @@ const Composer = forwardRef<ComposerHandle, { chat: StakAiChat; look: Look; vari
 	}, [draft]);
 
 	const ready = !!draft.trim() && chat.canAsk;
+	// What was just sent, and when: a phone keyboard (or an extension like Grammarly) can type the last word back in
+	// right after the box is cleared, leaving the sent question sitting in it.
+	const lastSent = useRef<{ text: string; at: number } | null>(null);
 	const submit = () => {
 		if (!ready) return;
+		lastSent.current = { text: draft, at: Date.now() };
 		chat.send(draft);
 		setDraft("");
+	};
+	const onChange = (value: string) => {
+		const sent = lastSent.current;
+		if (sent && Date.now() - sent.at < ECHO_MS && value.trim() && sent.text.includes(value.trim())) {
+			setDraft("");
+			return;
+		}
+		setDraft(value.slice(0, 1000));
 	};
 	const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
 		// Enter sends; Shift+Enter makes a new line.
@@ -228,7 +243,7 @@ const Composer = forwardRef<ComposerHandle, { chat: StakAiChat; look: Look; vari
 					ref={box}
 					rows={1}
 					value={draft}
-					onChange={(e) => setDraft(e.target.value.slice(0, 1000))}
+					onChange={(e) => onChange(e.target.value)}
 					onKeyDown={onKeyDown}
 					disabled={chat.outOfQuestions || chat.loading}
 					placeholder={chat.outOfQuestions ? "You're out of questions for now" : "Ask about a stock, the news or a term…"}

@@ -105,15 +105,18 @@ const MATCHERS = CATALOG.map((b) => {
 const PHRASE_TICKERS = ["APP", "COIN", "HOOD"];
 /** Not "crash": "why did app crash" is about an app. */
 const MOVE_WORDS_SRC = "down|up|moving|moved|drop|dropping|dropped|fall|falling|fell|tank|tanking|tanked|sink|sinking|sank|plunge|plunging|plunged|jump|jumped|surge|surging|surged|rally|rallying|rallied|so (?:low|high)";
-const STOCK_WORDS_SRC = "stock|stocks|shares|share price|earnings|price target|market cap";
+const LOSS_GAIN_WORDS_SRC = "lost|lose|losing|gained|gain|gaining";
+const STOCK_WORDS_SRC ="stock|stocks|shares|share price|earnings|price target|market cap";
 const NOT_AFTER_SRC = "(?<!\\b(?:a|an|the|my|this|that|your|our|their|his|her|its|stak|an?other|which|what|any|some|every|good|best|new|meme|crypto|top|cheap)\\s+)";
 const WORD_TICKER_PHRASES = PHRASE_TICKERS.filter((t) => CATALOG.some((b) => b.ticker === t)).map((t) => {
 	const w = escapeRegExp(t.toLowerCase());
 	return {
 		ticker: t,
 		phrase: new RegExp(
-			`\\b(?:why|how come)\\s+(?:is|was|did|has)\\s+${w}\\s+(?:${MOVE_WORDS_SRC})\\b(?!\\s+(?:to|for|on)\\b)` +
+			`\\b(?:why|how come)\\s+(?:is|was|did|has|had|have)\\s+${w}\\s+(?:${MOVE_WORDS_SRC})\\b(?!\\s+(?:to|for|on)\\b)` +
 			`|\\bhow come\\s+${w}\\s+(?:is|was|has)\\s+(?:${MOVE_WORDS_SRC})\\b(?!\\s+(?:to|for|on)\\b)` +
+			// Lost/gained only with an amount or nothing after: "why had app lost 53%", not "why did app lose my streak".
+			`|\\b(?:why|how come)\\s+(?:is|was|did|has|had|have)\\s+${w}\\s+(?:${LOSS_GAIN_WORDS_SRC})(?=\\s*(?:$|[?.!,]|[$\\d]|so much\\b|value\\b))` +
 			`|${NOT_AFTER_SRC}\\b${w}(?:'s)?\\s+(?:${STOCK_WORDS_SRC})\\b`,
 			"i",
 		),
@@ -131,7 +134,50 @@ export function detectNamedTickers(raw: string): string[] {
 	const message = raw.replace(/[‘’ʼ]/g, "'");
 	const fromCatalog = MATCHERS.filter((m) => m.names.some((n) => n.test(message)) || (m.ticker?.test(message) ?? false)).map((m) => m.brand.ticker);
 	const fromPhrases = WORD_TICKER_PHRASES.filter((p) => p.phrase.test(message)).map((p) => p.ticker);
-	return [...new Set([...detectCashtags(message), ...fromCatalog, ...fromPhrases])].slice(0, 3);
+	return [...new Set([...detectCashtags(message), ...fromCatalog, ...fromPhrases, ...detectTypos(message)])].slice(0, 3);
+}
+
+/** Everyday words one letter off a company name: "synopsis" isn't Synopsys, "marvels" isn't Marvell. */
+const TYPO_LOOKALIKES = new Set([
+	"synopsis", "traveler", "travelers", "travellers", "marvels", "proctor", "goodman", "striker", "equinox", "evermore",
+	"snowflakes", "caterpillars", "workdays", "upstarts", "moderns", "chevrons", "emersion", "bringer", "blinker",
+]);
+
+/**
+ * One-word company names of seven letters or more, letters only ("mcdonalds", "cocacola"), for catching a one-letter
+ * slip ("apploving", "robinhod") - or the plain form of a name written with punctuation ("mcdonalds" for McDonald's).
+ * Only the names matched in any case (the full one, and its everyday form): a shorter first word ("Goldman") only
+ * counts capitalized. Shorter names are left out: one letter off "boeing" is "boring".
+ */
+const TYPO_NAMES = CATALOG.flatMap((b) => {
+	const [base] = nameVariants(b.name);
+	return [...new Set([b.name, base ?? b.name])].flatMap((n) => {
+		const name = n.toLowerCase().replace(/[^a-z]/g, "");
+		const oneWord = !/\s/.test(n.trim());
+		return oneWord && name.length >= 7 && !WORD_NAMES.has(name) && !COMMON_FIRST_WORDS.has(name)
+			? [{ name, ticker: b.ticker, punctuated: name !== n.toLowerCase() }]
+			: [];
+	});
+});
+
+/** At most one letter added, dropped or changed between [a] and [b]. */
+function oneEditApart(a: string, b: string): boolean {
+	if (Math.abs(a.length - b.length) > 1) return false;
+	let i = 0;
+	while (i < a.length && i < b.length && a[i] === b[i]) i++;
+	if (a.length === b.length) return a.slice(i + 1) === b.slice(i + 1);
+	return a.length > b.length ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
+}
+
+/**
+ * Companies named with a one-letter typo, from words of seven letters or more. The first letter must be right: slips
+ * rarely hit it, and without it "interest" is "pinterest".
+ */
+function detectTypos(message: string): string[] {
+	const words = [...new Set(message.toLowerCase().match(/[a-z]{7,}/g) ?? [])].filter((w) => !TYPO_LOOKALIKES.has(w));
+	return TYPO_NAMES
+		.filter(({ name, punctuated }) => words.some((w) => (w === name ? punctuated : w[0] === name[0] && oneEditApart(w, name))))
+		.map((t) => t.ticker);
 }
 
 /** The question points back at something earlier ("is that normal for it?", "what does this mean?"). */
@@ -768,6 +814,14 @@ async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Pr
 		if (context && (contextIsNew || (named.length === 0 && refersBack && dataIsThePage))) notes.push(describeContext(context));
 		if (liveDataLines.length > 0) notes.push(`Live market data:\n${liveDataLines.join("\n")}`);
 		if (newsLines.length > 0) notes.push(`Recent news signals:\n${newsLines.join("\n\n")}`);
+		// Said, not left implied: with nothing loaded it once answered "Apple is up 12.5% this year" from nowhere.
+		if (tickers.length === 0) {
+			notes.push(
+				"No live market data or news was loaded for this question. Don't state any current price, move or other current company or market figure unless it's in these notes. " +
+				"Worked examples with made-up numbers (labelled as examples) and long-run background are still fine." +
+				(context ? "" : " If the question needs a current figure, say you don't have it, or ask which company they mean."),
+			);
+		}
 		if (notes.length > 0) {
 			contents.push({ role: "user", parts: [{ text: `${notes.join("\n\n")}\n\nUse this context when answering the question below.` }] });
 			contents.push({ role: "model", parts: [{ text: "Got it — I'll use this context in my answer." }] });
