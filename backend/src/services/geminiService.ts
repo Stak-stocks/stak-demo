@@ -50,9 +50,14 @@ const MAX_CONCURRENT_GEMINI = 5;
 let geminiActiveCount = 0;
 const geminiWaiters: Array<() => void> = [];
 
-export async function withGeminiConcurrencyLimit<T>(fn: () => Promise<T>): Promise<T> {
+/**
+ * Runs [fn] once one of the MAX_CONCURRENT_GEMINI slots is free. With [resume] (the next step of a call already under
+ * way - STAK AI answering after a lookup) it waits at the front of the line, so a half-done answer isn't left behind
+ * every new request.
+ */
+export async function withGeminiConcurrencyLimit<T>(fn: () => Promise<T>, { resume = false }: { resume?: boolean } = {}): Promise<T> {
 	if (geminiActiveCount >= MAX_CONCURRENT_GEMINI) {
-		await new Promise<void>((resolve) => geminiWaiters.push(resolve));
+		await new Promise<void>((resolve) => (resume ? geminiWaiters.unshift(resolve) : geminiWaiters.push(resolve)));
 	}
 	geminiActiveCount++;
 	try {
