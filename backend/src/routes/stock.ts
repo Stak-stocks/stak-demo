@@ -986,6 +986,9 @@ export async function getStockSnapshot(rawSymbol: string) {
 			dividendYield: m.dividendYieldIndicatedAnnual != null ? `${m.dividendYieldIndicatedAnnual.toFixed(2)}%` : null,
 			week52High: m["52WeekHigh"] ?? null,
 			week52Low: m["52WeekLow"] ?? null,
+			// Price change over the last 52 weeks and since January, in percent (STAK AI's "why down 50% this year?").
+			yearReturn: m["52WeekPriceReturnDaily"] ?? null,
+			ytdReturn: m["yearToDatePriceReturnDaily"] ?? null,
 		},
 	};
 }
