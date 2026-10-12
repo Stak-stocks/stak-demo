@@ -31,7 +31,15 @@ vi.mock("../stock.js", () => ({
 		if (t === "ZZNQ") return { quote: null, metrics: {} };
 		return { quote: { price: 100, changePercent: -3.2, marketState: "REGULAR" }, metrics: { peRatio: 30, marketCap: "1T", beta: 1.1, week52Low: 80, week52High: 210.5, yearReturn: -53.06, ytdReturn: 4 } };
 	},
+	getQuarterlyEps: async (t: string) => {
+		epsLookups.push(t);
+		return [
+			{ period: "2026-09-30", quarter: 2, year: 2027, actual: 2.22, estimate: 2.1384, surprisePercent: 3.8159 },
+			{ period: "2026-06-30", quarter: 1, year: 2027, actual: -0.1, estimate: 0.05, surprisePercent: -300 },
+		];
+	},
 }));
+const epsLookups: string[] = [];
 
 const CONV_1 = "11111111-1111-4111-8111-111111111111";
 const CONV_2 = "22222222-2222-4222-8222-222222222222";
@@ -105,6 +113,7 @@ const calls = (re: RegExp) => pgQueryMock.mock.calls.filter(([sql]) => re.test(s
 beforeEach(() => {
 	db = { used: 0, conversation: null };
 	stockLookups.length = 0;
+	epsLookups.length = 0;
 	pgQueryMock.mockReset();
 	pgQueryMock.mockImplementation(fakePg);
 	newsMock.mockReset();
@@ -259,6 +268,31 @@ describe("POST /chat", () => {
 		// A long summary is cut at a word, marked with "…".
 		expect(prompt).toMatch(/A judge heard Unity's request [a-z ]+…/);
 		expect(prompt).not.toContain("and ruled.");
+	});
+
+	it("a question about results gets the last reported quarters; other questions don't fetch them", async () => {
+		const app = await buildApp();
+		await request(app).post("/chat").send({ message: "Why is $ZZQX moving today?" });
+		expect(epsLookups).toEqual([]);
+		await request(app).post("/chat").send({ message: "Did $ZZQX beat earnings last quarter?" });
+		expect(epsLookups).toEqual(["ZZQX"]);
+		const prompt = promptText();
+		expect(prompt).toContain("Past quarterly results:");
+		expect(prompt).toContain("Fiscal Q2 2027 (period listed as Sep 2026): $2.22 vs $2.14 estimate - beat by $0.08 (3.8%)");
+		// A loss against a small positive estimate: the gap in dollars, no "300%".
+		expect(prompt).toContain("Fiscal Q1 2027 (period listed as Jun 2026): -$0.10 vs $0.05 estimate - missed by $0.15");
+		expect(prompt).not.toContain("300");
+	});
+
+	it("an earnings follow-up keeps the conversation's company; a definition doesn't", async () => {
+		db.conversation = { id: CONV_1, uid: "u1", context: null, last_tickers: ["AAPL"] };
+		const app = await buildApp();
+		await request(app).post("/chat").send({ message: "What does EPS mean?", conversationId: CONV_1 });
+		await request(app).post("/chat").send({ message: "I don't want to miss out", conversationId: CONV_1 });
+		expect(stockLookups).toEqual([]);
+		await request(app).post("/chat").send({ message: "and last quarter's earnings?", conversationId: CONV_1 });
+		expect(stockLookups).toEqual(["AAPL"]);
+		expect(epsLookups).toEqual(["AAPL"]);
 	});
 
 	it("a company with no quote is said to have none", async () => {

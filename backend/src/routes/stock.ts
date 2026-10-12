@@ -1056,7 +1056,49 @@ stockRouter.get("/:symbol/earnings-quick", async (req, res) => {
 	res.json(payload);
 });
 
-type FinnhubEpsEntry = { actual: number | null; estimate: number | null; period: string };
+type FinnhubEpsEntry = {
+	actual: number | null;
+	estimate: number | null;
+	period: string;
+	quarter?: number;
+	year?: number;
+	surprisePercent?: number | null;
+};
+
+/** One reported quarter: earnings per share against the analysts' estimate. */
+export interface QuarterlyEps {
+	/** Finnhub's period, YYYY-MM-DD: a calendar quarter end, not always the company's own. */
+	period: string;
+	quarter: number | null;
+	year: number | null;
+	actual: number | null;
+	estimate: number | null;
+	surprisePercent: number | null;
+}
+
+/**
+ * The last few reported quarters (newest first; four is all Finnhub's plan gives), for STAK AI's "did they beat last
+ * quarter?"; null when Finnhub couldn't be reached (rate limited, say), which isn't cached. Kept an hour, so a report
+ * day's new quarter shows up within the hour.
+ */
+export async function getQuarterlyEps(rawSymbol: string): Promise<QuarterlyEps[] | null> {
+	const symbol = resolveSymbol(rawSymbol.toUpperCase());
+	const key = `eps-quarters:v1:${symbol}`;
+	const cached = await cacheGet<QuarterlyEps[]>(key);
+	if (cached) return cached;
+	const data = await finnhubGet(`/stock/earnings?symbol=${encodeURIComponent(symbol)}&limit=4`) as FinnhubEpsEntry[] | null;
+	if (!Array.isArray(data)) return null;
+	const quarters = data.filter((q) => !!q.period).slice(0, 4).map((q) => ({
+		period: q.period,
+		quarter: q.quarter ?? null,
+		year: q.year ?? null,
+		actual: q.actual ?? null,
+		estimate: q.estimate ?? null,
+		surprisePercent: q.surprisePercent ?? null,
+	}));
+	await cacheSet(key, quarters, 60 * 60 * 1000);
+	return quarters;
+}
 
 // Finnhub's own actual-vs-estimate is ground truth for "has this been reported" — it's
 // structured data, not a guess. Cached briefly (not the usual hours-long TTL) so that on
