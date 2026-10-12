@@ -513,6 +513,12 @@ export interface LiveMetrics {
 	/** Percent change over the last 52 weeks and since January (as of the last close). */
 	yearReturn?: number | null;
 	ytdReturn?: number | null;
+	/** Percent price change over 5 trading days, 13 weeks and 26 weeks, and the latest quarter's growth on a year before. */
+	return5d?: number | null;
+	return13w?: number | null;
+	return26w?: number | null;
+	revenueGrowthQuarterYoy?: number | null;
+	epsGrowthQuarterYoy?: number | null;
 }
 
 

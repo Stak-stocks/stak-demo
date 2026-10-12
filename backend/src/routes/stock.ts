@@ -908,6 +908,11 @@ stockRouter.get("/portfolio-chart", async (req, res) => {
  * A stock's quote and key metrics, as GET /api/stock/:symbol serves them (cached: quote per quoteTtlMs, metrics 6h).
  * STAK AI calls this directly rather than over HTTP, which would queue behind the public rate limiter.
  */
+/** A Finnhub percent metric as a number, or null when it's missing, not a number, or beyond [cap] either way. */
+function percentMetric(v: unknown, cap = Infinity): number | null {
+	return typeof v === "number" && Number.isFinite(v) && Math.abs(v) <= cap ? v : null;
+}
+
 export async function getStockSnapshot(rawSymbol: string) {
 	const symbol = resolveSymbol(rawSymbol.toUpperCase());
 	const extended = isExtendedHours();
@@ -987,8 +992,16 @@ export async function getStockSnapshot(rawSymbol: string) {
 			week52High: m["52WeekHigh"] ?? null,
 			week52Low: m["52WeekLow"] ?? null,
 			// Price change over the last 52 weeks and since January, in percent (STAK AI's "why down 50% this year?").
-			yearReturn: m["52WeekPriceReturnDaily"] ?? null,
-			ytdReturn: m["yearToDatePriceReturnDaily"] ?? null,
+			yearReturn: percentMetric(m["52WeekPriceReturnDaily"]),
+			ytdReturn: percentMetric(m["yearToDatePriceReturnDaily"]),
+			// Shorter windows (13 weeks is about a quarter), and the latest quarter's growth on the same quarter a year
+			// before, in percent - STAK AI's "how has it done lately?" and "is it still growing?". Growth off a near-zero
+			// (or negative) year-ago figure runs to thousands of percent and means nothing, so it's left out past a cap.
+			return5d: percentMetric(m["5DayPriceReturnDaily"]),
+			return13w: percentMetric(m["13WeekPriceReturnDaily"]),
+			return26w: percentMetric(m["26WeekPriceReturnDaily"]),
+			revenueGrowthQuarterYoy: percentMetric(m.revenueGrowthQuarterlyYoy, 1000),
+			epsGrowthQuarterYoy: percentMetric(m.epsGrowthQuarterlyYoy, 500),
 		},
 	};
 }
@@ -1056,7 +1069,49 @@ stockRouter.get("/:symbol/earnings-quick", async (req, res) => {
 	res.json(payload);
 });
 
-type FinnhubEpsEntry = { actual: number | null; estimate: number | null; period: string };
+type FinnhubEpsEntry = {
+	actual: number | null;
+	estimate: number | null;
+	period: string;
+	quarter?: number;
+	year?: number;
+	surprisePercent?: number | null;
+};
+
+/** One reported quarter: earnings per share against the analysts' estimate. */
+export interface QuarterlyEps {
+	/** Finnhub's period, YYYY-MM-DD: a calendar quarter end, not always the company's own. */
+	period: string;
+	quarter: number | null;
+	year: number | null;
+	actual: number | null;
+	estimate: number | null;
+	surprisePercent: number | null;
+}
+
+/**
+ * The last few reported quarters (newest first; four is all Finnhub's plan gives), for STAK AI's "did they beat last
+ * quarter?"; null when Finnhub couldn't be reached (rate limited, say), which isn't cached. Kept an hour, so a report
+ * day's new quarter shows up within the hour.
+ */
+export async function getQuarterlyEps(rawSymbol: string): Promise<QuarterlyEps[] | null> {
+	const symbol = resolveSymbol(rawSymbol.toUpperCase());
+	const key = `eps-quarters:v1:${symbol}`;
+	const cached = await cacheGet<QuarterlyEps[]>(key);
+	if (cached) return cached;
+	const data = await finnhubGet(`/stock/earnings?symbol=${encodeURIComponent(symbol)}&limit=4`) as FinnhubEpsEntry[] | null;
+	if (!Array.isArray(data)) return null;
+	const quarters = data.filter((q) => !!q.period).slice(0, 4).map((q) => ({
+		period: q.period,
+		quarter: q.quarter ?? null,
+		year: q.year ?? null,
+		actual: q.actual ?? null,
+		estimate: q.estimate ?? null,
+		surprisePercent: q.surprisePercent ?? null,
+	}));
+	await cacheSet(key, quarters, 60 * 60 * 1000);
+	return quarters;
+}
 
 // Finnhub's own actual-vs-estimate is ground truth for "has this been reported" — it's
 // structured data, not a guess. Cached briefly (not the usual hours-long TTL) so that on
