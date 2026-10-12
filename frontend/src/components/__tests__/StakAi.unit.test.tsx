@@ -255,6 +255,21 @@ describe("StakAiThread", () => {
 		expect(api.streamStakAiMessage.mock.calls[0]![0]).toBe("What is beta?");
 		expect(api.streamStakAiMessage.mock.calls[0]![1].via).toBe("typed");
 	});
+
+	it("a keyboard typing the sent question's last word back in doesn't leave it in the box", async () => {
+		api.streamStakAiMessage.mockResolvedValueOnce(reply());
+		render(<Harness />, { wrapper });
+		const box = await screen.findByRole("textbox", { name: "Ask STAK AI" }) as HTMLTextAreaElement;
+		fireEvent.change(box, { target: { value: "Why is app down" } });
+		await act(async () => { fireEvent.keyDown(box, { key: "Enter" }); });
+		// The keyboard's echo, right after sending.
+		fireEvent.change(box, { target: { value: "down" } });
+		expect(box.value).toBe("");
+		// Real typing a moment later still works.
+		await act(async () => { await new Promise((r) => setTimeout(r, 650)); });
+		fireEvent.change(box, { target: { value: "down" } });
+		expect(box.value).toBe("down");
+	});
 });
 
 describe("helpers", () => {
