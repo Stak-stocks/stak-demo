@@ -183,7 +183,7 @@ describe("POST /chat", () => {
 		await request(app).post("/chat").send({ message: "Why is Foobarco moving?", conversationId: CONV_1 });
 		expect(stockLookups).toEqual([]);
 		// ...and it's told so, rather than left to fill the gap.
-		expect(promptText()).toContain("No live market data or news was loaded for this question");
+		expect(promptText()).toContain("No live market data, news or quarterly results were loaded for this question");
 	});
 
 	it("a follow-up asking what's happening keeps the conversation's company", async () => {
@@ -294,6 +294,9 @@ describe("POST /chat", () => {
 		await request(app).post("/chat").send({ message: "and last quarter's earnings?", conversationId: CONV_1 });
 		expect(stockLookups).toEqual(["AAPL"]);
 		expect(epsLookups).toEqual(["AAPL"]);
+		// "What about the quarter before?" once got nothing, and the model answered from memory.
+		await request(app).post("/chat").send({ message: "What about the quarter before?", conversationId: CONV_1 });
+		expect(epsLookups).toEqual(["AAPL", "AAPL"]);
 	});
 
 	it("a company with no quote is said to have none", async () => {

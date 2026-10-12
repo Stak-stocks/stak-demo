@@ -181,7 +181,7 @@ function detectTypos(message: string): string[] {
 }
 
 /** The question points back at something earlier ("is that normal for it?", "what does this mean?"). */
-const REFERS_BACK = /\b(it|it's|its|they|them|their|this|that|these|those|the (stock|stocks|company|shares|article|story|news|brief))\b/i;
+const REFERS_BACK = /\b(it|it's|its|they|them|their|this|that|these|those|the (stock|stocks|company|shares|article|story|news|brief)|(?:what|how) about)\b/i;
 /** The question is about what's happening ("any negative catalyst?", "lawsuit?"), so it needs the current company's data. */
 const ASKS_ABOUT_NEWS = /\b(news|update|updates|catalyst|catalysts|lawsuit|lawsuits|litigation|sued|analyst|analysts|headline|headlines|dropped|falling|fell|rallied|jumped|sank|plunged|soared)\b|\bwhy\b.*\b(up|down|moving|moved)\b/i;
 /** The question touches reported results ("did they beat last quarter?", "Q2 earnings?"): its companies' past quarters are loaded. */
@@ -190,7 +190,7 @@ const ASKS_ABOUT_EARNINGS = /\b(earnings?|eps|quarters?|quarterly|q[1-4]|results
  * Plainly a follow-up about the conversation's company's results ("and last quarter's earnings?", "did they beat
  * estimates?") - narrower than the above, so "I don't want to miss out" doesn't bring the last company back.
  */
-const ASKS_ABOUT_ITS_EARNINGS = /\b(earnings|eps|quarterly|q[1-4]|last quarter|(?:beat|beats|missed|miss|misses) (?:the )?(?:estimates?|expectations?|earnings))\b/i;
+const ASKS_ABOUT_ITS_EARNINGS = /\b(earnings|eps|quarters?|quarterly|q[1-4]|(?:beat|beats|missed|miss|misses) (?:the )?(?:estimates?|expectations?|earnings))\b/i;
 /** A definition ("what does EPS mean?", "how do estimates work?"), which is about no company in particular. */
 const ASKS_WHAT_A_TERM_MEANS = /^\s*(?:what(?:'s| is| are| does| do)|how (?:do|does|is|are))\b.*\b(?:mean|means|work|works|a|an)\b/i;
 /** About the whole market, not the conversation's company ("why is the S&P down?"). */
@@ -874,12 +874,13 @@ async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Pr
 		if (liveDataLines.length > 0) notes.push(`Live market data:\n${liveDataLines.join("\n")}`);
 		if (earningsLines.length > 0) notes.push(`Past quarterly results:\n${earningsLines.join("\n\n")}`);
 		if (newsLines.length > 0) notes.push(`Recent news signals:\n${newsLines.join("\n\n")}`);
-		// Said, not left implied: with nothing loaded it once answered "Apple is up 12.5% this year" from nowhere.
+		// Said, not left implied: with nothing loaded it once answered "Apple is up 12.5% this year" from nowhere, and
+		// "NVIDIA's quarter before: $0.98 vs $0.90" (really $1.87 vs $1.79) from memory.
 		if (tickers.length === 0) {
 			notes.push(
-				"No live market data or news was loaded for this question. Don't state any current price, move or other current company or market figure unless it's in these notes. " +
+				"No live market data, news or quarterly results were loaded for this question. Don't state any company or market figure - price, move, earnings per share, estimate, revenue, growth, date - unless it's in these notes, and never from memory, past quarters included. " +
 				"Worked examples with made-up numbers (labelled as examples) and long-run background are still fine." +
-				(context ? "" : " If the question needs a current figure, say you don't have it, or ask which company they mean."),
+				(context ? "" : " If the question needs a figure, say you don't have it, or ask which company they mean."),
 			);
 		}
 		if (notes.length > 0) {
