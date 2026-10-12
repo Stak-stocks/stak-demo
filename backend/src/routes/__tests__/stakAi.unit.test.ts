@@ -29,7 +29,7 @@ vi.mock("../stock.js", () => ({
 	getStockSnapshot: async (t: string) => {
 		stockLookups.push(t);
 		if (t === "ZZNQ") return { quote: null, metrics: {} };
-		return { quote: { price: 100, changePercent: -3.2, marketState: "REGULAR" }, metrics: { peRatio: 30, marketCap: "1T", beta: 1.1 } };
+		return { quote: { price: 100, changePercent: -3.2, marketState: "REGULAR" }, metrics: { peRatio: 30, marketCap: "1T", beta: 1.1, week52Low: 80, week52High: 210.5, yearReturn: -53.06, ytdReturn: 4 } };
 	},
 }));
 
@@ -143,6 +143,7 @@ describe("POST /chat", () => {
 		expect(res.body.usage).toMatchObject({ used: 1, remaining: 4 });
 		expect(stockLookups).toEqual(["NVDA"]);
 		expect(promptText()).toContain("stock page");
+		expect(promptText()).toContain("52-week range $80.00-$210.50 (as of last close) | past year -53.1% | year to date +4.0%");
 		const insert = calls(/^\s*INSERT INTO stak_ai_conversations/)[0]!;
 		expect(insert[1][1]).toMatch(/^.+: Why is it down today\?$/);
 		expect(JSON.parse(insert[1][2])).toEqual({ type: "stock", ticker: "NVDA" });
@@ -235,6 +236,27 @@ describe("POST /chat", () => {
 		newsMock.mockResolvedValue([{ headline: "Kids ads lawsuit filed", url: "https://news.test/k", datetime: 0 }]);
 		await request(await buildApp()).post("/chat").send({ message: "Why did $ZZQX jump?" });
 		expect(promptText()).toContain("  - Kids ads lawsuit filed");
+	});
+
+	it("a question about a story looks back a month for it, and labels the older story as not recent news", async () => {
+		const now = Math.floor(Date.now() / 1000);
+		const long = `A judge heard Unity's request ${"in a long hearing about ad data and auctions ".repeat(8)}and ruled.`;
+		newsMock.mockImplementation(async (_t: string, _limit: number, _name?: string, opts?: { days?: number }) =>
+			opts?.days === 30
+				? [{ headline: "AppLovin takes Unity to court", summary: long, url: "https://news.test/u", datetime: now - 20 * 86_400 }]
+				: [{ headline: "Chip stocks slide", summary: "", url: "https://news.test/a", datetime: now - 3_600 }]);
+		const app = await buildApp();
+		await request(app).post("/chat").send({ message: "Why is NVDA down today?" });
+		expect(newsMock.mock.calls.some((c) => c[3]?.days === 30)).toBe(false);
+
+		await request(app).post("/chat").send({ message: "What about the Unity court case with $NVDA?" });
+		expect(newsMock.mock.calls.filter((c) => c[3]?.days === 30).map((c) => c[2])).toEqual([undefined]);
+		const prompt = promptText();
+		expect(prompt).toContain("NVIDIA (NVDA) headlines from the past week:");
+		expect(prompt).toContain("NVIDIA (NVDA) older stories matching the question (not recent news):");
+		// A long summary is cut at a word, marked with "…".
+		expect(prompt).toMatch(/A judge heard Unity's request [a-z ]+…/);
+		expect(prompt).not.toContain("and ruled.");
 	});
 
 	it("a company with no quote is said to have none", async () => {
@@ -353,6 +375,51 @@ describe("helpers", () => {
 		expect(detectNamedTickers("tsmc down?")).toEqual(["TSM"]);
 		expect(detectNamedTickers("McDonald’s earnings")).toEqual(["MCD"]);
 		expect(detectNamedTickers("Why did Delta miss earnings")).toEqual(["DAL"]);
+	});
+
+	it("a word-like ticker counts in plainly stock phrasing, and stays a word everywhere else", async () => {
+		const { detectNamedTickers } = await import("../stakAi.js");
+		const counts: [string, string][] = [
+			["Why is app down", "APP"], ["App stock today?", "APP"], ["app's earnings", "APP"], ["how come app is falling", "APP"],
+			["why did app drop", "APP"], ["why is coin up", "COIN"], ["hood shares", "HOOD"],
+		];
+		for (const [q, ticker] of counts) expect(detectNamedTickers(q), q).toEqual([ticker]);
+		for (const q of [
+			"the app is down", "is the app down?", "my app's price is wrong", "why is the app so slow", "is there an app for this",
+			"why is app store down", "which app should I use", "why is it down", "why is now a good time", "is my net worth up",
+			"why is net income down", "my jack is broken", "this app's stock page", "STAK app stock list",
+			// From review: the everyday word in stock-ish sentences.
+			"is app up to date", "why is app down for me", "why did app crash", "which app stock", "the new app stock",
+			"best meme coin stocks", "crypto coin stocks", "what does net earnings mean", "net shares bought by insiders",
+			"why is snow falling", "team stock", "shop stocks to buy", "why is path down", "was jack up all night",
+		]) {
+			expect(detectNamedTickers(q), q).toEqual([]);
+		}
+	});
+
+	it("only words that could name a story count as topics", async () => {
+		const { questionTopics } = await import("../stakAi.js");
+		expect(questionTopics("I thought there was a Unity restraining order", "APP")).toEqual(["unity", "restraining", "order"]);
+		expect(questionTopics("Why is AppLovin falling? Is it a good investment?", "APP")).toEqual([]);
+	});
+
+	it("headlines about what the question asks come first, then the newest, up to six", async () => {
+		const { pickHeadlines } = await import("../stakAi.js");
+		const a = (headline: string, summary = "") => ({ headline, summary, url: "", image: "", source: "", datetime: 0, category: "", id: 0, related: "" });
+		const articles = [
+			a("AppLovin e-commerce ad share rising"), a("Needham sees 70% upside"), a("Five AI stocks for 2030"), a("Analyst upgrade"),
+			a("Trade Desk down 68%"), a("Q3 preview"), a("Court weighs Unity's restraining order", "A judge heard Unity's request against AppLovin."),
+		];
+		const picked = pickHeadlines(articles, "I thought there was a Unity restraining order", "APP").map((x) => x.headline);
+		expect(picked[0]).toBe("Court weighs Unity's restraining order");
+		expect(picked).toHaveLength(6);
+		// The story it asks about can come from the past month; the rest stay this week's newest.
+		const older = [a("AppLovin takes Unity to court over ad data"), articles[1]!];
+		const withOlder = pickHeadlines(articles.slice(0, 6), "the unity court case?", "APP", older).map((x) => x.headline);
+		expect(withOlder[0]).toBe("AppLovin takes Unity to court over ad data");
+		expect(withOlder.filter((h) => h === "Needham sees 70% upside")).toHaveLength(1);
+		// Nothing to match ("why is it down?"): just the newest six.
+		expect(pickHeadlines(articles, "why is it down today?", "APP").map((x) => x.headline)).toEqual(articles.slice(0, 6).map((x) => x.headline));
 	});
 
 	it("titles are capitalized and cut on a word with an ellipsis", async () => {

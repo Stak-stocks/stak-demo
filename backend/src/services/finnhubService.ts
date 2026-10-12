@@ -46,9 +46,11 @@ export interface FinnhubArticle {
 	related: string;
 }
 
-const ONE_WEEK_AGO_MS = 7 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const ONE_WEEK_AGO_MS = 7 * DAY_MS;
 
 const NEWS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const OLDER_NEWS_CACHE_TTL_MS = 30 * 60 * 1000; // a month's news: the old stories in it don't change
 
 
 const FINANCIAL_TERMS = [
@@ -403,18 +405,23 @@ async function getGeopoliticalEnergyNews(): Promise<FinnhubArticle[]> {
 
 /** Fetch company-specific news for a given ticker symbol.
  *  Falls back to NewsAPI by company name when Finnhub returns nothing (e.g. non-US stocks).
- *  Returns up to `limit` articles from the past 7 days. */
-export async function getCompanyNews(symbol: string, limit = 15, companyName?: string): Promise<FinnhubArticle[]> {
-	const cacheKey = `company:v2:${symbol}:${limit}`;
+ *  Returns up to `limit` articles from the past week, or from the past `days` days (STAK AI looks back further for a
+ *  story a question names): that longer list is kept longer, as old stories don't change, and skips the energy
+ *  news, which costs a NewsAPI call. */
+export async function getCompanyNews(symbol: string, limit = 15, companyName?: string, { days = 7 }: { days?: number } = {}): Promise<FinnhubArticle[]> {
+	const isWeek = days === 7;
+	// The week's key is unchanged, so lists already cached (and shared with other callers) stay valid.
+	const cacheKey = `company:v2:${symbol}:${limit}${isWeek ? "" : `:${days}d`}`;
+	const ttl = isWeek ? NEWS_CACHE_TTL_MS : OLDER_NEWS_CACHE_TTL_MS;
 	const cached = await cacheGet<FinnhubArticle[]>(cacheKey);
 	if (cached) return cached;
 
 	const newsSymbol = resolveNewsSymbol(symbol);
 	const today = getEasternDateKey();
-	const sevenDaysAgo = getEasternDateKey(new Date(Date.now() - ONE_WEEK_AGO_MS));
+	const from = getEasternDateKey(new Date(Date.now() - days * DAY_MS));
 
 	const res = await finnhubFetch(
-		(key) => `${FINNHUB_BASE}/company-news?symbol=${newsSymbol}&from=${sevenDaysAgo}&to=${today}&token=${key}`,
+		(key) => `${FINNHUB_BASE}/company-news?symbol=${newsSymbol}&from=${from}&to=${today}&token=${key}`,
 	);
 
 	if (res && res.ok) {
@@ -424,18 +431,18 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 		if (filtered.length > 0) {
 			// For oil/energy tickers, supplement with geopolitical news (Iran war, OPEC, Middle East)
 			// since these events directly drive oil prices regardless of the company's own headlines
-			if (OIL_ENERGY_TICKERS.has(symbol.toUpperCase())) {
+			if (isWeek && OIL_ENERGY_TICKERS.has(symbol.toUpperCase())) {
 				const geoNews = await getGeopoliticalEnergyNews();
 				const seenUrls = new Set(filtered.map((a) => a.url));
 				const combined = [
 					...filtered,
 					...geoNews.filter((a) => !seenUrls.has(a.url)),
 				].slice(0, limit);
-				await cacheSet(cacheKey, combined, NEWS_CACHE_TTL_MS);
+				await cacheSet(cacheKey, combined, ttl);
 				return combined;
 			}
 			const result = filtered.slice(0, limit);
-			await cacheSet(cacheKey, result, NEWS_CACHE_TTL_MS);
+			await cacheSet(cacheKey, result, ttl);
 			return result;
 		}
 	} else if (res && !res.ok) {
@@ -447,11 +454,11 @@ export async function getCompanyNews(symbol: string, limit = 15, companyName?: s
 		console.info(`Finnhub returned 0 articles for ${symbol} — falling back to NewsAPI for "${companyName}"`);
 		const fallback = await getNewsApiArticles(companyName, limit);
 		// No news anywhere is an answer too (when Finnhub did answer): cached, so a quiet ticker doesn't spend a call each time.
-		if (fallback.length > 0 || res?.ok) await cacheSet(cacheKey, fallback, NEWS_CACHE_TTL_MS);
+		if (fallback.length > 0 || res?.ok) await cacheSet(cacheKey, fallback, ttl);
 		return fallback;
 	}
 
-	if (res?.ok) await cacheSet(cacheKey, [], NEWS_CACHE_TTL_MS);
+	if (res?.ok) await cacheSet(cacheKey, [], ttl);
 	return [];
 }
 

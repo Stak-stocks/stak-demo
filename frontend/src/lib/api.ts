@@ -510,6 +510,9 @@ export interface LiveMetrics {
 	dividendYield: string | null;
 	week52High: number | null;
 	week52Low: number | null;
+	/** Percent change over the last 52 weeks and since January (as of the last close). */
+	yearReturn?: number | null;
+	ytdReturn?: number | null;
 }
 
 

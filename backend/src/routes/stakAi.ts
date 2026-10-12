@@ -96,6 +96,30 @@ const MATCHERS = CATALOG.map((b) => {
 	};
 });
 
+/**
+ * The few word-tickers people type in lowercase for the company ("app" for AppLovin, "coin", "hood") count in plainly
+ * stock phrasing only: "why is app down", "how come app is falling", "app stock", "app's earnings". Not "is app up to
+ * date", "the app is down", "which app stock" or "meme coin stocks" - after an article, "which", "meme"... the word is
+ * the everyday one. Kept to these three on purpose: wider, "why is snow falling" became Snowflake.
+ */
+const PHRASE_TICKERS = ["APP", "COIN", "HOOD"];
+/** Not "crash": "why did app crash" is about an app. */
+const MOVE_WORDS_SRC = "down|up|moving|moved|drop|dropping|dropped|fall|falling|fell|tank|tanking|tanked|sink|sinking|sank|plunge|plunging|plunged|jump|jumped|surge|surging|surged|rally|rallying|rallied|so (?:low|high)";
+const STOCK_WORDS_SRC = "stock|stocks|shares|share price|earnings|price target|market cap";
+const NOT_AFTER_SRC = "(?<!\\b(?:a|an|the|my|this|that|your|our|their|his|her|its|stak|an?other|which|what|any|some|every|good|best|new|meme|crypto|top|cheap)\\s+)";
+const WORD_TICKER_PHRASES = PHRASE_TICKERS.filter((t) => CATALOG.some((b) => b.ticker === t)).map((t) => {
+	const w = escapeRegExp(t.toLowerCase());
+	return {
+		ticker: t,
+		phrase: new RegExp(
+			`\\b(?:why|how come)\\s+(?:is|was|did|has)\\s+${w}\\s+(?:${MOVE_WORDS_SRC})\\b(?!\\s+(?:to|for|on)\\b)` +
+			`|\\bhow come\\s+${w}\\s+(?:is|was|has)\\s+(?:${MOVE_WORDS_SRC})\\b(?!\\s+(?:to|for|on)\\b)` +
+			`|${NOT_AFTER_SRC}\\b${w}(?:'s)?\\s+(?:${STOCK_WORDS_SRC})\\b`,
+			"i",
+		),
+	};
+});
+
 /** "$PLTR"-style cashtags: any ticker, catalog or not, word-like or not. */
 function detectCashtags(message: string): string[] {
 	return [...message.matchAll(/\$([A-Za-z][A-Za-z.-]{0,9})\b/g)].map((m) => m[1]!.toUpperCase()).filter((t) => TICKER_RE.test(t));
@@ -106,7 +130,8 @@ export function detectNamedTickers(raw: string): string[] {
 	// Phone keyboards type curly apostrophes ("McDonald’s"); the catalog writes straight ones.
 	const message = raw.replace(/[‘’ʼ]/g, "'");
 	const fromCatalog = MATCHERS.filter((m) => m.names.some((n) => n.test(message)) || (m.ticker?.test(message) ?? false)).map((m) => m.brand.ticker);
-	return [...new Set([...detectCashtags(message), ...fromCatalog])].slice(0, 3);
+	const fromPhrases = WORD_TICKER_PHRASES.filter((p) => p.phrase.test(message)).map((p) => p.ticker);
+	return [...new Set([...detectCashtags(message), ...fromCatalog, ...fromPhrases])].slice(0, 3);
 }
 
 /** The question points back at something earlier ("is that normal for it?", "what does this mean?"). */
@@ -269,6 +294,10 @@ async function fetchLiveStockContext(ticker: string): Promise<string | null> {
 		if (data.metrics.peRatio != null) parts.push(`P/E ${data.metrics.peRatio.toFixed(1)}`);
 		if (data.metrics.marketCap) parts.push(`mkt cap ${data.metrics.marketCap}`);
 		if (data.metrics.beta != null) parts.push(`beta ${data.metrics.beta.toFixed(2)}`);
+		const { week52Low, week52High, yearReturn, ytdReturn } = data.metrics;
+		if (week52Low != null && week52High != null) parts.push(`52-week range $${week52Low.toFixed(2)}-$${week52High.toFixed(2)} (as of last close)`);
+		if (yearReturn != null) parts.push(`past year ${signedPct(yearReturn)}`);
+		if (ytdReturn != null) parts.push(`year to date ${signedPct(ytdReturn)}`);
 		return parts.join(" | ");
 	} catch {
 		return null;
@@ -280,6 +309,71 @@ const HEADLINE_DAY = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_Y
 /** "(Thu, Oct 8) ", so the model can tell today's news from last week's; nothing when the date is missing. */
 function headlineDate(unixSeconds: number | undefined): string {
 	return unixSeconds && Number.isFinite(unixSeconds) ? `(${HEADLINE_DAY.format(new Date(unixSeconds * 1000))}) ` : "";
+}
+
+/** Headlines given per company, how many may be picked for matching the question, summary length, and how far back a
+ * question about a particular story looks for it ("the Unity lawsuit" may be weeks old). */
+const HEADLINES_SHOWN = 6;
+const MATCHED_HEADLINES = 3;
+const SUMMARY_CHARS = 220;
+const OLDER_NEWS_DAYS = 30;
+/** A month of a heavily covered stock runs to hundreds of articles: keep enough that a weeks-old story isn't cut. */
+const OLDER_NEWS_LIMIT = 300;
+/** Question words that say nothing about which story they mean: filler, moves, and words every stock story has. */
+const NOT_A_TOPIC = new Set([
+	"about", "after", "again", "also", "anything", "been", "before", "could", "does", "doing", "explain", "from", "going",
+	"happen", "happened", "happening", "have", "into", "just", "know", "lately", "like", "mean", "means", "more", "much",
+	"over", "really", "recent", "recently", "should", "some", "still", "tell", "that", "their", "them", "there", "they",
+	"think", "this", "thought", "today", "what", "when", "where", "which", "while", "with", "would", "your",
+	"news", "update", "updates", "week", "weeks", "month", "year", "years", "price", "share", "shares", "stock", "stocks",
+	"company", "market", "markets", "investors", "analyst", "analysts", "worth", "good", "best", "invest", "investment",
+	"buying", "selling", "down", "move", "moved", "moving", "drop", "dropped", "dropping", "fall", "falling", "fell", "rise",
+	"rising", "rose", "jump", "jumped", "jumping", "tank", "tanked", "tanking", "crash", "crashed", "crashing", "surge",
+	"surged", "surging", "rally", "rallied", "rallying", "sink", "sinking", "sank", "plunge", "plunged", "plunging",
+	"soar", "soared", "soaring", "gain", "gained", "gains", "lost", "lose", "losing", "losses", "high", "highs", "lows",
+]);
+
+/** The question's words that could name a story ("unity", "lawsuit", "restraining"), not the company's own. */
+export function questionTopics(question: string, ticker: string): string[] {
+	const company = new Set([ticker, ...nameOf(ticker).split(/\s+/)].map((w) => w.toLowerCase()));
+	return [...new Set((question.toLowerCase().match(/[a-z][a-z'-]{3,}/g) ?? []).map((w) => w.replace(/'s$/, "")))]
+		.filter((w) => !NOT_A_TOPIC.has(w) && !company.has(w));
+}
+
+/**
+ * The headlines the model gets for a company: up to three whose headline or summary share the most words with the
+ * question come first - from this week or, in [older], the past month - then this week's newest, up to six.
+ */
+export function pickHeadlines(recent: FinnhubArticle[], question: string, ticker: string, older: FinnhubArticle[] = []): FinnhubArticle[] {
+	// Whole words, plurals too ("lawsuit" finds "lawsuits", but "unit" doesn't find "unity").
+	const topics = questionTopics(question, ticker).map((w) => new RegExp(`\\b${escapeRegExp(w)}(?:s|es)?\\b`));
+	const seen = new Set<string>();
+	const unique = (list: FinnhubArticle[]) => list.filter((a) => !seen.has(a.headline) && !!seen.add(a.headline));
+	const thisWeek = unique(recent);
+	const pool = [...thisWeek, ...unique(older)];
+	const score = (a: FinnhubArticle) => {
+		const text = `${a.headline} ${a.summary ?? ""}`.toLowerCase();
+		return topics.filter((re) => re.test(text)).length;
+	};
+	const matched = topics.length === 0 ? [] : pool
+		.map((a, i) => ({ a, i, score: score(a) }))
+		.filter((x) => x.score > 0)
+		.sort((x, y) => y.score - x.score || x.i - y.i)
+		.slice(0, MATCHED_HEADLINES)
+		.map((x) => x.a);
+	return [...matched, ...thisWeek.filter((a) => !matched.includes(a))].slice(0, HEADLINES_SHOWN);
+}
+
+/** "+4.0%", "-53.1%". */
+const signedPct = (pct: number) => `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
+
+/** A headline's summary, cut at a word with "…" past SUMMARY_CHARS; undefined when there's none. */
+function shortSummary(summary: string | undefined): string | undefined {
+	const full = summary?.trim().replace(/\s+/g, " ");
+	if (!full) return undefined;
+	if (full.length <= SUMMARY_CHARS) return full;
+	const cut = full.lastIndexOf(" ", SUMMARY_CHARS);
+	return `${full.slice(0, cut > SUMMARY_CHARS / 2 ? cut : SUMMARY_CHARS).replace(/[\s,.;:-]+$/, "")}…`;
 }
 
 function withDeadline<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
@@ -448,7 +542,9 @@ When someone asks for advice or a prediction, start your reply with [[DECLINED]]
 Your memory of companies and markets is out of date, often by years. Your only current information is the notes in this conversation: "Live market data", "Recent news signals", and what the user opened STAK AI from (an article's headline and summary, the Daily Brief's points, or just which stock page it was; you can't see the page itself).
 - Never state a current or recent price, move, P/E, market cap, earnings date or result, deal, lawsuit, analyst rating or price target unless it's in the notes. If it isn't, say so in one short sentence, then still help with what you can (background, what that kind of news usually means). Point them to the company's page or News in STAK at most once in a conversation.
 - Figures in your earlier replies may be wrong; don't repeat them as current.
-- Report what the notes say, without adding details they don't contain. Headlines carry their date (US Eastern): call something today's news only if it's dated today, and don't guess how new an undated one is. A headline from the last day or two (or the last trading day, after a weekend) can still explain today's move: just say when it came out.
+- Report what the notes say, without adding details they don't contain. A summary ending in "…" is cut off: never guess how it goes on or how things turned out (rulings, amounts, guidance).
+- "Older stories matching the question" are weeks old: use one to answer a question about that story, saying when it came out, but never as the reason for today's move.
+- Past-year and year-to-date changes cover months, and your headlines only the last few weeks: don't give a headline as the cause of a long-term move. Say what recent news shows, and that you don't have the news from earlier in the year that drove most of it. Headlines carry their date (US Eastern): call something today's news only if it's dated today, and don't guess how new an undated one is. A headline from the last day or two (or the last trading day, after a weekend) can still explain today's move: just say when it came out.
 - Lasting background (what a company does, its competitors, what a term means) can come from memory. A past event from memory must carry its year and be framed as history.
 - Made-up numbers to explain a concept are fine when clearly labelled as an example.
 - You can't browse, search or open pages. Never say you looked something up, checked a page, or reviewed the latest information.
@@ -614,25 +710,47 @@ async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Pr
 		if (tickers.length > 0) {
 			const [prices, news] = await Promise.all([
 				Promise.all(tickers.map(async (t) => ({ ticker: t, ctx: await fetchLiveStockContext(t) }))),
-				Promise.all(tickers.map(async (t) => ({ ticker: t, articles: await withDeadline<FinnhubArticle[] | null>(getCompanyNews(t, 24, nameOf(t)), NEWS_DEADLINE_MS, null) }))),
+				Promise.all(tickers.map(async (t) => {
+					// A question about a particular story ("the Unity lawsuit") also looks back a month for it - no NewsAPI
+					// fallback there (no company name), as its daily quota is small.
+					const [articles, older] = await Promise.all([
+						withDeadline<FinnhubArticle[] | null>(getCompanyNews(t, 24, nameOf(t)), NEWS_DEADLINE_MS, null),
+						questionTopics(question, t).length > 0
+							? withDeadline<FinnhubArticle[]>(getCompanyNews(t, OLDER_NEWS_LIMIT, undefined, { days: OLDER_NEWS_DAYS }), NEWS_DEADLINE_MS, [])
+							: Promise.resolve([]),
+					]);
+					return { ticker: t, articles, older };
+				})),
 			]);
 			// A gap is said out loud, so the model reports it rather than filling it from memory.
 			for (const { ticker, ctx } of prices) {
 				liveDataLines.push(`• ${nameOf(ticker)} (${ticker}): ${ctx ?? "no live quote available right now"}`);
 				if (ctx) liveContextLog[ticker] = ctx;
 			}
-			for (const { ticker, articles } of news) {
-				if (!articles) {
-					newsLines.push(`${nameOf(ticker)} (${ticker}): news couldn't be loaded just now.`);
+			const item = (a: FinnhubArticle) => {
+				const summary = shortSummary(a.summary);
+				return `  - ${headlineDate(a.datetime)}${a.headline}${summary ? `\n    ${summary}` : ""}`;
+			};
+			const weekAgo = Date.now() / 1000 - 7 * 86_400;
+			for (const { ticker, articles, older } of news) {
+				const label = `${nameOf(ticker)} (${ticker})`;
+				if (!articles && older.length === 0) {
+					newsLines.push(`${label}: news couldn't be loaded just now.`);
 					continue;
 				}
-				const top = articles.slice(0, 5);
+				const top = pickHeadlines(articles ?? [], question, ticker, older);
 				if (top.length === 0) {
-					newsLines.push(`${nameOf(ticker)} (${ticker}): no headlines found from the past week.`);
+					newsLines.push(`${label}: no headlines found from the past week.`);
 					continue;
 				}
-				newsLines.push(`${nameOf(ticker)} (${ticker}) recent headlines:\n${top.map((a) => `  - ${headlineDate(a.datetime)}${a.headline}`).join("\n")}`);
-				for (const a of top) sources.push({ ticker, headline: a.headline, ...(a.url ? { url: a.url } : {}) });
+				// Older stories that match the question are labelled as such, so they're never read as today's news.
+				const isOld = (a: FinnhubArticle) => !!a.datetime && a.datetime < weekAgo;
+				const fresh = top.filter((a) => !isOld(a));
+				const old = top.filter(isOld);
+				if (fresh.length > 0) newsLines.push(`${label} headlines from the past week:\n${fresh.map(item).join("\n")}`);
+				else newsLines.push(`${label}: ${articles ? "no headlines found from the past week." : "this week's news couldn't be loaded just now."}`);
+				if (old.length > 0) newsLines.push(`${label} older stories matching the question (not recent news):\n${old.map(item).join("\n")}`);
+				for (const a of [...fresh, ...old]) sources.push({ ticker, headline: a.headline, ...(a.url ? { url: a.url } : {}) });
 			}
 		}
 
