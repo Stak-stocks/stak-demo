@@ -246,6 +246,12 @@ POST `/api/sandbox/fill-orders` with the warm secret) — created and enabled.
 - Frontend: `public/sw.js`, `lib/webPush.ts`, the "Browser notifications" switch in
   `routes/profile_.notifications.tsx`; onboarding permissions subscribes; logout unsubscribes.
 - `vercel.json` serves `/sw.js` with no-cache.
+- Price threshold (2026-10-08): migration `20261008010000_push_devices_price_threshold.sql` (applied) adds
+  `push_devices.price_threshold` (1/3/5/10, default 3; the list lives in `shared/src/notificationConfig.ts`).
+  Every client sends `priceThreshold` with `PUT /push-device`; push-run checks each device at its own threshold
+  and dedupes per token (`push:move:<token>:<day>:<ticker>:<dir>`, claimed in one step with `cacheSetIfAbsent`;
+  the old per-account `push:move:<uid>:...` key is also honoured, for the deploy day only - remove after
+  2026-10-15). Web re-sends its settings once per page load.
 
 ### 4.4 Other backend changes (deployed)
 `compression()` middleware (before `express.json`) in `index.ts`; `GET /api/brands` precomputes
@@ -370,7 +376,18 @@ Android: `cd android && ./gradlew compileDebugKotlin` (needs `sdk.dir` in `local
   web + Android For You; American English system instruction on text-writing Gemini calls; vendor chunks (main
   847 -> ~290 kB); landing hero WebP + 60 unused images removed; GradientCta / sheetCard / darkCard; search overlay
   desktop-only (kept: it's the desktop top bar's search); tests for usePaperPortfolio, BuyFlow, SellFlow.
-- The 8.1 decisions below are answered except: browser smoke test, web deploy (Vercel), Terms/Privacy pages.
+- The 8.1 decisions below are answered except: browser smoke test, web deploy (Vercel). Terms/Privacy pages: built
+  (2026-10-08, /terms and /privacy from the founders' documents, `lib/legalText.ts`).
+- **Eligibility gate** (2026-10-08; layout reworked 2026-10-09): "Before we get started" on web, Android and iOS - the
+  STAK glass mark, then three separate checkboxes in a card (18 or older; residing in the United States; agreeing to
+  the Terms of Service and Privacy Policy, both linked below the card), centred, and "Continue" once all three are
+  ticked. No date of birth, no forced scrolling. (A one-tap "Agree and continue" was tried and dropped: the team wants
+  each attestation ticked separately.) Migration `20261009000000_eligibility.sql`
+  (users columns; signed-in users may update only deck_order / preferences / last_brief_date directly). POST
+  /api/me/eligibility `{ ageConfirmed, inUS, acceptTerms }` (400 without all three); GET /api/me returns
+  `needsEligibility`; authMiddleware refuses accounts created from `ELIGIBILITY_ENFORCED_FROM` until they confirm.
+  Terms / Privacy v2026-10-08 are in use pending the lawyer's review; changing either means bumping TERMS_VERSION /
+  PRIVACY_VERSION, which asks every account again.
 
 ### 8.1 Needs the user
 - **Browser smoke test** of everything (nothing but Discover's swipe has been exercised in a real browser).

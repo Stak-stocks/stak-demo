@@ -60,16 +60,26 @@ class DiscoverViewModel @Inject constructor(
     private val pendingSwipeJobs = mutableMapOf<String, Job>()
     private val quickLookCache = mutableMapOf<String, QuickLookData>()
     private val tipCache = mutableMapOf<String, String>()
-    /** brandId -> epoch ms of the last pass. Null until read: PUT replaces the server list, so never write blind. */
-    private var passedAt: MutableMap<String, Long>? = null
+    /** brandId -> its last pass and pass count, as read with the deck (null when that read failed). */
+    private var passedAt: MutableMap<String, PassedEntry>? = null
 
     /**
      * Quick Look for any brand: the generated structured overview
      * (GET /api/brands/:id/quick-look), or the profile's cultural-context
      * sections when generation isn't available.
      */
+    /** Quick looks being read: a "Learn more" tap during the prefetch shares that request (iOS's in-flight map). */
+    private val quickLookInFlight = mutableMapOf<String, kotlinx.coroutines.Deferred<QuickLookData>>()
+
     suspend fun fetchQuickLook(brandId: String): QuickLookData {
         quickLookCache[brandId]?.let { return it }
+        quickLookInFlight[brandId]?.let { return it.await() }
+        val request = viewModelScope.async { readQuickLook(brandId) }
+        quickLookInFlight[brandId] = request
+        return try { request.await() } finally { quickLookInFlight.remove(brandId) }
+    }
+
+    private suspend fun readQuickLook(brandId: String): QuickLookData {
         val structured = runCatching {
             repository.getBrandQuickLook(brandId).quickLook?.takeIf { !it.in10Seconds.isNullOrBlank() }
         }.getOrNull()
@@ -89,27 +99,37 @@ class DiscoverViewModel @Inject constructor(
         fetchDeck()
     }
 
-    private fun fetchDeck() {
+    /** [repick]: a reload into the day's shared deck - on failure the deck on screen stays, and the count never drops. */
+    private fun fetchDeck(repick: Boolean = false) {
         viewModelScope.launch {
             _loading.value = true
             _loadError.value = false
-            loadedDay = todayKey()
+            val day = todayKey()
+            loadedDay = day
             missingRetries = 0
             coroutineScope {
                 val dailySwipesDeferred = async { runCatching { repository.getDailySwipes() }.getOrNull() }
                 val recsDeferred = async { runCatching { repository.getRecommendations() }.getOrNull() }
                 val statsDeferred = async { runCatching { repository.getSwipes(swipeDayStartIso()).swipes }.getOrNull() }
                 val passedDeferred = async { runCatching { repository.getPassed().entries }.getOrNull() }
+                // Null when it couldn't be read; empty when no device has picked today's deck yet.
+                val sharedDeferred = async { runCatching { repository.getDailyDeck(day).tickers }.getOrNull() }
                 val brandsResult = runCatching { repository.getBrands() }
 
                 val dailySwipes = dailySwipesDeferred.await()
                 val limit = dailySwipes?.limit?.takeIf { it > 0 } ?: FALLBACK_DAILY_LIMIT
-                val swiped = if (dailySwipes != null && dailySwipes.date == todayKey()) dailySwipes.count else 0
+                val served = if (dailySwipes != null && dailySwipes.date == todayKey()) dailySwipes.count else 0
+                // The server hasn't heard of swipes still in their undo window, or ones made offline.
+                val swiped = if (repick) maxOf(_swipedToday.value, served + pendingSwipeJobs.size) else served
                 _dailyLimit.value = limit
                 _swipedToday.value = swiped
                 // Set both ways: a deck reloaded at the 9am rollover starts under the limit again.
                 _hasReachedLimit.value = swiped >= limit
+                // Today's swipes anywhere (this phone or another): those cards are done for the day. The deck's cap
+                // already counts them; leaving the cards in showed the ones swiped elsewhere again and hid the last few.
+                var swipedIds = emptySet<String>()
                 statsDeferred.await()?.let { swipes ->
+                    swipedIds = swipes.map { it.brandId }.toSet()
                     val saved = swipes.filter { it.direction == "right" }.map { it.brandId }.toSet().size
                     val passed = swipes.filter { it.direction == "left" }.map { it.brandId }.toSet().size
                     _todayStats.value = saved to passed
@@ -119,8 +139,8 @@ class DiscoverViewModel @Inject constructor(
                     // Shared with news search, which maps tickers and company names.
                     com.stak.demo.data.BrandNames.fill(res.brands)
                     val recs = recsDeferred.await()
-                    passedAt = passedDeferred.await()?.associate { it.id to it.at }?.toMutableMap()
-                    val picks = todaysPicks(res.brands, recs?.brandIds.orEmpty(), limit, passedAt.orEmpty(), recs?.categories.orEmpty())
+                    passedAt = passedDeferred.await()?.associateBy { it.id }?.toMutableMap()
+                    val picks = todaysPicks(res.brands, recs?.brandIds.orEmpty(), limit, passedAt.orEmpty(), recs?.categories.orEmpty(), sharedDeferred.await(), day)
                     quotedRef = StakClock.lastCloseRef()
                     val quotes = if (picks.isNotEmpty()) {
                         runCatching { repository.batchQuotes(picks.map { it.ticker }) }.getOrNull()?.quotes ?: emptyMap()
@@ -134,20 +154,24 @@ class DiscoverViewModel @Inject constructor(
                             brandId = brand.id,
                             ticker = "${brand.ticker} · ${brand.name}",
                             headline = brand.bio,
-                            price = if (q != null) formatPrice(q.price) else "—",
-                            change = if (q != null) formatChange(q.changePercent) else "—",
+                            // A $0 quote (a halted or unknown symbol) is no price - "—", which the reprice pass retries.
+                            price = if (q != null && q.price > 0) formatPrice(q.price) else "—",
+                            change = if (q != null && q.price > 0) formatChange(q.changePercent) else "—",
                             tip = "",
                             cardTop = colors.first,
                             artBg = colors.second,
                             categories = brand.interestCategories,
                         )
                     }
-                    _deck.value = cards
+                    _deck.value = cards.filter { it.brandId !in swipedIds }
+                    if (resetSessionOnLoad) { DeckSession.load(); resetSessionOnLoad = false }
                     prefetchTips(cards)
                     prefetchQuickLooks(cards)
                 }.onFailure {
-                    _deck.value = emptyList()
-                    _loadError.value = true
+                    if (!repick) {
+                        _deck.value = emptyList()
+                        _loadError.value = true
+                    }
                 }
             }
             _loading.value = false
@@ -157,43 +181,79 @@ class DiscoverViewModel @Inject constructor(
     /**
      * Today's deck: the backend's personalised ranking (the same
      * /api/recommendations order the web deck uses), minus stocks already in
-     * My STAK and anything passed in the last 24h (older passes return at the
-     * back, as on web), capped at the daily limit. Pinned per day so a relaunch or a
-     * refreshed ranking doesn't reshuffle a deck the user is part-way through.
+     * My STAK, anything passed in the last 24h (older passes return at the
+     * back) and anything passed [PASS_HIDE_COUNT] times, at most [MAX_PER_CATEGORY]
+     * per category, capped at the daily limit - every platform's rules.
+     *
+     * One deck a day across devices (web's lib/dailyDeck chooseDailyDeck): the deck
+     * another device - or an earlier launch - picked ([shared], kept by the server)
+     * comes first; else this phone's own pin; else one picked now and offered to the
+     * server, which keeps the first one offered. A deck stands even when it's all been
+     * saved since: today's picks are done, not re-picked.
      */
-    private fun todaysPicks(
+    private suspend fun todaysPicks(
         brands: List<BrandSummaryDto>,
         ranked: List<String>,
         limit: Int,
-        passed: Map<String, Long>,
+        passed: Map<String, PassedEntry>,
+        categories: Map<String, String>,
+        shared: List<String>?,
+        key: String,
+    ): List<BrandSummaryDto> {
+        val byTicker = brands.associateBy { it.ticker }
+        val pinned = StakStore.getString(PICKS_KEY).orEmpty().split(",").filter { it.isNotBlank() }.takeIf {
+            it.isNotEmpty() && StakStore.getString(PICKS_DAY_KEY) == key && StakStore.getInt(PICKS_VERSION_KEY, 0) == PICKS_VERSION
+        }
+        // Only a real personalised ranking is shared or pinned. A fallback order (ranking
+        // unavailable - offline, or an expired session) must not decide the whole day.
+        val tickers = when {
+            !shared.isNullOrEmpty() -> shared
+            pinned == null && ranked.isEmpty() -> null
+            else -> {
+                val mine = pinned ?: freshPicks(brands, ranked, limit, passed, categories).map { it.ticker }
+                if (shared == null) mine
+                else runCatching { repository.offerDailyDeck(key, mine).tickers }.getOrNull()?.takeIf { it.isNotEmpty() } ?: mine
+            }
+        }
+        // Shared only when the server had a say: a deck picked offline is this phone's alone until it can ask again.
+        deckShared = shared != null && tickers != null
+        if (tickers == null) {
+            val picks = freshPicks(brands, ranked, limit, passed, categories)
+            _deckLabel.value = deckLabelFor(picks, categories)
+            return picks
+        }
+        // The label describes the whole day's deck, so it stays put as cards leave.
+        val label = if (tickers == pinned) StakStore.getString(PICKS_LABEL_KEY) ?: deckLabelFor(tickers.mapNotNull { byTicker[it] }, categories)
+        else deckLabelFor(tickers.mapNotNull { byTicker[it] }, categories)
+        StakStore.putString(PICKS_DAY_KEY, key)
+        StakStore.putString(PICKS_KEY, tickers.joinToString(","))
+        StakStore.putInt(PICKS_VERSION_KEY, PICKS_VERSION)
+        StakStore.putString(PICKS_LABEL_KEY, label)
+        _deckLabel.value = label
+        // A stock saved since the deck was picked (on any device, or from a stock page) leaves it - undoing a swipe on
+        // it would have removed that earlier save (iOS's filter).
+        val held = MyStakHoldings.tickers
+        return tickers.mapNotNull { byTicker[it] }.filter { it.ticker !in held }
+    }
+
+    /** Today's picks from [ranked]: what [todaysPicks] shows when no deck is picked for the day yet. */
+    private fun freshPicks(
+        brands: List<BrandSummaryDto>,
+        ranked: List<String>,
+        limit: Int,
+        passed: Map<String, PassedEntry>,
         categories: Map<String, String>,
     ): List<BrandSummaryDto> {
         val byTicker = brands.associateBy { it.ticker }
-        val key = todayKey()
-        if (StakStore.getString(PICKS_DAY_KEY) == key && StakStore.getInt(PICKS_VERSION_KEY, 0) == PICKS_VERSION) {
-            val pinned = StakStore.getString(PICKS_KEY).orEmpty().split(",").mapNotNull { byTicker[it] }
-            if (pinned.isNotEmpty()) {
-                _deckLabel.value = StakStore.getString(PICKS_LABEL_KEY) ?: deckLabelFor(pinned, categories)
-                return pinned
-            }
-        }
         val rankedSet = ranked.toSet()
         val ordered = ranked.mapNotNull { byTicker[it] } + brands.filter { it.ticker !in rankedSet }
         val held = MyStakHoldings.tickers
         val dayAgo = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
-        val eligible = ordered.filter { it.ticker !in held && (passed[it.id] ?: 0L) <= dayAgo }
-        val picks = withCategoryCap(eligible.filter { it.id !in passed } + eligible.filter { it.id in passed }, categories, limit)
-        val label = deckLabelFor(picks, categories)
-        // Only a real personalised ranking is pinned. A fallback order (ranking
-        // unavailable - offline, or an expired session) must not decide the whole day.
-        if (ranked.isNotEmpty()) {
-            StakStore.putString(PICKS_DAY_KEY, key)
-            StakStore.putString(PICKS_KEY, picks.joinToString(",") { it.ticker })
-            StakStore.putInt(PICKS_VERSION_KEY, PICKS_VERSION)
-            StakStore.putString(PICKS_LABEL_KEY, label)
+        val eligible = ordered.filter { brand ->
+            val pass = passed[brand.id]
+            brand.ticker !in held && (pass == null || (pass.count < PASS_HIDE_COUNT && pass.at <= dayAgo))
         }
-        _deckLabel.value = label
-        return picks
+        return withCategoryCap(eligible.filter { it.id !in passed } + eligible.filter { it.id in passed }, categories, limit)
     }
 
     fun recordSwipe(brandId: String, isSTAK: Boolean, timeOnCardMs: Long? = null, categories: List<String> = emptyList()) {
@@ -222,16 +282,17 @@ class DiscoverViewModel @Inject constructor(
                 _swipedToday.value = res.dailySwipeCount + pendingSwipeJobs.size
                 if (res.limitReached) _hasReachedLimit.value = true
                 if (res.success && !isSTAK) recordPass(brandId)
+                // Saving clears a stock's passes (the server drops them with the save) - so a later pass list doesn't put them back.
+                if (res.success && isSTAK) passedAt?.remove(brandId)
             }
         }
         pendingSwipeJobs[brandId] = job
     }
 
-    /** Mirror a sent pass into the backend's passed list (the list web re-queues from). */
+    /** Count a sent pass in the backend's passed list (the list every platform re-queues from). */
     private suspend fun recordPass(brandId: String) {
-        val entries = passedAt ?: return
-        entries[brandId] = System.currentTimeMillis()
-        runCatching { repository.putPassed(entries.map { (id, at) -> PassedEntry(id, at) }) }
+        val counted = runCatching { repository.addPass(brandId).entry }.getOrNull()
+        passedAt?.let { it[brandId] = counted ?: PassedEntry(brandId, System.currentTimeMillis(), (it[brandId]?.count ?: 0) + 1) }
     }
 
     fun retry() = fetchDeck()
@@ -270,6 +331,12 @@ class DiscoverViewModel @Inject constructor(
     private var quoteJob: Job? = null
     /** The deck day ([todayKey]) the deck on screen was loaded for. */
     private var loadedDay: String? = null
+    /** Whether the deck on screen is the day's shared one; one picked while the server was out of reach isn't. */
+    private var deckShared = true
+    /** A shared-deck check in flight: the tick doesn't start another. */
+    private var checkingShared = false
+    /** A rollover reload: DeckSession resets with the new deck, not before it. */
+    private var resetSessionOnLoad = false
     /** [StakClock.lastCloseRef] when the deck was last priced - a changed one means the prices predate a session boundary. */
     private var quotedRef: String? = null
     /** Out-of-hours attempts to price cards whose quote never came back; capped so one bad symbol can't poll all night. */
@@ -280,14 +347,45 @@ class DiscoverViewModel @Inject constructor(
      * on the end-of-deck screen). Past the 9am rollover the next deck is loaded; otherwise
      * the visible cards are re-priced.
      */
-    fun onVisibleTick(visible: List<String>) {
+    fun onVisibleTick(visible: List<String>, busy: Boolean = false) {
         if (_loading.value) return
         if (loadedDay != null && loadedDay != todayKey()) {
-            DeckSession.load()
+            // The day's run resets only once the new cards are in (iOS's rule) - resetting first showed the previous
+            // day's swiped cards again for a moment, swipeable.
+            resetSessionOnLoad = true
             fetchDeck()
             return
         }
+        // Not mid-swipe: a card being dragged, flying off, open in Quick Look or inside its undo window stays put.
+        if (!deckShared && !busy && pendingSwipeJobs.isEmpty()) checkSharedDeck()
         refreshQuotes(visible)
+    }
+
+    /**
+     * A deck picked while the server was out of reach: once it answers - the day's shared deck, or a ranking to pick
+     * one from - the deck reloads into the shared one (cards swiped today stay out). Nothing new to load, nothing
+     * changes - so a phone still offline isn't reloaded every tick.
+     */
+    private fun checkSharedDeck() {
+        if (checkingShared) return
+        checkingShared = true
+        viewModelScope.launch {
+            try {
+                val shared = runCatching { repository.getDailyDeck(todayKey()).tickers }.getOrNull() ?: return@launch
+                val canPick = shared.isNotEmpty() ||
+                    runCatching { repository.getRecommendations().brandIds }.getOrNull().orEmpty().isNotEmpty()
+                if (!canPick || _loading.value || pendingSwipeJobs.isNotEmpty()) return@launch
+                // 9am passed while asking: the rollover's reload, not a re-pick.
+                if (loadedDay != todayKey()) {
+                    resetSessionOnLoad = true
+                    fetchDeck()
+                } else {
+                    fetchDeck(repick = true)
+                }
+            } finally {
+                checkingShared = false
+            }
+        }
     }
 
     /**
@@ -343,10 +441,12 @@ private const val DEFAULT_DECK_LABEL = "TODAY'S DECK"
 private const val PICKS_DAY_KEY = "deck.picks.day"
 private const val PICKS_KEY = "deck.picks"
 /** Bump when the picking rules change, so a deck pinned under the old rules is re-picked. */
-private const val PICKS_VERSION = 2
+private const val PICKS_VERSION = 3
 private const val PICKS_VERSION_KEY = "deck.picks.version"
 private const val PICKS_LABEL_KEY = "deck.picks.label"
 private const val MAX_PER_CATEGORY = 3
+/** Passed this many times, a stock stops coming back to the deck (every platform's rule; saving it clears its passes). */
+internal const val PASS_HIDE_COUNT = 5
 
 /**
  * The top [limit] brands with at most [MAX_PER_CATEGORY] per primary category, so
@@ -405,7 +505,9 @@ private val CARD_COLOR_PALETTE = listOf(
 internal fun todayKey(): String {
     val now = Calendar.getInstance()
     if (now.get(Calendar.HOUR_OF_DAY) < DECK_DAY_START_HOUR) now.add(Calendar.DATE, -1)
-    return "%04d-%02d-%02d".format(
+    // Western digits whatever the phone's language: the server reads this key (and an Arabic or Persian locale's digits
+    // wouldn't match the other devices').
+    return String.format(Locale.US, "%04d-%02d-%02d",
         now.get(Calendar.YEAR),
         now.get(Calendar.MONTH) + 1,
         now.get(Calendar.DAY_OF_MONTH),

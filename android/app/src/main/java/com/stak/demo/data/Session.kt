@@ -53,6 +53,26 @@ object Session {
 	var accountId: String? = null
 		private set
 
+	/**
+	 * Set when the account's sign-in was ended somewhere else (a password change, or a sign-out that ended every
+	 * device's session): the network layer can't renew it, so the app signs out and Sign in says why. Cleared at the
+	 * next sign-in.
+	 */
+	var endedElsewhere by mutableStateOf(false)
+		private set
+
+	/** The network layer's report that Supabase refused this account's session for good - once (several refused
+	 *  requests report it together). A signed-out app, or one on its way out, ignores it. */
+	fun reportEndedElsewhere() {
+		if (signedIn && !demoAccount && !endedElsewhere && !leaving) endedElsewhere = true
+	}
+
+	/**
+	 * Set while the user is logging out or deleting the account: a request still in flight then fails its refresh too,
+	 * and must not be taken for a sign-in ended somewhere else. Cleared at the next sign-in, or when a delete fails.
+	 */
+	@Volatile var leaving = false
+
 	/** True when this launch started already signed in - the returning-user path. */
 	var resumedSignedIn = false
 		private set
@@ -110,7 +130,8 @@ object Session {
 		UserProfile.priceAlerts = p.getBoolean(KEY_PRICE_ALERTS, true)
 		UserProfile.dailyDeck = p.getBoolean(KEY_DAILY_DECK, true)
 		UserProfile.marketNews = p.getBoolean(KEY_MARKET_NEWS, false)
-		UserProfile.priceThreshold = p.getInt(KEY_PRICE_THRESHOLD, 3)
+		UserProfile.priceThreshold = p.getInt(KEY_PRICE_THRESHOLD, UserProfile.DEFAULT_PRICE_THRESHOLD)
+			.takeIf { it in UserProfile.PRICE_THRESHOLDS } ?: UserProfile.DEFAULT_PRICE_THRESHOLD
 		// Only Dark and Match system exist (the Light build of 2026-09-08 was withdrawn): a
 		// value that build stored reads as Dark, so the Appearance page always shows a choice.
 		UserProfile.appearance = p.getString(KEY_APPEARANCE, "dark").let { if (it == "system") "system" else "dark" }
@@ -135,11 +156,15 @@ object Session {
 	 * restores the account's own.
 	 */
 	fun signIn(demo: Boolean, answeredOnboarding: Boolean = false) {
+		endedElsewhere = false
+		leaving = false
 		signedIn = true
 		demoAccount = demo
 		accountGeneration++
 		// Only a brand-new account is a first-time user; Sign in is an active user.
-		firstRunPending = !demo
+		// Only a brand-new account (just through onboarding) is a first-time user; any other sign-in is a returning one
+		// (every live sign-in passes demo = false, so `!demo` alone made each one a first run).
+		firstRunPending = !demo && answeredOnboarding
 		if (!demo && !answeredOnboarding) {
 			UserProfile.brandPicks = emptySet()
 			UserProfile.goal = -1
@@ -162,7 +187,7 @@ object Session {
 			UserProfile.priceAlerts = true
 			UserProfile.dailyDeck = true
 			UserProfile.marketNews = false
-			UserProfile.priceThreshold = 3
+			UserProfile.priceThreshold = UserProfile.DEFAULT_PRICE_THRESHOLD
 		}
 		// Brand-new account: the server's creation month isn't known yet, and it is this one.
 		if (!demo && answeredOnboarding && UserProfile.joined.isBlank()) UserProfile.joined = StakClock.monthYear()
@@ -233,6 +258,7 @@ object Session {
 	/** Log out: forget the session and the profile; next launch asks to sign in. */
 	fun signOut() {
 		PushRegistration.forget()
+		Eligibility.reset()
 		accountGeneration++
 		signedIn = false
 		resumedSignedIn = false
@@ -249,7 +275,7 @@ object Session {
 		UserProfile.priceAlerts = true
 		UserProfile.dailyDeck = true
 		UserProfile.marketNews = false
-		UserProfile.priceThreshold = 3
+		UserProfile.priceThreshold = UserProfile.DEFAULT_PRICE_THRESHOLD
 		UserProfile.appearance = "dark"
 		UserProfile.linkedGoogle = false
 		UserProfile.linkedApple = false

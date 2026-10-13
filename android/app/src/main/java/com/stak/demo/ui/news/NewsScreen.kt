@@ -12,6 +12,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -312,7 +313,7 @@ fun NewsScreen(
 			} else if (q.isEmpty() && !briefIsLoading && liveNewsSettled && !demo) {
 				// Only once the news request has finished: before that an empty list is just
 				// "not here yet", and the card flashed on every open.
-				BriefUnavailableCard(failed = liveNewsFailed)
+				BriefUnavailableCard(failed = liveNewsFailed, onRetry = viewModel::retryNow)
 			}
 			// For You: live company news for held stocks, deduplicated and recency-sorted.
 			val liveForYou = forYouNews.filter(::matchesLive)
@@ -461,7 +462,7 @@ private fun MoodGauge(mood: String?, u: Float) {
  * Home's.
  */
 @Composable
-private fun BriefUnavailableCard(failed: Boolean) {
+private fun BriefUnavailableCard(failed: Boolean, onRetry: () -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Column(
 		verticalArrangement = Arrangement.spacedBy((6 * u).dp),
@@ -477,10 +478,26 @@ private fun BriefUnavailableCard(failed: Boolean) {
 			color = Color.White,
 		)
 		Text(
-			text = if (failed) "Leave News and come back to try again." else "There's no market news to show right now.",
+			// The news retries itself every 2 minutes; Retry asks now.
+			text = if (failed) "We'll keep trying, or tap Retry." else "There's no market news to show right now.",
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = News.Muted,
 		)
+		if (failed) {
+			Text(
+				text = "Retry",
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp),
+				color = News.Teal,
+				modifier = Modifier
+					.padding(top = (4 * u).dp)
+					.clickable(
+						interactionSource = remember { MutableInteractionSource() },
+						indication = com.stak.demo.ui.theme.PressDim,
+						onClick = onRetry,
+					)
+					.padding(vertical = (6 * u).dp),
+			)
+		}
 	}
 }
 
@@ -639,7 +656,7 @@ private fun LiveNewsSection(
 					)
 				}
 				Column(verticalArrangement = Arrangement.spacedBy((5 * u).dp), modifier = Modifier.weight(1f)) {
-					Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height((16 * u).dp)) {
+					Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().heightIn(min = (16 * u).dp)) {
 						Text(
 							text = "${article.source} · ${formatNewsAge(article.datetime)}",
 							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
@@ -717,7 +734,7 @@ private fun NewsSection(
 				Column(verticalArrangement = Arrangement.spacedBy((5 * u).dp), modifier = Modifier.weight(1f)) {
 					// Authored meta row is 16 tall (1:1298, the chip's height) whether
 					// or not the chip shows, so the card holds 84 - exact-design audit 2026-09-04.
-					Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height((16 * u).dp)) {
+					Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().heightIn(min = (16 * u).dp)) {
 						Text(
 							text = "${row.source} · ${row.age}",
 							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),

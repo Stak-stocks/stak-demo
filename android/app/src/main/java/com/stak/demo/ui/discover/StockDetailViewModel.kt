@@ -188,6 +188,7 @@ class StockDetailViewModel @Inject constructor(
         _chartSeries.value = cached?.series
         _chartPct.value = cached?.pct
         _chartMissing.value = false
+        _chartNoMovementYet.value = false
         viewModelScope.launch {
             val prices = runCatching { repository.getChart(symbol, range.lowercase()) }.getOrNull()
                 ?.prices?.filter { it.close > 0.0 }?.takeIf { it.size >= 2 }
@@ -400,10 +401,13 @@ class StockDetailViewModel @Inject constructor(
      * visible and the market is open. Only the figures a quote carries move; the rest
      * of the page stays as it was.
      */
+    /** The price refresh in flight - a slow one isn't stacked on by the next 15s tick (iOS's quoteTask). */
+    private var quoteJob: Job? = null
+
     fun refreshQuote(symbol: String, range: String) {
         if (StakClock.lastCloseRef() != "today") return
-        if (_liveDetail.value == null || fetchJob?.isActive == true) return
-        viewModelScope.launch {
+        if (_liveDetail.value == null || fetchJob?.isActive == true || quoteJob?.isActive == true) return
+        quoteJob = viewModelScope.launch {
             val quote = runCatching { repository.getStock(symbol) }.getOrNull()?.quote ?: return@launch
             val price = quote.price?.takeIf { it > 0 } ?: return@launch
             quote.prevClose?.takeIf { it > 0 }?.let { prevClose = it }
@@ -476,7 +480,8 @@ class StockDetailViewModel @Inject constructor(
         peerMedians: PeerMetricsResponse? = null,
     ): LiveDetail? {
         val quote = stockData?.quote ?: return null
-        val price = quote.price ?: return null
+        // A $0 quote is no price: the page keeps "—" rather than show $0.00 and divide by it for the upside.
+        val price = quote.price?.takeIf { it > 0 } ?: return null
         val pct = quote.changePercent ?: 0.0
         // Yesterday's close as the server reports it. Deriving it as price - change was
         // wrong whenever the price came from an extended-hours session and the change
@@ -496,8 +501,9 @@ class StockDetailViewModel @Inject constructor(
         val rec = analyst?.recommendation
         val upside = if (pt?.avg != null) {
             val upsidePct = ((pt.avg - price) / price) * 100.0
-            val arrow = if (upsidePct >= 0.0) "↑" else "↓"
-            "$arrow ${String.format(Locale.US, "%.1f", abs(upsidePct))}% upside"
+            // A target below the price is downside, said as such (it read "↓ 4.0% upside").
+            val figure = String.format(Locale.US, "%.1f", abs(upsidePct))
+            if (upsidePct >= 0.0) "↑ $figure% upside" else "↓ $figure% downside"
         } else null
         val targetLow = pt?.low?.let { "$${ it.toInt() }" }
         val targetAvg = pt?.avg?.let { "$${ it.toInt() }" }

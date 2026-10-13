@@ -155,7 +155,7 @@ private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, onAskAi: () -
 			.statusBarsPadding()
 			.padding(top = (22 * u).dp),
 	) {
-		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height((35 * u).dp)) {
+		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().heightIn(min = (35 * u).dp)) {
 			Image(
 				painter = painterResource(R.drawable.ic_stak_logo_mark),
 				contentDescription = null,
@@ -358,13 +358,13 @@ private fun BoxScope.NewsDeck(
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	// Recomputed when the news changes, not on every drag frame (both deck copies
 	// recompose while a card moves).
-	val stories = remember(DailyBriefHolder.news, DailyBriefHolder.newsFailed) { NewsDeckFeed.stories() }
-	// Per-slot authored styling; card bottoms sit at 397.4/527.2/602.7 in
+	val stories = remember(DailyBriefHolder.news, DailyBriefHolder.newsFailed, DailyBriefHolder.newsSettled) { NewsDeckFeed.stories() }
+	// Per-slot authored styling; card bottoms sit at 372.4/477.2/552.7 in
 	// the 397 card, so the up-drag clamps at bottom-397.
 	val slots = listOf(
-		DeckSlot(Home.PaperWhite, FontWeight.Light, 12f, 12f, 6.2f, 59.73f, 0f, 0.4f),
-		DeckSlot(Home.Teal, FontWeight.Normal, 11.89f, 17f, 8.33f, 189.44f, -3.72f, 130.2f),
-		DeckSlot(Home.PaperWhite, FontWeight.Light, 12f, 12f, -0.02f, 264.57f, -7.68f, 205.7f),
+		DeckSlot(Home.PaperWhite, FontWeight.Light, 12f, 12f, 6.2f, 34.73f, 0f, 0f),
+		DeckSlot(Home.Teal, FontWeight.Normal, 11.89f, 17f, 8.33f, 139.44f, -3.72f, 80.2f),
+		DeckSlot(Home.PaperWhite, FontWeight.Light, 12f, 12f, -0.02f, 214.57f, -7.68f, 155.7f),
 	)
 	slots.forEachIndexed { i, slot ->
 		val drag = drags[i]
@@ -583,7 +583,8 @@ private fun DeckBanner(onOpenDeck: () -> Unit) {
 	Box(
 		modifier = Modifier
 			.fillMaxWidth()
-			.height((116 * u).dp)
+			// heightIn, not height: enlarged text (the system font size) grows the banner instead of being clipped.
+			.heightIn(min = (116 * u).dp)
 			.clip(RoundedCornerShape((8 * u).dp))
 			.clickable(
 				interactionSource = remember { MutableInteractionSource() },

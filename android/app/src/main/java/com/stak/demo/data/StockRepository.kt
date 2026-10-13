@@ -29,6 +29,10 @@ class StockRepository @Inject constructor(private val api: StockApiService) {
     suspend fun patchStakPrice(brandId: String, price: Double): OkResponse =
         api.patchStakPrice(brandId, StakPricePatchRequest(price))
     suspend fun getMe(): MeResponse = api.getMe()
+
+    suspend fun confirmEligibility(): OkResponse = api.confirmEligibility(EligibilityRequest())
+
+    suspend fun getLegal(doc: String): LegalDocResponse = api.getLegal(doc)
     suspend fun getTaste(): TasteResponse = api.getTaste()
     suspend fun getRiskWatch(symbol: String): RiskWatchResponse = api.getRiskWatch(symbol)
     suspend fun getUpdates(): UpdatesResponse = api.getUpdates()
@@ -48,6 +52,9 @@ class StockRepository @Inject constructor(private val api: StockApiService) {
     suspend fun recordEvent(req: EngagementEventRequest): EventResponse = api.recordEvent(req)
     suspend fun getPassed(): PassedResponse = api.getPassed()
     suspend fun putPassed(entries: List<PassedEntry>): PassedResponse = api.putPassed(PassedPutRequest(entries))
+    suspend fun addPass(brandId: String): PassedAddResponse = api.addPass(brandId)
+    suspend fun getDailyDeck(day: String): DailyDeckDto = api.getDailyDeck(day)
+    suspend fun offerDailyDeck(day: String, tickers: List<String>): DailyDeckDto = api.offerDailyDeck(DailyDeckRequest(day, tickers))
     suspend fun getSwipes(since: String): SwipeHistoryResponse = api.getSwipes(since)
     suspend fun getBrandQuickLook(id: String): QuickLookResponse = api.getBrandQuickLook(id)
 

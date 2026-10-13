@@ -17,8 +17,8 @@ import kotlinx.coroutines.launch
  * A real account's inbox is built from its own data (device check, 2026-09-16).
  * It used to be a fixed pair - "Welcome to STAK" and "Save a stock to start your
  * STAK", both stamped "Just now" forever, the second still shown with four stocks
- * saved. Now: a big move on a saved stock (over 3%, the threshold the settings page
- * promises, only while "Price moves on your picks" is on), today's deck while cards
+ * saved. Now: a big move on a saved stock (at least the threshold set on the settings page,
+ * 3% by default, and only while "Price moves on your picks" is on), today's deck while cards
  * are left ("Daily deck"), the save prompt only while nothing is saved, and the
  * welcome for the account's first week, dated from when the account was created.
  */
@@ -54,8 +54,12 @@ object StakNotifications {
 	/** The Home bell's dot. */
 	val hasUnread: Boolean get() = unreadCount > 0
 
+	/** Bumped by every load (a sign-in, sign-out or account switch): a read started for one account never lands in the next one's inbox. */
+	@Volatile private var generation = 0
+
 	/** Restores the inbox for the current account, then refreshes it from live data. */
 	fun load() {
+		generation++
 		readIds = StakStore.getSet("notif.read") ?: emptySet()
 		refreshedAt = 0L
 		if (Session.demoAccount) {
@@ -73,6 +77,7 @@ object StakNotifications {
 		val now = System.currentTimeMillis()
 		if (!force && now - refreshedAt < REFRESH_MS) return
 		refreshedAt = now
+		val started = generation
 		scope.launch {
 			val held = MyStakHoldings.tickers.toList()
 			val moves = if (UserProfile.priceAlerts && held.isNotEmpty()) {
@@ -89,9 +94,7 @@ object StakNotifications {
 			// can't tell a week-old account from a month-old one, and falls back to the
 			// current month when unknown - which welcomed a long-standing account.
 			if (StakStore.getString("notif.createdAt") == null) {
-				runCatching { repo.getMe() }.getOrNull()?.createdAt
-					?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
-					?.let { StakStore.putString("notif.createdAt", it.toString()) }
+				runCatching { repo.getMe() }.getOrNull()?.createdAt?.let { if (generation == started) rememberCreatedAt(it) }
 			}
 			val cardsLeft = if (UserProfile.dailyDeck) {
 				// The server keeps the last swipe day's count; one from an earlier deck day
@@ -101,7 +104,7 @@ object StakNotifications {
 					(it.limit - used).coerceAtLeast(0)
 				}
 			} else null
-			if (Session.demoAccount) return@launch
+			if (Session.demoAccount || generation != started) return@launch
 			items = accountItems(moves, cardsLeft)
 		}
 	}
@@ -110,7 +113,9 @@ object StakNotifications {
 		val out = mutableListOf<Item>()
 		// Moves, largest first. The id carries the market day and direction, so a new
 		// day's move is a new, unread notification.
-		val day = StakClock.marketDay()
+		// The session the move belongs to, not today's date: Friday's move stays one notification (read once) until
+		// Monday's open, instead of coming back unread at every midnight.
+		val day = StakClock.sessionDay()
 		val session = StakClock.lastCloseRef()
 		moves.sortedByDescending { kotlin.math.abs(it.second) }.forEach { (ticker, pct) ->
 			val up = pct >= 0
@@ -119,7 +124,7 @@ object StakNotifications {
 				id = "move:$day:$ticker:${if (up) "up" else "down"}",
 				title = "$ticker is ${if (up) "up" else "down"} ${String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(pct))}% $session",
 				body = (name?.let { "$it, one of your saved stocks, " } ?: "One of your saved stocks ") +
-					"moved more than ${UserProfile.priceThreshold}%.",
+					"moved ${UserProfile.priceThreshold}% or more.",
 				time = if (session == "today") "Today" else session.removePrefix("at ").replaceFirstChar { it.uppercase() },
 			)
 		}
@@ -132,7 +137,7 @@ object StakNotifications {
 			)
 		}
 		if (MyStakHoldings.count == 0) {
-			out += Item("first-save", "Save a stock to start your STAK", "Saved stocks power My STAK and the Simulate leaderboard.", "Today")
+			out += Item("first-save", "Save a stock to start your STAK", "Saved stocks power My STAK and Simulate.", "Today")
 		}
 		welcomeItem()?.let { out += it }
 		return out
@@ -143,15 +148,28 @@ object StakNotifications {
 		if (System.currentTimeMillis() - createdAt > WELCOME_DAYS * 24 * 60 * 60 * 1000) return null
 		val name = UserProfile.displayName.takeIf { it.isNotBlank() }?.capitalizeWords()
 		val title = if (name != null) "Welcome to STAK, $name" else "Welcome to STAK"
-		return Item("welcome", title, "Your first deck is waiting in Discover. Swipe down for the next card, save what you like.", ago(createdAt))
+		return Item("welcome", title, "Your first deck is waiting in Discover. Swipe right to STAK, left to pass.", ago(createdAt))
 	}
 
 	private fun ago(atMs: Long): String = StakClock.ago(atMs / 1000)
 
-	/** Opening the inbox reads everything - like an activity feed. */
+	/** Keeps the account's creation time (epoch ms) from the server's timestamp - profile sync and the inbox's own read both write it through here. */
+	fun rememberCreatedAt(iso: String) {
+		runCatching { java.time.Instant.parse(iso).toEpochMilli() }.getOrNull()
+			?.let { StakStore.putString("notif.createdAt", it.toString()) }
+	}
+
+	/** Opening the inbox reads everything - like an activity feed. Nothing new to read, nothing written. */
 	fun markAllRead() {
-		readIds = items.map { it.id }.toSet()
+		val next = items.map { it.id }.toSet()
+		if (next == readIds) return
+		readIds = next
 		StakStore.putSet("notif.read", readIds)
 		DeviceStateSync.push()
+	}
+
+	/** The read marks another phone had - pulled by DeviceStateSync. The items themselves aren't rebuilt. */
+	fun reloadReadIds() {
+		readIds = StakStore.getSet("notif.read") ?: emptySet()
 	}
 }

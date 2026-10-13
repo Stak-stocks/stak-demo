@@ -217,7 +217,7 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 					}
 				}
 				Spacer(modifier = Modifier.size((16 * u).dp))
-				// Pass/STAK — the same pair Discover has, filling colour with the same
+				// Pass/STAK — the same pair Discover has, filling color with the same
 				// drag ratio, and just as clickable without dragging at all.
 				val ratio = (swipeOffset.value / commitPx).coerceIn(-1f, 1f)
 				val passRatio = (-ratio).coerceAtLeast(0f)

@@ -75,7 +75,9 @@ fun ProfileSetupScreen(
 	// The frame arrives with "Nedu" typed (avatar "N", counter 4 / 20) - user, 2026-09-04 (CHINEDU 01 · Onboarding 1:793): the exact frame wins.
 	// Product audit (2026-09-05): a real first run starts with an empty name
 	// (the frame's "Nedu" was authored demo state) and Proceed waits for one.
-	var name by rememberSaveable { mutableStateOf(if (editing) com.stak.demo.data.UserProfile.displayName.ifBlank { com.stak.demo.data.UserProfile.greetingName } else "") }
+	// The account's own name only: a blank one stays blank - greetingName is "there" for a real account, and Save
+	// would store it.
+	var name by rememberSaveable { mutableStateOf(if (editing) com.stak.demo.data.UserProfile.displayName else "") }
 	// User's motion (2026-08-21): Add a photo opens the system gallery and
 	// the chosen image becomes the avatar. The photo picker carries its own
 	// permission flow, so no runtime permission is requested by the app.
@@ -297,7 +299,7 @@ fun ProfileSetupScreen(
 }
 
 /** Copies the picked image into app storage; its file URI, or null when the copy fails. */
-private fun copyAvatar(context: android.content.Context, uri: Uri): String? = runCatching {
+internal fun copyAvatar(context: android.content.Context, uri: Uri): String? = runCatching {
 	// A fresh file per pick: the hub's image loader keys its cache on the URI, so
 	// rewriting one "avatar.jpg" would keep showing the previous photo.
 	val file = File(context.filesDir, "avatar_${System.currentTimeMillis()}.jpg")
@@ -314,7 +316,7 @@ private fun deleteAvatarFile(stored: String) {
 }
 
 /** Drops every app-owned avatar copy except the one being kept. */
-private fun pruneAvatars(context: android.content.Context, keep: String?) {
+internal fun pruneAvatars(context: android.content.Context, keep: String?) {
 	val keepName = keep?.let { runCatching { File(Uri.parse(it).path ?: "").name }.getOrNull() }
 	context.filesDir.listFiles { f -> f.name.startsWith("avatar") && f.name.endsWith(".jpg") && f.name != keepName }?.forEach { it.delete() }
 }

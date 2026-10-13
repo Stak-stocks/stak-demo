@@ -98,6 +98,14 @@ interface StockApiService {
     @PUT("api/me")
     suspend fun putMe(@Body body: MePutRequest): MeResponse
 
+    /** The Terms of Service ("terms") or Privacy Policy ("privacy") - public. */
+    @GET("api/legal/{doc}")
+    suspend fun getLegal(@Path("doc") doc: String): LegalDocResponse
+
+    /** "Before we get started": 400 = not all three confirmations. */
+    @POST("api/me/eligibility")
+    suspend fun confirmEligibility(@Body body: EligibilityRequest): OkResponse
+
     /** App settings -> Delete account: removes every saved row and the Supabase auth record. */
     @DELETE("api/me")
     suspend fun deleteMe(): OkResponse
@@ -137,6 +145,15 @@ interface StockApiService {
 
     @PUT("api/me/passed")
     suspend fun putPassed(@Body body: PassedPutRequest): PassedResponse
+
+    @POST("api/me/passed/{id}")
+    suspend fun addPass(@Path("id") id: String): PassedAddResponse
+
+    @GET("api/me/daily-deck")
+    suspend fun getDailyDeck(@Query("day") day: String): DailyDeckDto
+
+    @PUT("api/me/daily-deck")
+    suspend fun offerDailyDeck(@Body body: DailyDeckRequest): DailyDeckDto
 
     @GET("api/swipe")
     suspend fun getSwipes(@Query("since") since: String): SwipeHistoryResponse

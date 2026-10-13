@@ -27,13 +27,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.stak.demo.ui.components.MainTab
 import com.stak.demo.ui.components.MainTabBar
+import com.stak.demo.ui.components.RefreshWhileVisible
 import com.stak.demo.ui.discover.BuySpec
 import com.stak.demo.ui.discover.DiscoverBuySpecSaver
 import com.stak.demo.ui.discover.DiscoverBuyFlow
@@ -123,10 +127,15 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 	// The persisted session (sign-in state + profile) is restored in
 	// StakApp.onCreate, before any composition - composition must not
 	// mutate app state (RememberReturnType lint, audit 2026-09-04).
+	// "Before we get started" is up (below): not over the splash or the Face ID lock - it waits until those have gone (as iOS).
+	val gateRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+	val eligibilityGateUp = com.stak.demo.data.Eligibility.required && gateRoute != null && gateRoute != StakRoutes.SPLASH && gateRoute != StakRoutes.LOCK
 	Box(modifier = Modifier.fillMaxSize()) {
 	NavHost(
 		navController = navController,
 		startDestination = StakRoutes.SPLASH,
+		// While the gate is up, TalkBack can't wander into the screens beneath it.
+		modifier = if (eligibilityGateUp) Modifier.clearAndSetSemantics {} else Modifier,
 		// Prototype house style (confirmed on the splash/sign-up/sign-in/
 		// 01 Welcome frames): forward = Push Right (in from the left),
 		// back = Push Left (in from the right), ease out 300ms. These are
@@ -143,6 +152,8 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 		) {
 			SplashScreen(
 				onContinue = {
+					// The sign-in ended during the splash: Sign in is already up, with its note.
+					if (com.stak.demo.data.Session.endedElsewhere) return@SplashScreen
 					// Returning user (signed in before) goes straight to Home;
 					// a first-time user is taken to create an account
 					// (user, 2026-08-23).
@@ -161,6 +172,8 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			exitTransition = { fadeOut(tween(350, easing = EaseOut)) },
 		) {
 			com.stak.demo.ui.onboarding.BiometricGate(onUnlocked = {
+				// A face unlock that finishes after the sign-in ended stays where it is (Sign in).
+				if (!com.stak.demo.data.Session.signedIn) return@BiometricGate
 				// From the splash the gate is the whole stack - Home follows; a re-lock
 				// sits over the place the user left, so unlocking pops back to it.
 				if (navController.previousBackStackEntry != null) navController.popBackStack()
@@ -741,7 +754,38 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 	// A paper order's background server call failed after the ticket already showed it
 	// filled - shown over every screen, not only Simulate, since the ticket also opens
 	// from Discover and the stock page.
-	com.stak.demo.ui.simulate.PaperTradeErrorBanner(modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter))
+	// Not over Sign in, after a sign-in ended mid-order.
+	if (com.stak.demo.data.Session.signedIn) {
+		com.stak.demo.ui.simulate.PaperTradeErrorBanner(modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter))
+	}
+	// The account's sign-in was ended somewhere else (Session.endedElsewhere): out to Sign in, as Log out does - Home
+	// would otherwise sit there signed in but empty, every request refused.
+	val endedAuthVm: AuthViewModel = hiltViewModel()
+	LaunchedEffect(com.stak.demo.data.Session.endedElsewhere) {
+		if (!com.stak.demo.data.Session.endedElsewhere || !com.stak.demo.data.Session.signedIn) return@LaunchedEffect
+		endedAuthVm.clearSession()
+		navController.navigate(StakRoutes.SIGN_IN) { popUpTo(0) { inclusive = true } }
+		com.stak.demo.data.Session.signOut()
+	}
+	// "Before we get started" (18+, U.S., Terms / Privacy) over every screen while the account hasn't confirmed - a new
+	// account right after it signs up, an existing one the next time the app opens. Asked when the UI starts, not at
+	// process start (a push can do that).
+	LaunchedEffect(Unit) { com.stak.demo.data.Eligibility.check() }
+	if (eligibilityGateUp) {
+		val gateAuthVm: AuthViewModel = hiltViewModel()
+		val gateScope = rememberCoroutineScope()
+		com.stak.demo.ui.onboarding.EligibilityScreen(
+			onSignOut = {
+				gateScope.launch {
+					// As Log out on Profile.
+					gateAuthVm.clearSession()
+					navController.navigate(StakRoutes.SIGN_IN) { popUpTo(0) { inclusive = true } }
+					com.stak.demo.data.Session.signOut()
+					gateAuthVm.revokeSessionRemotely()
+				}
+			},
+		)
+	}
 	}
 }
 
@@ -824,10 +868,17 @@ private fun MainShell(
 	val _shellDailyBrief by newsViewModel.dailyBrief.collectAsStateWithLifecycle()
 	val _shellLiveNews by newsViewModel.liveNews.collectAsStateWithLifecycle()
 	val _shellLiveNewsFailed by newsViewModel.liveNewsFailed.collectAsStateWithLifecycle()
-	LaunchedEffect(_shellDailyBrief, _shellLiveNews, _shellLiveNewsFailed) {
+	val _shellLiveNewsSettled by newsViewModel.liveNewsSettled.collectAsStateWithLifecycle()
+	LaunchedEffect(_shellDailyBrief, _shellLiveNews, _shellLiveNewsFailed, _shellLiveNewsSettled) {
 		DailyBriefHolder.current = _shellDailyBrief
 		DailyBriefHolder.news = _shellLiveNews
 		DailyBriefHolder.newsFailed = _shellLiveNewsFailed
+		DailyBriefHolder.newsSettled = _shellLiveNewsSettled
+	}
+	// Kept current while the app is open: checked every minute and on returning to the app (refreshIfStale decides
+	// what is actually due - the news after 15 minutes, the brief when the market session turns).
+	RefreshWhileVisible(key = Unit, intervalMs = 60_000L, tickOnResume = true) {
+		newsViewModel.refreshIfStale()
 	}
 	var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
 	// A1: one-shot switch style - read by the AnimatedContent spec and

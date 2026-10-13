@@ -68,6 +68,8 @@ class AuthViewModel @Inject constructor(
                 onSuccess = { onboardingComplete ->
                     UserProfile.linkedGoogle = false
                     Session.saveProfile()
+                    // Signed in: "Before we get started" goes up over whatever comes next if the account hasn't confirmed.
+                    com.stak.demo.data.Eligibility.check()
                     _uiState.value = AuthUiState.Success(onboardingComplete)
                 },
                 onFailure = { e ->
@@ -92,6 +94,8 @@ class AuthViewModel @Inject constructor(
                         Session.setToken(token)
                         UserProfile.linkedGoogle = false
                         // New users always go through onboarding.
+                        // Signed in: "Before we get started" goes up over whatever comes next if the account hasn't confirmed.
+                        com.stak.demo.data.Eligibility.check()
                         _uiState.value = AuthUiState.Success(onboardingComplete = false)
                     } else {
                         // Email confirmation is enabled in the Supabase dashboard - this isn't
@@ -139,6 +143,8 @@ class AuthViewModel @Inject constructor(
                     Session.setToken(token)
                     UserProfile.linkedGoogle = false
                     // New users always go through onboarding.
+                    // Signed in: "Before we get started" goes up over whatever comes next if the account hasn't confirmed.
+                    com.stak.demo.data.Eligibility.check()
                     _uiState.value = AuthUiState.Success(onboardingComplete = false)
                 },
                 onFailure = { e -> _uiState.value = AuthUiState.Error(friendlyError(e)) },
@@ -207,6 +213,9 @@ class AuthViewModel @Inject constructor(
      * when the nav stack was cleared.
      */
     suspend fun saveProfile() {
+        // The name is pending until the server has it: ProfileSync won't overwrite it with the server's older one, and
+        // sends it again.
+        com.stak.demo.data.StakStore.putBoolean("name.pending", true)
         runCatching {
             stockRepository.putMe(
                 displayName = UserProfile.displayName.takeIf { it.isNotBlank() },
@@ -214,14 +223,16 @@ class AuthViewModel @Inject constructor(
                 // The answers go with the account, so a new phone shows the same taste.
                 taste = ProfileSync.currentTaste(),
             )
-        }
+        }.onSuccess { com.stak.demo.data.StakStore.putBoolean("name.pending", false) }
     }
 
     /** Updates display name after onboarding (Edit profile screen). Does not touch onboardingCompleted. */
     suspend fun updateProfile() {
+        // Pending until the server has it (offline, a save cut short): the next sync sends it rather than revert it.
+        com.stak.demo.data.StakStore.putBoolean("name.pending", true)
         runCatching {
             stockRepository.putMe(displayName = UserProfile.displayName.takeIf { it.isNotBlank() })
-        }
+        }.onSuccess { com.stak.demo.data.StakStore.putBoolean("name.pending", false) }
     }
 
     /**
@@ -259,6 +270,8 @@ class AuthViewModel @Inject constructor(
      * it instead of creating a real new one).
      */
     suspend fun clearSession() {
+        // On the way out: a refused request now is this, not a sign-in ended elsewhere.
+        com.stak.demo.data.Session.leaving = true
         runCatching { supabase.auth.clearSession() }
     }
 
@@ -305,6 +318,8 @@ class AuthViewModel @Inject constructor(
                 onSuccess = { onboardingComplete ->
                     UserProfile.linkedGoogle = true
                     Session.saveProfile()
+                    // Signed in: "Before we get started" goes up over whatever comes next if the account hasn't confirmed.
+                    com.stak.demo.data.Eligibility.check()
                     _uiState.value = AuthUiState.Success(onboardingComplete)
                 },
                 onFailure = { e ->
@@ -331,9 +346,10 @@ class AuthViewModel @Inject constructor(
             msg.contains("network", ignoreCase = true) ||
                 msg.contains("Unable to resolve host", ignoreCase = true) -> "Network error — check your connection"
             msg.contains("weak_password", ignoreCase = true) -> "Password is too weak — use at least 8 characters"
-            // Sign-in before clicking the confirmation link - the "check your email" state
-            // this account never finished, not a wrong-password case.
-            msg.contains("email not confirmed", ignoreCase = true) -> "Confirm your email first — check your inbox for the link we sent."
+            // Sign-in before entering the confirmation code - the "check your email" state this
+            // account never finished, not a wrong-password case. Signing up again with the same
+            // address sends a new code and opens the code entry.
+            msg.contains("email not confirmed", ignoreCase = true) -> "Confirm your email first — sign up again with this email for a new code."
             msg.contains("user not found", ignoreCase = true) -> "No account found for that email"
             // Supabase's own rate-limit wording ("For security purposes, you can only
             // request this after Ns") on a repeated resend/reset tap.

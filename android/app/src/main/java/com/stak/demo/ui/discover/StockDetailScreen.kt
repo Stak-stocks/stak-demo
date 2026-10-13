@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -47,7 +48,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import com.stak.demo.ui.components.sheetDragToDismiss
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.CornerRadius
@@ -127,6 +130,8 @@ fun StockDetailScreen(
 	}
 	val liveDetail by viewModel.liveDetail.collectAsStateWithLifecycle()
 	val demo = com.stak.demo.data.Session.demoAccount
+	// No price yet, no ticket: it would open priced "$0.00".
+	val priceReady = demo || (liveDetail?.price?.let { it != "—" } ?: false)
 	// The updates My STAK already holds, narrowed to this company - the same detection,
 	// no second request.
 	val myStak = com.stak.demo.ui.mystak.sharedMyStakViewModel()
@@ -172,9 +177,28 @@ fun StockDetailScreen(
 	// though My STAK holds it) applies to the page it opens. The seeded
 	// holdings made every designed card open "Saved" (StakTest walk vs the
 	// 2x export of 1:2382, 2026-09-04 evening). My STAK entry opens saved.
-	var saved by rememberSaveable { mutableStateOf(fromMyStak || symbol in DeckSession.saved) }
+	// A real account's earlier saves count too: the Saved chip reads the holdings, and a Save button beside it
+	// re-saved a stock already kept. (The demo's seeded holdings keep the authored "Unsaved" frames.)
+	var saved by rememberSaveable {
+		mutableStateOf(
+			fromMyStak || symbol in DeckSession.saved ||
+				(!com.stak.demo.data.Session.demoAccount && symbol.uppercase() in com.stak.demo.data.MyStakHoldings.tickers)
+		)
+	}
 	var showSuccess by rememberSaveable { mutableStateOf(false) }
 	var showBuy by rememberSaveable { mutableStateOf(false) }
+	// The Discover entry hops to Simulate for a stock already kept, with the stock waiting there (as My STAK's
+	// "Practice with" does); otherwise the in-page ticket.
+	val practiceBuy = {
+		if (onPracticeBuy != null && hopsToSimulate(f.symbol)) {
+			if (!com.stak.demo.data.Session.demoAccount) {
+				com.stak.demo.ui.simulate.PendingSimBuy.request(symbol, liveDetail?.name ?: symbol)
+			}
+			onPracticeBuy()
+		} else {
+			showBuy = true
+		}
+	}
 	// Shown when Save is refused because the Stak is full; clears on its own.
 	val stakFullNotice = com.stak.demo.ui.components.rememberStakFullNoticeState()
 	// The range pills select (user, 2026-09-05). Today first (user, 2026-09-17): a page
@@ -369,37 +393,14 @@ fun StockDetailScreen(
 					}
 				}
 				Spacer(modifier = Modifier.height((40 * u).dp))
-				Row(
-					verticalAlignment = Alignment.CenterVertically,
-					horizontalArrangement = Arrangement.spacedBy((37 * u).dp),
-					modifier = Modifier.align(Alignment.CenterHorizontally),
-				) {
-					RANGE_LABELS.forEach { label ->
-						val select = Modifier.clickable(
-							interactionSource = remember { MutableInteractionSource() },
-							indication = com.stak.demo.ui.theme.PressDim,
-						) { range = label }
-						if (label == range) {
-							Box(
-								contentAlignment = Alignment.Center,
-								modifier = Modifier
-									.size((39 * u).dp, (22.5 * u).dp)
-									.clip(RoundedCornerShape((11.25 * u).dp))
-									.background(Color(0x292C9DBC))
-									.border((0.75 * u).dp, Color(0x662C9DBC), RoundedCornerShape((11.25 * u).dp))
-									.then(select),
-							) {
-								Text(
-									label,
-									style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp),
-									color = Teal,
-								)
-							}
-						} else {
-							Text(label, style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp), color = Muted, modifier = select)
-						}
-					}
-				}
+				com.stak.demo.ui.components.RangePillRow(
+					labels = RANGE_LABELS,
+					selected = range,
+					onSelect = { range = it },
+					tint = Teal,
+					muted = Muted,
+					modifier = Modifier.align(Alignment.CenterHorizontally).offset(y = (-5.75 * u).dp),
+				)
 				Column(
 					// Fractional gaps: Compose's per-gap px rounding drifted the last
 					// modules 2.5 below the frame (StakTest, 2026-09-05).
@@ -452,7 +453,7 @@ fun StockDetailScreen(
 								onPracticeInSimulate()
 							}
 						} else {
-							DetailCta("Practice buy") { showBuy = true }
+							DetailCta("Practice buy", enabled = priceReady) { showBuy = true }
 						}
 						// Codex audit (2026-09-04): Unsave drops the stock from the
 						// holdings store, so the collection page and every count follow.
@@ -471,7 +472,7 @@ fun StockDetailScreen(
 						// "something is off when I saved my stock"). Unsave here drops
 						// the stock from this run's saves and the holdings store and
 						// stays on the page with the Save CTA back.
-						DetailCta("Practice buy") { if (onPracticeBuy != null && hopsToSimulate(f.symbol)) onPracticeBuy() else showBuy = true }
+						DetailCta("Practice buy", enabled = priceReady) { practiceBuy() }
 						DetailSecondary("Unsave") {
 							saved = false
 							DeckSession.saved = DeckSession.saved - symbol
@@ -494,7 +495,7 @@ fun StockDetailScreen(
 								textAlign = androidx.compose.ui.text.style.TextAlign.Center,
 							)
 						}
-						DetailSecondary("Practice buy") { if (onPracticeBuy != null && hopsToSimulate(f.symbol)) onPracticeBuy() else showBuy = true }
+						DetailSecondary("Practice buy", enabled = priceReady) { practiceBuy() }
 					}
 				}
 			}
@@ -515,13 +516,15 @@ fun StockDetailScreen(
 			// The scrim dismiss is unauthored - it stays instant.
 			exit = ExitTransition.None,
 		) {
+			// The price on screen goes with the save, so "Since you saved" measures from it (not +0.0% all day).
+			val savePrice = liveDetail?.price?.removePrefix("$")?.replace(",", "")?.toDoubleOrNull()?.takeIf { it > 0 }
 			DetailSavedSheet(symbol = symbol, liveDetail = liveDetail,
 				f = f,
 				// The scrim dismiss saves like the two CTAs do (Codex review, PR #166) -
 				// dismissing without tapping either named action must not silently drop the save.
 				onDone = {
 					showSuccess = false
-					saved = com.stak.demo.data.MyStakHoldings.add(symbol)
+					saved = com.stak.demo.data.MyStakHoldings.add(symbol, priceNow = savePrice)
 					if (saved) DeckSession.saved = DeckSession.saved + symbol
 				},
 				// B7/B8: both CTAs mark the stock saved, then leave the page
@@ -529,14 +532,14 @@ fun StockDetailScreen(
 				onViewInMyStak = {
 					// add() is the authority: it refuses at capacity, and a refused save
 					// must not leave this page or the deck believing the stock is kept.
-					saved = com.stak.demo.data.MyStakHoldings.add(symbol)
+					saved = com.stak.demo.data.MyStakHoldings.add(symbol, priceNow = savePrice)
 					if (saved) DeckSession.saved = DeckSession.saved + symbol
 					if (onViewInMyStak != null) onViewInMyStak() else { showSuccess = false }
 				},
 				onKeepExploring = {
 					// add() is the authority: it refuses at capacity, and a refused save
 					// must not leave this page or the deck believing the stock is kept.
-					saved = com.stak.demo.data.MyStakHoldings.add(symbol)
+					saved = com.stak.demo.data.MyStakHoldings.add(symbol, priceNow = savePrice)
 					if (saved) DeckSession.saved = DeckSession.saved + symbol
 					if (onKeepExploring != null) onKeepExploring() else { showSuccess = false }
 				},
@@ -970,7 +973,7 @@ private fun NewsSignalCard(f: DetailFacts, liveDetail: LiveDetail? = null) {
 }
 
 @Composable
-private fun DetailCta(text: String, onClick: () -> Unit) {
+private fun DetailCta(text: String, enabled: Boolean = true, onClick: () -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Box(
 		contentAlignment = Alignment.Center,
@@ -988,12 +991,14 @@ private fun DetailCta(text: String, onClick: () -> Unit) {
 			)
 			.border((0.36 * u).dp, com.stak.demo.ui.theme.StakColors.CtaBorderBrush, RoundedCornerShape((6 * u).dp))
 			.clickable(
+				enabled = enabled,
 				interactionSource = remember { MutableInteractionSource() },
 				indication = com.stak.demo.ui.theme.PressDim,
 				onClick = onClick,
-			),
+			)
+			.alpha(if (enabled) 1f else 0.5f),
 	) {
-		Text(text, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp), color = Color.White)
+		Text(text, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp), color = StakColors.Bg)
 	}
 }
 
@@ -1002,7 +1007,7 @@ private fun DetailCta(text: String, onClick: () -> Unit) {
  * sheet's "Keep exploring" (92:1205) authors Sora 14 - exact-design audit 2026-09-04.
  */
 @Composable
-private fun DetailSecondary(text: String, size: Float = 13f, onClick: () -> Unit) {
+private fun DetailSecondary(text: String, size: Float = 13f, enabled: Boolean = true, onClick: () -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Box(
 		contentAlignment = Alignment.Center,
@@ -1011,10 +1016,12 @@ private fun DetailSecondary(text: String, size: Float = 13f, onClick: () -> Unit
 			.height((52 * u).dp)
 			.border((0.36 * u).dp, Color(0x54343B4F), RoundedCornerShape((6 * u).dp))
 			.clickable(
+				enabled = enabled,
 				interactionSource = remember { MutableInteractionSource() },
 				indication = com.stak.demo.ui.theme.PressDim,
 				onClick = onClick,
-			),
+			)
+			.alpha(if (enabled) 1f else 0.5f),
 	) {
 		Text(text, style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.Normal, fontSize = (size * u).sp), color = Muted)
 	}
@@ -1042,6 +1049,7 @@ private fun DetailSavedSheet(f: DetailFacts, symbol: String = f.symbol, liveDeta
 			modifier = Modifier
 				.align(Alignment.BottomCenter)
 				.fillMaxWidth()
+				.sheetDragToDismiss(onDone)
 				.clip(RoundedCornerShape(topStart = (24 * u).dp, topEnd = (24 * u).dp))
 				.background(Card)
 				.padding(horizontal = (20 * u).dp)
@@ -1149,7 +1157,7 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit, liv
 			.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
 	) {
 		// Collapsed head (1:2455) authors a 22-tall row - exact-design audit 2026-09-04.
-		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().then(if (!open) Modifier.height((22 * u).dp) else Modifier)) {
+		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().then(if (!open) Modifier.heightIn(min = (22 * u).dp) else Modifier)) {
 			com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_goal_search, Color(0xFFA6E4F7), size = 22, glyph = 13)
 			Spacer(modifier = Modifier.width((10 * u).dp))
 			Text(
@@ -1167,7 +1175,7 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit, liv
 			Text(
 				displayUpside,
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
-				color = Green,
+				color = if (displayUpside.startsWith("↓")) Muted else Green,
 			)
 		} else {
 			Kicker("PRICE TARGET RANGE", weight = FontWeight.Normal)
@@ -1202,7 +1210,7 @@ private fun AnalystCard(f: DetailFacts, open: Boolean, onToggle: () -> Unit, liv
 			Text(
 				displayUpside,
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
-				color = Green,
+				color = if (displayUpside.startsWith("↓")) Muted else Green,
 			)
 			Kicker(displayConsensus)
 			// 1:2669 authors the consensus track in the card's own #181F30 (the
@@ -1286,7 +1294,7 @@ private fun CompareCard(f: DetailFacts, liveDetail: LiveDetail? = null, symbol: 
 			.padding(horizontal = (16 * u).dp, vertical = (14 * u).dp),
 	) {
 		// Collapsed head (1:2527) authors a 22-tall row - exact-design audit 2026-09-04.
-		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().then(if (!open) Modifier.height((22 * u).dp) else Modifier)) {
+		Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().then(if (!open) Modifier.heightIn(min = (22 * u).dp) else Modifier)) {
 			com.stak.demo.ui.mystak.StakIconTile(R.drawable.ic_tab_simulate, Color(0xFFA6E4F7), size = 22, glyph = 13)
 			Spacer(modifier = Modifier.width((10 * u).dp))
 			Text(
@@ -1406,11 +1414,18 @@ private fun sinceSavedFor(f: DetailFacts, symbol: String, liveDetail: LiveDetail
 	val savedPct = if (reference != null && now != null) (now - reference) / reference * 100.0 else null
 	val move = savedPct?.let { String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(it)) }
 	val up = savedPct?.let { it >= 0.0 } ?: true
-	val whenSaved = if (days == 1) "yesterday" else "$days days ago"
+	val whenSaved = when (days) {
+		null -> "recently"
+		0 -> "today"
+		1 -> "yesterday"
+		else -> "$days days ago"
+	}
 	return when {
 		demo -> Triple("+4.6%", "Saved 5 weeks ago. $symbol is up 4.6% since, moving roughly with the market. Steady giants tend to.", true)
-		// null = a save from before the record existed; it reads as recent rather than as the demo's five weeks.
-		days == null || days == 0 -> Triple("+0.0%", "Saved ${if (days == 0) "today" else "recently"}. $symbol hasn't moved since you saved it - check back after a few sessions.", true)
+		// A save from today (or from before the record existed) with no price to measure from has no move to show
+		// yet; with one - the price stamped at the save - it's measured like any other.
+		(days ?: 0) == 0 && reference == null && referenceSettled ->
+			Triple("+0.0%", "Saved $whenSaved. $symbol hasn't moved since you saved it - check back after a few sessions.", true)
 		// Still arriving - today's price, or the price to measure against - says only what
 		// is known. "No record" is a finding, and it can't be made before the look-up ends.
 		savedPct == null && ((now == null && !detailSettled) || (stamped == null && !referenceSettled)) ->
@@ -1444,6 +1459,8 @@ private fun rangeChangeText(pct: Double, range: String): String {
 		"1M" -> "past month"
 		"3M" -> "past 3 months"
 		"YTD" -> "year to date"
+		"5Y" -> "past 5 years"
+		"MAX" -> "all time"
 		else -> "past year"
 	}
 	return "$arrow " + String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(pct)) + "% $period"
@@ -1559,7 +1576,9 @@ private data class DetailCompare(val label: String, val a: String, val b: String
  * sheet itself, so the placeholders here never reach the screen.
  */
 private fun liveBuySpec(symbol: String, live: LiveDetail?, f: DetailFacts): BuySpec {
-	listOf(NVDA_BUY, AAPL_BUY, GOOGL_BUY).firstOrNull { it.symbol == symbol }?.let { return it }
+	// The authored tickets carry sample prices: the demo's only. A real account's ticket is the live price - a buy
+	// confirmed before the quote landed (or offline) once filled at the sample $122.10 / $229.35 / $178.90.
+	if (com.stak.demo.data.Session.demoAccount) listOf(NVDA_BUY, AAPL_BUY, GOOGL_BUY).firstOrNull { it.symbol == symbol }?.let { return it }
 	return BuySpec(
 		title = "Buy $symbol?",
 		badge = symbol.take(1),
@@ -1615,7 +1634,7 @@ private fun riskFitFor(f: DetailFacts, liveDetail: LiveDetail? = null): Pair<Str
 		"Balanced" -> 0
 		else -> -1
 	}
-	val first = riskCopy.substringBefore(". ").takeIf { it.isNotBlank() }?.plus(".").orEmpty()
+	val first = riskCopy.substringBefore(". ").takeIf { it.isNotBlank() }?.let { if (it.endsWith(".")) it else "$it." }.orEmpty()
 	return when {
 		stockBand > styleBand -> "Bolder than you" to "$first Bolder than your profile, so keep any stake small.".trim()
 		stockBand < styleBand -> "Calmer than you" to "$first Calmer than your profile, a steady anchor for a bold STAK.".trim()

@@ -3,16 +3,23 @@ package com.stak.demo.ui.simulate
 import com.stak.demo.data.ChartPoint
 import com.stak.demo.data.StockRepository
 import com.stak.demo.data.chartFractions
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import java.time.Instant
 import java.time.ZoneId
 
 /**
  * The real ledger's value across a range - what your actual cash and shares were worth
- * on each trading day, built from PaperPortfolio's own trade log plus every traded
- * symbol's own real price history (the same /api/stock/{symbol}/chart every stock page
- * reads). Never a shape invented to fill the box (product decision, 2026-09-18): a day
- * this can't be built for is left out, not guessed - the demo's authored numbers carry
- * no live price behind them, so it is never called for that account.
+ * on each trading day, priced with every held or traded symbol's own real price history
+ * (the same /api/stock/{symbol}/chart every stock page reads). Never a shape invented to
+ * fill the box (product decision, 2026-09-18): a day this can't be built for is left out,
+ * not guessed - the demo's authored numbers carry no live price behind them, so it is
+ * never called for that account.
+ *
+ * Built BACKWARD from the server's snapshot - today's cash and shares, then each later
+ * trade undone - not forward from the starting cash: a portfolio holding stock bought
+ * before the trade log existed (or whose oldest trades fell off the page) replayed
+ * forward drew a line that tracked only the logged trades and disagreed with the hero.
  */
 internal object PortfolioHistory {
 	private var repository: StockRepository? = null
@@ -20,6 +27,38 @@ internal object PortfolioHistory {
 
 	fun init(repo: StockRepository) {
 		repository = repo
+	}
+
+	/**
+	 * Each symbol's closes per range, kept for a few minutes: a trade changes what was held, not what prices were, so
+	 * the rebuild it triggers (two per trade - the instant row, then the server's) needn't fetch every chart again.
+	 */
+	private val closesCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Map<Long, Double>>>()
+	private const val CLOSES_TTL_MS = 5 * 60 * 1000L
+
+	private suspend fun closesFor(repo: StockRepository, symbol: String, range: String): Map<Long, Double>? {
+		val key = "$symbol|$range"
+		closesCache[key]?.let { (at, closes) -> if (System.currentTimeMillis() - at < CLOSES_TTL_MS) return closes }
+		val prices = runCatching { repo.getChart(symbol, range.lowercase()).prices }.getOrNull() ?: return null
+		val closes = closesByDay(prices).takeIf { it.isNotEmpty() } ?: return null
+		closesCache[key] = System.currentTimeMillis() to closes
+		return closes
+	}
+
+	/**
+	 * The shortest daily price range that reaches back to [fromDay] (a trade's day): ALL's price range (web's
+	 * rangeCovering). Daily all the way - weekly bars would price a trade with its week's last close.
+	 */
+	fun rangeCovering(fromDay: Long, today: Long): String {
+		val days = today - fromDay
+		return when {
+			days <= 6 -> "1w"
+			days <= 30 -> "1m"
+			days <= 88 -> "3m"
+			days <= 360 -> "1y"
+			days <= 725 -> "2y"
+			else -> "5y"
+		}
 	}
 
 	/** One trading day's real portfolio value. */
@@ -36,44 +75,86 @@ internal object PortfolioHistory {
 		return byDay
 	}
 
-	/** [symbol]'s shares actually held as of [day] - the ledger's running total up to it, not today's count. */
-	private fun sharesHeldAt(day: Long, symbol: String, trades: List<Trade>): Double =
-		trades.filter { it.symbol == symbol && it.epochDay <= day }.sumOf { if (it.isBuy) it.shares else -it.shares }
-
-	/** Cash on hand as of [day] - the starting balance plus every trade's cash move up to it. */
-	private fun cashAt(day: Long, trades: List<Trade>, paperStart: Double): Double =
-		paperStart + trades.filter { it.epochDay <= day }.sumOf { if (it.isBuy) -it.amount else it.amount }
+	/** [symbol]'s shares held at the end of [day]: today's count with every later trade undone. */
+	private fun sharesHeldAt(day: Long, symbol: String, now: Double, trades: List<Trade>): Double =
+		now - trades.filter { it.symbol == symbol && it.epochDay > day }.sumOf { if (it.isBuy) it.shares else -it.shares }
 
 	/**
-	 * The account's real value on each trading day [range] covers, from its first trade
-	 * to today - null while there's nothing to build from yet (no trades) or every chart
-	 * request for a traded symbol came back empty.
+	 * The account's money that isn't in shares at the end of [day]: today's (cash plus
+	 * reserved limit orders, whose fills move no cash) with every later trade's cash move undone.
 	 */
-	suspend fun build(trades: List<Trade>, paperStart: Double, range: String): List<Point>? {
+	private fun cashAt(day: Long, now: Double, trades: List<Trade>): Double =
+		now - trades.filter { it.epochDay > day }.sumOf { if (it.isBuy) -it.amount else it.amount }
+
+	/**
+	 * The account's real value on each trading day [range] covers - from its first logged
+	 * trade when it has one - null while there's nothing to build from or a symbol's chart
+	 * didn't come back. [cash] is today's cash plus the open orders' reserved stakes;
+	 * [holdings] today's shares by symbol.
+	 */
+	suspend fun build(trades: List<Trade>, cash: Double, holdings: Map<String, Double>, range: String): List<Point>? {
 		val repo = repository ?: return null
-		if (trades.isEmpty()) return null
-		val symbols = trades.map { it.symbol }.distinct()
-		val closesBySymbol = symbols.mapNotNull { sym ->
-			val prices = runCatching { repo.getChart(sym, range.lowercase()).prices }.getOrNull() ?: return@mapNotNull null
-			closesByDay(prices).takeIf { it.isNotEmpty() }?.let { sym to it }
-		}.toMap()
-		if (closesBySymbol.isEmpty()) return null
+		val symbols = (holdings.keys.sorted() + trades.map { it.symbol }).distinct()
+		if (symbols.isEmpty()) return null
+		// ALL reads the shortest price range that reaches back to the first trade (the line starts there anyway).
+		val today = java.time.LocalDate.now(marketZone).toEpochDay()
+		val priceRange = if (range.equals("ALL", ignoreCase = true)) rangeCovering(trades.minOfOrNull { it.epochDay } ?: today, today) else range
+		// In parallel, as iOS does - one after another was N round trips before the line appeared.
+		val closesBySymbol = kotlinx.coroutines.coroutineScope {
+			symbols.map { sym -> async { closesFor(repo, sym, priceRange)?.let { sym to it } } }.awaitAll()
+		}.filterNotNull().toMap()
+		// Every symbol's history, or no line: a missing one would count its shares as $0 and
+		// draw a drop that never happened.
+		if (closesBySymbol.size < symbols.size) return null
 		// Every symbol's own real trading days in the window - a day none of them
 		// traded (a market holiday) never becomes a point either.
-		val firstTradeDay = trades.minOf { it.epochDay }
+		val firstTradeDay = trades.minOfOrNull { it.epochDay } ?: Long.MIN_VALUE
 		val days = closesBySymbol.values.flatMap { it.keys }.filter { it >= firstTradeDay }.distinct().sorted()
-		if (days.size < 2) return null
-		return days.map { day ->
-			val positionsValue = symbols.sumOf { sym ->
-				val closes = closesBySymbol[sym] ?: return@sumOf 0.0
+		// Days x symbols x (days + trades) of work - off the main thread.
+		val points = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { days.mapNotNull { day ->
+			var held = 0.0
+			for (sym in symbols) {
+				val shares = sharesHeldAt(day, sym, holdings[sym] ?: 0.0, trades)
+				if (kotlin.math.abs(shares) <= 1e-6) continue
 				// The latest close that symbol actually has at or before this day - it may not
-				// have traded on this exact one.
-				val price = closes.keys.filter { it <= day }.maxOrNull()?.let(closes::get) ?: return@sumOf 0.0
-				sharesHeldAt(day, sym, trades) * price
+				// have traded on this exact one. A day before its first close can't be priced,
+				// and is left out rather than counted at $0.
+				val closes = closesBySymbol[sym] ?: return@mapNotNull null
+				val price = closes.keys.filter { it <= day }.maxOrNull()?.let(closes::get) ?: return@mapNotNull null
+				held += shares * price
 			}
-			Point(day, cashAt(day, trades, paperStart) + positionsValue)
-		}
+			Point(day, cashAt(day, cash, trades) + held)
+		} }
+		return points.takeIf { it.size >= 2 }
 	}
+
+	/**
+	 * [points] ending on the hero's own live value: today replaces its close (or follows the
+	 * last day), so the line never stops a day short of the figure printed above it.
+	 */
+	fun endingToday(points: List<Point>, value: Double): List<Point> {
+		val last = points.lastOrNull() ?: return points
+		val today = java.time.LocalDate.now(marketZone).toEpochDay()
+		if (today < last.epochDay) return points
+		return (if (last.epochDay == today) points.dropLast(1) else points) + Point(today, value)
+	}
+
+	/**
+	 * [symbol]'s bars over the last week as (epoch millis, close), oldest first - every one, as iOS and web read them,
+	 * so the week starts from its first bar - or null when the chart didn't come back.
+	 */
+	suspend fun weekCloses(symbol: String): List<Pair<Long, Double>>? {
+		weekCache[symbol]?.let { (at, bars) -> if (System.currentTimeMillis() - at < CLOSES_TTL_MS) return bars }
+		val repo = repository ?: return null
+		val prices = runCatching { repo.getChart(symbol, "1w").prices }.getOrNull() ?: return null
+		val bars = prices.mapNotNull { p -> if (p.close <= 0.0) null else runCatching { Instant.parse(p.ts).toEpochMilli() }.getOrNull()?.let { it to p.close } }
+			.sortedBy { it.first }.takeIf { it.size >= 2 } ?: return null
+		weekCache[symbol] = System.currentTimeMillis() to bars
+		return bars
+	}
+
+	/** [weekCloses] per symbol for a few minutes, like [closesCache] - SPY's is read on every pick page. */
+	private val weekCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, List<Pair<Long, Double>>>>()
 
 	/** [points]' values as the 0..1 fractions RangeChart draws. */
 	fun fractions(points: List<Point>): List<Float> = chartFractions(points.map { it.value })

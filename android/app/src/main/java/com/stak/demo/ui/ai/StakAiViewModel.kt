@@ -203,7 +203,8 @@ class StakAiViewModel @Inject constructor(private val repo: StakAiRepository) : 
 				}
 				else -> {
 					markLastFailed()
-					notice = AiNotice.Failed(offline = e is IOException && e !is StakAiStreamException)
+					// Offline only for a lost connection - a server cut-off isn't (iOS: "STAK AI couldn't answer just now").
+					notice = AiNotice.Failed(offline = e is IOException && e !is StakAiStreamException && e !is com.stak.demo.data.StakAiCutOffException)
 				}
 			}
 		}

@@ -318,7 +318,7 @@ internal fun AuthCta(text: String, enabled: Boolean = true, onClick: () -> Unit)
 		Text(
 			text = text,
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp),
-			color = StakColors.TextPrimary,
+			color = StakColors.Bg, // navy on the teal gradient: white read 1.4-3.3:1 (WCAG AA)
 		)
 	}
 }

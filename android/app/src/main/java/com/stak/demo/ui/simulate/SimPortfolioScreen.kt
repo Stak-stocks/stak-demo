@@ -46,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import com.stak.demo.ui.components.sheetDragToDismiss
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -87,7 +88,15 @@ fun SimPortfolioScreen(
 	// (Position.liveValue / liveRow) - the demo's authored numbers carry no live
 	// price, so there is nothing to refresh for it.
 	val scope = androidx.compose.runtime.rememberCoroutineScope()
+	val context = androidx.compose.ui.platform.LocalContext.current
 	val heldSymbols = PaperPortfolio.positions.map { it.spec.symbol }.distinct()
+	// The share picture's chart: the whole account, since it began (this page has no range of its own) - rebuilt
+	// when the ledger or what's held changes.
+	var allHistory by remember { mutableStateOf<List<PortfolioHistory.Point>?>(null) }
+	val ledgerKey = "${PaperPortfolio.trades.size}-${PaperPortfolio.trades.firstOrNull()?.amount}-${PaperPortfolio.heldShares}"
+	androidx.compose.runtime.LaunchedEffect(ledgerKey, PaperPortfolio.demo) {
+		if (!PaperPortfolio.demo) allHistory = PortfolioHistory.build(PaperPortfolio.trades, PaperPortfolio.uninvested, PaperPortfolio.heldShares, "ALL")
+	}
 	if (!PaperPortfolio.demo) {
 		com.stak.demo.ui.components.RefreshWhileVisible(key = heldSymbols, intervalMs = com.stak.demo.ui.components.LIVE_PRICE_INTERVAL_MS, tickOnResume = true) {
 			scope.launch { com.stak.demo.data.LiveQuotes.refresh(heldSymbols) }
@@ -114,9 +123,47 @@ fun SimPortfolioScreen(
 				Spacer(modifier = Modifier.weight(1f))
 				Box(
 					contentAlignment = Alignment.Center,
-					modifier = Modifier.size((40 * u).dp).background(Sim.CardBg, CircleShape),
+					modifier = Modifier
+						.size((40 * u).dp)
+						.clip(CircleShape)
+						.background(Sim.CardBg)
+						.clickable(
+							interactionSource = remember { MutableInteractionSource() },
+							indication = com.stak.demo.ui.theme.PressDim,
+							role = androidx.compose.ui.semantics.Role.Button,
+						) {
+							val text = PaperPortfolio.portfolioShareText
+							if (PaperPortfolio.demo || (PaperPortfolio.positions.isEmpty() && PaperPortfolio.realized.isEmpty())) {
+								// The demo's figures are authored, and an empty account has nothing to picture: the invite, in words.
+								val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+									.putExtra(android.content.Intent.EXTRA_TEXT, text)
+								runCatching { context.startActivity(android.content.Intent.createChooser(send, "Share portfolio")) }
+							} else {
+								val gain = PaperPortfolio.allTimeGain
+								val up = Math.round(gain) >= 0
+								val pct = if (PaperPortfolio.paperStart > 0.0) gain / PaperPortfolio.paperStart * 100.0 else 0.0
+								val values = allHistory?.let { PortfolioHistory.endingToday(it, PaperPortfolio.portfolioValue) }?.map { it.value }.orEmpty()
+								com.stak.demo.ui.components.ShareCard.share(
+									context,
+									scope,
+									com.stak.demo.ui.components.ShareCard.Spec(
+										kicker = "MY PORTFOLIO",
+										title = "My STAK portfolio",
+										subtitle = "Paper portfolio · started with " + "$" + String.format(java.util.Locale.US, "%,.0f", PaperPortfolio.paperStart),
+										figure = PaperPortfolio.usd(PaperPortfolio.portfolioValue),
+										line = "${if (up) "▲" else "▼"} ${PaperPortfolio.signedUsd(gain)} (${PaperPortfolio.signedPct(pct)}) since I started",
+										up = up,
+										note = null,
+										values = values,
+									),
+									text,
+									"Share portfolio",
+									"stak-portfolio.png",
+								)
+							}
+						},
 				) {
-					Image(painterResource(R.drawable.ic_news_share), null, modifier = Modifier.size((18 * u).dp)) // 1:4517 icon/share is 18 (exact-design audit 2026-09-04)
+					Image(painterResource(R.drawable.ic_news_share), "Share", modifier = Modifier.size((18 * u).dp)) // 1:4517 icon/share is 18 (exact-design audit 2026-09-04)
 				}
 			}
 			Column(
@@ -309,6 +356,7 @@ private fun SimSheet(onDismiss: () -> Unit, content: @Composable () -> Unit) {
 			modifier = Modifier
 				.align(Alignment.BottomCenter)
 				.fillMaxWidth()
+				.sheetDragToDismiss(onDismiss)
 				.clip(RoundedCornerShape(topStart = (24 * u).dp, topEnd = (24 * u).dp))
 				.background(Sim.CardBg)
 				.padding(horizontal = (20 * u).dp)
@@ -585,7 +633,7 @@ private fun PositionClosedContent(pick: PickSpec, onBackToSimulate: () -> Unit, 
 				Text(
 					"Back to Simulate",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp, lineHeight = (20.69 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-					color = Color.White,
+					color = StakColors.Bg,
 				)
 			}
 			// 73:1025 (exact-design audit 2026-09-04): hairline only - the 4% white fill was never authored.

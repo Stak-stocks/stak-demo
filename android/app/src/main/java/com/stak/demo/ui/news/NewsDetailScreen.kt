@@ -83,6 +83,7 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import com.stak.demo.ui.components.sheetDragToDismiss
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
@@ -729,12 +730,14 @@ private fun AddToStakButton(onClick: () -> Unit) {
 			text = "Add to STAK",
 			// Authored lh 20.69 (1:1535) - exact-design audit 2026-09-04.
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp, lineHeight = (20.69 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-			color = Color.White,
+			color = StakColors.Bg,
 		)
 		Image(
 			painter = painterResource(R.drawable.ic_plus_small),
 			contentDescription = null,
 			modifier = Modifier.size((14 * u).dp),
+			// Navy like the label beside it on the teal button.
+			colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(StakColors.Bg),
 		)
 	}
 }
@@ -1135,6 +1138,7 @@ private fun SaveSuccessOverlay(facts: NewsArticleFeed.StockFacts, onViewInMyStak
 			modifier = Modifier
 				.align(Alignment.BottomCenter)
 				.fillMaxWidth()
+				.sheetDragToDismiss(onDismiss)
 				.clip(RoundedCornerShape(topStart = (24 * u).dp, topEnd = (24 * u).dp))
 				.background(News.CardBg)
 				.padding(horizontal = (20 * u).dp)
@@ -1218,7 +1222,7 @@ private fun SaveSuccessOverlay(facts: NewsArticleFeed.StockFacts, onViewInMyStak
 					Text(
 						text = "View in My STAK",
 						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp),
-						color = Color.White,
+						color = StakColors.Bg,
 					)
 				}
 				Box(

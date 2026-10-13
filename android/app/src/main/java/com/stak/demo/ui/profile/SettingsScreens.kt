@@ -174,8 +174,24 @@ private fun NotificationSettingsScreen(onBack: () -> Unit) {
 	val u = figmaUnit()
 	val context = LocalContext.current
 	// Live OS check so the warning card appears if the user revoked the permission in phone Settings
-	// after onboarding, without relying on the stored preference (which is only written at grant time).
-	val osGranted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+	// after onboarding, without relying on the stored preference - re-read on every return to the page.
+	fun osEnabled() = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+	var osGranted by remember { mutableStateOf(osEnabled()) }
+	val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+	androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+		val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+			if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) osGranted = osEnabled()
+		}
+		lifecycleOwner.lifecycle.addObserver(observer)
+		onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+	}
+	val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { osGranted = osEnabled() }
+	// A switch turned on means notifications are wanted again: "Not now" in onboarding (or on a new phone, never
+	// asked) left them off for good while these switches read on. Android 13+ is asked when it isn't allowed yet.
+	fun turnedOn() {
+		UserProfile.notificationsOn = true
+		if (android.os.Build.VERSION.SDK_INT >= 33 && !osEnabled()) askPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+	}
 	SettingsPage(title = "Notifications", onBack = onBack) {
 		if (!osGranted) {
 			Column(
@@ -196,7 +212,7 @@ private fun NotificationSettingsScreen(onBack: () -> Unit) {
 			}
 		}
 		// Each switch is sent to the backend, which does the sending while STAK is closed.
-		PermissionCard("Price moves on your picks", "A nudge when a saved or bought stock moves more than ${UserProfile.priceThreshold}%.", UserProfile.priceAlerts) { UserProfile.priceAlerts = !UserProfile.priceAlerts; Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
+		PermissionCard("Price moves on your picks", "A nudge when a saved stock moves ${UserProfile.priceThreshold}% or more.", UserProfile.priceAlerts) { UserProfile.priceAlerts = !UserProfile.priceAlerts; if (UserProfile.priceAlerts) turnedOn(); Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
 		// Price threshold (FigJam Profile board, 2026-09-14): how big a move earns the nudge.
 		Column(
 			verticalArrangement = Arrangement.spacedBy((10 * u).dp),
@@ -205,12 +221,12 @@ private fun NotificationSettingsScreen(onBack: () -> Unit) {
 			Text("Price threshold", style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp), color = Color.White)
 			Text("Only moves at least this big get a nudge.", style = TextStyle(fontFamily = Geist, fontSize = (11 * u).sp), color = com.stak.demo.ui.onboarding.Auth.SubtitleGray)
 			Row(horizontalArrangement = Arrangement.spacedBy((8 * u).dp)) {
-				listOf(1, 3, 5, 10).forEach { pct ->
-					SettingsChip(label = "$pct%", selected = UserProfile.priceThreshold == pct) { UserProfile.priceThreshold = pct; Session.saveProfile() }
+				UserProfile.PRICE_THRESHOLDS.forEach { pct ->
+					SettingsChip(label = "$pct%", selected = UserProfile.priceThreshold == pct) { UserProfile.priceThreshold = pct; Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
 				}
 			}
 		}
-		PermissionCard("Daily deck", "One reminder when a fresh deck lands each morning.", UserProfile.dailyDeck) { UserProfile.dailyDeck = !UserProfile.dailyDeck; Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
+		PermissionCard("Daily deck", "One reminder when a fresh deck lands each morning.", UserProfile.dailyDeck) { UserProfile.dailyDeck = !UserProfile.dailyDeck; if (UserProfile.dailyDeck) turnedOn(); Session.saveProfile(); com.stak.demo.data.PushRegistration.sync() }
 		PermissionCard("Market news", "The stories behind the moves, a few times a week.", UserProfile.marketNews) { UserProfile.marketNews = !UserProfile.marketNews; Session.saveProfile() }
 		Caption("You can change these any time.")
 	}
@@ -284,9 +300,12 @@ private fun HelpSupportScreen(onBack: () -> Unit) {
 	val u = figmaUnit()
 	val context = LocalContext.current
 	val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "1.0" }
+	// The document open in the sheet (LegalDocs.TERMS / PRIVACY), or null.
+	var reading by rememberSaveable { mutableStateOf<String?>(null) }
+	Box(modifier = Modifier.fillMaxSize()) {
 	SettingsPage(title = "Help & support", onBack = onBack) {
 		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(vertical = (4 * u).dp)) {
-			FaqRow("Is this real money?", "No. The Simulate tab gives you $10,000 of pretend money to practice with. Nothing is bought or sold for real.")
+			FaqRow("Is this real money?", "No. In Simulate you practice with pretend money, starting with what you’d really invest. Nothing is bought or sold for real.")
 			if (Session.demoAccount) {
 				FaqRow("Where do the prices come from?", "The demo account shows sample prices so you can look around. Create an account to see live market prices.")
 			} else {
@@ -295,7 +314,7 @@ private fun HelpSupportScreen(onBack: () -> Unit) {
 			if (Session.demoAccount) {
 				FaqRow("Is my data private?", "STAK never sells your data.")
 			} else {
-				FaqRow("Is my data private?", "Your saved stocks and taste answers are stored with your STAK account, so they follow you to a new phone. Your paper portfolio stays on this phone for now. STAK never sells your data.")
+				FaqRow("Is my data private?", "Your saved stocks, taste answers and paper portfolio are stored with your STAK account, so they follow you to a new phone. STAK never sells your data.")
 			}
 			SettingsLinkRow(label = "Email support") {
 				val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@thestak.org")).putExtra(Intent.EXTRA_SUBJECT, "STAK support")
@@ -308,11 +327,14 @@ private fun HelpSupportScreen(onBack: () -> Unit) {
 					.putExtra(Intent.EXTRA_TEXT, "What happened:\n\nWhere in the app:\n\nApp version $version")
 				runCatching { context.startActivity(intent) }
 			}
-			SettingsLinkRow(label = "Terms of service") { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TERMS_URL))) } }
-			SettingsLinkRow(label = "Privacy policy") { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_URL))) } }
+			// In the app's own sheet, not the browser (the web shows the same text at /terms and /privacy).
+			SettingsLinkRow(label = "Terms of service") { reading = com.stak.demo.data.LegalDocs.TERMS }
+			SettingsLinkRow(label = "Privacy policy") { reading = com.stak.demo.data.LegalDocs.PRIVACY }
 			// A value row - nothing to open behind it (product audit, 2026-09-05).
 			SettingsLinkRow(label = "Version", value = version, chevron = false, onClick = null)
 		}
+	}
+	reading?.let { doc -> com.stak.demo.ui.components.LegalSheet(doc = doc, onClose = { reading = null }) }
 	}
 }
 
@@ -339,9 +361,6 @@ private fun FaqRow(question: String, answer: String) {
 	}
 }
 
-/** Where the legal pages live - the landing site's routes. */
-private const val TERMS_URL = "https://thestak.org/terms"
-private const val PRIVACY_URL = "https://thestak.org/privacy"
 
 /** A small selectable chip - the notification threshold, the portfolio setup's balances. */
 @Composable
@@ -390,9 +409,12 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 		} else {
 			deleting = true
 			deleteError = null
+			// The server ends the session as it deletes: requests still in flight are refused, and that's this.
+			Session.leaving = true
 			scope.launch {
 				val error = viewModel.deleteAccount()
 				deleting = false
+				if (error != null) Session.leaving = false
 				if (error == null) {
 					// Drops the SDK's live session for the now-deleted account (audit
 					// 2026-09-19) - the same fix as Log out, so nothing signed up or
@@ -417,7 +439,7 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 			AnimatedVisibility(visible = confirmDelete) {
 				Column(verticalArrangement = Arrangement.spacedBy((10 * u).dp), modifier = Modifier.padding(start = (14 * u).dp, end = (14 * u).dp, bottom = (14 * u).dp)) {
 					Text(
-						"This removes your saves, paper portfolio and settings from this phone and signs you out. It can\u2019t be undone.",
+						"This deletes your STAK account - your saves, paper portfolio and settings - and signs you out. It can\u2019t be undone.",
 						style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 						color = Body,
 					)
@@ -466,7 +488,7 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 			}
 		}
 		// Account-aware (review 2026-09-14): Sign in always restores the demo persona; a created account's state is not re-enterable after log out.
-		Caption(if (Session.demoAccount) "Log out from the Profile page keeps your saves and paper portfolio for the next sign-in." else "Log out from the Profile page ends this account’s session; a new sign-up starts fresh.")
+		Caption(if (Session.demoAccount) "Log out from the Profile page keeps your saves and paper portfolio for the next sign-in." else "Log out from the Profile page ends this session; your saves and paper portfolio are kept with your account for the next sign-in.")
 	}
 }
 
@@ -569,11 +591,17 @@ private fun EditProfileScreen(onBack: () -> Unit) {
 		}
 	}
 
+	// Save waits for the copy, or the old photo would be stored (09 Profile setup's gate).
+	var copying by remember { mutableStateOf(false) }
 	val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
 		if (uri == null) return@rememberLauncherForActivityResult
+		copying = true
 		scope.launch {
-			val copy = withContext(Dispatchers.IO) { copyAvatarEdit(context, uri) }
+			// A fresh avatar_<time>.jpg per pick (09 Profile setup's copy): one rewritten "avatar.jpg" kept showing the
+			// previous photo from the image cache, overwrote the saved one before Save, and outlived log out.
+			val copy = withContext(Dispatchers.IO) { com.stak.demo.ui.onboarding.copyAvatar(context, uri) }
 			photoUri = copy ?: uri.toString()
+			copying = false
 		}
 	}
 
@@ -667,12 +695,14 @@ private fun EditProfileScreen(onBack: () -> Unit) {
 
 		AuthCta(
 			text = if (isSaving) "Saving…" else "Save changes",
-			enabled = name.isNotBlank() && !isSaving,
+			enabled = name.isNotBlank() && !isSaving && !copying,
 			onClick = {
 				isSaving = true
 				scope.launch {
 					UserProfile.displayName = name.trim().capitalizeWords()
 					UserProfile.photoUri = photoUri
+					// Only the photo kept survives; earlier picks' copies go.
+					com.stak.demo.ui.onboarding.pruneAvatars(context, keep = photoUri)
 					Session.saveProfile()
 					viewModel.updateProfile()
 					onBack()
@@ -682,8 +712,3 @@ private fun EditProfileScreen(onBack: () -> Unit) {
 	}
 }
 
-private fun copyAvatarEdit(context: android.content.Context, uri: Uri): String? = runCatching {
-	val file = File(context.filesDir, "avatar.jpg")
-	context.contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { input.copyTo(it) } } ?: return null
-	Uri.fromFile(file).toString()
-}.getOrNull()

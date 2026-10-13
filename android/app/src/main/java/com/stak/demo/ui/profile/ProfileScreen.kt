@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,6 +50,10 @@ private val ChipBorder = Color(0xFF2C9DBC)
 private val ChipInk = Color(0xFF7FD4E8)
 /** The hub row that opens the share sheet instead of a settings page. */
 private const val INVITE = "invite"
+
+/** The invite line the share sheet carries (FigJam: Your profile -> Invite a friend) - also what Simulate's share
+ *  buttons send when there are no real numbers to share. */
+internal const val STAK_INVITE_TEXT = "Join me on STAK — swipe stocks you actually understand and practice with paper money. https://thestak.org"
 
 /**
  * 05 · Profile — "Profile · hub" (CHINEDU 171:995), reached from the
@@ -189,7 +195,8 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 					Box(
 						contentAlignment = Alignment.Center,
 						modifier = Modifier
-							.then(if (w != null) Modifier.requiredSize((w * u).dp, (28 * u).dp) else Modifier.height((28 * u).dp))
+							// At least the authored size; enlarged text (the system font size) grows the chip instead of being clipped.
+							.then(if (w != null) Modifier.widthIn(min = (w * u).dp).heightIn(min = (28 * u).dp) else Modifier.heightIn(min = (28 * u).dp))
 							.clip(RoundedCornerShape((14 * u).dp))
 							.background(ChipBg)
 							.border((1 * u).dp, ChipBorder, RoundedCornerShape((14 * u).dp))
@@ -223,18 +230,31 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 				Row(modifier = Modifier.fillMaxWidth().height((40 * u).dp).padding(horizontal = 0.dp)) {
 					// Live from the shared paper portfolio (product audit, 2026-09-05).
 					val pp = com.stak.demo.ui.simulate.PaperPortfolio
-					ProfileStat(pp.wholeUsd(pp.portfolioValue), "Portfolio")
+					// Loading, or not set up yet: no portfolio to show (web's profile does the same).
+					val ready = pp.demo || (!pp.loading && !pp.needsSetup)
+					ProfileStat(if (ready) pp.wholeUsd(pp.portfolioValue) else "—", "Portfolio")
 					Spacer(modifier = Modifier.weight(1f))
-					ProfileStat(pp.usd(pp.cash), "Cash")
+					ProfileStat(if (ready) pp.usd(pp.cash) else "—", "Cash")
 					Spacer(modifier = Modifier.weight(1f))
-					ProfileStat(pp.pickCountLabel.toString(), "Picks")
+					ProfileStat(if (ready) pp.pickCountLabel.toString() else "—", "Picks")
 				}
-				val gain = com.stak.demo.ui.simulate.PaperPortfolio.allTimeGain
-				Text(
-					text = "${if (gain >= 0) "▲" else "▼"} ${com.stak.demo.ui.simulate.PaperPortfolio.signedUsd(gain)} all time on ${com.stak.demo.ui.simulate.PaperPortfolio.wholeUsd(com.stak.demo.ui.simulate.PaperPortfolio.paperStart)} paper",
-					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-					color = if (gain >= 0) Green else Color(0xFFE5484D),
-				)
+				val pp = com.stak.demo.ui.simulate.PaperPortfolio
+				if (pp.demo || (!pp.loading && !pp.needsSetup)) {
+					val gain = pp.allTimeGain
+					// The % with the dollars: starts range from $500 to $10,000, and only a % compares across them.
+					val pct = if (pp.paperStart > 0) gain / pp.paperStart * 100 else 0.0
+					Text(
+						text = "${if (gain > -0.005) "▲" else "▼"} ${pp.signedUsd(gain)} (${pp.signedPct(pct)}) all time on ${pp.wholeUsd(pp.paperStart)} paper",
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+						color = if (gain > -0.005) Green else Color(0xFFE5484D),
+					)
+				} else {
+					Text(
+						text = "Set up your practice portfolio in Simulate to start.",
+						style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+						color = Muted,
+					)
+				}
 			}
 			// Settings card.
 			Column(
@@ -265,7 +285,7 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 								if (kind == INVITE) {
 									// The system share sheet with the invite line (FigJam: Your profile -> Invite a friend).
 									val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
-										.putExtra(android.content.Intent.EXTRA_TEXT, "Join me on STAK \u2014 swipe stocks you actually understand and practice with paper money. https://thestak.org")
+										.putExtra(android.content.Intent.EXTRA_TEXT, STAK_INVITE_TEXT)
 									runCatching { context.startActivity(android.content.Intent.createChooser(send, "Invite a friend")) }
 								} else {
 									onOpenSetting(kind)

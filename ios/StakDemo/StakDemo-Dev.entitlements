@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  Free-account / personal-team build: APNs and Sign in with Apple are
+  omitted here — both require the paid Apple Developer Program ($99/yr).
+  Add them back once enrolled: aps-environment = development here (Debug builds;
+  StakDemo.entitlements, Release, takes production) turns on the already-built push
+  (Core/PushRegistration.swift, with GoogleService-Info.plist in StakDemo/).
+-->
+<dict>
+</dict>
+</plist>

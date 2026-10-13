@@ -81,39 +81,6 @@ internal fun categoryGroupId(name: String): String =
 	name.lowercase().filter { it.isLetterOrDigit() }
 
 /**
- * A collection's art. The six authored glass pieces (1:3155) cover the
- * families they were drawn for; a category outside them draws its initial
- * instead of borrowing art that says the wrong thing.
- *
- * [imageRes] is the chip's 34 crop, [iconRes] its 36 icon (the authored
- * frames use one or the other), [heroRes] the Collection page's 60 hero.
- */
-internal data class CategoryArt(val imageRes: Int? = null, val iconRes: Int? = null, val heroRes: Int)
-
-private val TECH = CategoryArt(imageRes = R.drawable.ms_coll_aitech, heroRes = R.drawable.ms_coll_aitech)
-private val FINANCE = CategoryArt(imageRes = R.drawable.ms_coll_finance, heroRes = R.drawable.ms_coll_finance)
-private val GREEN = CategoryArt(iconRes = R.drawable.ic_cat_green, heroRes = R.drawable.ms_coll_green)
-private val REALESTATE = CategoryArt(iconRes = R.drawable.ic_cat_realestate, heroRes = R.drawable.ms_coll_realestate)
-private val HEALTH = CategoryArt(iconRes = R.drawable.ic_cat_health, heroRes = R.drawable.ms_coll_health)
-private val CONSUMER = CategoryArt(iconRes = R.drawable.ic_cat_consumer, heroRes = R.drawable.ms_coll_consumer)
-
-private val ART_BY_NAME: Map<String, CategoryArt> = mapOf(
-	"Software" to TECH, "Chips" to TECH, "Cybersecurity" to TECH, "Data" to TECH,
-	"AI" to TECH, "Big Tech" to TECH, "Consumer Tech" to TECH, "General Tech" to TECH,
-	"Ad Tech" to TECH, "Social Media" to TECH, "Gaming" to TECH,
-	"Banks" to FINANCE, "Fintech" to FINANCE, "Markets" to FINANCE, "Asset Managers" to FINANCE,
-	"Financial Data" to FINANCE, "Payments" to FINANCE, "Insurance" to FINANCE, "Crypto" to FINANCE,
-	"Private Equity" to FINANCE, "Index Funds" to FINANCE, "Finance" to FINANCE,
-	"Clean Energy" to GREEN, "Utilities" to GREEN, "EVs" to GREEN,
-	"Real Estate" to REALESTATE,
-	"Pharma" to HEALTH, "MedTech" to HEALTH, "Biotech" to HEALTH,
-	"Health Insurers" to HEALTH, "Digital Health" to HEALTH,
-	"Retail" to CONSUMER, "Restaurants" to CONSUMER, "Staples" to CONSUMER, "Fashion" to CONSUMER,
-	"Drinks" to CONSUMER, "E-commerce" to CONSUMER, "Streaming" to CONSUMER, "Travel" to CONSUMER,
-	"Casinos" to CONSUMER, "Home Retail" to CONSUMER, "Food" to CONSUMER, "Consumer" to CONSUMER,
-)
-
-/**
  * A category's own mark for the Taste Graph, from the icons the app already ships. The
  * collection art groups whole families under one picture (every tech category drew the
  * same sparkle), which left four rows looking identical; these tell them apart.
@@ -143,18 +110,4 @@ internal fun categoryIcon(name: String): Int = when (name) {
 	"Telecom" -> R.drawable.ic_cat_telecom
 	"Meme Stocks" -> R.drawable.ic_cat_meme
 	else -> R.drawable.ic_gist_info
-}
-
-/** The collection's art, or null when no authored piece fits - the chip draws its initial. */
-internal fun categoryArt(name: String): CategoryArt? = ART_BY_NAME[name]
-
-/** The allocation palette, by art family, so the ring and the chips agree. */
-internal fun categoryColorKey(name: String): String = when (ART_BY_NAME[name]) {
-	TECH -> "aitech"
-	FINANCE -> "finance"
-	GREEN -> "green"
-	REALESTATE -> "realestate"
-	HEALTH -> "health"
-	CONSUMER -> "consumer"
-	else -> "other"
 }

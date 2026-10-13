@@ -56,8 +56,9 @@ object NewsDeckFeed {
             return padToDeck(mapped)
         }
         if (Session.demoAccount) return padToDeck(DEMO_STORIES)
-        // Failed: the front card says so and the ones behind it stay plain.
-        if (DailyBriefHolder.newsFailed) {
+        // Failed (or came back empty): the front card says so and the ones behind it stay plain - an empty answer
+        // otherwise left the deck on loading cards for good (iOS's rule).
+        if (DailyBriefHolder.newsFailed || DailyBriefHolder.newsSettled) {
             return padToDeck(listOf(Story("Market news isn't loading", "Open News to try again.")))
         }
         return List(DECK_SIZE) { LOADING }

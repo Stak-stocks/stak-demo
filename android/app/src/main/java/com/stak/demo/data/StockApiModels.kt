@@ -113,6 +113,8 @@ data class PushDeviceRequest(
     val timezone: String,
     val priceAlerts: Boolean,
     val dailyDeck: Boolean,
+    /** The "Price threshold" setting (1 / 3 / 5 / 10%) - the server alerts this phone at it. */
+    val priceThreshold: Int,
 )
 data class OkResponse(val ok: Boolean = false)
 
@@ -193,7 +195,26 @@ data class MeResponse(
     val taste: TasteDto? = null,
     /** "free" or "plus" - read only through Entitlements. */
     val plan: String = "free",
+    /** The account hasn't confirmed 18+, U.S. and the current Terms / Privacy yet (Eligibility). */
+    val needsEligibility: Boolean = false,
 )
+
+/** GET /api/legal/:doc - the Terms or Privacy Policy for the in-app sheet (LegalDocs). */
+data class LegalDocResponse(
+    val title: String = "",
+    val effective: String = "",
+    val notice: String = "",
+    val version: String = "",
+    val sections: List<LegalSectionDto> = emptyList(),
+)
+
+data class LegalSectionDto(val heading: String = "", val sub: String? = null, val blocks: List<LegalBlockDto> = emptyList())
+
+/** A paragraph ([text]) or a bulleted list ([list]). */
+data class LegalBlockDto(val text: String? = null, val list: List<String>? = null)
+
+/** POST /api/me/eligibility - "Before we get started": all three confirmations. */
+data class EligibilityRequest(val ageConfirmed: Boolean = true, val inUS: Boolean = true, val acceptTerms: Boolean = true)
 
 /** One headline behind an update. */
 data class UpdateSourceDto(
@@ -320,8 +341,13 @@ data class EngagementEventRequest(
     val params: Map<String, Any>? = null,
 )
 data class EventResponse(val success: Boolean = false)
-data class PassedEntry(val id: String = "", val at: Long = 0L)
+/** A passed brand: when it was last passed, and how many times (five keeps it out of the deck). */
+data class PassedEntry(val id: String = "", val at: Long = 0L, val count: Int = 1)
 data class PassedResponse(val entries: List<PassedEntry> = emptyList())
+data class PassedAddResponse(val entry: PassedEntry? = null)
+/** Today's deck, the same on every device (tickers; empty when none is picked yet). */
+data class DailyDeckDto(val day: String = "", val tickers: List<String> = emptyList())
+data class DailyDeckRequest(val day: String, val tickers: List<String>)
 data class PassedPutRequest(val entries: List<PassedEntry>)
 data class SwipeRecord(val brandId: String = "", val direction: String = "", val timestamp: String = "")
 data class SwipeHistoryResponse(val swipes: List<SwipeRecord> = emptyList())
@@ -373,6 +399,8 @@ data class SandboxPortfolioResponse(
 data class SandboxTradeDto(
     val id: Long = 0L, val ticker: String = "", val side: String = "", val shares: Double = 0.0,
     val price: Double = 0.0, val amount: Double = 0.0, val source: String = "market", val executedAt: String = "",
+    /** A sale's average cost when it sold (null on buys and older sales) - its realized gain needs no buy in the ledger. */
+    val costBasis: Double? = null,
 )
 data class SandboxTradesResponse(val trades: List<SandboxTradeDto> = emptyList())
 data class QuickLookResponse(val quickLook: QuickLookDto? = null)

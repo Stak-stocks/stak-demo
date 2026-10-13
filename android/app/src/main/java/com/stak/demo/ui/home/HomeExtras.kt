@@ -101,7 +101,8 @@ internal fun TrendingStrip(onOpenStock: (String) -> Unit) {
 					}
 					Text("$" + String.format(java.util.Locale.US, "%.2f", s.price), style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp), color = Color.White)
 					Text(
-						(if (s.changePercent >= 0) "▲ " else "▼ ") + String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(s.changePercent)) + "% today",
+						// Before the open or at a weekend the move is the last session's: "on Friday", not "today".
+						com.stak.demo.data.StakClock.sessionChange((if (s.changePercent >= 0) "▲ " else "▼ ") + String.format(java.util.Locale.US, "%.1f", kotlin.math.abs(s.changePercent)) + "% today"),
 						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp),
 						color = if (s.changePercent >= 0) Green else Red,
 					)

@@ -93,6 +93,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stak.demo.R
 import com.stak.demo.ui.components.RefreshWhileVisible
+import com.stak.demo.ui.components.sheetDragToDismiss
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
 import com.stak.demo.ui.theme.StakColors
@@ -162,11 +163,16 @@ internal data class BuySpec(
 	 * `cash` is the live paper balance the ticket opened on (Simulate audit,
 	 * same day): "Cash available" before and after both follow it.
 	 */
-	fun withAmount(amount: Double, cash: Double): BuySpec = copy(
-		shares = String.format(java.util.Locale.US, "%.4f", if (price > 0.0) amount / price else 0.0),
-		cashBefore = "$" + String.format(java.util.Locale.US, "%,.2f", cash),
-		cashAfter = "$" + String.format(java.util.Locale.US, "%,.2f", cash - amount),
-	)
+	fun withAmount(amount: Double, cash: Double): BuySpec {
+		// The server's fill (sandbox.ts /buy): shares rounded down to a thousandth, the cost those shares to the cent.
+		val shares = if (price > 0.0) kotlin.math.floor(amount / price * 1000) / 1000 else 0.0
+		val cost = if (price > 0.0) Math.round(price * shares * 100) / 100.0 else amount
+		return copy(
+			shares = String.format(java.util.Locale.US, "%.3f", shares),
+			cashBefore = "$" + String.format(java.util.Locale.US, "%,.2f", cash),
+			cashAfter = "$" + String.format(java.util.Locale.US, "%,.2f", cash - cost),
+		)
+	}
 
 	/** The ticket re-priced from a live quote, so the paper order fills at today's price. */
 	fun withQuote(price: Double, changePct: Double): BuySpec = copy(
@@ -351,12 +357,6 @@ internal fun DiscoverScreen(
 	val remainingDeck = deck.filter { it.symbol !in savedCards && it.symbol !in passedCards }
 		.take((dailyLimit - swipedToday).coerceAtLeast(0))
 	val atEnd = remainingDeck.isEmpty() || hasReachedLimit
-	// Prices move while the deck sits open. Every 30s, for the front card and the two
-	// peeking behind it only - swiped cards and the end screen show no price.
-	RefreshWhileVisible(key = Unit, intervalMs = 30_000L, tickOnResume = true) {
-		viewModel.onVisibleTick(if (atEnd) emptyList() else remainingDeck.take(3).map { it.symbol })
-	}
-
 	val initialResetKey = remember { resetKey }
 	LaunchedEffect(Unit) { DeckSession.refreshDay() }
 	LaunchedEffect(resetKey) {
@@ -384,6 +384,13 @@ internal fun DiscoverScreen(
 	val flyOffset = remember { Animatable(0f) }
 	val flyFade = remember { Animatable(1f) }
 	val swipeOffset = remember { Animatable(0f) }
+	// Prices move while the deck sits open. Every 30s, for the front card and the two
+	// peeking behind it only - swiped cards and the end screen show no price. Busy while a
+	// card is in hand, so an offline deck isn't swapped for the shared one under it.
+	RefreshWhileVisible(key = Unit, intervalMs = 30_000L, tickOnResume = true) {
+		val busy = swipeOffset.value != 0f || flyingCard != null || quickLookCard != null || pendingUndo != null
+		viewModel.onVisibleTick(if (atEnd) emptyList() else remainingDeck.take(3).map { it.symbol }, busy)
+	}
 	val scope = rememberCoroutineScope()
 	val density = LocalDensity.current
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
@@ -1060,7 +1067,7 @@ private fun GestureChevron(u: Float) {
 	}
 }
 
-/** Shared sheet scaffold — scrim + r24 sheet. Tap outside or drag handle down to dismiss. */
+/** Shared sheet scaffold — scrim + r24 sheet. Tap outside or pull the sheet down to dismiss. */
 @Composable
 private fun SheetScaffold(onDismiss: () -> Unit, content: @Composable () -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
@@ -1068,7 +1075,6 @@ private fun SheetScaffold(onDismiss: () -> Unit, content: @Composable () -> Unit
 	val yOffset = remember { Animatable(0f) }
 	val scope = rememberCoroutineScope()
 	val exitPx = with(density) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
-	val dismissThresholdPx = with(density) { 150.dp.toPx() }
 	// Slide the sheet fully off-screen before notifying, so closing reads as a
 	// motion instead of a pop.
 	fun closeSmoothly() {
@@ -1093,6 +1099,8 @@ private fun SheetScaffold(onDismiss: () -> Unit, content: @Composable () -> Unit
 			modifier = Modifier
 				.align(Alignment.BottomCenter)
 				.fillMaxWidth()
+				// The whole sheet pulls down to close (as iOS and the other sheets); the close slides it the rest of the way.
+				.sheetDragToDismiss { closeSmoothly() }
 				.offset { androidx.compose.ui.unit.IntOffset(0, yOffset.value.roundToInt().coerceAtLeast(0)) }
 				.clip(RoundedCornerShape(topStart = (24 * u).dp, topEnd = (24 * u).dp))
 				.background(Disc.SheetBg)
@@ -1101,28 +1109,13 @@ private fun SheetScaffold(onDismiss: () -> Unit, content: @Composable () -> Unit
 				.navigationBarsPadding()
 				.padding(bottom = (12 * u).dp),
 		) {
-			// Drag handle — tall hitbox so it's easy to grab; pill is visual only.
-			// Dragging this zone down > 80dp dismisses; releasing early snaps back.
+			// Drag handle - the pill is visual; the whole sheet drags (sheetDragToDismiss above).
 			Box(
 				contentAlignment = Alignment.Center,
 				modifier = Modifier
 					.align(Alignment.CenterHorizontally)
 					.fillMaxWidth()
-					.height((28 * u).dp)
-					.pointerInput(Unit) {
-						detectVerticalDragGestures(
-							onDragEnd = {
-								if (yOffset.value > dismissThresholdPx) {
-									closeSmoothly()
-								} else {
-									scope.launch { yOffset.animateTo(0f, tween(260, easing = EaseOut)) }
-								}
-							},
-						) { change, dragAmount ->
-							change.consume()
-							scope.launch { yOffset.snapTo((yOffset.value + dragAmount).coerceAtLeast(0f)) }
-						}
-					},
+					.height((28 * u).dp),
 			) {
 				Box(
 					modifier = Modifier
@@ -1214,7 +1207,7 @@ private fun SheetCta(text: String, onClick: () -> Unit, enabled: Boolean = true)
 		Text(
 			text = text,
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp),
-			color = Color.White,
+			color = StakColors.Bg,
 		)
 	}
 }
@@ -1597,7 +1590,7 @@ private fun DeckLoadError(u: Float, onRetry: () -> Unit) {
 			Text(
 				text = "Retry",
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp),
-				color = Color.White,
+				color = StakColors.Bg,
 			)
 		}
 	}
@@ -1763,7 +1756,8 @@ internal fun DiscoverBuyFlow(
 					// the order into the shared paper portfolio, then tells the host.
 					// The order is checked again at confirm (Codex review, PR #166) - nothing fills past the cash on hand.
 					onConfirm = {
-						if (!filled && com.stak.demo.ui.simulate.PaperPortfolio.canBuy(amount)) {
+						// No price, no fill: a "—" ticket (no quote yet) would buy no shares.
+						if (!filled && quoted.price > 0.0 && com.stak.demo.ui.simulate.PaperPortfolio.canBuy(amount)) {
 							val limit = limitPrice
 							if (limit != null && limit < quoted.price) {
 								// Below today's price: an open order, no fill yet (FigJam: Order pending).
@@ -1786,7 +1780,8 @@ internal fun DiscoverBuyFlow(
 				// fill - a top-up shows the summed shares, not just this order's.
 				// A placed limit reserves cash, not a holding: "Reserved for" shows what the stake buys AT the limit (review 2026-09-14).
 				val placed = placedLimit
-				val receiptShares = if (placed != null) String.format(java.util.Locale.US, "%.4f", amount / placed) else (com.stak.demo.ui.simulate.PaperPortfolio.pickSpec(spec.symbol)?.shares ?: live.shares)
+				// What it fills to: rounded down to a thousandth, as the server's fill does.
+				val receiptShares = if (placed != null) String.format(java.util.Locale.US, "%.3f", if (placed > 0.0) kotlin.math.floor(amount / placed * 1000) / 1000 else 0.0) else (com.stak.demo.ui.simulate.PaperPortfolio.pickSpec(spec.symbol)?.shares ?: live.shares)
 				OrderFilledContent(onPrimary = onFilledPrimary, onSecondary = onFilledSecondary, spec = live.copy(shares = receiptShares), primary = filledPrimary, secondary = filledSecondary, pendingLimit = placedLimit)
 			}
 		}

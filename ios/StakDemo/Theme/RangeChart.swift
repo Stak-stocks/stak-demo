@@ -1,0 +1,118 @@
+import SwiftUI
+
+/// A stock chart's ranges (5Y weekly closes, MAX the whole listed history); "3M" is the authored default and keeps each
+/// frame's exported line. Mirrors android RANGE_LABELS.
+let rangeLabels = ["1D", "1W", "1M", "3M", "YTD", "1Y", "5Y", "MAX"]
+
+/// The portfolio chart's: a simulated account is new, so it has ALL (since it began) where a stock has 5Y and MAX.
+let portfolioRangeLabels = ["1D", "1W", "1M", "3M", "YTD", "1Y", "ALL"]
+
+/// The demo account's chart at a range. "3M" shows the authored export (`authored`); every other range draws the
+/// shared demo series in the same box - a `tint` 2-wide round stroke and nothing else: every authored "Chart line" is a
+/// bare #69B3CA 2 stroke with no fill (user, 2026-09-05). A real account draws its own prices with `SeriesLine`
+/// instead - never these stand-ins. Mirrors android ui/components/RangeChart.kt.
+struct RangeLineChart: View {
+	let range: String
+	let tint: Color
+	let authored: String
+	let width: CGFloat
+	let height: CGFloat
+
+	/// Height fraction from the bottom (0 = bottom) per point, spread evenly across the width.
+	static let series: [String: [CGFloat]] = [
+		"1D": [0.45, 0.50, 0.42, 0.55, 0.60, 0.52, 0.58, 0.66, 0.62, 0.70],
+		"1W": [0.30, 0.38, 0.35, 0.50, 0.46, 0.60, 0.72],
+		"1M": [0.25, 0.30, 0.28, 0.42, 0.38, 0.52, 0.48, 0.60, 0.55, 0.68, 0.75],
+		"YTD": [0.20, 0.35, 0.30, 0.45, 0.40, 0.55, 0.50, 0.62, 0.70, 0.66, 0.80],
+		"1Y": [0.15, 0.22, 0.30, 0.26, 0.40, 0.36, 0.50, 0.55, 0.48, 0.62, 0.70, 0.82]
+	]
+
+	var body: some View {
+		Group {
+			if let points = RangeLineChart.series[range], range != "3M" {
+				SeriesLine(series: points, tint: tint)
+			} else {
+				Image(authored)
+					.resizable()
+					.scaledToFit()
+			}
+		}
+		.frame(width: width, height: height)
+		.accessibilityHidden(true)
+	}
+
+	/// The line through `points` (fractions of the height, 0 = bottom) spread evenly across `size` - shared with
+	/// SeriesLine.
+	static func linePath(_ points: [CGFloat], in size: CGSize) -> Path {
+		var path = Path()
+		let steps = CGFloat(max(points.count - 1, 1))
+		for (i, fraction) in points.enumerated() {
+			let point = CGPoint(x: size.width * CGFloat(i) / steps, y: size.height * (1 - fraction))
+			if i == 0 { path.move(to: point) } else { path.addLine(to: point) }
+		}
+		return path
+	}
+}
+
+/// The authored 39x22.5 teal pill row; `selected` follows the tap. Spread across the card's width, so seven or eight
+/// pills fit as six did.
+struct RangePills: View {
+	@Binding var selected: String
+	let tint: Color
+	let muted: Color
+	var labels: [String] = rangeLabels
+
+	var body: some View {
+		let u = figmaUnit
+		HStack(spacing: 0) {
+			ForEach(Array(labels.enumerated()), id: \.element) { index, label in
+				if index > 0 { Spacer(minLength: 0) }
+				Button { selected = label } label: {
+					if label == selected {
+						Text(label)
+							.font(StakFont.geist(12 * u, .medium))
+							.foregroundStyle(tint)
+							.frame(width: 39 * u, height: 22.5 * u)
+							.dynamicTypeSize(...DynamicTypeSize.xLarge)
+							.background(Color(argb: 0x292C9DBC), in: RoundedRectangle(cornerRadius: 11.25 * u))
+							.overlay(
+								RoundedRectangle(cornerRadius: 11.25 * u)
+									.strokeBorder(Color(argb: 0x662C9DBC), lineWidth: 0.75 * u)
+							)
+					} else {
+						Text(label)
+							.font(StakFont.geist(12 * u))
+							.foregroundStyle(muted)
+							.dynamicTypeSize(...DynamicTypeSize.xLarge)
+					}
+				}
+				.buttonStyle(.pressDim)
+				.accessibilityLabel(rangeSpoken[label] ?? label)
+				.accessibilityAddTraits(label == selected ? .isSelected : [])
+			}
+		}
+		.padding(.horizontal, 8 * u)
+		.frame(width: 343 * u)
+	}
+}
+
+/// What VoiceOver says for each range pill.
+let rangeSpoken: [String: String] = [
+	"1D": "1 day", "1W": "1 week", "1M": "1 month", "3M": "3 months", "YTD": "Year to date", "1Y": "1 year",
+	"5Y": "5 years", "MAX": "All time", "ALL": "Since you started",
+]
+
+/// A line through `series` (fractions of the height, 0 = bottom) across its frame - a 2-wide round stroke, the authored
+/// chart line. The stock page's and Simulate's real price lines.
+struct SeriesLine: View {
+	let series: [CGFloat]
+	let tint: Color
+
+	var body: some View {
+		let u = figmaUnit
+		GeometryReader { geo in
+			RangeLineChart.linePath(series, in: geo.size)
+				.stroke(tint, style: StrokeStyle(lineWidth: 2 * u, lineCap: .round, lineJoin: .round))
+		}
+	}
+}

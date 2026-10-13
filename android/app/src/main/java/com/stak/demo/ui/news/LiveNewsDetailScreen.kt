@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -502,12 +504,14 @@ private fun LiveAddToStakButton(onClick: () -> Unit) {
                 lineHeight = (20.69 * u).sp,
                 lineHeightStyle = FIGMA_LINE_BOX,
             ),
-            color = Color.White,
+            color = StakColors.Bg,
         )
         Image(
             painter = painterResource(R.drawable.ic_plus_small),
             contentDescription = null,
             modifier = Modifier.size((14 * u).dp),
+            // Navy like the label beside it on the teal button.
+            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(StakColors.Bg),
         )
     }
 }
@@ -521,7 +525,8 @@ private fun LiveDivider() {
 @Composable
 private fun LiveStockCard(ticker: String, saved: Boolean, quote: BatchQuote?, u: Float) {
     val price = if (quote != null && quote.price > 0) "$${"%.2f".format(quote.price)}" else "--"
-    val pct = if (quote != null) "${if (quote.changePercent >= 0) "+" else ""}${"%.2f".format(quote.changePercent)}% today" else ""
+    // Before the open or at a weekend the move is the last session's: "on Friday", not "today".
+    val pct = if (quote != null) com.stak.demo.data.StakClock.sessionChange("${if (quote.changePercent >= 0) "+" else ""}${"%.2f".format(quote.changePercent)}% today") else ""
     val isUp = (quote?.changePercent ?: 0.0) >= 0
     Column(
         verticalArrangement = Arrangement.spacedBy((13 * u).dp),
@@ -562,7 +567,8 @@ private fun LiveStockCard(ticker: String, saved: Boolean, quote: BatchQuote?, u:
                     color = Color.White,
                 )
                 Text(
-                    text = ticker,
+                    // The company's name; the ticker until the names have loaded.
+                    text = com.stak.demo.data.BrandNames.byTicker[ticker.uppercase()] ?: ticker,
                     style = TextStyle(
                         fontFamily = Geist,
                         fontWeight = FontWeight.Normal,
@@ -676,12 +682,14 @@ private fun LiveGistCard(bullets: List<String>) {
 private fun LiveBlockquote(text: String, u: Float) {
     Row(
         horizontalArrangement = Arrangement.spacedBy((12 * u).dp),
-        modifier = Modifier.fillMaxWidth(),
+        // As tall as the quote, so the bar can follow a longer one.
+        modifier = Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min),
     ) {
         Box(
             modifier = Modifier
                 .width((3 * u).dp)
-                .height((56 * u).dp)
+                .heightIn(min = (56 * u).dp)
+                .fillMaxHeight()
                 .clip(RoundedCornerShape((2 * u).dp))
                 .background(News.Teal),
         )
@@ -760,7 +768,8 @@ private fun LiveKeyStats(ticker: String, quote: BatchQuote?, metrics: StockMetri
             val changeAbs = quote?.change
             StatCell(
                 label = "Day change",
-                value = if (changeAbs != null) "${if (changeAbs >= 0) "+" else ""}$${"%.2f".format(changeAbs)}" else "--",
+                // "-$1.23", not "$-1.23".
+                value = if (changeAbs != null) "${if (changeAbs >= 0) "+" else "-"}$${"%.2f".format(kotlin.math.abs(changeAbs))}" else "--",
                 modifier = Modifier.weight(1f),
                 u = u,
             )
