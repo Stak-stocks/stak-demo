@@ -23,12 +23,19 @@ import kotlinx.coroutines.launch
  * welcome for the account's first week, dated from when the account was created.
  */
 object StakNotifications {
-	data class Item(val id: String, val title: String, val body: String, val time: String)
+	/** [target]: where a tapped row goes - the stock or the tab the notification is about (Emmanuel's iOS, 2026-10-07). */
+	data class Item(val id: String, val title: String, val body: String, val time: String, val target: Target)
+
+	sealed interface Target {
+		data class Stock(val symbol: String) : Target
+		data object Discover : Target
+		data object Simulate : Target
+	}
 
 	private val DEMO = listOf(
-		Item("nvda-up", "NVDA is up 4.2% today", "Chip demand keeps outrunning supply. Your biggest pick is leading the deck.", "2h"),
-		Item("deck-ready", "Your deck is ready", "Twelve fresh cards, tuned to your taste. Swipe when you have a minute.", "8h"),
-		Item("weekly-recap", "Weekly recap", "You're up +1.9% this week and #47 on the board. Nice.", "1d"),
+		Item("nvda-up", "NVDA is up 4.2% today", "Chip demand keeps outrunning supply. Your biggest pick is leading the deck.", "2h", Target.Stock("NVDA")),
+		Item("deck-ready", "Your deck is ready", "Twelve fresh cards, tuned to your taste. Swipe when you have a minute.", "8h", Target.Discover),
+		Item("weekly-recap", "Weekly recap", "You're up +1.9% this week and #47 on the board. Nice.", "1d", Target.Simulate),
 	)
 
 	/** How long the welcome stays in the inbox. */
@@ -126,6 +133,7 @@ object StakNotifications {
 				body = (name?.let { "$it, one of your saved stocks, " } ?: "One of your saved stocks ") +
 					"moved ${UserProfile.priceThreshold}% or more.",
 				time = if (session == "today") "Today" else session.removePrefix("at ").replaceFirstChar { it.uppercase() },
+				target = Target.Stock(ticker),
 			)
 		}
 		if (cardsLeft != null && cardsLeft > 0) {
@@ -134,10 +142,11 @@ object StakNotifications {
 				title = "Your deck is ready",
 				body = "$cardsLeft ${if (cardsLeft == 1) "card" else "cards"} left today, tuned to your taste.",
 				time = "Today",
+				target = Target.Discover,
 			)
 		}
 		if (MyStakHoldings.count == 0) {
-			out += Item("first-save", "Save a stock to start your STAK", "Saved stocks power My STAK and Simulate.", "Today")
+			out += Item("first-save", "Save a stock to start your STAK", "Saved stocks power My STAK and Simulate.", "Today", Target.Discover)
 		}
 		welcomeItem()?.let { out += it }
 		return out
@@ -148,7 +157,7 @@ object StakNotifications {
 		if (System.currentTimeMillis() - createdAt > WELCOME_DAYS * 24 * 60 * 60 * 1000) return null
 		val name = UserProfile.displayName.takeIf { it.isNotBlank() }?.capitalizeWords()
 		val title = if (name != null) "Welcome to STAK, $name" else "Welcome to STAK"
-		return Item("welcome", title, "Your first deck is waiting in Discover. Swipe right to STAK, left to pass.", ago(createdAt))
+		return Item("welcome", title, "Your first deck is waiting in Discover. Swipe right to STAK, left to pass.", ago(createdAt), Target.Discover)
 	}
 
 	private fun ago(atMs: Long): String = StakClock.ago(atMs / 1000)

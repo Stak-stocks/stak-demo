@@ -17,12 +17,16 @@ final class StakNotifications: ObservableObject {
 		let title: String
 		let body: String
 		let time: String
+		/// Where a tapped row goes - the stock or the tab the notification is about (Emmanuel's iOS, 2026-10-07).
+		let target: Target
 	}
 
+	enum Target: Equatable { case stock(String), discover, simulate }
+
 	private static let demo: [Item] = [
-		Item(id: "nvda-up", title: "NVDA is up 4.2% today", body: "Chip demand keeps outrunning supply. Your biggest pick is leading the deck.", time: "2h"),
-		Item(id: "deck-ready", title: "Your deck is ready", body: "Twelve fresh cards, tuned to your taste. Swipe when you have a minute.", time: "8h"),
-		Item(id: "weekly-recap", title: "Weekly recap", body: "You’re up +1.9% this week and #47 on the board. Nice.", time: "1d"),
+		Item(id: "nvda-up", title: "NVDA is up 4.2% today", body: "Chip demand keeps outrunning supply. Your biggest pick is leading the deck.", time: "2h", target: .stock("NVDA")),
+		Item(id: "deck-ready", title: "Your deck is ready", body: "Twelve fresh cards, tuned to your taste. Swipe when you have a minute.", time: "8h", target: .discover),
+		Item(id: "weekly-recap", title: "Weekly recap", body: "You’re up +1.9% this week and #47 on the board. Nice.", time: "1d", target: .simulate),
 	]
 
 	/// How long the welcome stays in the inbox.
@@ -116,7 +120,8 @@ final class StakNotifications: ObservableObject {
 				id: "move:\(day):\(ticker):\(up ? "up" : "down")",
 				title: "\(ticker) is \(up ? "up" : "down") \(String(format: "%.1f", abs(pct)))% \(session)",
 				body: (name.map { "\($0), one of your saved stocks, " } ?? "One of your saved stocks ") + "moved \(threshold)% or more.",
-				time: session == "today" ? "Today" : when.prefix(1).uppercased() + when.dropFirst()
+				time: session == "today" ? "Today" : when.prefix(1).uppercased() + when.dropFirst(),
+				target: .stock(ticker)
 			))
 		}
 		if let cardsLeft, cardsLeft > 0 {
@@ -124,11 +129,12 @@ final class StakNotifications: ObservableObject {
 				id: "deck:\(StakClock.deckDayKey())",
 				title: "Your deck is ready",
 				body: "\(cardsLeft) \(cardsLeft == 1 ? "card" : "cards") left today, tuned to your taste.",
-				time: "Today"
+				time: "Today",
+				target: .discover
 			))
 		}
 		if MyStakHoldings.shared.count == 0 {
-			out.append(Item(id: "first-save", title: "Save a stock to start your STAK", body: "Saved stocks power My STAK and Simulate.", time: "Today"))
+			out.append(Item(id: "first-save", title: "Save a stock to start your STAK", body: "Saved stocks power My STAK and Simulate.", time: "Today", target: .discover))
 		}
 		if let welcome = welcomeItem() { out.append(welcome) }
 		return out
@@ -157,7 +163,8 @@ final class StakNotifications: ObservableObject {
 			id: "welcome",
 			title: name.isEmpty ? "Welcome to STAK" : "Welcome to STAK, \(name.capitalizedWords)",
 			body: "Your first deck is waiting in Discover. Swipe right to STAK, left to pass.",
-			time: StakClock.ago(ms / 1000)
+			time: StakClock.ago(ms / 1000),
+			target: .discover
 		)
 	}
 

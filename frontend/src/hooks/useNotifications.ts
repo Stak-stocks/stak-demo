@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DAILY_SWIPE_LIMIT } from "@stak/shared";
 import { getDeviceState, getProfile, putDeviceState, type DeviceState } from "@/lib/api";
 import { getLastCloseRef, getTodayKey } from "@/lib/utils";
 import { sessionDay } from "@/components/discover/discoverTheme";
-import { buildNotifications, unreadIds, type NotificationItem } from "@/lib/notifications";
+import { buildNotifications, unreadIds, type NotificationItem, type NotificationTarget } from "@/lib/notifications";
 import { readNotificationPrefs } from "@/lib/notificationPrefs";
 import { syncWebPushPrefsOnLoad } from "@/lib/webPush";
 import { useMyStakData } from "@/hooks/useMyStakData";
@@ -86,4 +87,14 @@ export function useNotifications() {
 	}, [loaded, unread.length, items, deviceState, markAllReadMutation]);
 
 	return { items, unread, unreadCount: loaded ? unread.length : 0, loaded, markAllRead };
+}
+
+/** Opens what a notification is about - its stock's page over the inbox (Back returns to it), or Discover in its place
+ *  (as the apps leave the inbox for a tab). */
+export function useOpenNotification(): (target: NotificationTarget) => void {
+	const navigate = useNavigate();
+	return useCallback((target: NotificationTarget) => {
+		if (target.kind === "stock") navigate({ to: "/stock/$symbol", params: { symbol: target.symbol } });
+		else navigate({ to: "/discover", replace: true });
+	}, [navigate]);
 }
