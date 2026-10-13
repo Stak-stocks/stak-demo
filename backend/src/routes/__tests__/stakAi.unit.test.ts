@@ -91,16 +91,19 @@ let geminiBodies: any[];
 let geminiReply: string | null;
 /** Tool requests the model makes first, one round per entry, before it answers with geminiReply. */
 let geminiToolRounds: { name: string; args: Record<string, unknown> }[][];
+/** Answers given in turn before geminiReply (an answer and then its rewrite, say). */
+let geminiTexts: string[];
 function stubFetch() {
 	geminiBodies = [];
 	geminiToolRounds = [];
+	geminiTexts = [];
 	vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: { body?: string }) => {
 		const body = JSON.parse(init!.body!);
 		geminiBodies.push(body);
 		if (geminiReply === null) return new Response("boom", { status: 500 });
 		// Asked to answer without tools (the last round): it answers.
 		const round = body.toolConfig?.functionCallingConfig?.mode === "NONE" ? undefined : geminiToolRounds.shift();
-		return round ? geminiCallSse(round) : geminiSse([geminiReply]);
+		return round ? geminiCallSse(round) : geminiSse([geminiTexts.shift() ?? geminiReply]);
 	}));
 }
 
@@ -253,9 +256,9 @@ describe("POST /chat", () => {
 	});
 
 	it("headlines carry their US Eastern date, so the model can tell today's news from last week's", async () => {
-		newsMock.mockResolvedValue([{ headline: "Kids ads lawsuit filed", url: "https://news.test/k", datetime: 1_760_000_000 }]);
+		newsMock.mockResolvedValue([{ headline: "Kids ads lawsuit filed", url: "https://news.test/k", datetime: 1_760_000_000, source: "SeekingAlpha" }]);
 		await request(await buildApp()).post("/chat").send({ message: "Why did $ZZQX jump?" });
-		expect(promptText()).toContain("  - (Thu, Oct 9) Kids ads lawsuit filed");
+		expect(promptText()).toContain("  - (Thu, Oct 9) Seeking Alpha: Kids ads lawsuit filed");
 		// Undated: no made-up date.
 		newsMock.mockResolvedValue([{ headline: "Kids ads lawsuit filed", url: "https://news.test/k", datetime: 0 }]);
 		await request(await buildApp()).post("/chat").send({ message: "Why did $ZZQX jump?" });
@@ -395,7 +398,7 @@ describe("POST /chat", () => {
 		geminiToolRounds = [[{ name: "find_company", args: { name: "apploving" } }]];
 		const res = await request(await buildApp()).post("/chat/stream").send({ message: "how is apploving doing" });
 		expect(JSON.stringify(geminiBodies[1].contents)).toContain('{"ticker":"APP","name":"AppLovin Corp"}');
-		expect(res.text).toContain(": looking up\n\n");
+		expect(res.text).toContain(": working\n\n");
 		expect(events(res.text).at(-1)!.event).toBe("done");
 	});
 
@@ -406,6 +409,70 @@ describe("POST /chat", () => {
 		expect(evs.filter((e) => e.event === "delta").map((e) => e.data.text).join("").trim()).toBe("It fell on export curbs.");
 		expect(evs.at(-1)!.event).toBe("done");
 		expect(evs.at(-1)!.data.response).toBe("It fell on export curbs.");
+	});
+
+	it("an answer with a figure it wasn't given is rewritten once, and the check is logged", async () => {
+		// The up-front data says down 3.20% at $100.00; "$87.50" came from nowhere.
+		geminiTexts = ["NVIDIA closed at $87.50, down 3.20%.\n[[FOLLOWUPS]] Why? | What next?"];
+		geminiReply = "NVIDIA closed at $100.00, down 3.20%.\n[[FOLLOWUPS]] Why? | What next?";
+		const res = await request(await buildApp()).post("/chat").send({ message: "Why is Nvidia down?" });
+		expect(res.body.response).toBe("NVIDIA closed at $100.00, down 3.20%.");
+		expect(geminiBodies).toHaveLength(2);
+		expect(JSON.stringify(geminiBodies[1].contents)).toContain("these figures in your answer aren't in the notes, your tools' results or the user's messages: $87.50");
+		expect(JSON.parse(calls(/INSERT INTO events/)[0]![1][1]).figures).toEqual({ flagged: ["$87.50"], rewritten: true, unsupported: [] });
+	});
+
+	it("a rewrite that still has one is kept, and logged; a clean answer isn't checked twice", async () => {
+		geminiTexts = ["Apple is up 12.5% this year."];
+		geminiReply = "Apple is up 12.5% this year, still.";
+		await request(await buildApp()).post("/chat").send({ message: "How is Apple doing?" });
+		expect(geminiBodies).toHaveLength(2);
+		expect(JSON.parse(calls(/INSERT INTO events/)[0]![1][1]).figures).toEqual({ flagged: ["12.5%"], rewritten: true, unsupported: ["12.5%"] });
+		// Clean: one call, nothing logged.
+		geminiBodies.length = 0;
+		pgQueryMock.mockClear();
+		geminiReply = "NVIDIA is down 3.20% today.";
+		await request(await buildApp()).post("/chat").send({ message: "Why is Nvidia down?" });
+		expect(geminiBodies).toHaveLength(1);
+		expect(JSON.parse(calls(/INSERT INTO events/)[0]![1][1]).figures).toBeUndefined();
+	});
+
+	it("a rewrite that fails or is refused leaves the first answer standing", async () => {
+		// The rewrite request gets a 500 on every key: the first answer, figure and all, is what's saved.
+		geminiTexts = ["NVIDIA closed at $87.50, down 3.20%."];
+		let fetches = 0;
+		const okFetch = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).getMockImplementation()!;
+		(globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (url: string, init?: { body?: string }) =>
+			++fetches > 1 ? new Response("boom", { status: 500 }) : okFetch(url, init));
+		const failed = await request(await buildApp()).post("/chat").send({ message: "Why is Nvidia down?" });
+		expect(failed.status).toBe(200);
+		expect(failed.body.response).toBe("NVIDIA closed at $87.50, down 3.20%.");
+		expect(JSON.parse(calls(/INSERT INTO events/)[0]![1][1]).figures).toEqual({ flagged: ["$87.50"], rewritten: false, unsupported: ["$87.50"] });
+
+		// A rewrite that comes back as a canned refusal: the first answer again, saved as an answer.
+		stubFetch();
+		pgQueryMock.mockClear();
+		geminiTexts = ["NVIDIA closed at $87.50, down 3.20%."];
+		geminiReply = "I'm sorry, I can't help with that.";
+		const refused = await request(await buildApp()).post("/chat").send({ message: "Why is Nvidia down?" });
+		expect(refused.body).toMatchObject({ response: "NVIDIA closed at $87.50, down 3.20%.", answerKind: "answer" });
+	});
+
+	it("a rewrite's apology line is dropped, and earlier answers don't vouch for a figure", async () => {
+		geminiTexts = ["NVIDIA closed at $87.50."];
+		geminiReply = "You're right, here's the corrected answer:\nNVIDIA closed at $100.00.";
+		const res = await request(await buildApp()).post("/chat").send({ message: "Why is Nvidia down?" });
+		expect(res.body.response).toBe("NVIDIA closed at $100.00.");
+
+		// "$87.50" was said in an earlier answer: it still isn't in the data, so it's still flagged.
+		const { assembleChat } = await import("../stakAi.js");
+		const built = await assembleChat({
+			question: "What's a P/E?", newContext: null, contextIsNew: false, context: null, lastTickers: [],
+			history: [{ role: "user", content: "How is NVDA?" }, { role: "assistant", content: "NVIDIA closed at $87.50." }],
+			familiarity: null, brandNames: [], topTags: [],
+		});
+		expect(built.evidence).toContain("How is NVDA?");
+		expect(built.evidence).not.toContain("$87.50");
 	});
 
 	it("a company with no quote is said to have none", async () => {

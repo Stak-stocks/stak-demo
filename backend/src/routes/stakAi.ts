@@ -5,6 +5,7 @@ import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js"
 import { getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiStreamUrl } from "../services/geminiService.js";
 import { getCompanyNews, nameVariants, type FinnhubArticle } from "../services/finnhubService.js";
 import { getQuarterlyEps, getStockSnapshot, type QuarterlyEps } from "./stock.js";
+import { unsupportedFigures } from "../services/stakAiFigures.js";
 import {
 	STAK_AI_WINDOW_HOURS,
 	STAK_AI_WINDOW_LIMIT,
@@ -516,9 +517,17 @@ async function loadStock(ticker: string, loaded: Loaded): Promise<string> {
 	return `${nameOf(ticker)} (${ticker}): ${ctx ?? "no live quote available right now"}`;
 }
 
+/** Finnhub's publisher names as people know them. */
+const PUBLISHERS: Record<string, string> = { SeekingAlpha: "Seeking Alpha", Yahoo: "Yahoo Finance" };
+
+/**
+ * "(Thu, Oct 9) Seeking Alpha: AppLovin: Why I'm Upgrading To Buy" and its summary: the publisher lets the model tell
+ * a writer's opinion from news or an analyst's call (it once called a Seeking Alpha contributor an "analyst upgrade").
+ */
 const newsItem = (a: FinnhubArticle) => {
 	const summary = shortSummary(a.summary);
-	return `  - ${headlineDate(a.datetime)}${a.headline}${summary ? `\n    ${summary}` : ""}`;
+	const publisher = a.source?.trim() ? `${PUBLISHERS[a.source.trim()] ?? a.source.trim()}: ` : "";
+	return `  - ${headlineDate(a.datetime)}${publisher}${a.headline}${summary ? `\n    ${summary}` : ""}`;
 };
 
 /**
@@ -557,6 +566,8 @@ async function loadQuarters(ticker: string, loaded: Loaded): Promise<string> {
 	if (!quarters) return `${label}: past quarterly results couldn't be loaded just now.`;
 	if (quarters.length === 0) return `${label}: no past quarterly results available.`;
 	remember(loaded, ticker);
+	// Logged beside the live line, so an answer's EPS figures can be checked against what it was given.
+	loaded.liveContextLog[`${ticker} quarters`] = quarters.map(describeQuarter).join("; ");
 	return `${label} last ${quarters.length} reported quarters, newest first (earnings per share, actual vs analysts' estimate):\n${quarters.map((q) => `  - ${describeQuarter(q)}`).join("\n")}`;
 }
 
@@ -810,6 +821,7 @@ Your memory of companies and markets is out of date, often by years. Your only c
 - Never state a current or recent price, move, P/E, market cap, earnings date or result, deal, lawsuit, analyst rating or price target unless it's in the notes or a tool result. If the question needs one that isn't there, fetch it with your tools first. Only if the tools don't have it either, say so in one short sentence, then still help with what you can (background, what that kind of news usually means). Point them to the company's page or News in STAK at most once in a conversation.
 - Figures in your earlier replies may be wrong; don't repeat them as current.
 - Report what the notes say, without adding details they don't contain. A summary ending in "…" is cut off: never guess how it goes on or how things turned out (rulings, amounts, guidance).
+- Headlines show their publisher. Opinion pieces are one writer's view, never an analyst's call: first-person headlines ("Why I'm Buying..."), questions and listicles ("Is X a Buy?", "3 Reasons to Sell X", "Here's Why...", "Better Stock: X vs. Y"), and most Seeking Alpha, Motley Fool, Zacks and InvestorPlace articles - including ones carried by Yahoo Finance. Call them that ("a Motley Fool writer argues..."). A Zacks Rank is a computer-generated score, not an analyst rating. Only a named firm (Needham, Jefferies, Goldman Sachs...) giving a rating or price target is an analyst's call, whoever reports it.
 - "Older stories matching the question" are weeks old: use one to answer a question about that story, saying when it came out, but never as the reason for today's move.
 - "Past quarterly results" give earnings per share against analysts' estimates for the last few reported quarters - nothing else: no revenue figures (only the growth rate in the live data), guidance or why. Use those exact figures. Quarters are the company's fiscal ones (a fiscal year can run ahead of the calendar), so name them as given and say "fiscal". They don't say when results were announced or when the next report is: never state either date. For anything they don't cover, say you don't have it.
 - Past-year, year-to-date, 26-week and 13-week changes cover months, and your headlines only the last few weeks: don't give a headline as the cause of a long-term move. Say what recent news shows, and that you don't have the news from earlier in the year that drove most of it. Headlines carry their date (US Eastern): call something today's news only if it's dated today, and don't guess how new an undated one is. A headline from the last day or two (or the last trading day, after a weekend) can still explain today's move: just say when it came out.
@@ -838,14 +850,16 @@ The conversation may include a note saying what the user opened STAK AI from: a 
 ━━━ STYLE ━━━
 - Short, for a phone screen: lead with the answer, then one to three short paragraphs at most.
 - Match depth and vocabulary to their knowledge level, and explain any jargon you use.
+- Say time spans in everyday words ("over the past three months", not "13-week change"), and never refer to "the notes", "the data provided" or "the context": state facts as facts, with their date where it matters.
 - If they ask about a stock in their STAK, acknowledge that personal angle.
 - Calm, factual and direct. No filler, no hype, no invented drama.
+- When the question asks for a judgement (is it doing well, did they beat, is it growing) and the figures point different ways, give both in one sentence ("revenue is still growing, but the stock is down 43% over the year"). A plain factual question gets the plain fact first; add a counterpoint only if it changes the picture. One "but" is enough - don't stack caveats.
 - Formatting: plain sentences. Use **bold** sparingly for a key term or number, and "- " bullets only for a list of three or more items. No headings, tables, links, code or emojis.
 - Use American English spelling.
 - The app always shows an "educational, not financial advice" note, so don't add a disclaimer to normal answers.
 
 ━━━ FOLLOW-UPS ━━━
-On a normal answer (not [[DECLINED]] or [[CLARIFY]]), end with one final line: [[FOLLOWUPS]] followed by two or three short questions they might naturally ask next, each under 60 characters, separated by " | ". Keep them educational, never advice.
+On a normal answer (not [[DECLINED]] or [[CLARIFY]]), end with one final line: [[FOLLOWUPS]] followed by two or three short questions they might naturally ask next, each under 45 characters, in their voice ("What's a good P/E?"), separated by " | ". Make one explain a term or idea from your answer and one go deeper on the same company; never repeat what you just covered. Each must be answerable with what you can get (price, moves, news, past quarters' EPS against estimates, concepts) - never next earnings dates, revenue amounts, forecasts or buy/sell questions.
 
 ━━━ ABOUT THIS USER ━━━
 - Financial knowledge: ${familiarity}
@@ -859,43 +873,99 @@ On a normal answer (not [[DECLINED]] or [[CLARIFY]]), end with one final line: [
 
 /** A streamed answer must be done by this, every lookup round included (the plain route has PLAIN_ANSWER_MS). */
 const STREAM_ANSWER_MS = 55_000;
-/** With less than this left, no more lookups: the model answers with what it has. */
+/** With less than this left, no more lookups (or rewrites): the model answers with what it has. */
 const ROUND_MIN_MS = 12_000;
 
-/** The answer, how many lookups it took, and the companies the conversation is now about. */
-interface Answer extends GeminiReply { toolCalls: number; tickers: string[] }
+/** What an answer needs: the prompt, what was loaded for it, and everything it was shown (for the number check). */
+export type AnswerInput = Pick<Prepared, "systemInstruction" | "contents" | "startedAt" | "tickers" | "sources" | "liveContextLog" | "evidence">;
+
+/**
+ * An answer's number check: figures its first version stated that it wasn't given ([flagged]), whether it was
+ * rewritten for them, and any the answer as saved still has ([unsupported]).
+ */
+export interface FigureCheck { flagged: string[]; rewritten: boolean; unsupported: string[] }
+
+/** The answer, how many lookups it took, the companies the conversation is now about, and its number check. */
+export interface Answer extends GeminiReply {
+	toolCalls: number;
+	tickers: string[];
+	figures: FigureCheck;
+}
+
+/** Sent back when an answer states figures it wasn't given: rewrite with the given ones, without getting vague. */
+const recheck = (figures: string[]) =>
+	`Before this is shown: these figures in your answer aren't in the notes, your tools' results or the user's messages: ${figures.join(", ")}.\n` +
+	"Rewrite the whole answer. Company and market figures (prices, moves, earnings per share, estimates, revenue, growth, dates) must come from those sources - use your tools if you need one. " +
+	"If you worked a figure out from given ones, use the given figures instead. General rules of thumb are fine framed as typical or historical (\"historically about 10% a year\"). " +
+	"If a figure you need isn't available, drop it and say so once, briefly - don't make the answer vaguer than it needs to be.\n" +
+	"Keep the same length, tone and format, [[FOLLOWUPS]] line included. Reply with only the answer: your first words are its first sentence. Never apologize, correct yourself or mention a check, a revision or an earlier version.";
+
+/** An opening line a rewrite shouldn't have ("You're right - here's the corrected answer:"), dropped if it slips in. */
+const REWRITE_PREAMBLE = /^(?:sure|okay|ok|you'?re right|apolog\w*|sorry|here(?:'s| is) (?:the|a|my) (?:revised|corrected|updated)\b)[^\n]*\n+/i;
 
 /**
  * Answers with the tools: the model either answers or asks for data, which is loaded and handed back - for at most
- * MAX_TOOL_ROUNDS rounds, and while time allows - after which it must answer with what it has. [onLookup] fires before
- * each round of lookups (the stream sends a keep-alive: a lookup round sends no words). Any text the model wrote before
+ * MAX_TOOL_ROUNDS rounds, and while time allows - after which it must answer with what it has. [onWait] fires before
+ * each wordless wait - a round of lookups, a rewrite (the stream sends a keep-alive). Any text the model wrote before
  * a lookup (it's asked not to) stays in the answer, so what's saved is what was shown.
+ * The finished answer's figures are then checked against everything it was shown; if some came from nowhere and
+ * there's time, it's asked once to rewrite - not streamed: the finished reply replaces what was shown. A rewrite that
+ * fails, is refused, or is no better leaves the first answer standing.
  */
-async function answer(p: Prepared, hooks: { onText?: (full: string) => void; onLookup?: () => void } = {}): Promise<Answer | null> {
-	const { onText, onLookup } = hooks;
-	const deadlineAt = p.startedAt + (onText ? STREAM_ANSWER_MS : PLAIN_ANSWER_MS);
+export async function answer(p: AnswerInput, hooks: { onText?: (full: string) => void; onWait?: () => void } = {}): Promise<Answer | null> {
+	const { onWait } = hooks;
+	let onText = hooks.onText;
+	const deadlineAt = p.startedAt + (hooks.onText ? STREAM_ANSWER_MS : PLAIN_ANSWER_MS);
 	const contents = [...p.contents];
 	const loaded: Loaded = { sources: p.sources, liveContextLog: p.liveContextLog, found: [] };
 	const allowed = new Set(p.tickers);
+	let evidence = p.evidence;
 	let said = "";
 	let calls = 0;
-	for (let round = 0; ; round++) {
-		const mustAnswer = round >= MAX_TOOL_ROUNDS || calls >= MAX_TOOL_CALLS || deadlineAt - Date.now() < ROUND_MIN_MS;
+	let lookupRounds = 0;
+	let flagged: string[] = [];
+	/** The first finished answer, once it's been sent back for a rewrite. */
+	let first: { reply: GeminiReply; text: string } | null = null;
+	for (;;) {
+		const mustAnswer = lookupRounds >= MAX_TOOL_ROUNDS || calls >= MAX_TOOL_CALLS || deadlineAt - Date.now() < ROUND_MIN_MS;
 		const reply = await askGemini(contents, p.systemInstruction, {
-			onText: onText && ((full) => onText(said + full)),
+			onText: onText && ((full) => onText!(said + full)),
 			toolMode: mustAnswer ? "NONE" : "AUTO",
 			deadlineAt,
-			resume: round > 0,
+			resume: contents.length > p.contents.length,
 		});
-		if (!reply) return null;
-		if (reply.callParts.length === 0 || mustAnswer) {
-			const text = `${said}${reply.raw}`.trim();
-			if (!text) return null;
-			// The companies data came back for are what the conversation is now about ("what about the quarter before?").
+		// The companies data came back for are what the conversation is now about ("what about the quarter before?").
+		const done = (r: GeminiReply, text: string, figures: FigureCheck): Answer => {
+			if (figures.unsupported.length > 0) console.warn(`[STAK AI] figures not in the data, left in: ${figures.unsupported.join(", ")}`);
 			const tickers = loaded.found.length > 0 ? [...new Set([...loaded.found, ...p.tickers])].slice(0, 3) : p.tickers;
-			return { ...reply, text, toolCalls: calls, tickers };
+			return { ...r, text, toolCalls: calls, tickers, figures };
+		};
+		// A rewrite that fails, comes back empty or refused, or is no better: the first answer stands (it was shown).
+		const keepFirst = () => done(first!.reply, first!.text, { flagged, rewritten: false, unsupported: flagged });
+		if (!reply) return first ? keepFirst() : null;
+		if (reply.callParts.length === 0 || mustAnswer) {
+			let text = `${said}${reply.raw}`.trim();
+			if (first) text = text.replace(REWRITE_PREAMBLE, "").trim();
+			if (!text) return first ? keepFirst() : null;
+			const unsupported = unsupportedFigures(text, evidence);
+			if (first) {
+				if (reply.refused || unsupported.length > flagged.length) return keepFirst();
+				return done(reply, text, { flagged, rewritten: true, unsupported });
+			}
+			if (unsupported.length > 0 && deadlineAt - Date.now() >= ROUND_MIN_MS) {
+				console.warn(`[STAK AI] figures not in the data: ${unsupported.join(", ")} - asking for a rewrite`);
+				first = { reply, text };
+				flagged = unsupported;
+				onText = undefined;
+				said = "";
+				onWait?.();
+				contents.push({ role: "model", parts: [{ text: reply.raw }] }, { role: "user", parts: [{ text: recheck(unsupported) }] });
+				continue;
+			}
+			return done(reply, text, { flagged: unsupported, rewritten: false, unsupported });
 		}
-		onLookup?.();
+		onWait?.();
+		lookupRounds++;
 		contents.push({ role: "model", parts: reply.parts });
 		// Every request gets an answer, past the cap too - Gemini wants one per call.
 		const results = await Promise.all(reply.callParts.map(async (part, i) => {
@@ -906,6 +976,7 @@ async function answer(p: Prepared, hooks: { onText?: (full: string) => void; onL
 			return { functionResponse: { name: call.name, response } };
 		}));
 		calls += reply.callParts.length;
+		evidence += `\n${results.map((r) => JSON.stringify(r.functionResponse.response)).join("\n")}`;
 		contents.push({ role: "user", parts: results });
 		if (reply.raw) said += `${reply.raw}\n\n`;
 	}
@@ -941,8 +1012,97 @@ interface Prepared {
 	systemInstruction: string;
 	contents: GeminiContent[];
 	startedAt: number;
+	/** Everything the answer is shown up front - notes, the question, the conversation so far - for its number check. */
+	evidence: string;
 	/** Tool calls the model made for this answer (for the usage stats). */
 	toolCalls?: number;
+	/** The answer's number check (see FigureCheck). */
+	figures?: FigureCheck;
+}
+
+/** What a question's prompt is built from, whatever stored it: the request, the conversation and the person. */
+export interface ChatInput {
+	question: string;
+	newContext: StakAiContext | null;
+	contextIsNew: boolean;
+	context: StakAiContext | null;
+	lastTickers: string[];
+	history: { role: string; content: string }[];
+	familiarity: string | null;
+	brandNames: string[];
+	topTags: string[];
+}
+
+/**
+ * Builds a question's prompt: which companies to load up front, their data as notes, the instructions and the
+ * conversation - and the evidence its answer's figures are checked against. No database: prepareChat reads the
+ * stored parts, and the eval script (scripts/stakAiEval.ts) passes its own.
+ */
+export async function assembleChat(input: ChatInput) {
+	const { question, newContext, contextIsNew, context, lastTickers, history, familiarity, brandNames, topTags } = input;
+	// Which companies get live price + news: the ones this question names; else a page it was just opened from;
+	// else, if it points back ("is that normal for it?") or asks what's happening ("any lawsuit?"), the ones the
+	// conversation was last about. A question that does none of these ("what's a P/E?", or a company outside the
+	// catalog without a $) gets none, rather than the previous company's data.
+	const named = detectNamedTickers(question);
+	const refersBack = REFERS_BACK.test(question) || asksAboutLastCompany(question);
+	const tickers = named.length > 0 ? named
+		: contextIsNew ? contextTickers(newContext)
+		: refersBack ? (lastTickers.length > 0 ? lastTickers.slice(0, 3) : contextTickers(context))
+		: [];
+
+	// The companies the question plainly names (or points back to) are loaded up front; anything else it needs, the
+	// model fetches itself through its tools (see answer()).
+	const liveDataLines: string[] = [];
+	const newsLines: string[] = [];
+	const earningsLines: string[] = [];
+	const loaded: Loaded = { sources: [], liveContextLog: {}, found: [] };
+	if (tickers.length > 0) {
+		const [stocks, news, earnings] = await Promise.all([
+			Promise.all(tickers.map((t) => loadStock(t, loaded))),
+			Promise.all(tickers.map((t) => loadNews(t, question, loaded))),
+			// Past quarterly results, only for a question about them ("did they beat last quarter?").
+			ASKS_ABOUT_EARNINGS.test(question) ? Promise.all(tickers.map((t) => loadQuarters(t, loaded))) : Promise.resolve([]),
+		]);
+		liveDataLines.push(...stocks.map((l) => `• ${l}`));
+		newsLines.push(...news.flat());
+		earningsLines.push(...earnings);
+	}
+	const { sources, liveContextLog } = loaded;
+
+	const systemInstruction = buildSystemContext({ familiarity, brandNames, topTags, easternDate: HEADLINE_DAY.format(new Date()) });
+	const contents: GeminiContent[] = history.map((m) => ({
+		role: m.role === "assistant" ? "model" : "user",
+		parts: [{ text: m.content }],
+	}));
+
+	// Where the user is (when they've just opened it, or point back at it), then live price + news, then the question.
+	const notes: string[] = [];
+	// The page is only re-noted when this question's data is that page's: after switching to another company, an
+	// "any lawsuit?" shouldn't come with "they opened this from the Tesla page" beside NVIDIA's numbers.
+	const dataIsThePage = tickers.every((t) => contextTickers(context).includes(t));
+	if (context && (contextIsNew || (named.length === 0 && refersBack && dataIsThePage))) notes.push(describeContext(context));
+	if (liveDataLines.length > 0) notes.push(`Live market data:\n${liveDataLines.join("\n")}`);
+	if (earningsLines.length > 0) notes.push(`Past quarterly results:\n${earningsLines.join("\n\n")}`);
+	if (newsLines.length > 0) notes.push(`Recent news signals:\n${newsLines.join("\n\n")}`);
+	// Said, not left implied: with nothing loaded it once answered "Apple is up 12.5% this year" from nowhere, and
+	// "NVIDIA's quarter before: $0.98 vs $0.90" (really $1.87 vs $1.79) from memory.
+	if (tickers.length === 0) {
+		notes.push(
+			"No company data was loaded up front for this question. If it needs a company's figures or news, get them with your tools; never state a company or market figure - price, move, earnings per share, estimate, revenue, growth, date - from memory, past quarters included. " +
+			"Worked examples with made-up numbers (labelled as examples) and long-run background are still fine." +
+			(context ? "" : " If you can't tell which company they mean, start with [[CLARIFY]] and ask."),
+		);
+	}
+	if (notes.length > 0) {
+		contents.push({ role: "user", parts: [{ text: `${notes.join("\n\n")}\n\nUse this context when answering the question below.` }] });
+		contents.push({ role: "model", parts: [{ text: "Got it — I'll use this context in my answer." }] });
+	}
+	contents.push({ role: "user", parts: [{ text: question }] });
+
+	// The person's own messages count, earlier answers don't: a figure invented in one mustn't vouch for itself later.
+	const evidence = [...notes, question, ...history.filter((m) => m.role === "user").map((m) => m.content)].join("\n");
+	return { tickers, sources, liveContextLog, systemInstruction, contents, evidence };
 }
 
 /** Validates the request and builds the prompt; answers the request itself (and returns null) when it can't go on. */
@@ -1027,69 +1187,13 @@ async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Pr
 		});
 		const topTags = Object.entries(tagScores).sort(([, a], [, b]) => b - a).slice(0, 3).map(([k]) => k);
 
-		// Which companies get live price + news: the ones this question names; else a page it was just opened from;
-		// else, if it points back ("is that normal for it?") or asks what's happening ("any lawsuit?"), the ones the
-		// conversation was last about. A question that does none of these ("what's a P/E?", or a company outside the
-		// catalog without a $) gets none, rather than the previous company's data.
-		const named = detectNamedTickers(question);
-		const refersBack = REFERS_BACK.test(question) || asksAboutLastCompany(question);
-		const tickers = named.length > 0 ? named
-			: contextIsNew ? contextTickers(newContext)
-			: refersBack ? (lastTickers.length > 0 ? lastTickers.slice(0, 3) : contextTickers(context))
-			: [];
-
-		// The companies the question plainly names (or points back to) are loaded up front; anything else it needs, the
-		// model fetches itself through its tools (see answer()).
-		const liveDataLines: string[] = [];
-		const newsLines: string[] = [];
-		const earningsLines: string[] = [];
-		const loaded: Loaded = { sources: [], liveContextLog: {}, found: [] };
-		if (tickers.length > 0) {
-			const [stocks, news, earnings] = await Promise.all([
-				Promise.all(tickers.map((t) => loadStock(t, loaded))),
-				Promise.all(tickers.map((t) => loadNews(t, question, loaded))),
-				// Past quarterly results, only for a question about them ("did they beat last quarter?").
-				ASKS_ABOUT_EARNINGS.test(question) ? Promise.all(tickers.map((t) => loadQuarters(t, loaded))) : Promise.resolve([]),
-			]);
-			liveDataLines.push(...stocks.map((l) => `• ${l}`));
-			newsLines.push(...news.flat());
-			earningsLines.push(...earnings);
-		}
-		const { sources, liveContextLog } = loaded;
-
-		const systemInstruction = buildSystemContext({ familiarity, brandNames, topTags, easternDate: HEADLINE_DAY.format(new Date()) });
-		const contents: GeminiContent[] = historyResult.rows.map((m) => ({
-			role: m.role === "assistant" ? "model" : "user",
-			parts: [{ text: m.content }],
-		}));
-
-		// Where the user is (when they've just opened it, or point back at it), then live price + news, then the question.
-		const notes: string[] = [];
-		// The page is only re-noted when this question's data is that page's: after switching to another company, an
-		// "any lawsuit?" shouldn't come with "they opened this from the Tesla page" beside NVIDIA's numbers.
-		const dataIsThePage = tickers.every((t) => contextTickers(context).includes(t));
-		if (context && (contextIsNew || (named.length === 0 && refersBack && dataIsThePage))) notes.push(describeContext(context));
-		if (liveDataLines.length > 0) notes.push(`Live market data:\n${liveDataLines.join("\n")}`);
-		if (earningsLines.length > 0) notes.push(`Past quarterly results:\n${earningsLines.join("\n\n")}`);
-		if (newsLines.length > 0) notes.push(`Recent news signals:\n${newsLines.join("\n\n")}`);
-		// Said, not left implied: with nothing loaded it once answered "Apple is up 12.5% this year" from nowhere, and
-		// "NVIDIA's quarter before: $0.98 vs $0.90" (really $1.87 vs $1.79) from memory.
-		if (tickers.length === 0) {
-			notes.push(
-				"No company data was loaded up front for this question. If it needs a company's figures or news, get them with your tools; never state a company or market figure - price, move, earnings per share, estimate, revenue, growth, date - from memory, past quarters included. " +
-				"Worked examples with made-up numbers (labelled as examples) and long-run background are still fine." +
-				(context ? "" : " If you can't tell which company they mean, start with [[CLARIFY]] and ask."),
-			);
-		}
-		if (notes.length > 0) {
-			contents.push({ role: "user", parts: [{ text: `${notes.join("\n\n")}\n\nUse this context when answering the question below.` }] });
-			contents.push({ role: "model", parts: [{ text: "Got it — I'll use this context in my answer." }] });
-		}
-		contents.push({ role: "user", parts: [{ text: question }] });
+		const { tickers, sources, liveContextLog, systemInstruction, contents, evidence } = await assembleChat({
+			question, newContext, contextIsNew, context, lastTickers, history: historyResult.rows, familiarity, brandNames, topTags,
+		});
 
 		return {
 			uid, question, via, usageId, usageBefore: reservation.usage, conversationId, newContext, contextIsNew, context,
-			lastTickers, tickers, sources, liveContextLog, inCohort, systemInstruction, contents, startedAt,
+			lastTickers, tickers, sources, liveContextLog, inCohort, systemInstruction, contents, startedAt, evidence,
 		};
 	} catch (e) {
 		void releaseQuestion(usageId);
@@ -1158,7 +1262,7 @@ async function saveChat(p: Prepared, ai: { text: string; refused: boolean }, str
 	// Usage stats (the events table, read by /api/admin/analytics/stak-ai): how it was asked, from where, and how it went.
 	pgQuery(
 		`INSERT INTO events (uid, type, params) VALUES ($1, 'stak_ai_ask', $2)`,
-		[p.uid, JSON.stringify({ via: p.via, context: p.context?.type ?? null, kind: parsed.kind, streamed, ms: Date.now() - p.startedAt, live: p.tickers.length > 0, tools: p.toolCalls ?? 0 })],
+		[p.uid, JSON.stringify({ via: p.via, context: p.context?.type ?? null, kind: parsed.kind, streamed, ms: Date.now() - p.startedAt, live: p.tickers.length > 0, tools: p.toolCalls ?? 0, ...(p.figures && p.figures.flagged.length > 0 ? { figures: p.figures } : {}) })],
 	).catch((e) => console.warn("[STAK AI] usage event write failed:", e));
 
 	return {
@@ -1186,7 +1290,7 @@ stakAiRouter.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res
 			fail(res, 503, "ai_unavailable", UNAVAILABLE);
 			return;
 		}
-		const reply = await saveChat({ ...p, tickers: ai.tickers, toolCalls: ai.toolCalls }, ai, false);
+		const reply = await saveChat({ ...p, tickers: ai.tickers, toolCalls: ai.toolCalls, figures: ai.figures }, ai, false);
 		if (!reply) { fail(res, 503, "ai_unavailable", UNAVAILABLE); return; }
 		res.json(reply);
 	} catch (e) {
@@ -1237,15 +1341,15 @@ stakAiRouter.post("/chat/stream", authMiddleware, async (req: AuthenticatedReque
 					shown = safe.length;
 				}
 			},
-			// A lookup round sends no words: a comment line (which the apps skip) keeps the connection from timing out.
-			onLookup: () => { if (!res.writableEnded) res.write(": looking up\n\n"); },
+			// A lookup or a rewrite sends no words: a comment line (which the apps skip) keeps the connection open.
+			onWait: () => { if (!res.writableEnded) res.write(": working\n\n"); },
 		});
 		if (!ai) {
 			void releaseQuestion(p.usageId);
 			send("error", { code: "ai_unavailable", error: UNAVAILABLE });
 		} else {
 			// Saved even if the person has gone: the answer is in their history, and it counted.
-			const reply = await saveChat({ ...p, tickers: ai.tickers, toolCalls: ai.toolCalls }, ai, true);
+			const reply = await saveChat({ ...p, tickers: ai.tickers, toolCalls: ai.toolCalls, figures: ai.figures }, ai, true);
 			if (reply) send("done", reply);
 			else send("error", { code: "ai_unavailable", error: UNAVAILABLE });
 		}

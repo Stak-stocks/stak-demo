@@ -797,7 +797,7 @@ export type StakAiMessage = StakAiStoredMessage;
  */
 export async function streamStakAiMessage(
 	message: string,
-	opts: { conversationId?: string; context?: StakAiContext; via?: StakAiVia; onText: (soFar: string) => void; signal?: AbortSignal },
+	opts: { conversationId?: string; context?: StakAiContext; via?: StakAiVia; onText: (soFar: string) => void; onAlive?: () => void; signal?: AbortSignal },
 ): Promise<StakAiChatReply> {
 	const token = await getAuthToken();
 	const res = await fetch(`${API_BASE_URL}/api/stak-ai/chat/stream`, {
@@ -819,6 +819,9 @@ export async function streamStakAiMessage(
 	for (;;) {
 		const { value, done } = await reader.read();
 		if (done) break;
+		// Anything from the server - words, or the keep-alive it sends while it looks something up or re-checks the
+		// answer's figures - means it's still working.
+		opts.onAlive?.();
 		buffer += decoder.decode(value, { stream: true });
 		let gap: number;
 		while ((gap = buffer.indexOf("\n\n")) >= 0) {
