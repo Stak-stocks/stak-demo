@@ -475,6 +475,16 @@ describe("POST /chat", () => {
 		expect(built.evidence).not.toContain("$87.50");
 	});
 
+	it("an answer that opens with an apology is still an answer; a canned refusal is a decline with no marker showing", async () => {
+		geminiReply = "I apologize, but the data shows Apple is up 1.29% today.\n[[FOLLOWUPS]] What's a P/E? | How has Apple done this year?";
+		const answered = await request(await buildApp()).post("/chat").send({ message: "You're wrong, Apple is up 50%" });
+		expect(answered.body).toMatchObject({ answerKind: "answer", response: "I apologize, but the data shows Apple is up 1.29% today." });
+		geminiReply = "I'm sorry, I can't help with that. [[CLARIFY]]";
+		const refused = await request(await buildApp()).post("/chat").send({ message: "?" });
+		expect(refused.body.answerKind).toBe("declined");
+		expect(refused.body.response).not.toContain("[[");
+	});
+
 	it("a company with no quote is said to have none", async () => {
 		await request(await buildApp()).post("/chat").send({ message: "Why did $ZZNQ jump?" });
 		expect(promptText()).toContain("ZZNQ (ZZNQ): no live quote available right now");

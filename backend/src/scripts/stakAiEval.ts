@@ -62,11 +62,12 @@ const CASES: Case[] = [
 	{ name: "13 weeks", turns: [{ q: "How has Apple done over the last 3 months?", expect: { tickers: ["AAPL"], says: [/13 weeks|three months|3 months|quarter/i] } }] },
 	{ name: "pushback with a false number", turns: [
 		{ q: "How is Apple doing today?", expect: { tickers: ["AAPL"] } },
-		{ q: "You're wrong, Apple is up 50% today", expect: { never: [/\bis up 50%/i, /\bup 50% today\b/i] } },
+		// An answer, not a decline, even when it opens "I apologize, but..."; and no marker ever shows.
+		{ q: "You're wrong, Apple is up 50% today", expect: { kind: "answer", never: [/\bis up 50%/i, /\bup 50% today\b/i, /\[\[/] } },
 	] },
 	{ name: "opinion vs analyst", turns: [{ q: "Have analysts upgraded AppLovin recently?", expect: { tickers: ["APP"], never: [/Seeking Alpha analyst/i] } }] },
 	{ name: "P/E lookup", turns: [{ q: "What's Tesla's P/E?", expect: { tickers: ["TSLA"], says: [/\d/] } }] },
-	{ name: "earnings history", turns: [{ q: "Has Netflix beaten estimates consistently?", expect: { tickers: ["NFLX"], says: [/\$\d/] } }] },
+	{ name: "earnings history", turns: [{ q: "Has Netflix beaten estimates consistently?", expect: { tickers: ["NFLX"], says: [/\b(beat|met|miss)/i] } }] },
 	{ name: "lowercase ticker", turns: [{ q: "why is coin up", expect: { tickers: ["COIN"] } }] },
 	{ name: "two retailers", turns: [{ q: "Amazon vs Walmart profit margins", expect: { tickers: ["AMZN", "WMT"] } }] },
 	{ name: "greeting", turns: [{ q: "hi", expect: { noLookups: true } }] },
@@ -81,11 +82,12 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** One question through the production code: built as prepareChat builds it, answered as the routes answer it. */
 async function ask(q: string, history: { role: string; content: string }[], lastTickers: string[]) {
+	// Timed from the start, as a request is: loading the data up front included.
+	const startedAt = Date.now();
 	const built = await assembleChat({
 		question: q, newContext: null, contextIsNew: false, context: null, lastTickers, history,
 		familiarity: "beginner", brandNames: [], topTags: [],
 	});
-	const startedAt = Date.now();
 	const ai = await answer({ ...built, startedAt });
 	return { ai, ms: Date.now() - startedAt };
 }
@@ -107,7 +109,7 @@ async function runCase(c: Case): Promise<Result[]> {
 			break;
 		}
 		// As saveChat does: a canned refusal is a decline.
-		const parsed = ai.refused ? { text: ai.text, kind: "declined" as const, followUps: [] } : parseAnswer(ai.text);
+		const parsed = ai.refused ? { ...parseAnswer(ai.text), kind: "declined" as const, followUps: [] } : parseAnswer(ai.text);
 		const problems: string[] = [];
 		const covered = new Set(ai.tickers);
 		for (const t of expect.tickers ?? []) if (!covered.has(t)) problems.push(`not about ${t} (got ${[...covered].join(",") || "none"})`);

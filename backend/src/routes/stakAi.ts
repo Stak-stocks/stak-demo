@@ -586,7 +586,7 @@ const STAK_AI_TOOLS = [{
 	functionDeclarations: [
 		{
 			name: "find_company",
-			description: "Look up a company in STAK's catalog by a loose, misspelled or nicknamed name (e.g. \"apploving\" for AppLovin). Skip it when you already know the US ticker: call the data tool with that ticker directly.",
+			description: "Look up a company in STAK's catalog by a loose, misspelled or nicknamed name (e.g. \"apploving\" for AppLovin). It searches names only, not descriptions: when you know which company is meant (\"the iPhone maker\" is Apple, AAPL), call the data tool with its ticker directly instead.",
 			parameters: { type: "object", properties: { name: { type: "string", description: "What the user called the company" } }, required: ["name"] },
 		},
 		{
@@ -757,7 +757,9 @@ async function askGemini(
 					console.warn(`[STAK AI] Gemini answer incomplete on ${tag} (finish: ${finish ?? "none"}${errored ? ", error chunk" : ""})`);
 					continue;
 				}
-				return { text, raw: full, refused: GEMINI_REFUSAL_RE.test(text), callParts, parts };
+				// A canned refusal ("I'm sorry, I can't...") has no follow-ups; an answer that merely opens with an apology
+				// ("I apologize, but the data shows..." after pushback) does, and is an answer.
+				return { text, raw: full, refused: GEMINI_REFUSAL_RE.test(text) && !/\[\[FOLLOWUPS\]\]/i.test(text), callParts, parts };
 			} catch (e) {
 				console.warn(`[STAK AI] Gemini error on ${tag}: ${(e as Error)?.message}`);
 			} finally {
@@ -821,7 +823,7 @@ Your memory of companies and markets is out of date, often by years. Your only c
 - Never state a current or recent price, move, P/E, market cap, earnings date or result, deal, lawsuit, analyst rating or price target unless it's in the notes or a tool result. If the question needs one that isn't there, fetch it with your tools first. Only if the tools don't have it either, say so in one short sentence, then still help with what you can (background, what that kind of news usually means). Point them to the company's page or News in STAK at most once in a conversation.
 - Figures in your earlier replies may be wrong; don't repeat them as current.
 - Report what the notes say, without adding details they don't contain. A summary ending in "…" is cut off: never guess how it goes on or how things turned out (rulings, amounts, guidance).
-- Headlines show their publisher. Opinion pieces are one writer's view, never an analyst's call: first-person headlines ("Why I'm Buying..."), questions and listicles ("Is X a Buy?", "3 Reasons to Sell X", "Here's Why...", "Better Stock: X vs. Y"), and most Seeking Alpha, Motley Fool, Zacks and InvestorPlace articles - including ones carried by Yahoo Finance. Call them that ("a Motley Fool writer argues..."). A Zacks Rank is a computer-generated score, not an analyst rating. Only a named firm (Needham, Jefferies, Goldman Sachs...) giving a rating or price target is an analyst's call, whoever reports it.
+- Headlines show their publisher. Opinion pieces are one writer's view, never an analyst's call: first-person headlines ("Why I'm Buying..."), questions and listicles ("Is X a Buy?", "3 Reasons to Sell X", "Here's Why...", "Better Stock: X vs. Y"), and most Seeking Alpha, Motley Fool, Zacks and InvestorPlace articles - including ones carried by Yahoo Finance. Call them that ("a Motley Fool writer argues..."). A Zacks Rank is a computer-generated score, not an analyst rating. Only a named firm (Needham, Jefferies, Goldman Sachs...) giving a rating or price target is an analyst's call, whoever reports it. A firm maintaining or reiterating its rating isn't an upgrade - say "kept its Buy rating".
 - "Older stories matching the question" are weeks old: use one to answer a question about that story, saying when it came out, but never as the reason for today's move.
 - "Past quarterly results" give earnings per share against analysts' estimates for the last few reported quarters - nothing else: no revenue figures (only the growth rate in the live data), guidance or why. Use those exact figures. Quarters are the company's fiscal ones (a fiscal year can run ahead of the calendar), so name them as given and say "fiscal". They don't say when results were announced or when the next report is: never state either date. For anything they don't cover, say you don't have it.
 - Past-year, year-to-date, 26-week and 13-week changes cover months, and your headlines only the last few weeks: don't give a headline as the cause of a long-term move. Say what recent news shows, and that you don't have the news from earlier in the year that drove most of it. Headlines carry their date (US Eastern): call something today's news only if it's dated today, and don't guess how new an undated one is. A headline from the last day or two (or the last trading day, after a weekend) can still explain today's move: just say when it came out.
@@ -835,7 +837,7 @@ Your memory of companies and markets is out of date, often by years. Your only c
 ━━━ YOUR TOOLS ━━━
 The notes usually already hold the price, moves and news for the companies a question names. Never call a tool for data the notes or an earlier tool result already give you.
 Call a tool only when answering needs a company figure or story that isn't there: its price, moves or valuation (get_stock), its news or a particular story (get_news), or whether it beat or missed estimates in past quarters (get_quarterly_results). Never fill that gap from memory.
-Work out the company from the whole conversation: "what about the quarter before?" means the company you were just discussing. If you know its ticker (NVDA for Nvidia), call the data tool directly; use find_company only for a misspelled, nicknamed or unfamiliar name. If it finds several plausible companies or none, start with [[CLARIFY]] and ask which one they mean.
+Work out the company from the whole conversation: "what about the quarter before?" means the company you were just discussing. If you know its ticker (NVDA for Nvidia) - or which company a description means ("the company that makes the iPhone" is Apple, AAPL; "the chip company Jensen Huang runs" is NVIDIA, NVDA) - call the data tool with that ticker directly. Use find_company only for a misspelled, nicknamed or unfamiliar name. Ask which company they mean (start with [[CLARIFY]]) only when you genuinely can't tell.
 For a question about two or more companies, ask for every company's data at once.
 Don't call tools for greetings, thanks, questions about terms or concepts, or advice and prediction questions you'll decline.
 Call tools silently: write nothing before or between tool calls - your first words are the answer. Tool results count as notes, and the same rules apply to them.
@@ -853,7 +855,7 @@ The conversation may include a note saying what the user opened STAK AI from: a 
 - Say time spans in everyday words ("over the past three months", not "13-week change"), and never refer to "the notes", "the data provided" or "the context": state facts as facts, with their date where it matters.
 - If they ask about a stock in their STAK, acknowledge that personal angle.
 - Calm, factual and direct. No filler, no hype, no invented drama.
-- When the question asks for a judgement (is it doing well, did they beat, is it growing) and the figures point different ways, give both in one sentence ("revenue is still growing, but the stock is down 43% over the year"). A plain factual question gets the plain fact first; add a counterpoint only if it changes the picture. One "but" is enough - don't stack caveats.
+- Before answering a judgement question about a company (is it doing well, is it still growing, did they beat), look at its past-year change in the live data. If the business looks good but the stock is down 20% or more over the year (or the reverse), say both in your first sentence ("Netflix's revenue is still growing - up 13.4% - but the stock is down 43% over the past year"). A plain factual question (today's move, a P/E) gets the plain fact first; add a counterpoint only if it changes the picture. One "but" is enough - don't stack caveats.
 - Formatting: plain sentences. Use **bold** sparingly for a key term or number, and "- " bullets only for a list of three or more items. No headings, tables, links, code or emojis.
 - Use American English spelling.
 - The app always shows an "educational, not financial advice" note, so don't add a disclaimer to normal answers.
@@ -1206,7 +1208,8 @@ async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Pr
  * answers count), and logs it - the research cohort's log and the usage event. Hands the question back if it throws.
  */
 async function saveChat(p: Prepared, ai: { text: string; refused: boolean }, streamed: boolean): Promise<StakAiChatReply | null> {
-	const parsed = ai.refused ? { text: ai.text, kind: "declined" as const, followUps: [] } : parseAnswer(ai.text);
+	// A refusal is a decline - its markers stripped all the same, so none reaches the person.
+	const parsed = ai.refused ? { ...parseAnswer(ai.text), kind: "declined" as const, followUps: [] } : parseAnswer(ai.text);
 	if (!parsed.text) {
 		void releaseQuestion(p.usageId);
 		return null;
