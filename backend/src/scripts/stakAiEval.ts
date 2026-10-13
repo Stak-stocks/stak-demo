@@ -38,6 +38,11 @@ interface Expect {
 	/** The answer must match each of these, and none of [never]. */
 	says?: RegExp[];
 	never?: RegExp[];
+	/**
+	 * It asks for a judgement (is it doing well, still growing): if a company it's about is down 20% or more over the
+	 * past year, the answer must say how the stock has done - however good the business numbers look.
+	 */
+	judgement?: boolean;
 }
 interface Case { name: string; turns: { q: string; expect: Expect }[] }
 
@@ -72,9 +77,42 @@ const CASES: Case[] = [
 	{ name: "two retailers", turns: [{ q: "Amazon vs Walmart profit margins", expect: { tickers: ["AMZN", "WMT"] } }] },
 	{ name: "greeting", turns: [{ q: "hi", expect: { noLookups: true } }] },
 	{ name: "market-wide", turns: [{ q: "Why is the market down today?", expect: {} }] },
+
+	// Held out: never tuned against. Run with `npm run eval:stak-ai -- held-out`; a normal run leaves them out, so a
+	// fix has to work on questions it wasn't written for.
+	{ name: "held-out: tesla lately", turns: [{ q: "how's tesla been doing lately", expect: { tickers: ["TSLA"], judgement: true } }] },
+	{ name: "held-out: overvalued", turns: [{ q: "Is Meta overvalued?", expect: { kind: "declined" } }] },
+	{ name: "held-out: disney drop", turns: [{ q: "why did disney drop", expect: { tickers: ["DIS"] } }] },
+	{ name: "held-out: costco beat", turns: [{ q: "did costco beat earnings?", expect: { tickers: ["COST"], says: [/\b(beat|met|miss|in line)/i] } }] },
+	{ name: "held-out: coffee comparison", turns: [{ q: "starbucks vs dutch bros growth", expect: { tickers: ["SBUX", "BROS"] } }] },
+	{ name: "held-out: market cap", turns: [{ q: "what's palantir's market cap", expect: { tickers: ["PLTR"], says: [/\$/] } }] },
+	{ name: "held-out: good stock", turns: [{ q: "is sofi a good stock to own", expect: { kind: "declined" } }] },
+	{ name: "held-out: uber quarter", turns: [{ q: "how did uber do last quarter", expect: { tickers: ["UBER"], says: [/\b(beat|met|miss|in line)/i] } }] },
+	{ name: "held-out: nike", turns: [{ q: "what's going on with nike", expect: { tickers: ["NKE"], judgement: true } }] },
+	{ name: "held-out: soda margins", turns: [{ q: "compare coke and pepsi margins", expect: { tickers: ["KO", "PEP"] } }] },
+	{ name: "held-out: beta", turns: [{ q: "what does beta mean", expect: { noLookups: true, kind: "answer" } }] },
+	{ name: "held-out: ford year", turns: [{ q: "how has ford done this year", expect: { tickers: ["F"], says: [/year/i] } }] },
+	// Vague on purpose: answering about TSMC or asking which one ("TSMC or MediaTek?") are both fine - only the
+	// checks every answer gets apply.
+	{ name: "held-out: taiwan chips", turns: [{ q: "any news on the taiwanese chip maker", expect: {} }] },
+	{ name: "held-out: amzn up", turns: [{ q: "why is amzn up", expect: { tickers: ["AMZN"] } }] },
+	{ name: "held-out: short selling", turns: [{ q: "explain short selling", expect: { noLookups: true, kind: "answer" } }] },
+	{ name: "held-out: which is better", turns: [{ q: "which is better, amd or nvidia", expect: { kind: "declined" } }] },
+	{ name: "held-out: risk", turns: [{ q: "how risky is tesla stock", expect: { tickers: ["TSLA"], kind: "answer" } }] },
+	{ name: "held-out: boeing", turns: [{ q: "what happened with boeing", expect: { tickers: ["BA"] } }] },
+	{ name: "held-out: spotify follow-up", turns: [
+		{ q: "how's spotify doing?", expect: { tickers: ["SPOT"], judgement: true } },
+		{ q: "and its earnings?", expect: { tickers: ["SPOT"], says: [/\b(beat|met|miss|in line|\$\d)/i] } },
+	] },
+	{ name: "held-out: roblox growing", turns: [{ q: "is roblox still growing?", expect: { tickers: ["RBLX"], judgement: true } }] },
+	{ name: "held-out: robinhood price", turns: [{ q: "robinhood stock price", expect: { tickers: ["HOOD"], says: [/\$\d/] } }] },
+	{ name: "held-out: mcdonalds pe", turns: [{ q: "whats mcdonalds p/e", expect: { tickers: ["MCD"] } }] },
+	{ name: "held-out: chipotle", turns: [{ q: "is chipotle doing well", expect: { tickers: ["CMG"], judgement: true } }] },
+	{ name: "held-out: thanks", turns: [{ q: "thanks!", expect: { noLookups: true } }] },
+	{ name: "held-out: who grew more", turns: [{ q: "Google vs Meta, which grew more last quarter?", expect: { tickers: ["GOOGL", "META"], kind: "answer" } }] },
 ];
 
-interface Result { case: string; q: string; ok: boolean; problems: string[]; tools: number; flagged: string[]; rewritten: boolean; ms: number; text: string }
+interface Result { case: string; q: string; ok: boolean; problems: string[]; tools: number; flagged: string[]; rewritten: boolean; ms: number; text: string; usage?: { input: number; output: number; thinking: number } }
 
 /** Time between questions: about a second on a billed key, 7s to stay under a free-tier key's per-minute limit. */
 const PACE_MS = Number(process.env.EVAL_PACE_MS ?? (evalKey ? 1_000 : 7_000));
@@ -89,7 +127,7 @@ async function ask(q: string, history: { role: string; content: string }[], last
 		familiarity: "beginner", brandNames: [], topTags: [],
 	});
 	const ai = await answer({ ...built, startedAt });
-	return { ai, ms: Date.now() - startedAt };
+	return { ai, ms: Date.now() - startedAt, live: built.liveContextLog };
 }
 
 async function runCase(c: Case): Promise<Result[]> {
@@ -98,11 +136,11 @@ async function runCase(c: Case): Promise<Result[]> {
 	const results: Result[] = [];
 	for (const [i, { q, expect }] of c.turns.entries()) {
 		if (i > 0) await sleep(PACE_MS);
-		let { ai, ms } = await ask(q, history, lastTickers);
+		let { ai, ms, live } = await ask(q, history, lastTickers);
 		if (!ai) {
 			// Most likely a rate limit (a free-tier key): wait it out and try once more.
 			await sleep(20_000);
-			({ ai, ms } = await ask(q, history, lastTickers));
+			({ ai, ms, live } = await ask(q, history, lastTickers));
 		}
 		if (!ai) {
 			results.push({ case: c.name, q, ok: false, problems: ["no answer"], tools: 0, flagged: [], rewritten: false, ms, text: "" });
@@ -119,7 +157,21 @@ async function runCase(c: Case): Promise<Result[]> {
 		for (const re of expect.says ?? []) if (!re.test(parsed.text)) problems.push(`doesn't say ${re}`);
 		for (const re of expect.never ?? []) if (re.test(parsed.text)) problems.push(`says ${re}`);
 		if (ai.figures.unsupported.length > 0) problems.push(`figures not in its data: ${ai.figures.unsupported.join(", ")}`);
-		results.push({ case: c.name, q, ok: problems.length === 0, problems, tools: ai.toolCalls, flagged: ai.figures.flagged, rewritten: ai.figures.rewritten, ms, text: parsed.text });
+		// Checked on every answer: no marker leaking, no talk of "the notes".
+		if (/\[\[/.test(parsed.text)) problems.push("a [[marker]] shows");
+		if (/\b(the data provided|the notes|the context provided|based on the data)\b/i.test(parsed.text)) problems.push("talks about its notes");
+		if (expect.judgement) {
+			// Sentence by sentence (split after ". ", so "$51.20" stays whole): one names the stock and its fall.
+			const sentences = parsed.text.split(/(?<=[.!?])\s+/);
+			const saysTheFall = sentences.some((s) => /\b(stock|shares)\b/i.test(s) && /\b(down|fell|fallen|lost|declin|dropp)/i.test(s));
+			for (const [ticker, line] of Object.entries(live)) {
+				const year = /past year ([+-]\d+(?:\.\d+)?)%/.exec(line);
+				if (year && Number(year[1]) <= -20 && !saysTheFall) {
+					problems.push(`${ticker} is ${year[1]}% over the year, but the answer doesn't say how the stock has done`);
+				}
+			}
+		}
+		results.push({ case: c.name, q, ok: problems.length === 0, problems, tools: ai.toolCalls, flagged: ai.figures.flagged, rewritten: ai.figures.rewritten, ms, text: parsed.text, usage: ai.usage });
 		history.push({ role: "user", content: q }, { role: "assistant", content: parsed.text });
 		lastTickers = ai.tickers;
 	}
@@ -127,7 +179,8 @@ async function runCase(c: Case): Promise<Result[]> {
 }
 
 const filter = process.argv[2]?.toLowerCase();
-const cases = CASES.filter((c) => !filter || c.name.toLowerCase().includes(filter));
+// Held-out cases only run when asked for by name ("held-out"), so day-to-day fixes aren't tuned to them.
+const cases = CASES.filter((c) => (filter ? c.name.toLowerCase().includes(filter) : !c.name.startsWith("held-out")));
 if (cases.length === 0) {
 	console.log(`No case matches "${filter}".`);
 	process.exit(1);
@@ -154,4 +207,9 @@ const passed = all.filter((r) => r.ok).length;
 const rewritten = all.filter((r) => r.rewritten).length;
 const answered = all.filter((r) => r.ms > 0);
 console.log(`\n${passed}/${all.length} passed; ${rewritten} rewritten by the number check; average ${(answered.reduce((s, r) => s + r.ms, 0) / Math.max(1, answered.length) / 1000).toFixed(1)}s per answer`);
+// Cost at Gemini 2.5 Flash list prices: $0.30 per million tokens in, $2.50 per million out (thinking bills as output).
+const tokens = all.reduce((t, r) => ({ input: t.input + (r.usage?.input ?? 0), output: t.output + (r.usage?.output ?? 0), thinking: t.thinking + (r.usage?.thinking ?? 0) }), { input: 0, output: 0, thinking: 0 });
+const dollars = (tokens.input * 0.3 + (tokens.output + tokens.thinking) * 2.5) / 1e6;
+const budget = process.env.STAK_AI_THINKING_BUDGET;
+console.log(`tokens: ${tokens.input} in, ${tokens.output} out, ${tokens.thinking} thinking - about $${((dollars / Math.max(1, answered.length)) * 1000).toFixed(2)} per 1,000 answers${budget ? ` (thinking budget ${budget})` : ""}`);
 process.exit(passed === all.length ? 0 : 1);

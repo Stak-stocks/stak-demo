@@ -29,7 +29,7 @@ const BACKGROUND_RE = /\b(historically|typically|on average|as a rule of thumb|i
  * A hypothetical in one sentence ("if a company's stock trades at $100 and EPS is $5, its P/E would be 20"): that
  * sentence only, so a fact after it ("If a company beats, shares often rise. AppLovin earned $0.98.") is still checked.
  */
-const HYPOTHETICAL_RE = /\b(if (?:a|an) (?:company|company's|stock|stock's|business|share|investor|person)|would be|would have|would mean)\b/i;
+const HYPOTHETICAL_RE = /\b(if (?:a|an) (?:company|company's|stock|stock's|business|share|investor|person)|if the market|for every|would be|would have|would mean)\b/i;
 /** Rounded on purpose ("about 40%" for 43.2%): within a tenth either way. */
 const APPROX_RE = /\b(about|around|roughly|nearly|almost|approximately|close to|more than|over|under|some)\s*$/i;
 /** Percentages the instructions themselves use ("a move under about 1% is normal noise"). */

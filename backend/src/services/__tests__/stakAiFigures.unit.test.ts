@@ -36,6 +36,8 @@ describe("STAK AI number check", () => {
 		// The P/E and EPS explanations STAK AI actually gave: one-sentence hypotheticals.
 		expect(unsupportedFigures("So, if a company's stock trades at $100 per share and its earnings per share were $5, its P/E ratio would be 20 ($100 / $5 = 20).", "")).toEqual([]);
 		expect(unsupportedFigures("So, if a company has a profit of $10 million and 10 million shares, the EPS would be $1.00.", "")).toEqual([]);
+		// How beta is explained: "if the market..." / "for every..." are explanations, not claims.
+		expect(unsupportedFigures("If the market goes up 1%, this stock might go up 1.5%. For every 1% move, it moves 0.5%.", "")).toEqual([]);
 		// A comma after a figure isn't part of it.
 		expect(answerFigures("It closed at $5, then rose to $1,250.50.").map((f) => f.text)).toEqual(["$5", "$1,250.50"]);
 	});

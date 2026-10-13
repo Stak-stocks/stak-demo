@@ -390,10 +390,56 @@ async function fetchLiveStockContext(ticker: string): Promise<string | null> {
 		].filter(Boolean);
 		if (growth.length > 0) parts.push(`latest reported quarter vs the same quarter a year earlier: ${growth.join(", ")}`);
 		if (profitMargin) parts.push(`net profit margin (last 12 months) ${profitMargin}`);
+		const key = keyContext({ price, week52Low, week52High, yearReturn, revenueGrowthQuarterYoy, epsGrowthQuarterYoy });
+		if (key.length > 0) parts.push(`KEY CONTEXT: ${key.join("; ")}`);
 		return parts.join(" | ");
 	} catch {
 		return null;
 	}
+}
+
+/** What keyContext reads: a company's price, its 52-week range, its past year, and its latest growth. */
+export interface KeyContextInput {
+	price: number;
+	week52Low?: number | null;
+	week52High?: number | null;
+	yearReturn?: number | null;
+	revenueGrowthQuarterYoy?: number | null;
+	epsGrowthQuarterYoy?: number | null;
+}
+
+/**
+ * The facts about a company that matter for nearly any question on it, worked out here rather than left for the model
+ * to notice: in the test set it mentioned Nike's 49% fall one run and left out Roblox's 62% the next, under the same
+ * instructions. Said as plain facts, never as signals: "close to the lowest it's been in a year", not "near its low".
+ * (Today's move isn't one: outside regular hours the quote's change is the last session's, and the prompt already
+ * says a move under about 1% is normal noise.)
+ */
+export function keyContext(c: KeyContextInput): string[] {
+	const out: string[] = [];
+	const pct = (v: number) => `${Math.abs(v).toFixed(1)}%`;
+	const year = c.yearReturn;
+	// Big years only: a move that size colours any answer about the company.
+	if (year != null && year <= -20) out.push(`the stock is down ${pct(year)} over the past year`);
+	else if (year != null && year >= 50) out.push(`the stock is up ${pct(year)} over the past year`);
+	// Where the price sits in its year's range - only when the range is wide enough to mean anything (15%+), and only
+	// in its bottom or top quarter. The range is as of the last close; a live price past it is a new low or high.
+	const { week52Low: low, week52High: high, price } = c;
+	if (low != null && high != null && low > 0 && high / low >= 1.15) {
+		const position = (price - low) / (high - low);
+		if (price < low) out.push("the price is below its lowest of the past year");
+		else if (price > high) out.push("the price is above its highest of the past year");
+		else if (position <= 0.25 && price <= low * 1.05) out.push("the price is close to the lowest it's been in the past year");
+		else if (position >= 0.75 && price >= high * 0.95) out.push("the price is close to the highest it's been in the past year");
+	}
+	// The business and the stock pointing different ways - the pairing a beginner most needs spelled out. Growth is
+	// revenue's (EPS only when there's no revenue figure: buybacks can lift EPS while sales shrink).
+	const revenue = c.revenueGrowthQuarterYoy;
+	const grew = revenue != null ? revenue > 5 : c.epsGrowthQuarterYoy != null && c.epsGrowthQuarterYoy > 5;
+	if (year != null && year <= -20 && grew) out.push(`${revenue != null ? "revenue" : "earnings per share"} grew in the latest quarter while the stock fell over the past year`);
+	// A smaller rise (30%+) counts here than above: what matters is that it ran opposite to revenue.
+	if (year != null && year >= 30 && revenue != null && revenue < 0) out.push("the stock rose over the past year while revenue shrank in the latest quarter");
+	return out;
 }
 
 /** "Thu, Oct 8": headlines and the prompt's "today" share it, so the model compares like with like (and sees weekends). */
@@ -487,7 +533,9 @@ interface GeminiContent { role: string; parts: GeminiPart[] }
  * A complete reply: its text (trimmed; empty when it only asks for tools), the text exactly as it streamed, any tool
  * requests, and every part as sent - to hand back unchanged with the tools' results.
  */
-interface GeminiReply { text: string; raw: string; refused: boolean; callParts: GeminiPart[]; parts: GeminiPart[] }
+interface GeminiReply { text: string; raw: string; refused: boolean; callParts: GeminiPart[]; parts: GeminiPart[]; usage: TokenUsage }
+/** Tokens one call (or a whole answer, its calls added up) used: sent, written, and spent thinking. */
+export interface TokenUsage { input: number; output: number; thinking: number }
 
 /**
  * What an answer loaded, to cite (sources, no headline twice), log (research cohort) and remember: [found] is the
@@ -653,6 +701,14 @@ async function runTool(call: { name: string; args?: Record<string, unknown> }, l
 // ── Gemini ──────────────────────────────────────────────────────────────────
 
 
+/**
+ * Gemini's thinking before it answers, in tokens: none in production (fast, cheapest). STAK_AI_THINKING_BUDGET sets
+ * it for an experiment - the test set measuring whether some thinking is worth its time and cost. Tested 2026-10-13:
+ * a budget of 512 was no more accurate on the held-out questions, 0.6s slower and 28% dearer. A value Gemini would
+ * reject (negative, fractional, over 24,576) falls back to 0 rather than failing every request.
+ */
+const THINKING_BUDGET = ((n) => (Number.isInteger(n) && n >= 0 && n <= 24_576 ? n : 0))(Number(process.env.STAK_AI_THINKING_BUDGET ?? 0));
+
 /** No first words from a key by now: try the next. */
 const FIRST_CHUNK_MS = 20_000;
 /** Words stopped arriving for this long: give up on the answer. */
@@ -695,7 +751,7 @@ async function askGemini(
 						contents,
 						tools: STAK_AI_TOOLS,
 						toolConfig: { functionCallingConfig: { mode: toolMode } },
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3 },
+						generationConfig: { thinkingConfig: { thinkingBudget: THINKING_BUDGET }, temperature: 0.3 },
 					}),
 					signal: controller.signal,
 				});
@@ -707,13 +763,14 @@ async function askGemini(
 				let full = "";
 				// Every part as it came (text pieces, tool requests with any signature), to hand back with the tools' results.
 				const parts: GeminiPart[] = [];
+				let usage: TokenUsage = { input: 0, output: 0, thinking: 0 };
 				let finish: string | undefined;
 				let blocked: string | undefined;
 				let errored = false;
 				const take = (raw: string) => {
 					const line = raw.trim();
 					if (!line.startsWith("data:")) return;
-					let chunk: { error?: unknown; promptFeedback?: { blockReason?: string }; candidates?: { finishReason?: string; content?: { parts?: GeminiPart[] } }[] };
+					let chunk: { error?: unknown; promptFeedback?: { blockReason?: string }; candidates?: { finishReason?: string; content?: { parts?: GeminiPart[] } }[]; usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number } };
 					try { chunk = JSON.parse(line.slice(5)); } catch { return; }
 					if (chunk.error) errored = true;
 					if (chunk.promptFeedback?.blockReason) blocked = chunk.promptFeedback.blockReason;
@@ -729,6 +786,8 @@ async function askGemini(
 						}
 					}
 					if (candidate?.finishReason) finish = candidate.finishReason;
+					// The running total comes on each chunk; the last one is the call's.
+					if (chunk.usageMetadata) usage = { input: chunk.usageMetadata.promptTokenCount ?? 0, output: chunk.usageMetadata.candidatesTokenCount ?? 0, thinking: chunk.usageMetadata.thoughtsTokenCount ?? 0 };
 				};
 				const reader = res.body.getReader();
 				const decoder = new TextDecoder();
@@ -759,7 +818,7 @@ async function askGemini(
 				}
 				// A canned refusal ("I'm sorry, I can't...") has no follow-ups; an answer that merely opens with an apology
 				// ("I apologize, but the data shows..." after pushback) does, and is an answer.
-				return { text, raw: full, refused: GEMINI_REFUSAL_RE.test(text) && !/\[\[FOLLOWUPS\]\]/i.test(text), callParts, parts };
+				return { text, raw: full, refused: GEMINI_REFUSAL_RE.test(text) && !/\[\[FOLLOWUPS\]\]/i.test(text), callParts, parts, usage };
 			} catch (e) {
 				console.warn(`[STAK AI] Gemini error on ${tag}: ${(e as Error)?.message}`);
 			} finally {
@@ -855,7 +914,7 @@ The conversation may include a note saying what the user opened STAK AI from: a 
 - Say time spans in everyday words ("over the past three months", not "13-week change"), and never refer to "the notes", "the data provided" or "the context": state facts as facts, with their date where it matters.
 - If they ask about a stock in their STAK, acknowledge that personal angle.
 - Calm, factual and direct. No filler, no hype, no invented drama.
-- Before answering a judgement question about a company (is it doing well, is it still growing, did they beat), look at its past-year change in the live data. If the business looks good but the stock is down 20% or more over the year (or the reverse), say both in your first sentence ("Netflix's revenue is still growing - up 13.4% - but the stock is down 43% over the past year"). A plain factual question (today's move, a P/E) gets the plain fact first; add a counterpoint only if it changes the picture. One "but" is enough - don't stack caveats.
+- A company's live data may end with KEY CONTEXT: facts worked out for you that matter for most questions about it (a big move over the year, the price near its lowest or highest of the year, revenue and the stock going different ways). When the question is how it's doing, what's going on with it, or whether it's growing, mention the one or two that bear on it most, plainly and early ("revenue is still growing, but the stock has fallen sharply over the past year"). A narrow factual question (a P/E, a price) gets the plain fact. State them as facts, never as signals: a low price isn't "cheap" or a chance to buy, a high one isn't "expensive", and nothing here says a move will reverse. One "but" is enough - don't stack caveats.
 - Formatting: plain sentences. Use **bold** sparingly for a key term or number, and "- " bullets only for a list of three or more items. No headings, tables, links, code or emojis.
 - Use American English spelling.
 - The app always shows an "educational, not financial advice" note, so don't add a disclaimer to normal answers.
@@ -928,6 +987,8 @@ export async function answer(p: AnswerInput, hooks: { onText?: (full: string) =>
 	let flagged: string[] = [];
 	/** The first finished answer, once it's been sent back for a rewrite. */
 	let first: { reply: GeminiReply; text: string } | null = null;
+	/** Tokens across every call this answer made (lookup rounds and a rewrite included). */
+	const used: TokenUsage = { input: 0, output: 0, thinking: 0 };
 	for (;;) {
 		const mustAnswer = lookupRounds >= MAX_TOOL_ROUNDS || calls >= MAX_TOOL_CALLS || deadlineAt - Date.now() < ROUND_MIN_MS;
 		const reply = await askGemini(contents, p.systemInstruction, {
@@ -940,10 +1001,15 @@ export async function answer(p: AnswerInput, hooks: { onText?: (full: string) =>
 		const done = (r: GeminiReply, text: string, figures: FigureCheck): Answer => {
 			if (figures.unsupported.length > 0) console.warn(`[STAK AI] figures not in the data, left in: ${figures.unsupported.join(", ")}`);
 			const tickers = loaded.found.length > 0 ? [...new Set([...loaded.found, ...p.tickers])].slice(0, 3) : p.tickers;
-			return { ...r, text, toolCalls: calls, tickers, figures };
+			return { ...r, text, toolCalls: calls, tickers, figures, usage: used };
 		};
 		// A rewrite that fails, comes back empty or refused, or is no better: the first answer stands (it was shown).
 		const keepFirst = () => done(first!.reply, first!.text, { flagged, rewritten: false, unsupported: flagged });
+		if (reply) {
+			used.input += reply.usage.input;
+			used.output += reply.usage.output;
+			used.thinking += reply.usage.thinking;
+		}
 		if (!reply) return first ? keepFirst() : null;
 		if (reply.callParts.length === 0 || mustAnswer) {
 			let text = `${said}${reply.raw}`.trim();
