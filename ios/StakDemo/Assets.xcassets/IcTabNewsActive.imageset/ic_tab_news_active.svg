@@ -1,0 +1,15 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="news">
+<rect id="Rectangle" x="4" y="5" width="16" height="14" rx="2" fill="white"/>
+<g id="Rectangle_2">
+<mask id="path-2-inside-1_0_50" fill="white">
+<rect x="6.5" y="8" width="4.5" height="4" rx="0.8"/>
+</mask>
+<rect x="6.5" y="8" width="4.5" height="4" rx="0.8" stroke="#060C1D" stroke-width="3" mask="url(#path-2-inside-1_0_50)"/>
+</g>
+<path id="Vector" d="M13 9H17.5" stroke="#060C1D" stroke-width="1.5" stroke-linecap="round"/>
+<path id="Vector_2" d="M13 11H17.5" stroke="#060C1D" stroke-width="1.5" stroke-linecap="round"/>
+<path id="Vector_3" d="M6.5 15H17.5" stroke="#060C1D" stroke-width="1.5" stroke-linecap="round"/>
+<path id="Vector_4" d="M6.5 17H17.5" stroke="#060C1D" stroke-width="1.5" stroke-linecap="round"/>
+</g>
+</svg>
