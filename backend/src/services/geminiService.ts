@@ -73,6 +73,10 @@ export async function withGeminiConcurrencyLimit<T>(fn: () => Promise<T>, { resu
 export const GEMINI_REFUSAL_RE = /^(i('?m| am) sorry|i cannot|i'?m unable|i can'?t|sorry,|unfortunately,|i apologize)/i;
 
 export function getGeminiKeys(): string[] {
+	// A development machine's own key (SECRETS.md): when set it's the only one used, so local runs never spend the live
+	// keys. The live backend never has it.
+	const dev = process.env.GEMINI_DEV_API_KEY?.trim();
+	if (dev) return [dev];
 	return [
 		process.env.GEMINI_API_KEY,
 		process.env.GEMINI_API_KEY_2,

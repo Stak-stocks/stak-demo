@@ -1,0 +1,6 @@
+# Copy to local.properties (gitignored), or run scripts/pull-secrets.sh to fetch the real one from Secret Manager.
+# The values are built into the app; users never need this file. See SECRETS.md.
+sdk.dir=/path/to/Android/sdk
+supabase.url=https://your-project-ref.supabase.co
+supabase.anon_key=
+google.web_client_id=

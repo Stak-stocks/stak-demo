@@ -12,6 +12,10 @@ file (`vB8TOvR1WyyXEKVZ8frstU`, section "01 · Onboarding & Auth", node
 The Swift sources, asset catalog, fonts and Info.plist are all committed;
 only the `.xcodeproj` needs generating. Two options:
 
+**First, the keys:** `ios/Secrets.xcconfig` (gitignored) holds the Supabase and Google sign-in values. Run
+`scripts/pull-secrets.sh` from the repo root to fetch it, or copy `Secrets.xcconfig.example` and fill it in. See
+`SECRETS.md`.
+
 **Option A — XcodeGen (recommended):**
 
 ```sh

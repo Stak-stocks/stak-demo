@@ -20,7 +20,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,7 +59,8 @@ fun NotificationsScreen(onBack: () -> Unit, onOpenSettings: () -> Unit, onOpen: 
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val items = StakNotifications.items
 	// Captured once: markAllRead below rewrites readIds, and the rows opened unread keep their dot for this visit.
-	val readBefore = remember { StakNotifications.readIds }
+	// A tapped row joins it: opened is read, its dot doesn't wait for the next visit.
+	var readBefore by remember { mutableStateOf(StakNotifications.readIds) }
 	LaunchedEffect(Unit) {
 		StakNotifications.markAllRead()
 		StakNotifications.refresh()
@@ -80,7 +84,10 @@ fun NotificationsScreen(onBack: () -> Unit, onOpenSettings: () -> Unit, onOpen: 
 			} else {
 				Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg)) {
 					items.forEachIndexed { i, item ->
-						NotificationRow(item = item, unread = item.id !in readBefore, onClick = { onOpen(item.target) })
+						NotificationRow(item = item, unread = item.id !in readBefore, onClick = {
+							readBefore = readBefore + item.id
+							onOpen(item.target)
+						})
 						if (i < items.lastIndex) Box(modifier = Modifier.fillMaxWidth().padding(horizontal = (14 * u).dp).size(width = 0.dp, height = (1 * u).dp).background(Divider))
 					}
 				}

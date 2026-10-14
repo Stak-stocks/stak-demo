@@ -26,6 +26,8 @@ function NotificationsPage() {
 	const { items, unread, loaded, markAllRead } = useNotifications();
 	const openTarget = useOpenNotification();
 	const [unreadOnOpen, setUnreadOnOpen] = useState<Set<string> | null>(null);
+	// Opened is read: a tapped item's dot doesn't wait for the next visit.
+	const seen = (id: string) => setUnreadOnOpen((cur) => (cur?.has(id) ? new Set([...cur].filter((x) => x !== id)) : cur));
 	const markedRef = useRef(false);
 
 	useEffect(() => {
@@ -49,7 +51,7 @@ function NotificationsPage() {
 							<li key={item.id}>
 								{i > 0 && <div style={{ height: cu(1), margin: `0 ${cu(14)}`, background: "#1A2333" }} />}
 								{/* A row opens what it's about - the stock, or Discover (as the apps). */}
-								<button type="button" onClick={() => openTarget(item.target)} className="flex w-full items-center text-left transition-opacity active:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2" style={{ gap: cu(12), padding: `${cu(12)} ${cu(14)}`, outlineColor: DISC.teal }}>
+								<button type="button" onClick={() => { seen(item.id); openTarget(item.target); }} className="flex w-full items-center text-left transition-opacity active:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2" style={{ gap: cu(12), padding: `${cu(12)} ${cu(14)}`, outlineColor: DISC.teal }}>
 									<span className="grid shrink-0 place-items-center rounded-full" style={{ width: cu(36), height: cu(36), background: "#1A2333", font: f(600, 14, undefined, "heading"), color: DISC.teal }} aria-hidden="true">
 										{item.title.slice(0, 1).toUpperCase()}
 									</span>
