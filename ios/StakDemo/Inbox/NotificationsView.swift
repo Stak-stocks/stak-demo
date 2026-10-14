@@ -42,7 +42,11 @@ struct NotificationsView: View {
 					} else {
 						VStack(spacing: 0) {
 							ForEach(Array(inbox.items.enumerated()), id: \.element.id) { i, item in
-								Button { onOpen(item.target) } label: {
+								Button {
+									// Opened is read: its dot doesn't wait for the next visit (Back returns to this one).
+									readBefore = (readBefore ?? inbox.readIds).union([item.id])
+									onOpen(item.target)
+								} label: {
 									NotificationRow(item: item, unread: !(readBefore ?? inbox.readIds).contains(item.id))
 										.contentShape(Rectangle())
 								}
