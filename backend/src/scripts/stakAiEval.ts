@@ -17,12 +17,13 @@ import { answer, assembleChat, parseAnswer } from "../routes/stakAi.js";
 
 /**
  * GEMINI_EVAL_API_KEY in backend/.env: a billed key used only by this script, for this run (the backend reads its
- * keys on each call). Everyday local dev keeps GEMINI_API_KEY, so the billed key isn't spent there. With it, the
+ * keys on each call). Everyday local dev keeps GEMINI_DEV_API_KEY, so the billed key isn't spent there. With it, the
  * questions needn't be spaced out for a free-tier limit.
  */
 const evalKey = process.env.GEMINI_EVAL_API_KEY?.trim();
 if (evalKey) {
 	process.env.GEMINI_API_KEY = evalKey;
+	delete process.env.GEMINI_DEV_API_KEY;
 	delete process.env.GEMINI_API_KEY_2;
 	delete process.env.GEMINI_API_KEY_3;
 }

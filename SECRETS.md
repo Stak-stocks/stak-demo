@@ -26,7 +26,7 @@ App users never need any of this: the app's values are built into it when it's b
 | `REDIS_URL`, `ADMIN_SECRET`, `WARM_SECRET`, `WAITLIST_TOKEN_SECRET`, `TALLY_SIGNING_SECRET`, `TALLY_FORM_URL` | Backend |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Backend (web push) |
 | `EARLY_ACCESS_RESEND_KEY`, `ANALYTICS_EXCLUDED_EMAILS` | Backend |
-| `dev-backend-local` | Settings only a development machine has (`PORT`, the Supabase CLI token, ...) |
+| `dev-backend-local` | Settings only a development machine has (`PORT`, the Supabase CLI token, and `GEMINI_DEV_API_KEY` - a Gemini key for local runs, used instead of the live ones whenever it's set) |
 | `dev-frontend-env` | `frontend/.env` |
 | `dev-android-local-properties` | `android/local.properties` |
 | `dev-ios-secrets-xcconfig` | `ios/Secrets.xcconfig` |
