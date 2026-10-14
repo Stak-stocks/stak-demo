@@ -8,7 +8,12 @@ committed to this repo (it's public); the repo only has example files that name 
 1. Ask for the **Secret Manager Secret Accessor** role on `stak-c21a3`.
 2. `gcloud auth login`
 3. `scripts/pull-secrets.sh` - writes `backend/.env`, `frontend/.env`, `android/local.properties` and
-   `ios/Secrets.xcconfig` (all gitignored). Existing files are kept; `--force` replaces them.
+   `ios/Secrets.xcconfig` (all gitignored). Existing files are kept; `--force` replaces them with the latest values -
+   run it after anyone changes a key.
+
+`backend/.env` is built from the backend's own keys (the ones `backend/.env.example` names) plus
+`dev-backend-local`, so it is never a second copy that can fall behind. Keys `.env.example` doesn't name (like
+`REDIS_URL`) stay off development machines, so a local run never touches the live cache.
 
 App users never need any of this: the app's values are built into it when it's built.
 
@@ -21,7 +26,7 @@ App users never need any of this: the app's values are built into it when it's b
 | `REDIS_URL`, `ADMIN_SECRET`, `WARM_SECRET`, `WAITLIST_TOKEN_SECRET`, `TALLY_SIGNING_SECRET`, `TALLY_FORM_URL` | Backend |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Backend (web push) |
 | `EARLY_ACCESS_RESEND_KEY`, `ANALYTICS_EXCLUDED_EMAILS` | Backend |
-| `dev-backend-env` | `backend/.env` for local development |
+| `dev-backend-local` | Settings only a development machine has (`PORT`, the Supabase CLI token, ...) |
 | `dev-frontend-env` | `frontend/.env` |
 | `dev-android-local-properties` | `android/local.properties` |
 | `dev-ios-secrets-xcconfig` | `ios/Secrets.xcconfig` |
@@ -31,8 +36,17 @@ key on the machine that deploys.
 
 ## Changing a key
 
+Where a change lands:
+
+| Where | Picks it up |
+|---|---|
+| Live backend | At its next new revision (`npm run deploy:backend`) - Cloud Run reads `:latest` when an instance starts |
+| Developer machines | `scripts/pull-secrets.sh --force` |
+| iOS and Android apps | The next app build (the values are built in) |
+| Website | Vercel's own environment settings - change it there too |
+
 ```sh
-# a backend key: add a version, then deploy (or roll a new revision) so Cloud Run picks up :latest
+# a backend key: add a version, then deploy so Cloud Run picks up :latest
 printf '%s' 'NEW_VALUE' | gcloud secrets versions add GEMINI_API_KEY --project stak-c21a3 --data-file=-
 
 # a whole local file

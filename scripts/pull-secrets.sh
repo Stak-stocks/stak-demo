@@ -36,8 +36,35 @@ pull() {
 	echo "  $file: written"
 }
 
+# backend/.env is built from the shared keys themselves (the ones backend/.env.example names), so a rotated key reaches
+# this machine on the next --force run - no second copy to keep in step - plus dev-backend-local: settings only a
+# development machine has (PORT, the Supabase CLI token...). Keys .env.example doesn't name (REDIS_URL...) stay off
+# dev machines, so local runs never touch the live cache.
+backend_env() {
+	local path="$ROOT/backend/.env"
+	if [ -e "$path" ] && [ "$FORCE" != "--force" ]; then
+		echo "  backend/.env: already there (--force to replace)"
+		return
+	fi
+	local available
+	available=$(gcloud secrets list --project "$PROJECT" --format='value(name)')
+	{
+		echo "# Written by scripts/pull-secrets.sh from Secret Manager - change keys there, not here (SECRETS.md)."
+		for name in $(grep -oE '^[A-Z0-9_]+=' "$ROOT/backend/.env.example" | tr -d =); do
+			if grep -qx "$name" <<<"$available"; then
+				printf '%s=%s\n' "$name" "$(gcloud secrets versions access latest --secret "$name" --project "$PROJECT")"
+			fi
+		done
+		if grep -qx dev-backend-local <<<"$available"; then
+			gcloud secrets versions access latest --secret dev-backend-local --project "$PROJECT"
+		fi
+	} > "$path.tmp"
+	mv "$path.tmp" "$path"
+	echo "  backend/.env: written"
+}
+
 echo "Local config from Secret Manager ($PROJECT):"
-pull dev-backend-env backend/.env
+backend_env
 pull dev-frontend-env frontend/.env
 pull dev-android-local-properties android/local.properties
 pull dev-ios-secrets-xcconfig ios/Secrets.xcconfig
