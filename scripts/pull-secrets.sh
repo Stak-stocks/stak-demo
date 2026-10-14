@@ -27,13 +27,14 @@ pull() {
 		echo "  $file: already there (--force to replace)"
 		return
 	fi
-	if ! gcloud secrets describe "$secret" --project "$PROJECT" >/dev/null 2>&1; then
-		echo "  $file: no secret '$secret' yet (see SECRETS.md)"
-		return
+	# Read straight away: the Secret Accessor role can read a secret's value but not list or describe secrets.
+	if gcloud secrets versions access latest --secret "$secret" --project "$PROJECT" > "$path.tmp" 2>/dev/null; then
+		mv "$path.tmp" "$path"
+		echo "  $file: written"
+	else
+		rm -f "$path.tmp"
+		echo "  $file: couldn't read '$secret' - no access, or not created yet (see SECRETS.md)"
 	fi
-	gcloud secrets versions access latest --secret "$secret" --project "$PROJECT" > "$path.tmp"
-	mv "$path.tmp" "$path"
-	echo "  $file: written"
 }
 
 # backend/.env is built from the shared keys themselves (the ones backend/.env.example names), so a rotated key reaches
@@ -46,21 +47,25 @@ backend_env() {
 		echo "  backend/.env: already there (--force to replace)"
 		return
 	fi
-	local available
-	available=$(gcloud secrets list --project "$PROJECT" --format='value(name)')
+	# Each key read straight away (Secret Accessor can't list secrets). A name dev-backend-local already sets (PORT,
+	# GEMINI_DEV_API_KEY...) comes from there; any other it can't read is left out and named.
+	local value missing="" localcfg
+	localcfg=$(gcloud secrets versions access latest --secret dev-backend-local --project "$PROJECT" 2>/dev/null) || missing=" dev-backend-local"
 	{
 		echo "# Written by scripts/pull-secrets.sh from Secret Manager - change keys there, not here (SECRETS.md)."
 		for name in $(grep -oE '^[A-Z0-9_]+=' "$ROOT/backend/.env.example" | tr -d =); do
-			if grep -qx "$name" <<<"$available"; then
-				printf '%s=%s\n' "$name" "$(gcloud secrets versions access latest --secret "$name" --project "$PROJECT")"
+			if grep -q "^$name=" <<<"$localcfg"; then continue; fi
+			if value=$(gcloud secrets versions access latest --secret "$name" --project "$PROJECT" 2>/dev/null); then
+				printf '%s=%s\n' "$name" "$value"
+			else
+				missing="$missing $name"
 			fi
 		done
-		if grep -qx dev-backend-local <<<"$available"; then
-			gcloud secrets versions access latest --secret dev-backend-local --project "$PROJECT"
-		fi
+		if [ -n "$localcfg" ]; then printf '%s\n' "$localcfg"; fi
 	} > "$path.tmp"
 	mv "$path.tmp" "$path"
 	echo "  backend/.env: written"
+	if [ -n "$missing" ]; then echo "    couldn't read (no access, or not created yet):$missing"; fi
 }
 
 echo "Local config from Secret Manager ($PROJECT):"
