@@ -415,7 +415,14 @@ struct MainTabsView: View {
 			// not take the hub with it.
 			ProfileSetupView(onBack: { if pushed.last?.page == .editProfile { pop() } }, onProceed: { if pushed.last?.page == .editProfile { pop() } }, editing: true)
 		case .notifications:
-			NotificationsView(onBack: { pop() }, onOpenSettings: { push(.settings(.notifications)) })
+			NotificationsView(onBack: { pop() }, onOpenSettings: { push(.settings(.notifications)) }, onOpen: { target in
+				// A stock opens over the inbox, so Back returns here; a tab leaves the inbox with the forward push.
+				switch target {
+				case .stock(let symbol): pushInstant(.stockDetail(fromMyStak: MyStakHoldings.shared.tickers.contains(symbol), symbol: symbol))
+				case .discover: pop(.forwardPush, all: true, landing: .discover)
+				case .simulate: pop(.forwardPush, all: true, landing: .simulate)
+				}
+			})
 		case .settings(let kind):
 			SettingsView(kind: kind, onBack: { pop() }, onOpen: { push(.settings($0)) }, onAccountDeleted: onAccountDeleted)
 		case .simPortfolio:

@@ -15,6 +15,8 @@ private let dot = Color(argb: 0xFFFF8030)
 struct NotificationsView: View {
 	let onBack: () -> Void
 	let onOpenSettings: () -> Void
+	/// A tapped row: what it's about - the stock, or the tab. Mirrors android NotificationsScreen.
+	let onOpen: (StakNotifications.Target) -> Void
 	@ObservedObject private var inbox = StakNotifications.shared
 	/// Captured once: marking everything read rewrites readIds, and the rows opened unread keep their dot this visit.
 	@State private var readBefore: Set<String>? = nil
@@ -40,7 +42,11 @@ struct NotificationsView: View {
 					} else {
 						VStack(spacing: 0) {
 							ForEach(Array(inbox.items.enumerated()), id: \.element.id) { i, item in
-								NotificationRow(item: item, unread: !(readBefore ?? inbox.readIds).contains(item.id))
+								Button { onOpen(item.target) } label: {
+									NotificationRow(item: item, unread: !(readBefore ?? inbox.readIds).contains(item.id))
+										.contentShape(Rectangle())
+								}
+								.buttonStyle(.pressDim)
 								if i < inbox.items.count - 1 {
 									Rectangle().fill(divider).frame(height: 1 * u).padding(.horizontal, 14 * u)
 								}
