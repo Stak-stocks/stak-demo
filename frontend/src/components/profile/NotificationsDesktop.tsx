@@ -55,7 +55,11 @@ export function NotificationsDesktop() {
 	const newCount = unreadOnOpen?.size ?? 0;
 
 	const openTarget = useOpenNotification();
-	const open = (d: (typeof described)[number]) => openTarget(d.item.target);
+	// Opened is read: a tapped item's dot doesn't wait for the next visit.
+	const open = (d: (typeof described)[number]) => {
+		setUnreadOnOpen((cur) => (cur?.has(d.item.id) ? new Set([...cur].filter((x) => x !== d.item.id)) : cur));
+		openTarget(d.item.target);
+	};
 
 	return (
 		<div className="min-h-full" style={{ background: deskPageBg() }}>
