@@ -193,6 +193,11 @@ export function useStakAiChat({ fromLauncher = false, context: given = null, def
 				context: contextSent.current ? undefined : contextRef.current ?? undefined,
 				via,
 				signal: controller.signal,
+				// The server's keep-alive while it looks things up or re-checks figures: it's working, so keep waiting.
+				onAlive: () => {
+					clearTimeout(timer);
+					timer = setTimeout(giveUp, gotText ? STALL_MS : SLOW_MS);
+				},
 				onText: (soFar) => {
 					clearTimeout(timer);
 					timer = setTimeout(giveUp, STALL_MS);

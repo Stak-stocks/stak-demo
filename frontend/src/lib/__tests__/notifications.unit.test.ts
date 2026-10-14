@@ -25,6 +25,22 @@ describe("buildNotifications", () => {
 		expect(items[0]!.body).toBe("Tesla, one of your saved stocks, moved 3% or more.");
 	});
 
+	it("each item opens what it's about: a move its stock, the rest Discover (as the apps)", () => {
+		const items = buildNotifications({
+			...base,
+			held: [],
+			deckCardsLeft: 3,
+			createdAt: "2026-09-25T12:00:00Z",
+		});
+		expect(Object.fromEntries(items.map((i) => [i.id, i.target]))).toEqual({
+			"deck:2026-09-26": { kind: "discover" },
+			"first-save": { kind: "discover" },
+			welcome: { kind: "discover" },
+		});
+		const [move] = buildNotifications({ ...base, held: [{ ticker: "NVDA", changePercent: 5 }] });
+		expect(move!.target).toEqual({ kind: "stock", symbol: "NVDA" });
+	});
+
 	it("words the session like Android after the close", () => {
 		const [item] = buildNotifications({ ...base, closeRef: "Friday", held: [{ ticker: "NVDA", changePercent: 4 }] });
 		expect(item!.title).toBe("NVDA is up 4.0% at Friday's close");

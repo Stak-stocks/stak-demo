@@ -681,6 +681,14 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 			com.stak.demo.ui.inbox.NotificationsScreen(
 				onBack = { navController.popBackStack() },
 				onOpenSettings = { navController.navigate(StakRoutes.settings(com.stak.demo.ui.profile.SettingsKind.NOTIFICATIONS)) },
+				// A stock opens over the inbox, so Back returns here; a tab leaves the inbox with the forward push.
+				onOpen = { target ->
+					when (target) {
+						is com.stak.demo.data.StakNotifications.Target.Stock -> navController.navigate(StakRoutes.myStakStock(target.symbol))
+						com.stak.demo.data.StakNotifications.Target.Discover -> popToShell(PopStyle.FORWARD_PUSH, MainTab.Discover)
+						com.stak.demo.data.StakNotifications.Target.Simulate -> popToShell(PopStyle.FORWARD_PUSH, MainTab.Simulate)
+					}
+				},
 			)
 		}
 		composable(StakRoutes.SETTINGS) { entry ->

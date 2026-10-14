@@ -1,6 +1,8 @@
 ﻿package com.stak.demo.ui.inbox
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,7 +52,7 @@ private val Dot = Color(0xFFFF8030)
  * NotificationsView.swift.
  */
 @Composable
-fun NotificationsScreen(onBack: () -> Unit, onOpenSettings: () -> Unit) {
+fun NotificationsScreen(onBack: () -> Unit, onOpenSettings: () -> Unit, onOpen: (StakNotifications.Target) -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	val items = StakNotifications.items
 	// Captured once: markAllRead below rewrites readIds, and the rows opened unread keep their dot for this visit.
@@ -78,7 +80,7 @@ fun NotificationsScreen(onBack: () -> Unit, onOpenSettings: () -> Unit) {
 			} else {
 				Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg)) {
 					items.forEachIndexed { i, item ->
-						NotificationRow(item = item, unread = item.id !in readBefore)
+						NotificationRow(item = item, unread = item.id !in readBefore, onClick = { onOpen(item.target) })
 						if (i < items.lastIndex) Box(modifier = Modifier.fillMaxWidth().padding(horizontal = (14 * u).dp).size(width = 0.dp, height = (1 * u).dp).background(Divider))
 					}
 				}
@@ -91,12 +93,15 @@ fun NotificationsScreen(onBack: () -> Unit, onOpenSettings: () -> Unit) {
 }
 
 @Composable
-private fun NotificationRow(item: StakNotifications.Item, unread: Boolean) {
+private fun NotificationRow(item: StakNotifications.Item, unread: Boolean, onClick: () -> Unit) {
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
 	Row(
 		verticalAlignment = Alignment.CenterVertically,
 		horizontalArrangement = Arrangement.spacedBy((12 * u).dp),
-		modifier = Modifier.fillMaxWidth().padding(horizontal = (14 * u).dp, vertical = (12 * u).dp),
+		// Opens what the row is about - the stock, or the tab; the same press dim as the settings rows.
+		modifier = Modifier.fillMaxWidth()
+			.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, onClick = onClick)
+			.padding(horizontal = (14 * u).dp, vertical = (12 * u).dp),
 	) {
 		Box(contentAlignment = Alignment.Center, modifier = Modifier.size((36 * u).dp).background(IconBg, CircleShape)) {
 			Text(item.title.take(1).uppercase(), style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (14 * u).sp), color = Teal)

@@ -29,9 +29,17 @@ vi.mock("../stock.js", () => ({
 	getStockSnapshot: async (t: string) => {
 		stockLookups.push(t);
 		if (t === "ZZNQ") return { quote: null, metrics: {} };
-		return { quote: { price: 100, changePercent: -3.2, marketState: "REGULAR" }, metrics: { peRatio: 30, marketCap: "1T", beta: 1.1, week52Low: 80, week52High: 210.5, yearReturn: -53.06, ytdReturn: 4 } };
+		return { quote: { price: 100, changePercent: -3.2, marketState: "REGULAR" }, metrics: { peRatio: 30, marketCap: "1T", beta: 1.1, week52Low: 80, week52High: 210.5, yearReturn: -53.06, ytdReturn: 4, return5d: -4.03, return13w: 8.68, return26w: 28.74, revenueGrowthQuarterYoy: 105.85, epsGrowthQuarterYoy: -12, profitMargin: "63.7%" } };
+	},
+	getQuarterlyEps: async (t: string) => {
+		epsLookups.push(t);
+		return [
+			{ period: "2026-09-30", quarter: 2, year: 2027, actual: 2.22, estimate: 2.1384, surprisePercent: 3.8159 },
+			{ period: "2026-06-30", quarter: 1, year: 2027, actual: -0.1, estimate: 0.05, surprisePercent: -300 },
+		];
 	},
 }));
+const epsLookups: string[] = [];
 
 const CONV_1 = "11111111-1111-4111-8111-111111111111";
 const CONV_2 = "22222222-2222-4222-8222-222222222222";
@@ -81,13 +89,28 @@ function fakePg(sql: string, params: unknown[] = []) {
 /** Every request body sent to Gemini; the model's next reply text (null makes every key fail). */
 let geminiBodies: any[];
 let geminiReply: string | null;
+/** Tool requests the model makes first, one round per entry, before it answers with geminiReply. */
+let geminiToolRounds: { name: string; args: Record<string, unknown> }[][];
+/** Answers given in turn before geminiReply (an answer and then its rewrite, say). */
+let geminiTexts: string[];
 function stubFetch() {
 	geminiBodies = [];
+	geminiToolRounds = [];
+	geminiTexts = [];
 	vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: { body?: string }) => {
-		geminiBodies.push(JSON.parse(init!.body!));
+		const body = JSON.parse(init!.body!);
+		geminiBodies.push(body);
 		if (geminiReply === null) return new Response("boom", { status: 500 });
-		return geminiSse([geminiReply]);
+		// Asked to answer without tools (the last round): it answers.
+		const round = body.toolConfig?.functionCallingConfig?.mode === "NONE" ? undefined : geminiToolRounds.shift();
+		return round ? geminiCallSse(round) : geminiSse([geminiTexts.shift() ?? geminiReply]);
 	}));
+}
+
+/** A streamed reply that only asks for tools. */
+function geminiCallSse(calls: { name: string; args: Record<string, unknown> }[]) {
+	const chunk = { candidates: [{ content: { role: "model", parts: calls.map((c) => ({ functionCall: c })) }, finishReason: "STOP" }] };
+	return new Response(`data: ${JSON.stringify(chunk)}\r\n\r\n`, { headers: { "Content-Type": "text/event-stream" } });
 }
 
 async function buildApp() {
@@ -105,6 +128,7 @@ const calls = (re: RegExp) => pgQueryMock.mock.calls.filter(([sql]) => re.test(s
 beforeEach(() => {
 	db = { used: 0, conversation: null };
 	stockLookups.length = 0;
+	epsLookups.length = 0;
 	pgQueryMock.mockReset();
 	pgQueryMock.mockImplementation(fakePg);
 	newsMock.mockReset();
@@ -144,6 +168,7 @@ describe("POST /chat", () => {
 		expect(stockLookups).toEqual(["NVDA"]);
 		expect(promptText()).toContain("stock page");
 		expect(promptText()).toContain("52-week range $80.00-$210.50 (as of last close) | past year -53.1% | year to date +4.0%");
+		expect(promptText()).toContain("past 5 trading days -4.0% (to last close) | past 13 weeks (about a quarter) +8.7% (to last close) | past 26 weeks +28.7% (to last close) | latest reported quarter vs the same quarter a year earlier: revenue +105.8%, EPS -12.0% | net profit margin (last 12 months) 63.7%");
 		const insert = calls(/^\s*INSERT INTO stak_ai_conversations/)[0]!;
 		expect(insert[1][1]).toMatch(/^.+: Why is it down today\?$/);
 		expect(JSON.parse(insert[1][2])).toEqual({ type: "stock", ticker: "NVDA" });
@@ -173,7 +198,7 @@ describe("POST /chat", () => {
 		await request(app).post("/chat").send({ message: "Why is Foobarco moving?", conversationId: CONV_1 });
 		expect(stockLookups).toEqual([]);
 		// ...and it's told so, rather than left to fill the gap.
-		expect(promptText()).toContain("No live market data or news was loaded for this question");
+		expect(promptText()).toContain("No company data was loaded up front for this question");
 	});
 
 	it("a follow-up asking what's happening keeps the conversation's company", async () => {
@@ -231,9 +256,9 @@ describe("POST /chat", () => {
 	});
 
 	it("headlines carry their US Eastern date, so the model can tell today's news from last week's", async () => {
-		newsMock.mockResolvedValue([{ headline: "Kids ads lawsuit filed", url: "https://news.test/k", datetime: 1_760_000_000 }]);
+		newsMock.mockResolvedValue([{ headline: "Kids ads lawsuit filed", url: "https://news.test/k", datetime: 1_760_000_000, source: "SeekingAlpha" }]);
 		await request(await buildApp()).post("/chat").send({ message: "Why did $ZZQX jump?" });
-		expect(promptText()).toContain("  - (Thu, Oct 9) Kids ads lawsuit filed");
+		expect(promptText()).toContain("  - (Thu, Oct 9) Seeking Alpha: Kids ads lawsuit filed");
 		// Undated: no made-up date.
 		newsMock.mockResolvedValue([{ headline: "Kids ads lawsuit filed", url: "https://news.test/k", datetime: 0 }]);
 		await request(await buildApp()).post("/chat").send({ message: "Why did $ZZQX jump?" });
@@ -259,6 +284,205 @@ describe("POST /chat", () => {
 		// A long summary is cut at a word, marked with "…".
 		expect(prompt).toMatch(/A judge heard Unity's request [a-z ]+…/);
 		expect(prompt).not.toContain("and ruled.");
+	});
+
+	it("a question about results gets the last reported quarters; other questions don't fetch them", async () => {
+		const app = await buildApp();
+		await request(app).post("/chat").send({ message: "Why is $ZZQX moving today?" });
+		expect(epsLookups).toEqual([]);
+		await request(app).post("/chat").send({ message: "Did $ZZQX beat earnings last quarter?" });
+		expect(epsLookups).toEqual(["ZZQX"]);
+		const prompt = promptText();
+		expect(prompt).toContain("Past quarterly results:");
+		expect(prompt).toContain("Fiscal Q2 2027 (period listed as Sep 2026): $2.22 vs $2.14 estimate - beat by $0.08 (3.8%)");
+		// A loss against a small positive estimate: the gap in dollars, no "300%".
+		expect(prompt).toContain("Fiscal Q1 2027 (period listed as Jun 2026): -$0.10 vs $0.05 estimate - missed by $0.15");
+		expect(prompt).not.toContain("300");
+	});
+
+	it("an earnings follow-up keeps the conversation's company; a definition doesn't", async () => {
+		db.conversation = { id: CONV_1, uid: "u1", context: null, last_tickers: ["AAPL"] };
+		const app = await buildApp();
+		await request(app).post("/chat").send({ message: "What does EPS mean?", conversationId: CONV_1 });
+		await request(app).post("/chat").send({ message: "I don't want to miss out", conversationId: CONV_1 });
+		expect(stockLookups).toEqual([]);
+		await request(app).post("/chat").send({ message: "and last quarter's earnings?", conversationId: CONV_1 });
+		expect(stockLookups).toEqual(["AAPL"]);
+		expect(epsLookups).toEqual(["AAPL"]);
+		// "What about the quarter before?" once got nothing, and the model answered from memory.
+		await request(app).post("/chat").send({ message: "What about the quarter before?", conversationId: CONV_1 });
+		expect(epsLookups).toEqual(["AAPL", "AAPL"]);
+	});
+
+	it("the model fetches what wasn't loaded up front, and the conversation is then about that company", async () => {
+		db.conversation = { id: CONV_1, uid: "u1", context: null, last_tickers: [] };
+		geminiToolRounds = [[{ name: "get_quarterly_results", args: { ticker: "nvda" } }]];
+		const res = await request(await buildApp()).post("/chat").send({ message: "and the quarter before that one?", conversationId: CONV_1 });
+		expect(res.status).toBe(200);
+		expect(geminiBodies).toHaveLength(2);
+		expect(geminiBodies[0].tools[0].functionDeclarations.map((d: { name: string }) => d.name))
+			.toEqual(["find_company", "get_stock", "get_news", "get_quarterly_results"]);
+		// The request, as the model sent it, then the result going back.
+		const second = JSON.stringify(geminiBodies[1].contents);
+		expect(second).toContain('"functionCall":{"name":"get_quarterly_results"');
+		expect(second).toContain("Fiscal Q2 2027 (period listed as Sep 2026): $2.22 vs $2.14 estimate");
+		expect(epsLookups).toEqual(["NVDA"]);
+		expect(calls(/UPDATE stak_ai_conversations SET updated_at/)[0]![1][1]).toEqual(["NVDA"]);
+		expect(JSON.parse(calls(/INSERT INTO events/)[0]![1][1]).tools).toBe(1);
+	});
+
+	it("a misspelled company is found through find_company", async () => {
+		const { findCompanies } = await import("../stakAi.js");
+		expect(findCompanies("apploving")).toEqual([{ ticker: "APP", name: "AppLovin Corp" }]);
+		expect(findCompanies("netflix").map((m) => m.ticker)).toContain("NFLX");
+		expect(findCompanies("foobarco")).toEqual([]);
+	});
+
+	it("after two rounds of lookups it must answer, and a bad ticker is turned back", async () => {
+		geminiToolRounds = [
+			[{ name: "get_stock", args: { ticker: "not a ticker!" } }],
+			[{ name: "get_stock", args: { ticker: "AAPL" } }],
+			[{ name: "get_stock", args: { ticker: "MSFT" } }],
+		];
+		const res = await request(await buildApp()).post("/chat").send({ message: "What is beta?" });
+		expect(res.status).toBe(200);
+		expect(res.body.response).toBe("It fell on export curbs.");
+		expect(geminiBodies).toHaveLength(3);
+		expect(geminiBodies[2].toolConfig.functionCallingConfig.mode).toBe("NONE");
+		expect(JSON.stringify(geminiBodies[1].contents)).toContain("That isn't a stock ticker");
+		expect(stockLookups).toEqual(["AAPL"]);
+	});
+
+	it("every request in a round gets an answer: past eight, 'too many'; an unknown tool is named", async () => {
+		geminiToolRounds = [[
+			...["A1", "A2", "A3", "A4"].map(() => ({ name: "find_company", args: { name: "apple" } })),
+			...["B1", "B2", "B3", "B4"].map(() => ({ name: "find_company", args: { name: "nvidia" } })),
+			{ name: "get_stock", args: { ticker: "AAPL" } },
+			{ name: "get_weather", args: {} },
+		]];
+		await request(await buildApp()).post("/chat").send({ message: "What is beta?" });
+		const results = geminiBodies[1].contents.at(-1).parts.map((p: { functionResponse: { response: unknown } }) => JSON.stringify(p.functionResponse.response));
+		expect(results).toHaveLength(10);
+		expect(results[0]).toContain('"ticker":"AAPL"');
+		expect(results[8]).toContain("Too many lookups");
+		expect(results[9]).toContain("Too many lookups");
+		// Eight calls used: the next request must answer.
+		expect(geminiBodies[1].toolConfig.functionCallingConfig.mode).toBe("NONE");
+		geminiToolRounds = [[{ name: "get_weather", args: {} }]];
+		await request(await buildApp()).post("/chat").send({ message: "What is beta?" });
+		expect(JSON.stringify(geminiBodies.at(-1).contents)).toContain("No tool called get_weather");
+	});
+
+	it("a company already loaded isn't cited twice, and a ticker with no data isn't remembered", async () => {
+		db.conversation = { id: CONV_1, uid: "u1", context: null, last_tickers: [] };
+		// NVDA's news is loaded up front; the model asks for it again, and for a ticker that has no quote.
+		geminiToolRounds = [[{ name: "get_news", args: { ticker: "NVDA" } }, { name: "get_stock", args: { ticker: "ZZNQ" } }]];
+		const res = await request(await buildApp()).post("/chat").send({ message: "Why is Nvidia down?", conversationId: CONV_1 });
+		expect(res.body.sources).toEqual([{ ticker: "NVDA", headline: "Chip stocks slide on export curbs", url: "https://news.test/a" }]);
+		expect(calls(/UPDATE stak_ai_conversations SET updated_at/)[0]![1][1]).toEqual(["NVDA"]);
+	});
+
+	it("an answer covers at most four companies, the ones loaded up front included", async () => {
+		geminiToolRounds = [[
+			{ name: "get_stock", args: { ticker: "AAPL" } },
+			{ name: "get_stock", args: { ticker: "MSFT" } },
+			{ name: "get_stock", args: { ticker: "TSLA" } },
+		]];
+		await request(await buildApp()).post("/chat").send({ message: "Compare $ZZQX and $ZZNQ" });
+		const results = JSON.stringify(geminiBodies[1].contents.at(-1).parts);
+		expect(results).toContain("Too many companies for one answer");
+		expect(stockLookups).toEqual(["ZZQX", "ZZNQ", "AAPL", "MSFT"]);
+	});
+
+	it("a misspelled company is looked up, and the stream keeps the connection alive while it is", async () => {
+		geminiToolRounds = [[{ name: "find_company", args: { name: "apploving" } }]];
+		const res = await request(await buildApp()).post("/chat/stream").send({ message: "how is apploving doing" });
+		expect(JSON.stringify(geminiBodies[1].contents)).toContain('{"ticker":"APP","name":"AppLovin Corp"}');
+		expect(res.text).toContain(": working\n\n");
+		expect(events(res.text).at(-1)!.event).toBe("done");
+	});
+
+	it("streams the answer that follows a lookup", async () => {
+		geminiToolRounds = [[{ name: "get_stock", args: { ticker: "TSLA" } }]];
+		const res = await request(await buildApp()).post("/chat/stream").send({ message: "how's the car company doing?" });
+		const evs = events(res.text);
+		expect(evs.filter((e) => e.event === "delta").map((e) => e.data.text).join("").trim()).toBe("It fell on export curbs.");
+		expect(evs.at(-1)!.event).toBe("done");
+		expect(evs.at(-1)!.data.response).toBe("It fell on export curbs.");
+	});
+
+	it("an answer with a figure it wasn't given is rewritten once, and the check is logged", async () => {
+		// The up-front data says down 3.20% at $100.00; "$87.50" came from nowhere.
+		geminiTexts = ["NVIDIA closed at $87.50, down 3.20%.\n[[FOLLOWUPS]] Why? | What next?"];
+		geminiReply = "NVIDIA closed at $100.00, down 3.20%.\n[[FOLLOWUPS]] Why? | What next?";
+		const res = await request(await buildApp()).post("/chat").send({ message: "Why is Nvidia down?" });
+		expect(res.body.response).toBe("NVIDIA closed at $100.00, down 3.20%.");
+		expect(geminiBodies).toHaveLength(2);
+		expect(JSON.stringify(geminiBodies[1].contents)).toContain("these figures in your answer aren't in the notes, your tools' results or the user's messages: $87.50");
+		expect(JSON.parse(calls(/INSERT INTO events/)[0]![1][1]).figures).toEqual({ flagged: ["$87.50"], rewritten: true, unsupported: [] });
+	});
+
+	it("a rewrite that still has one is kept, and logged; a clean answer isn't checked twice", async () => {
+		geminiTexts = ["Apple is up 12.5% this year."];
+		geminiReply = "Apple is up 12.5% this year, still.";
+		await request(await buildApp()).post("/chat").send({ message: "How is Apple doing?" });
+		expect(geminiBodies).toHaveLength(2);
+		expect(JSON.parse(calls(/INSERT INTO events/)[0]![1][1]).figures).toEqual({ flagged: ["12.5%"], rewritten: true, unsupported: ["12.5%"] });
+		// Clean: one call, nothing logged.
+		geminiBodies.length = 0;
+		pgQueryMock.mockClear();
+		geminiReply = "NVIDIA is down 3.20% today.";
+		await request(await buildApp()).post("/chat").send({ message: "Why is Nvidia down?" });
+		expect(geminiBodies).toHaveLength(1);
+		expect(JSON.parse(calls(/INSERT INTO events/)[0]![1][1]).figures).toBeUndefined();
+	});
+
+	it("a rewrite that fails or is refused leaves the first answer standing", async () => {
+		// The rewrite request gets a 500 on every key: the first answer, figure and all, is what's saved.
+		geminiTexts = ["NVIDIA closed at $87.50, down 3.20%."];
+		let fetches = 0;
+		const okFetch = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).getMockImplementation()!;
+		(globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (url: string, init?: { body?: string }) =>
+			++fetches > 1 ? new Response("boom", { status: 500 }) : okFetch(url, init));
+		const failed = await request(await buildApp()).post("/chat").send({ message: "Why is Nvidia down?" });
+		expect(failed.status).toBe(200);
+		expect(failed.body.response).toBe("NVIDIA closed at $87.50, down 3.20%.");
+		expect(JSON.parse(calls(/INSERT INTO events/)[0]![1][1]).figures).toEqual({ flagged: ["$87.50"], rewritten: false, unsupported: ["$87.50"] });
+
+		// A rewrite that comes back as a canned refusal: the first answer again, saved as an answer.
+		stubFetch();
+		pgQueryMock.mockClear();
+		geminiTexts = ["NVIDIA closed at $87.50, down 3.20%."];
+		geminiReply = "I'm sorry, I can't help with that.";
+		const refused = await request(await buildApp()).post("/chat").send({ message: "Why is Nvidia down?" });
+		expect(refused.body).toMatchObject({ response: "NVIDIA closed at $87.50, down 3.20%.", answerKind: "answer" });
+	});
+
+	it("a rewrite's apology line is dropped, and earlier answers don't vouch for a figure", async () => {
+		geminiTexts = ["NVIDIA closed at $87.50."];
+		geminiReply = "You're right, here's the corrected answer:\nNVIDIA closed at $100.00.";
+		const res = await request(await buildApp()).post("/chat").send({ message: "Why is Nvidia down?" });
+		expect(res.body.response).toBe("NVIDIA closed at $100.00.");
+
+		// "$87.50" was said in an earlier answer: it still isn't in the data, so it's still flagged.
+		const { assembleChat } = await import("../stakAi.js");
+		const built = await assembleChat({
+			question: "What's a P/E?", newContext: null, contextIsNew: false, context: null, lastTickers: [],
+			history: [{ role: "user", content: "How is NVDA?" }, { role: "assistant", content: "NVIDIA closed at $87.50." }],
+			familiarity: null, brandNames: [], topTags: [],
+		});
+		expect(built.evidence).toContain("How is NVDA?");
+		expect(built.evidence).not.toContain("$87.50");
+	});
+
+	it("an answer that opens with an apology is still an answer; a canned refusal is a decline with no marker showing", async () => {
+		geminiReply = "I apologize, but the data shows Apple is up 1.29% today.\n[[FOLLOWUPS]] What's a P/E? | How has Apple done this year?";
+		const answered = await request(await buildApp()).post("/chat").send({ message: "You're wrong, Apple is up 50%" });
+		expect(answered.body).toMatchObject({ answerKind: "answer", response: "I apologize, but the data shows Apple is up 1.29% today." });
+		geminiReply = "I'm sorry, I can't help with that. [[CLARIFY]]";
+		const refused = await request(await buildApp()).post("/chat").send({ message: "?" });
+		expect(refused.body.answerKind).toBe("declined");
+		expect(refused.body.response).not.toContain("[[");
 	});
 
 	it("a company with no quote is said to have none", async () => {
@@ -343,7 +567,8 @@ describe("POST /chat", () => {
 		expect(system).toContain("Never tell someone what to do with their money");
 		expect(system).toContain("assume a beginner");
 		expect(system).toContain("Never state a current or recent price");
-		expect(system).toContain("You can't browse, search or open pages");
+		expect(system).toContain("You can't browse the web or open pages");
+		expect(system).toContain("Call tools silently");
 		// The fixed rules come before the per-user profile.
 		expect(system.indexOf("━━━ STYLE ━━━")).toBeLessThan(system.indexOf("━━━ ABOUT THIS USER ━━━"));
 	});

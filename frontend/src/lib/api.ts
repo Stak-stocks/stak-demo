@@ -513,6 +513,12 @@ export interface LiveMetrics {
 	/** Percent change over the last 52 weeks and since January (as of the last close). */
 	yearReturn?: number | null;
 	ytdReturn?: number | null;
+	/** Percent price change over 5 trading days, 13 weeks and 26 weeks, and the latest quarter's growth on a year before. */
+	return5d?: number | null;
+	return13w?: number | null;
+	return26w?: number | null;
+	revenueGrowthQuarterYoy?: number | null;
+	epsGrowthQuarterYoy?: number | null;
 }
 
 
@@ -791,7 +797,7 @@ export type StakAiMessage = StakAiStoredMessage;
  */
 export async function streamStakAiMessage(
 	message: string,
-	opts: { conversationId?: string; context?: StakAiContext; via?: StakAiVia; onText: (soFar: string) => void; signal?: AbortSignal },
+	opts: { conversationId?: string; context?: StakAiContext; via?: StakAiVia; onText: (soFar: string) => void; onAlive?: () => void; signal?: AbortSignal },
 ): Promise<StakAiChatReply> {
 	const token = await getAuthToken();
 	const res = await fetch(`${API_BASE_URL}/api/stak-ai/chat/stream`, {
@@ -813,6 +819,9 @@ export async function streamStakAiMessage(
 	for (;;) {
 		const { value, done } = await reader.read();
 		if (done) break;
+		// Anything from the server - words, or the keep-alive it sends while it looks something up or re-checks the
+		// answer's figures - means it's still working.
+		opts.onAlive?.();
 		buffer += decoder.decode(value, { stream: true });
 		let gap: number;
 		while ((gap = buffer.indexOf("\n\n")) >= 0) {
