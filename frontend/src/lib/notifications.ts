@@ -9,7 +9,11 @@ export interface NotificationItem {
 	title: string;
 	body: string;
 	time: string;
+	/** Where a tapped item goes: the stock it's about, or Discover (the apps' StakNotifications.Target). */
+	target: NotificationTarget;
 }
+
+export type NotificationTarget = { kind: "stock"; symbol: string } | { kind: "discover" };
 
 export type CloseRef = "today" | "close" | "yesterday" | "Friday";
 
@@ -75,6 +79,7 @@ export function buildNotifications(input: BuildInput): NotificationItem[] {
 				? `${m.name}, one of your saved stocks, moved ${threshold}% or more.`
 				: `One of your saved stocks moved ${threshold}% or more.`,
 			time: phrase.time,
+			target: { kind: "stock", symbol: m.ticker },
 		});
 	}
 
@@ -84,6 +89,7 @@ export function buildNotifications(input: BuildInput): NotificationItem[] {
 			title: "Your deck is ready",
 			body: `${deckCardsLeft} ${deckCardsLeft === 1 ? "card" : "cards"} left today, tuned to your taste.`,
 			time: "Today",
+			target: { kind: "discover" },
 		});
 	}
 
@@ -93,6 +99,7 @@ export function buildNotifications(input: BuildInput): NotificationItem[] {
 			title: "Save a stock to start your STAK",
 			body: "Saved stocks power My STAK and the Simulate leaderboard.",
 			time: "Today",
+			target: { kind: "discover" },
 		});
 	}
 
@@ -104,6 +111,7 @@ export function buildNotifications(input: BuildInput): NotificationItem[] {
 				title: firstName ? `Welcome to STAK, ${firstName}` : "Welcome to STAK",
 				body: "Your first deck is waiting in Discover. Swipe down for the next card, save what you like.",
 				time: ageLabel(age),
+				target: { kind: "discover" },
 			});
 		}
 	}

@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useNotifications } from "@/hooks/useNotifications";
+import { useNotifications, useOpenNotification } from "@/hooks/useNotifications";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { NotificationsDesktop } from "@/components/profile/NotificationsDesktop";
 import { SettingsCard, SettingsLinkRow, SettingsScaffold } from "@/components/profile/ProfileKit";
@@ -24,6 +24,7 @@ function NotificationsRoute() {
 function NotificationsPage() {
 	const navigate = useNavigate();
 	const { items, unread, loaded, markAllRead } = useNotifications();
+	const openTarget = useOpenNotification();
 	const [unreadOnOpen, setUnreadOnOpen] = useState<Set<string> | null>(null);
 	const markedRef = useRef(false);
 
@@ -47,19 +48,21 @@ function NotificationsPage() {
 						{items.map((item, i) => (
 							<li key={item.id}>
 								{i > 0 && <div style={{ height: cu(1), margin: `0 ${cu(14)}`, background: "#1A2333" }} />}
-								<div className="flex items-center" style={{ gap: cu(12), padding: `${cu(12)} ${cu(14)}` }}>
+								{/* A row opens what it's about - the stock, or Discover (as the apps). */}
+								<button type="button" onClick={() => openTarget(item.target)} className="flex w-full items-center text-left transition-opacity active:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2" style={{ gap: cu(12), padding: `${cu(12)} ${cu(14)}`, outlineColor: DISC.teal }}>
 									<span className="grid shrink-0 place-items-center rounded-full" style={{ width: cu(36), height: cu(36), background: "#1A2333", font: f(600, 14, undefined, "heading"), color: DISC.teal }} aria-hidden="true">
 										{item.title.slice(0, 1).toUpperCase()}
 									</span>
-									<div className="min-w-0 flex-1" style={{ display: "flex", flexDirection: "column", gap: cu(2) }}>
-										<p style={{ font: f(500, 14, 18), color: "#fff" }}>{item.title}</p>
-										<p style={{ font: f(400, 12, 16), color: DISC.body }}>{item.body}</p>
-										<p style={{ font: f(400, 11), color: DISC.muted }}>{item.time}</p>
-									</div>
+									{/* Spans, not div/p: a button holds phrasing content only. */}
+									<span className="min-w-0 flex-1" style={{ display: "flex", flexDirection: "column", gap: cu(2) }}>
+										<span className="block" style={{ font: f(500, 14, 18), color: "#fff" }}>{item.title}</span>
+										<span className="block" style={{ font: f(400, 12, 16), color: DISC.body }}>{item.body}</span>
+										<span className="block" style={{ font: f(400, 11), color: DISC.muted }}>{item.time}</span>
+									</span>
 									{unreadOnOpen?.has(item.id)
 										? <span className="shrink-0 rounded-full" style={{ width: cu(6), height: cu(6), background: "#FF8030" }} role="img" aria-label="Unread" />
 										: <span className="shrink-0" style={{ width: cu(6), height: cu(6) }} aria-hidden="true" />}
-								</div>
+								</button>
 							</li>
 						))}
 					</ul>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Bell, Bookmark, ChevronRight, Layers, Settings, Sparkles, TrendingDown, TrendingUp, type LucideIcon } from "lucide-react";
-import { useNotifications } from "@/hooks/useNotifications";
+import { useNotifications, useOpenNotification } from "@/hooks/useNotifications";
 import { useAccount } from "@/context/AccountContext";
 import { readNotificationPrefs } from "@/lib/notificationPrefs";
 import type { NotificationItem } from "@/lib/notifications";
@@ -12,9 +12,9 @@ type Kind = "move" | "deck" | "account";
 const FILTERS: ReadonlyArray<readonly ["all" | Kind, string]> = [["all", "All"], ["move", "Price moves"], ["deck", "Your deck"], ["account", "Account"]];
 
 /** What an item is, from its id (Android's format: move:{day}:{ticker}:{up|down}, deck:{day}, first-save, welcome). */
-function describe(item: NotificationItem): { kind: Kind; icon: LucideIcon; tint: string; ticker?: string } {
-	const [prefix, , ticker, dir] = item.id.split(":");
-	if (prefix === "move") return { kind: "move", icon: dir === "down" ? TrendingDown : TrendingUp, tint: dir === "down" ? DESK.red : DESK.green, ticker };
+function describe(item: NotificationItem): { kind: Kind; icon: LucideIcon; tint: string } {
+	const [prefix, , , dir] = item.id.split(":");
+	if (prefix === "move") return { kind: "move", icon: dir === "down" ? TrendingDown : TrendingUp, tint: dir === "down" ? DESK.red : DESK.green };
 	if (prefix === "deck") return { kind: "deck", icon: Layers, tint: DESK.cyan };
 	if (item.id === "first-save") return { kind: "account", icon: Bookmark, tint: DESK.cyan };
 	return { kind: "account", icon: Sparkles, tint: DESK.cyan };
@@ -54,11 +54,8 @@ export function NotificationsDesktop() {
 	const shown = described.filter((d) => filter === "all" || d.kind === filter);
 	const newCount = unreadOnOpen?.size ?? 0;
 
-	function open(d: (typeof described)[number]) {
-		if (d.kind === "move" && d.ticker) navigate({ to: "/stock/$symbol", params: { symbol: d.ticker } });
-		else if (d.kind === "deck" || d.item.id === "first-save") navigate({ to: "/discover" });
-		else navigate({ to: "/my-stak" });
-	}
+	const openTarget = useOpenNotification();
+	const open = (d: (typeof described)[number]) => openTarget(d.item.target);
 
 	return (
 		<div className="min-h-full" style={{ background: deskPageBg() }}>
