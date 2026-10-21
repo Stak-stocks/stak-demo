@@ -26,6 +26,7 @@ App users never need any of this: the app's values are built into it when it's b
 | `REDIS_URL`, `ADMIN_SECRET`, `WARM_SECRET`, `WAITLIST_TOKEN_SECRET`, `TALLY_SIGNING_SECRET`, `TALLY_FORM_URL` | Backend |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Backend (web push) |
 | `EARLY_ACCESS_RESEND_KEY`, `ANALYTICS_EXCLUDED_EMAILS` | Backend |
+| `GEMINI_EVAL_API_KEY` | The STAK AI test script only (`backend/src/scripts/stakAiEval.ts`) - a billed key kept apart from the live ones |
 | `dev-backend-local` | Settings only a development machine has (`PORT`, the Supabase CLI token, and `GEMINI_DEV_API_KEY` - a Gemini key for local runs, used instead of the live ones whenever it's set) |
 | `dev-frontend-env` | `frontend/.env` |
 | `dev-android-local-properties` | `android/local.properties` |
