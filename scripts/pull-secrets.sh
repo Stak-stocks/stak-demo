@@ -73,3 +73,4 @@ backend_env
 pull dev-frontend-env frontend/.env
 pull dev-android-local-properties android/local.properties
 pull dev-ios-secrets-xcconfig ios/Secrets.xcconfig
+pull dev-ios-google-service-info ios/StakDemo/GoogleService-Info.plist

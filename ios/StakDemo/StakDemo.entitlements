@@ -2,10 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <!--
-  Personal-team build: APNs and Sign in with Apple omitted.
-  Re-add once enrolled in the paid Apple Developer Program: aps-environment turns on the
-  already-built push (Core/PushRegistration.swift, with GoogleService-Info.plist in StakDemo/).
+  Release builds (TestFlight, the App Store), on the paid team (P6442U4672): push through APNs' production server, and
+  Sign in with Apple (App Store Guideline 4.8 - the app offers Google sign-in).
 -->
 <dict>
+	<key>aps-environment</key>
+	<string>production</string>
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
 </dict>
 </plist>

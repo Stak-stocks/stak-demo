@@ -2,12 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <!--
-  Free-account / personal-team build: APNs and Sign in with Apple are
-  omitted here — both require the paid Apple Developer Program ($99/yr).
-  Add them back once enrolled: aps-environment = development here (Debug builds;
-  StakDemo.entitlements, Release, takes production) turns on the already-built push
-  (Core/PushRegistration.swift, with GoogleService-Info.plist in StakDemo/).
+  Debug builds, on the paid team (P6442U4672). Push uses APNs' development server here (Core/PushRegistration.swift;
+  dormant until GoogleService-Info.plist is in StakDemo/ - scripts/pull-secrets.sh writes it). Release builds take
+  production in StakDemo.entitlements.
 -->
 <dict>
+	<key>aps-environment</key>
+	<string>development</string>
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
 </dict>
 </plist>

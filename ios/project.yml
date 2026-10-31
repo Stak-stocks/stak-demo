@@ -13,6 +13,9 @@ settings:
     TARGETED_DEVICE_FAMILY: "1"
     ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     CODE_SIGN_STYLE: Automatic
+    # STAK's Apple Developer team (individual enrollment, 2026-10; moves to an organization once STAK is registered).
+    # Not a secret. Teammates are invited to it in App Store Connect and sign in to Xcode with their own Apple ID.
+    DEVELOPMENT_TEAM: P6442U4672
 packages:
   Supabase:
     url: https://github.com/supabase/supabase-swift
