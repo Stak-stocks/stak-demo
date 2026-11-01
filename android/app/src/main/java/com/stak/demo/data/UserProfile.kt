@@ -47,6 +47,9 @@ object UserProfile {
 	var linkedApple by mutableStateOf(false)
 	/** The account's sign-in email, from the server (ProfileSync); blank until it answers. */
 	var email by mutableStateOf("")
+
+	/** An address Apple made up for "Hide My Email": not one to show. Mirrors ios AccountLinking.isHiddenAppleEmail. */
+	fun isHiddenAppleEmail(email: String): Boolean = email.lowercase().endsWith("@privaterelay.appleid.com")
 	/** A real account's creation month ("September 2026"); blank until known. The demo shows [DEMO_JOINED]. */
 	var joined by mutableStateOf("")
 	const val DEMO_JOINED = "July 2026"

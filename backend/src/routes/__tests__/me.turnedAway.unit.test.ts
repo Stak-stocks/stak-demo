@@ -54,6 +54,13 @@ describe("POST /turned-away", () => {
 		expect(forgetVerifiedToken).toHaveBeenCalledWith("tok");
 	});
 
+	it("also removes one a hidden-email Apple sign-in just made (the iPhone's \"I already have an account\")", async () => {
+		account();
+		signIn({ provider: "apple" });
+		expect((await request(await buildApp()).post("/turned-away")).status).toBe(200);
+		expect(deleteUser).toHaveBeenCalledWith("sb-1");
+	});
+
 	it("uses the mapped Supabase id for an account carried over from Firebase", async () => {
 		account({ mappedTo: "sb-mapped" });
 		signIn();
@@ -71,7 +78,7 @@ describe("POST /turned-away", () => {
 		expect(usersDeletes()).toHaveLength(1);
 	});
 
-	it("leaves alone an account older than 10 minutes, or not made by Google sign-in", async () => {
+	it("leaves alone an account older than 10 minutes, or not made by Google or Apple sign-in", async () => {
 		account();
 		for (const who of [{ created_at: minutesAgo(30) }, { provider: "email" }]) {
 			signIn(who);

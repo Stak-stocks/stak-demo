@@ -30,6 +30,12 @@ final class AuthViewModel: ObservableObject {
 
     private let repository = StockRepository.shared
 
+    /// A first Apple sign-in with "Hide My Email" just made a new account, and STAK can't tell from Apple's made-up
+    /// address whether this person already has one: RootFlowView asks before going on.
+    @Published var appleNewOrExisting = false
+    /// "I already have an account": once they're signed in the usual way, RootFlowView offers to link Apple to it.
+    @Published var pendingAppleLink = false
+
     // MARK: – Email sign-in
 
     func signIn(email: String, password: String) {
@@ -283,6 +289,17 @@ final class AuthViewModel: ObservableObject {
                 applyDisplayName(from: me, fallback: fullName)
                 UserProfile.shared.linkedApple = true; UserProfile.shared.linkedGoogle = false
                 Session.shared.saveProfile()
+                // Signed in with Apple itself: there's nothing left to link it to.
+                pendingAppleLink = false
+                // A brand-new account behind a hidden email may be someone who already has STAK under another sign-in:
+                // ask before onboarding a duplicate. 10 minutes is the backend's NEW_ACCOUNT_WINDOW_MS (routes/me.ts),
+                // the window turned-away accepts.
+                let brandNew = Date().timeIntervalSince(session.user.createdAt) < 10 * 60
+                if me?.onboardingCompleted == false, brandNew, AccountLinking.isHiddenAppleEmail(session.user.email) {
+                    uiState = .idle
+                    appleNewOrExisting = true
+                    return
+                }
                 // Signed in: "Before we get started" goes up over whatever comes next if the account hasn't confirmed.
                 EligibilityGate.shared.check()
                 uiState = .success(onboardingComplete: me?.onboardingCompleted ?? true)
@@ -290,6 +307,33 @@ final class AuthViewModel: ObservableObject {
                 uiState = .error(friendlyError(error))
             }
         }
+    }
+
+    /// "I'm new to STAK": on into onboarding with the account just made.
+    func continueAsNewAppleAccount() {
+        appleNewOrExisting = false
+        pendingAppleLink = false
+        EligibilityGate.shared.check()
+        uiState = .success(onboardingComplete: false)
+    }
+
+    /// "I already have an account": the empty account the Apple sign-in just made is removed (its Apple identity
+    /// with it, so it can be linked to the real one), and the user signs in the usual way - RootFlowView then offers
+    /// the link. False when it couldn't be removed; nothing changes then.
+    func useExistingAccountInstead() async -> Bool {
+        appleNewOrExisting = false
+        uiState = .loading
+        guard (try? await repository.turnedAway())?.ok == true else {
+            uiState = .error("Couldn't undo that sign-in. Check your connection and try again, or choose \"I'm new to STAK\".")
+            appleNewOrExisting = true
+            return false
+        }
+        // Signed out as Log out does: the SDK, then the app's own copy of the account (token, id, the Apple name).
+        await clearSession()
+        Session.shared.signOut()
+        pendingAppleLink = true
+        uiState = .idle
+        return true
     }
 
     /// The Apple sheet failed for a reason other than the user backing out (AppleSignInCoordinator).
@@ -302,6 +346,12 @@ final class AuthViewModel: ObservableObject {
 
     /// Idle again - written only when it isn't, since every write re-renders each auth page.
     func resetState() { if uiState != .idle { uiState = .idle } }
+
+    /// Log out: an Apple question or link offer from before doesn't carry over.
+    func forgetApplePrompts() {
+        appleNewOrExisting = false
+        pendingAppleLink = false
+    }
 
     @discardableResult
     private func setLoading() -> Bool {

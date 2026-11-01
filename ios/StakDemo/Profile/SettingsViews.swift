@@ -1,4 +1,6 @@
+import GoogleSignIn
 import PhotosUI
+import Supabase
 import SwiftUI
 import UIKit
 import UserNotifications
@@ -286,19 +288,171 @@ private struct LinkedAccountsView: View {
 					LinkedRow(name: "Google", linked: profile.linkedGoogle) { profile.linkedGoogle.toggle(); Session.shared.saveProfile() }
 					LinkedRow(name: "Apple", linked: profile.linkedApple) { profile.linkedApple.toggle(); Session.shared.saveProfile() }
 				} else {
-					// Linking a second method isn't built, so there are no switches that would only pretend to.
-					SettingsLinkRow(label: "Signed in with", value: profile.linkedGoogle ? "Google" : profile.linkedApple ? "Apple" : "Email and password", chevron: false, action: nil)
-					if !profile.email.isEmpty {
-						SettingsLinkRow(label: "Email", value: profile.email, chevron: false, action: nil)
-					}
+					SignInMethods()
 				}
 			}
 			.padding(.vertical, 4 * u)
 			.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
 			Caption(text: demo
 				? "A linked account lets you sign in with one tap. Your STAK stays the same either way."
-				: "Sign in the same way next time, on this phone or a new one. Your saved stocks and taste come with you.")
+				: "Link another way to sign in to this same account, on this phone or a new one. You can unlink one as long as another is left.")
 		}
+	}
+}
+
+/// A real account's ways to sign in (Supabase identities): each linked one, with Unlink while another is left, and
+/// Link for Google and Apple. Mirrors android SignInMethods.
+private struct SignInMethods: View {
+	@ObservedObject private var profile = UserProfile.shared
+	@StateObject private var appleLinker = AppleSignInCoordinator()
+	@State private var identities: [UserIdentity]? = nil
+	@State private var busy: String? = nil
+	@State private var problem: String? = nil
+	@State private var confirmUnlink: UserIdentity? = nil
+
+	/// The methods the page shows, in its order, with their names.
+	private static let methods = [(id: "email", name: "Email and password"), (id: "google", name: "Google"), (id: "apple", name: "Apple")]
+	private static func name(_ provider: String) -> String { methods.first { $0.id == provider }?.name ?? provider }
+
+	var body: some View {
+		let u = figmaUnit
+		VStack(spacing: 0) {
+			if let identities {
+				ForEach(Self.methods, id: \.id) { method in
+					let provider = method.id
+					let identity = identities.first { $0.provider == provider }
+					// Email shows only once it's a way in; Google and Apple can always be linked from here.
+					if identity != nil || AccountLinking.linkable.contains(provider) {
+						MethodRow(
+							name: method.name,
+							linked: identity != nil,
+							busy: busy == provider,
+							action: action(for: provider, linked: identity, of: identities.count)
+						)
+					}
+				}
+				if !profile.email.isEmpty, !AccountLinking.isHiddenAppleEmail(profile.email) {
+					SettingsLinkRow(label: "Email", value: profile.email, chevron: false, action: nil)
+				}
+			} else {
+				ProgressView().tint(teal).frame(maxWidth: .infinity).padding(16 * u)
+					.accessibilityLabel("Loading sign-in methods")
+			}
+			if let problem {
+				Text(problem)
+					.font(StakFont.geist(12 * u))
+					.foregroundStyle(Color(argb: 0xFFFF6B6B))
+					.frame(maxWidth: .infinity, alignment: .leading)
+					.padding(.horizontal, 16 * u)
+					.padding(.vertical, 10 * u)
+			}
+		}
+		.task { await reload() }
+		.onChange(of: problem) { _, problem in
+			if let problem { UIAccessibility.post(notification: .announcement, argument: problem) }
+		}
+		.confirmationDialog(
+			"Unlink \(confirmUnlink.map { Self.name($0.provider) } ?? "")?",
+			isPresented: Binding(get: { confirmUnlink != nil }, set: { if !$0 { confirmUnlink = nil } }),
+			titleVisibility: .visible
+		) {
+			Button("Unlink", role: .destructive) { if let id = confirmUnlink { unlink(id) } }
+		} message: {
+			Text("You won't be able to sign in with it anymore. Your STAK stays the same.")
+		}
+	}
+
+	/// Link when it isn't, Unlink when it is and another way in is left; the last one has none.
+	private func action(for provider: String, linked identity: UserIdentity?, of count: Int) -> (() -> Void)? {
+		guard let identity else { return { link(provider) } }
+		return count > 1 ? { confirmUnlink = identity } : nil
+	}
+
+	private func reload() async {
+		do {
+			let list = try await AccountLinking.identities()
+			identities = list
+			// The demo rows and the account's saved profile follow what's really linked.
+			profile.linkedGoogle = list.contains { $0.provider == "google" }
+			profile.linkedApple = list.contains { $0.provider == "apple" }
+			Session.shared.saveProfile()
+		} catch {
+			identities = identities ?? []
+			problem = "Couldn't load your sign-in methods. Check your connection."
+		}
+	}
+
+	private func link(_ provider: String) {
+		guard busy == nil else { return }
+		problem = nil
+		busy = provider
+		switch provider {
+		case "apple":
+			appleLinker.start(
+				onCredential: { idToken, nonce, _ in run { try await AccountLinking.link(provider: "apple", idToken: idToken, nonce: nonce) } },
+				onFailure: { error in busy = nil; problem = error?.localizedDescription ?? "Couldn't link Apple. Try again." },
+				onCancel: { busy = nil }
+			)
+		case "google":
+			run { try await AccountLinking.linkGoogle() }
+		default:
+			busy = nil
+		}
+	}
+
+	private func unlink(_ identity: UserIdentity) {
+		problem = nil
+		busy = identity.provider
+		run { try await AccountLinking.unlink(identity) }
+	}
+
+	/// Runs a link or unlink, then shows what's linked now. Cancelling Google's sheet isn't an error.
+	private func run(_ op: @escaping () async throws -> Void) {
+		Task {
+			do { try await op() } catch {
+				let ns = error as NSError
+				if !(ns.domain == kGIDSignInErrorDomain && ns.code == GIDSignInError.canceled.rawValue) { problem = error.localizedDescription }
+			}
+			await reload()
+			busy = nil
+		}
+	}
+}
+
+/// One way to sign in: linked or not, and its one action (none for the last one left).
+private struct MethodRow: View {
+	let name: String
+	let linked: Bool
+	let busy: Bool
+	let action: (() -> Void)?
+
+	var body: some View {
+		let u = figmaUnit
+		HStack {
+			Text(name)
+				.font(StakFont.geist(13 * u, .medium))
+				.foregroundStyle(StakColors.textPrimary)
+			Spacer()
+			Text(linked ? "Linked" : "Not linked")
+				.font(StakFont.geist(12 * u))
+				.foregroundStyle(linked ? teal : muted)
+				.padding(.trailing, action == nil && !busy ? 0 : 12 * u)
+			if busy {
+				ProgressView().tint(teal).frame(minWidth: 44, minHeight: 44)
+					.accessibilityLabel("\(linked ? "Unlinking" : "Linking") \(name)")
+			} else if let action {
+				Button(action: action) {
+					Text(linked ? "Unlink" : "Link")
+						.font(StakFont.geist(13 * u, .medium))
+						.foregroundStyle(teal)
+						.frame(minHeight: 44)
+						.contentShape(Rectangle())
+				}
+				.buttonStyle(.pressDim)
+				.accessibilityLabel("\(linked ? "Unlink" : "Link") \(name)")
+			}
+		}
+		.padding(.horizontal, 14 * u)
 	}
 }
 
@@ -635,12 +789,19 @@ private struct ChangePasswordView: View {
 	@State private var serverError: String? = nil
 	private var nextError: String? { AuthRules.passwordError(next) }
 	private var confirmError: String? { AuthRules.confirmError(next, confirm) }
+	/// Who handles sign-in when the account has no STAK password: an email sign-in (linked to Google or not) has one.
+	private var managedBy: String? {
+		if let identities = supabase.auth.currentUser?.identities {
+			if identities.contains(where: { $0.provider == "email" }) { return nil }
+			return identities.contains { $0.provider == "google" } ? "Google" : "Apple"
+		}
+		return profile.linkedGoogle ? "Google" : profile.linkedApple ? "Apple" : nil
+	}
 
 	var body: some View {
 		let u = figmaUnit
 		SettingsPage(title: "Change password", onBack: onBack) {
-			if profile.linkedGoogle || profile.linkedApple {
-				let provider = profile.linkedGoogle ? "Google" : "Apple"
+			if let provider = managedBy {
 				VStack(alignment: .leading, spacing: 8 * u) {
 					Text("Password managed by \(provider)")
 						.font(StakFont.sora(15 * u, .semiBold))

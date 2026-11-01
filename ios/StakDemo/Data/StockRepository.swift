@@ -62,6 +62,8 @@ final class StockRepository {
         try await api.putMe(MePutRequest(displayName: displayName, onboardingCompleted: onboardingCompleted, taste: taste))
     }
     func deleteMe() async throws -> OkResponse { try await api.deleteMe() }
+    /// Removes the caller's account only if a Google or Apple sign-in made it minutes ago and nothing is on it yet.
+    func turnedAway() async throws -> OkResponse { try await api.turnedAway() }
     func confirmEligibility() async throws -> OkResponse { try await api.confirmEligibility(EligibilityRequest()) }
     func getLegal(_ doc: String) async throws -> LegalDocResponse { try await api.getLegal(doc) }
     func getTaste() async throws -> TasteResponse { try await api.getTaste() }
