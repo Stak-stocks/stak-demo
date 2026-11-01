@@ -107,6 +107,49 @@ export function chips(picks: Set<string>, goal: number, risk: number): string[] 
 	return result.length > 0 ? result : ["Just Exploring"];
 }
 
+/**
+ * Profile's taste chips: the quiz picks plus the saved companies that belong to a taste, strongest first ("Just
+ * Exploring" before the quiz was answered). Worked out as the apps' ProfileTaste.chips: other saves would only dilute
+ * the shares, and the server's picks use the apps' names.
+ */
+export function profileTasteChips(taste: { picks: string[]; goal: number; risk: number } | null | undefined, savedNames: string[]): string[] {
+	if (!taste) return ["Just Exploring"];
+	const saved = savedNames.filter(isTasteBrand);
+	return chips(new Set([...fromSharedPickNames(taste.picks), ...saved]), taste.goal, taste.risk);
+}
+
+/** Whether a brand name counts toward any taste (Android's TasteModel.isTasteBrand). */
+export function isTasteBrand(name: string): boolean {
+	return TECH.has(name) || GROWTH.has(name) || CONSUMER.has(name) || INCOME.has(name);
+}
+
+/** The server's pick names (the apps' spelling) as this catalog writes them - toSharedPickNames the other way. */
+export function fromSharedPickNames(picks: string[]): string[] {
+	return picks.map((name) => (name === "PlayStation" ? "Sony Group Corp" : name));
+}
+
+/** The goal as the quiz worded it, or null before it was answered. */
+export function goalLabel(goal: number): string | null {
+	switch (goal) {
+		case GOAL_LEARN: return "Learn how investing works";
+		case GOAL_GROW: return "Grow my money long-term";
+		case GOAL_FIRST_STOCKS: return "Find my first stocks";
+		case GOAL_EXPLORE: return "Just exploring";
+		default: return null;
+	}
+}
+
+/** One line on what the risk answer said. */
+export function riskBlurb(risk: number): string {
+	switch (risk) {
+		case RISK_HOLD: return "You hold through a drop and watch it closely.";
+		case RISK_STEP_AWAY: return "You'd rather step back when a stock drops hard.";
+		case RISK_SELL_SOME: return "You'd rather protect part of your money than ride out a drop.";
+		case RISK_BUY_MORE: return "You're comfortable with dips when the story holds.";
+		default: return "Answer one question about a falling stock.";
+	}
+}
+
 /** The pick names as Android's TasteModel.kt keys them - it calls Sony "PlayStation", the web catalog "Sony Group Corp". Saved taste is read by both apps, so persist Android's spelling. */
 export function toSharedPickNames(picks: string[]): string[] {
 	return picks.map((name) => (name === "Sony Group Corp" ? "PlayStation" : name));

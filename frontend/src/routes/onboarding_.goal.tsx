@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useOnboarding } from "@/context/OnboardingContext";
+import { useQuizRetake } from "@/hooks/useQuizRetake";
 import { QuizStepShell } from "@/components/onboarding/QuizStepShell";
 import { MatrixGrid, type QuizOption } from "@/components/onboarding/MatrixQuizOption";
 import { GOAL_LEARN, GOAL_GROW, GOAL_FIRST_STOCKS, GOAL_EXPLORE } from "@/lib/tasteModel";
@@ -18,19 +19,24 @@ const OPTIONS: QuizOption[] = [
 function GoalPage() {
 	const navigate = useNavigate();
 	const { goal, setGoal } = useOnboarding();
-	const back = () => navigate({ to: "/onboarding/swipe-tutorial" });
+	const { retake, isRetake, finish, cancel, saving, failed } = useQuizRetake();
+	const back = () => (retake === "goal" ? cancel() : navigate({ to: isRetake ? "/onboarding/brand-picks" : "/onboarding/swipe-tutorial" }));
+	const only = retake === "goal";
 
 	return (
 		<QuizStepShell
-			stepLabel="STEP 4 OF 6"
+			stepLabel={isRetake ? "YOUR TASTE" : "STEP 4 OF 6"}
+			{...(isRetake ? { kicker: "RETAKING YOUR TASTE QUIZ · NOTHING CHANGES UNTIL YOU SAVE" } : {})}
 			title="What brings you here?"
 			subtitle="Pick one. You can change it any time."
 			gap={16}
 			contentWidth={780}
-			continueDisabled={goal == null}
+			continueDisabled={goal == null || saving}
+			{...(only ? { continueLabel: saving ? "Saving…" : "Save" } : {})}
+			caption={only && failed ? "Couldn't save that. Check your connection and try again." : undefined}
 			onBack={back}
 			secondary={{ label: "Back", onClick: back }}
-			onContinue={() => navigate({ to: "/onboarding/risk" })}
+			onContinue={() => (only ? void finish() : navigate({ to: "/onboarding/risk" }))}
 		>
 			<MatrixGrid options={OPTIONS} selected={goal} onSelect={setGoal} />
 		</QuizStepShell>

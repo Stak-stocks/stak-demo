@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useOnboarding } from "@/context/OnboardingContext";
+import { useQuizRetake } from "@/hooks/useQuizRetake";
 import { QuizStepShell } from "@/components/onboarding/QuizStepShell";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { RISK_OPTIONS } from "@/components/onboarding/quizOptions";
@@ -19,6 +20,8 @@ const STRENGTH_INK: Record<string, string> = { Strong: DISC.teal, Medium: DISC.m
 function TasteRevealPage() {
 	const navigate = useNavigate();
 	const { brandPicks, goal, risk, setRisk } = useOnboarding();
+	const { isRetake, finish, saving, failed } = useQuizRetake();
+	const eyebrow = isRetake ? "YOUR UPDATED STAK TASTE" : "YOUR STARTING STAK TASTE";
 	const [pickingRisk, setPickingRisk] = useState(false);
 
 	const revealBars = bars(new Set(brandPicks), goal ?? 0, risk ?? 0);
@@ -28,17 +31,19 @@ function TasteRevealPage() {
 
 	return (
 		<QuizStepShell
-			stepLabel="STEP 6 OF 6"
+			stepLabel={isRetake ? "YOUR TASTE" : "STEP 6 OF 6"}
 			gap={16}
-			continueLabel="Let's go!"
-			{...(desk ? { eyebrow: "YOUR STARTING STAK TASTE", title: "Here’s what you’re into.", subtitle: "Built from your picks. It gets smarter with every swipe.", contentWidth: 640 } : {})}
+			continueLabel={isRetake ? (saving ? "Saving…" : "Save") : "Let's go!"}
+			continueDisabled={saving}
+			caption={isRetake && failed ? "Couldn't save that. Check your connection and try again." : undefined}
+			{...(desk ? { eyebrow, title: "Here’s what you’re into.", subtitle: "Built from your picks. It gets smarter with every swipe.", contentWidth: 640 } : {})}
 			onBack={back}
 			secondary={{ label: "Back", onClick: back }}
-			onContinue={() => navigate({ to: "/onboarding/permissions" })}
+			onContinue={() => (isRetake ? void finish() : navigate({ to: "/onboarding/permissions" }))}
 		>
 			{!desk && (
 				<>
-					<p style={{ font: f(500, 10), letterSpacing: cu(0.9), color: DISC.teal }}>YOUR STARTING STAK TASTE</p>
+					<p style={{ font: f(500, 10), letterSpacing: cu(0.9), color: DISC.teal }}>{eyebrow}</p>
 					<div style={{ display: "flex", flexDirection: "column", gap: cu(12) }}>
 						<h1 style={{ font: f(600, 26, 33, "heading"), color: "#fff" }}>Here’s what you’re into.</h1>
 						<p style={{ font: f(400, 12), color: "#ACAFB1" }}>Built from your picks. It gets smarter with every swipe.</p>

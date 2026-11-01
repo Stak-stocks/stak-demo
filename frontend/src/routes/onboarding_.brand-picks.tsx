@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useOnboarding } from "@/context/OnboardingContext";
+import { useQuizRetake } from "@/hooks/useQuizRetake";
 import { QuizStepShell, useQuizDesktop } from "@/components/onboarding/QuizStepShell";
 import { BRAND_PICK_NAMES } from "@/lib/tasteModel";
 import { DISC, cu } from "@/components/discover/discoverTheme";
@@ -23,6 +24,8 @@ const ART: Record<string, { label: string; file: string }> = {
 function BrandPicksPage() {
 	const navigate = useNavigate();
 	const { brandPicks, setBrandPicks } = useOnboarding();
+	const { isRetake, cancel } = useQuizRetake();
+	const back = () => (isRetake ? cancel() : navigate({ to: "/onboarding" }));
 
 	function toggle(name: string) {
 		setBrandPicks(brandPicks.includes(name) ? brandPicks.filter((n) => n !== name) : [...brandPicks, name]);
@@ -30,7 +33,8 @@ function BrandPicksPage() {
 
 	return (
 		<QuizStepShell
-			stepLabel="STEP 2 OF 6"
+			stepLabel={isRetake ? "YOUR TASTE" : "STEP 2 OF 6"}
+			{...(isRetake ? { kicker: "RETAKING YOUR TASTE QUIZ · NOTHING CHANGES UNTIL YOU SAVE" } : {})}
 			title="Which brands do you know or use?"
 			subtitle="Pick a few. STAK uses this to learn what feels familiar to you."
 			subtitleWidth={303}
@@ -38,9 +42,10 @@ function BrandPicksPage() {
 			caption="You can change this later"
 			continueLabel={brandPicks.length > 0 ? `Continue · ${brandPicks.length} picked` : "Continue"}
 			continueDisabled={brandPicks.length < MIN_PICKS}
-			onBack={() => navigate({ to: "/onboarding" })}
-			secondary={{ label: "Back", onClick: () => navigate({ to: "/onboarding" }) }}
-			onContinue={() => navigate({ to: "/onboarding/swipe-tutorial" })}
+			onBack={back}
+			secondary={{ label: "Back", onClick: back }}
+			// A retake skips the swipe tutorial: they've swiped before.
+			onContinue={() => navigate({ to: isRetake ? "/onboarding/goal" : "/onboarding/swipe-tutorial" })}
 			contentWidth={960}
 		>
 			<BrandGrid picks={brandPicks} onToggle={toggle} />

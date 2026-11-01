@@ -74,7 +74,8 @@ fun BrandPicksScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 	// (Codex parity audit 2026-09-04). Every tile stays toggleable.
 	// Product audit (2026-09-05): a real first run starts with nothing picked
 	// (the frame's five were authored demo state).
-	var picked by rememberSaveable { mutableStateOf(setOf<String>()) }
+	// The picks already made (a retake from Profile -> Taste & risk), else none (as iOS).
+	var picked by rememberSaveable { mutableStateOf(com.stak.demo.data.UserProfile.brandPicks) }
 
 	Artboard(modifier = Modifier.background(StakColors.Bg)) {
 		// Nav row — back circle + step label.
@@ -85,7 +86,7 @@ fun BrandPicksScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 			AuthBackCircle(onClick = onBack)
 			androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
 			Text(
-				text = "STEP 2 OF 6",
+				text = if (com.stak.demo.ui.profile.QuizRetake.mode != null) "YOUR TASTE" else "STEP 2 OF 6",
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, letterSpacing = (0.9 * u).sp),
 				color = Auth.FaintText,
 			)

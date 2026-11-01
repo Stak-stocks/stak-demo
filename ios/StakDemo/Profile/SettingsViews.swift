@@ -10,6 +10,7 @@ private let muted = Color(argb: 0xFF819ABB)
 private let bodyInk = Color(argb: 0xFFC8D2E0)
 private let teal = Color(argb: 0xFF69B3CA)
 
+
 /// The settings pages behind the Profile hub's rows (product audit, 2026-09-05:
 /// the rows did nothing). No frames exist for them, so they borrow the hub's
 /// language - its header, #10182B r16 cards, 48-tall rows, Geist 13 labels - and
@@ -20,6 +21,8 @@ enum SettingsKind: String, Hashable {
 	case app, password
 	/// The hub's "Edit profile" link: photo and display name.
 	case editProfile
+	/// Taste & risk (Chinedu_Mobile 1:5732): the onboarding answers, each changeable.
+	case taste
 }
 
 /// The hub's header (back circle + centered title) over a dark page.
@@ -136,9 +139,12 @@ struct SettingsView: View {
 	var onOpen: (SettingsKind) -> Void = { _ in }
 	/// Leaves the signed-out app on Create account.
 	var onAccountDeleted: () -> Void = {}
+	/// Re-enters the onboarding quiz from Taste & risk.
+	var onRetakeQuiz: (QuizRetakeFlow.Start) -> Void = { _ in }
 
 	var body: some View {
 		switch kind {
+		case .taste: TasteRiskView(onBack: onBack, onRetakeQuiz: onRetakeQuiz)
 		case .notifications: NotificationSettingsView(onBack: onBack)
 		case .appearance: AppearanceView(onBack: onBack)
 		case .linked: LinkedAccountsView(onBack: onBack)
@@ -147,6 +153,88 @@ struct SettingsView: View {
 		case .password: ChangePasswordView(onBack: onBack)
 		case .editProfile: EditProfileView(onBack: onBack)
 		}
+	}
+}
+
+/// Taste & risk (Chinedu_Mobile 1:5732, 2026-10-07, on the live answers): the taste chips with "Retake the taste
+/// quiz", and the risk style and goal, each with Change - all three re-enter the onboarding quiz and come back here
+/// (QuizRetakeFlow). The demo persona only shows its authored answers. Mirrors android TasteRiskScreen.
+private struct TasteRiskView: View {
+	let onBack: () -> Void
+	let onRetakeQuiz: (QuizRetakeFlow.Start) -> Void
+	/// Observed so answers changed in the quiz show on the way back.
+	@ObservedObject private var profile = UserProfile.shared
+	@ObservedObject private var session = Session.shared
+	/// The chips include the saved stocks that belong to a taste.
+	@ObservedObject private var holdings = MyStakHoldings.shared
+
+	var body: some View {
+		let u = figmaUnit
+		let demo = session.demoAccount
+		SettingsPage(title: "Taste & risk", onBack: onBack) {
+			SectionLabel(text: "YOUR TASTE")
+			VStack(alignment: .leading, spacing: 12 * u) {
+				FlowLayout(spacing: 8 * u) {
+					ForEach(ProfileTaste.chips(), id: \.self) { label in
+						Text(label)
+							.font(StakFont.geist(12 * u, .medium))
+							.foregroundStyle(tasteChipInk)
+							.lineLimit(1)
+							.fixedSize(horizontal: true, vertical: false)
+							.padding(.horizontal, 12 * u)
+							.padding(.vertical, 6 * u)
+							.background(tasteChipBg, in: RoundedRectangle(cornerRadius: 14 * u))
+							.overlay(RoundedRectangle(cornerRadius: 14 * u).strokeBorder(tasteChipBorder, lineWidth: 1 * u))
+					}
+				}
+				.padding(.horizontal, 14 * u)
+				Text(demo ? "Your taste graph sharpens with every swipe." : "Your taste updates as you save stocks.")
+					.font(StakFont.geist(12 * u))
+					.stakLineHeight(16 * u, size: 12 * u, face: .geist)
+					.foregroundStyle(bodyInk)
+					.padding(.horizontal, 14 * u)
+					.padding(.bottom, demo ? 14 * u : 0)
+				// The demo persona's answers are authored: nothing to retake.
+				if !demo { SettingsLinkRow(label: "Retake the taste quiz", action: { onRetakeQuiz(.all) }) }
+			}
+			.padding(.top, 14 * u)
+			.frame(maxWidth: .infinity, alignment: .leading)
+			.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
+			SectionLabel(text: "RISK STYLE")
+			answerCard("Risk style", ProfileTaste.riskLabel(), demo: demo) { onRetakeQuiz(.risk) }
+			Caption(text: ProfileTaste.riskBlurb() + " STAK uses it to show how each stock fits you.")
+			SectionLabel(text: "GOAL")
+			answerCard("Goal", ProfileTaste.goalLabel(), demo: demo) { onRetakeQuiz(.goal) }
+			// What the answers really do: the server builds the deck from what you save and swipe, not from the quiz.
+			Caption(text: "Your answers set your taste chips and how each stock fits you. Your saves and paper portfolio stay as they are.")
+		}
+	}
+
+	/// One answer with its Change (Answer, before it was answered); read with what it answers ("Risk style: Balanced").
+	private func answerCard(_ question: String, _ label: String?, demo: Bool, change: @escaping () -> Void) -> some View {
+		let u = figmaUnit
+		let verb = demo ? nil : label == nil ? "Answer" : "Change"
+		return SettingsLinkRow(label: label ?? "Not answered yet", value: verb, chevron: !demo, action: demo ? nil : change)
+			.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
+			.accessibilityElement(children: .ignore)
+			.accessibilityLabel("\(question): \(label ?? "not answered yet")")
+			.accessibilityHint(verb ?? "")
+			.accessibilityAddTraits(demo ? [] : .isButton)
+	}
+}
+
+/// A small caps label over a card (YOUR TASTE, RISK STYLE, GOAL).
+private struct SectionLabel: View {
+	let text: String
+	var body: some View {
+		let u = figmaUnit
+		Text(text)
+			.font(StakFont.geist(11 * u, .medium))
+			.foregroundStyle(muted)
+			.frame(maxWidth: .infinity, alignment: .leading)
+			.padding(.leading, 4 * u)
+			.padding(.top, 4 * u)
+			.accessibilityAddTraits(.isHeader)
 	}
 }
 

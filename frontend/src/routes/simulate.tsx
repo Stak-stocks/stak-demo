@@ -141,7 +141,10 @@ function SimulatePage() {
 
 				<SectionHeader>Your portfolio</SectionHeader>
 				{paper.picks.length === 0 ? (
-					<EmptyStateCard title="No picks yet" body="Your first practice buy lands here with its live gain." />
+					<EmptyStateCard
+						title="No practice trades yet"
+						body="Practice-buy a company you've saved, with paper money at real prices. Your first buy shows up here with its live gain."
+					/>
 				) : (
 					<>
 						<div style={{ display: "flex", flexDirection: "column", gap: cu(10) }}>

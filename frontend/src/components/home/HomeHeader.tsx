@@ -8,14 +8,14 @@ import { DISC, cu } from "@/components/discover/discoverTheme";
 import { PRESS, f, focusRing } from "@/components/phone/phone";
 import { AskAiHeaderButton } from "@/components/stakAi/open";
 
-/** "Good Morning" 5-11, "Good Afternoon" 12-16, otherwise "Good Evening" (Android's Greeting.kt). */
+/** "Good Morning" 0-11 (after midnight is morning), "Good Afternoon" 12-16, otherwise "Good Evening" (Android's Greeting.kt). */
 export function greetingFor(hour: number): string {
-	if (hour >= 5 && hour <= 11) return "Good Morning";
+	if (hour >= 0 && hour <= 11) return "Good Morning";
 	if (hour >= 12 && hour <= 16) return "Good Afternoon";
 	return "Good Evening";
 }
 
-/** The greeting for the current hour (re-read every 30s so it rolls over at noon and 5pm without a reload) and
+/** The greeting for the current hour (re-read every 30s so it rolls over at midnight, noon and 5pm without a reload) and
  *  the signed-in user's display name, capitalised; `name` is "" when the account has none. */
 export function useGreeting(): { greeting: string; name: string } {
 	const { appUser } = useAuth();

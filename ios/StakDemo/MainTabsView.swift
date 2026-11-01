@@ -12,6 +12,8 @@ private enum PushedPage: Identifiable, Equatable {
 	case editProfile
 	case notifications
 	case settings(SettingsKind)
+	/// Taste & risk's retake: the onboarding quiz over the shell, back to the page when done.
+	case quizRetake(QuizRetakeFlow.Start)
 	case simPortfolio
 	/// Codex parity audit (2026-09-04): carries the tapped pick's ticker
 	/// (Simulate/PickDetailView.swift PickSpecs).
@@ -37,6 +39,7 @@ private enum PushedPage: Identifiable, Equatable {
 		case .editProfile: return "editProfile"
 		case .notifications: return "notifications"
 		case .settings(let kind): return "settings-\(kind.rawValue)"
+		case .quizRetake(let start): return "quizRetake-\(start.rawValue)"
 		case .simPortfolio: return "simPortfolio"
 		case .simPick(let symbol): return "simPick-\(symbol)"
 		case .stakAi(let ctx, let q, let cid): return "stakAi-\(ctx?.ticker ?? "")-\(q ?? "")-\(cid ?? "")"
@@ -424,7 +427,9 @@ struct MainTabsView: View {
 				}
 			})
 		case .settings(let kind):
-			SettingsView(kind: kind, onBack: { pop() }, onOpen: { push(.settings($0)) }, onAccountDeleted: onAccountDeleted)
+			SettingsView(kind: kind, onBack: { pop() }, onOpen: { push(.settings($0)) }, onAccountDeleted: onAccountDeleted, onRetakeQuiz: { push(.quizRetake($0)) })
+		case .quizRetake(let start):
+			QuizRetakeFlow(start: start, onDone: { pop() })
 		case .simPortfolio:
 			SimPortfolioView(
 				// Authored (1:4496): Back -> Simulate home, Instant; rows and

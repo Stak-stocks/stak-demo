@@ -259,15 +259,15 @@ struct MyStakView: View {
 		let u = figmaUnit
 		return Button(action: onStartSwiping) {
 			VStack(alignment: .leading, spacing: 8 * u) {
-				Text("No companies yet")
+				Text("Nothing saved yet")
 					.font(StakFont.sora(15 * u, .semiBold))
 					.stakLineHeight(19 * u, size: 15 * u, face: .sora)
 					.foregroundStyle(StakColors.textPrimary)
-				Text("STAK a company in Discover and it lands here, with what changed since you saved it.")
+				Text("Save a company from today's deck and it lands here, with what changed since you saved it.")
 					.font(StakFont.geist(13 * u))
 					.stakLineHeight(19 * u, size: 13 * u, face: .geist)
 					.foregroundStyle(Stak.body)
-				Text("Open Discover ›")
+				Text("See today's deck ›")
 					.font(StakFont.geist(13 * u, .medium))
 					.stakLineHeight(17 * u, size: 13 * u, face: .geist)
 					.foregroundStyle(Stak.teal)

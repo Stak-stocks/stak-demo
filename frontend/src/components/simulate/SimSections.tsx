@@ -102,6 +102,9 @@ export function ScoreHero({ paper, range, onRange }: { paper: PaperPortfolio; ra
 		return [base > 0 ? paper.portfolioValue - base : null, base];
 	})();
 	const lineUp = rangeChange === null || !(first > 0) ? up : Math.round(rangeChange) >= 0;
+	// Before the first practice trade there's no move to report and no line to draw (Chinedu_Mobile 1:6556 / 1:6560).
+	// Nothing held either, so a ledger still loading (or not read) never passes for an account that hasn't traded.
+	const untraded = !paper.loading && paper.trades.length === 0 && paper.picks.length === 0;
 	const pad = { padding: `0 ${cu(20)}` };
 	return (
 		<section style={{ display: "flex", flexDirection: "column", gap: cu(11), ...sheetCard(18), padding: `${cu(20)} 0` }} aria-label="Portfolio value">
@@ -117,15 +120,19 @@ export function ScoreHero({ paper, range, onRange }: { paper: PaperPortfolio; ra
 				<span style={{ font: f(400, 12, 16), color: DISC.muted }}>Cash available</span>
 				<span style={{ font: f(500, 12, 16), color: DISC.ink }}>{usd(paper.cash)}</span>
 			</div>
-			<p style={{ ...pad, font: f(500, 12, 16), color: lineUp ? DISC.green : DISC.red }}>
-				{rangeChange !== null && first > 0
+			<p style={{ ...pad, font: f(500, 12, 16), color: untraded ? DISC.muted : lineUp ? DISC.green : DISC.red }}>
+				{untraded ? "No moves yet" : rangeChange !== null && first > 0
 					? rangeLine(signedWhole(rangeChange), (rangeChange / first) * 100, lineUp, range, sessionWord())
 					: <>{up ? "▲" : "▼"} {signedWhole(gain)} ({signedPct(paper.paperStart > 0 ? (gain / paper.paperStart) * 100 : 0)}) all time</>}
 			</p>
-			<div className="flex justify-center">
-				{values && values.length >= 2 ? <RangeChart values={values} /> : <ChartNote>{loading ? "" : "No history yet"}</ChartNote>}
-			</div>
-			<div style={{ paddingTop: cu(29) }}><RangeChips value={range} onChange={onRange} ranges={PORTFOLIO_RANGES} /></div>
+			{!untraded && (
+				<>
+					<div className="flex justify-center">
+						{values && values.length >= 2 ? <RangeChart values={values} /> : <ChartNote>{loading ? "" : "No history yet"}</ChartNote>}
+					</div>
+					<div style={{ paddingTop: cu(29) }}><RangeChips value={range} onChange={onRange} ranges={PORTFOLIO_RANGES} /></div>
+				</>
+			)}
 		</section>
 	);
 }

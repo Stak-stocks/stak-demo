@@ -62,7 +62,7 @@ fun TasteRevealScreen(onBack: () -> Unit, onLetsGo: () -> Unit) {
 			AuthBackCircle(onClick = onBack)
 			Spacer(modifier = Modifier.weight(1f))
 			Text(
-				text = "STEP 6 OF 6",
+				text = if (com.stak.demo.ui.profile.QuizRetake.mode != null) "YOUR TASTE" else "STEP 6 OF 6",
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, letterSpacing = (0.9 * u).sp),
 				color = Auth.FaintText,
 			)
@@ -78,7 +78,7 @@ fun TasteRevealScreen(onBack: () -> Unit, onLetsGo: () -> Unit) {
 				.padding(top = (14 * u).dp),
 		) {
 			Text(
-				text = "YOUR STARTING STAK TASTE",
+				text = if (com.stak.demo.ui.profile.QuizRetake.mode != null) "YOUR UPDATED STAK TASTE" else "YOUR STARTING STAK TASTE",
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, letterSpacing = (0.9 * u).sp),
 				color = Auth.LinkTeal,
 			)
@@ -186,7 +186,7 @@ fun TasteRevealScreen(onBack: () -> Unit, onLetsGo: () -> Unit) {
 			modifier = Modifier.fillMaxWidth().padding(top = (8 * u).dp, bottom = (26 * u).dp),
 		) {
 			// Copy fix: 1:746 authors "Lets go!" -> "Let's go!" (exact-design audit 2026-09-04).
-			AuthCta(text = "Let's go!", onClick = onLetsGo)
+			AuthCta(text = if (com.stak.demo.ui.profile.QuizRetake.mode != null) "Save" else "Let's go!", onClick = onLetsGo)
 			AuthSecondaryButton(text = "Back", onClick = onBack)
 			if (showRisk) RiskStyleSheet(onDismiss = { showRisk = false })
 		}

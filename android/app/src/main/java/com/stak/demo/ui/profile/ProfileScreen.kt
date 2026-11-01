@@ -1,5 +1,6 @@
 ﻿package com.stak.demo.ui.profile
 
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -45,9 +46,6 @@ private val Muted = Color(0xFF819ABB)
 private val Body = Color(0xFFC8D2E0)
 private val Bright = Color(0xFFF2F6FC)
 private val Green = Color(0xFF2FD08A)
-private val ChipBg = Color(0xFF1A2333)
-private val ChipBorder = Color(0xFF2C9DBC)
-private val ChipInk = Color(0xFF7FD4E8)
 /** The hub row that opens the share sheet instead of a settings page. */
 private const val INVITE = "invite"
 
@@ -152,7 +150,7 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 				Text(
 					text = "Edit profile",
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-					color = ChipInk,
+					color = TasteChipInk,
 					modifier = Modifier.clickable(
 						interactionSource = remember { MutableInteractionSource() },
 						indication = com.stak.demo.ui.theme.PressDim,
@@ -180,16 +178,10 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 				// The demo account keeps the authored chips at their pinned widths; a
 				// new account's chips come from its onboarding answers and hug their
 				// labels (product audit, 2026-09-05).
-				val profile = com.stak.demo.data.UserProfile
 				val chips: List<Pair<String, Int?>> = if (com.stak.demo.data.Session.demoAccount) {
 					listOf("Tech Curious" to 97, "High Growth" to 94, "Consumer Brands" to 125)
 				} else {
-					// The onboarding picks plus the stocks saved since that belong to a taste, so
-					// the chips follow what the user keeps from the deck.
-					val saved = com.stak.demo.data.MyStakHoldings.tickers
-						.mapNotNull { com.stak.demo.data.MyStakHoldings.nameOf(it) }
-						.filter { com.stak.demo.ui.onboarding.TasteModel.isTasteBrand(it) }
-					com.stak.demo.ui.onboarding.TasteModel.chips(profile.brandPicks + saved, profile.goal, profile.risk).map { it to null }
+					ProfileTaste.chips().map { it to null }
 				}
 				chips.forEach { (label, w) ->
 					Box(
@@ -198,14 +190,14 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 							// At least the authored size; enlarged text (the system font size) grows the chip instead of being clipped.
 							.then(if (w != null) Modifier.widthIn(min = (w * u).dp).heightIn(min = (28 * u).dp) else Modifier.heightIn(min = (28 * u).dp))
 							.clip(RoundedCornerShape((14 * u).dp))
-							.background(ChipBg)
-							.border((1 * u).dp, ChipBorder, RoundedCornerShape((14 * u).dp))
+							.background(TasteChipBg)
+							.border((1 * u).dp, TasteChipBorder, RoundedCornerShape((14 * u).dp))
 							.padding(horizontal = if (w == null) (12 * u).dp else 0.dp),
 					) {
 						Text(
 							text = label,
 							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-							color = ChipInk,
+							color = TasteChipInk,
 							maxLines = 1,
 							softWrap = false,
 						)
@@ -217,6 +209,22 @@ fun ProfileScreen(onBack: () -> Unit, onLogOut: () -> Unit = {}, onOpenSetting: 
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Body,
 				)
+			// Taste & risk: the answers behind these chips, each changeable.
+			Row(
+				verticalAlignment = Alignment.CenterVertically,
+				modifier = Modifier
+					.fillMaxWidth()
+					.heightIn(min = (48 * u).dp)
+					.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, role = androidx.compose.ui.semantics.Role.Button) { onOpenSetting(SettingsKind.TASTE) },
+			) {
+				Text(
+					"Taste & risk profile",
+					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp),
+					color = Color.White,
+					modifier = Modifier.weight(1f),
+				)
+				Text("›", style = TextStyle(fontFamily = Geist, fontSize = (14 * u).sp), color = Muted, modifier = Modifier.clearAndSetSemantics {})
+			}
 			}
 			// Paper stats card.
 			Column(

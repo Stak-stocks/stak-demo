@@ -79,7 +79,7 @@ fun PreparingDeckScreen(onDone: () -> Unit) {
 				.size((342 * u).dp, (488 * u).dp),
 		)
 		Text(
-			text = "Building your first deck...",
+			text = if (com.stak.demo.ui.profile.QuizRetake.mode != null) "Updating your taste..." else "Building your first deck...",
 			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (22 * u).sp, lineHeight = (28 * u).sp, textAlign = TextAlign.Center, lineHeightStyle = FIGMA_LINE_BOX),
 			color = StakColors.TextPrimary,
 			modifier = Modifier

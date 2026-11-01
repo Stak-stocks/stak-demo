@@ -71,7 +71,7 @@ export function QuizStepShell(props: ShellProps) {
 				<div style={{ display: "flex", flexDirection: "column", gap: cu(10), padding: `${cu(8)} 0 ${cu(26)}` }}>
 					<AuthCta label={continueLabel} onClick={onContinue} disabled={continueDisabled} />
 					{secondary && <AuthSecondary label={secondary.label} onClick={secondary.onClick} />}
-					{caption && <p className="text-center" style={{ font: f(400, 11), color: DISC.faint }}>{caption}</p>}
+					{caption && <p className="text-center" aria-live="polite" style={{ font: f(400, 11), color: DISC.faint }}>{caption}</p>}
 				</div>
 			</div>
 		</PhonePage>
@@ -129,7 +129,7 @@ function QuizDesktopFrame({
 						{secondary && secondary.label !== "Back" && (
 							<button type="button" onClick={secondary.onClick} className={`rounded-md hover:text-white ${PRESS}`} style={{ font: f(500, 14), color: DISC.muted, ...focusRing }}>{secondary.label}</button>
 						)}
-						{caption && <p style={{ font: f(400, 12), color: DISC.muted }}>{caption}</p>}
+						{caption && <p aria-live="polite" style={{ font: f(400, 12), color: DISC.muted }}>{caption}</p>}
 					</div>
 				</div>
 			</div>

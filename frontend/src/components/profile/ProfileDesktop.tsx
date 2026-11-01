@@ -67,6 +67,9 @@ export function ProfileDesktop({ user, joined, tasteChips, paper, prefs }: {
 					<button type="button" onClick={() => navigate({ to: "/my-stak/taste" })} className={linkClass} style={{ color: DESK.cyan }}>
 						See your Investing Taste <ArrowRight className="h-[14px] w-[14px]" aria-hidden="true" />
 					</button>
+					<button type="button" onClick={() => navigate({ to: "/profile/taste" })} className={linkClass} style={{ color: DESK.cyan }}>
+						Change your quiz answers <ArrowRight className="h-[14px] w-[14px]" aria-hidden="true" />
+					</button>
 				</Panel>
 
 				<Panel label="Paper portfolio" className="gap-3 p-5">

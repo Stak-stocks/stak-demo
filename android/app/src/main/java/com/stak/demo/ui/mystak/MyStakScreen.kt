@@ -401,17 +401,17 @@ private fun EmptyStak(onStartSwiping: () -> Unit) {
 			.padding((16 * u).dp),
 	) {
 		Text(
-			text = "No companies yet",
+			text = "Nothing saved yet",
 			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Color.White,
 		)
 		Text(
-			text = "STAK a company in Discover and it lands here, with what changed since you saved it.",
+			text = "Save a company from today's deck and it lands here, with what changed since you saved it.",
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Stak.Body,
 		)
 		Text(
-			text = "Open Discover ›",
+			text = "See today's deck ›",
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 			color = Stak.Teal,
 		)
