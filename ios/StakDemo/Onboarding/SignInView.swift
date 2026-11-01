@@ -48,7 +48,9 @@ struct SignInView: View {
 								.stakLineHeight(33 * u, size: 26 * u, face: .sora)
 								.foregroundStyle(StakColors.textPrimary)
 							// Why Sign in is up when the sign-in was ended somewhere else (Session.endedElsewhere).
-							Text(session.endedElsewhere ? "Your session ended. Sign in again to continue." : "Your deck kept learning while you were away.")
+							Text(session.endedElsewhere ? "Your session ended. Sign in again to continue."
+								: authVM.pendingAppleLink ? "Sign in the way you did before (email or Google) - we'll link Apple to it next."
+								: "Your deck kept learning while you were away.")
 								.font(StakFont.geist(12 * u))
 								.stakLineHeight(16 * u, size: 12 * u, face: .geist)
 								.foregroundStyle(Auth.subtitleGray)
@@ -57,9 +59,12 @@ struct SignInView: View {
 
 						SocialPill(text: "Continue with Google", icon: "IcGoogleG", action: { authVM.signInWithGoogle() })
 							.disabled(isLoading)
-						// Sign in with Apple: the iPhone's own (App Store Guideline 4.8) - Android has Google only.
-						SocialPill(text: "Continue with Apple", icon: "IcAppleLogo", action: { appleCoord.start(authVM: authVM) })
-							.disabled(isLoading)
+						// Sign in with Apple: the iPhone's own (App Store Guideline 4.8) - Android has Google only. Hidden while
+						// Apple is waiting to be linked to the account being signed into: it would only make another.
+						if !authVM.pendingAppleLink {
+							SocialPill(text: "Continue with Apple", icon: "IcAppleLogo", action: { appleCoord.start(authVM: authVM) })
+								.disabled(isLoading)
+						}
 
 						AuthOrDivider()
 

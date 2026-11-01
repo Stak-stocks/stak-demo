@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect, useRef } from "react";
 import { getProfile } from "@/lib/api";
 import {
-	AuthBackLink, AuthCta, AuthHeader, AuthInput, AuthScreen, AuthSpinner, ErrorText, OTP_LENGTH, GooglePill, OrDivider, ShowHide, SwitchRow,
+	ApplePill, AuthBackLink, AuthCta, AuthHeader, AuthInput, AuthScreen, AuthSpinner, ErrorText, OTP_LENGTH, GooglePill, OrDivider, ShowHide, SwitchRow,
 	confirmError as confirmProblem, emailError as emailProblem, friendlyAuthError, passwordError as passwordProblem, usePasswordVisibility,
 } from "@/components/auth/AuthKit";
 import { DISC, cu } from "@/components/discover/discoverTheme";
@@ -24,7 +24,7 @@ export const Route = createFileRoute("/signup")({
 
 /** Android's Create account: Google or email + password, then a confirmation code from the email. */
 function SignUpPage() {
-	const { loading, signUpWithEmail, signInWithGoogleSupabase, verifySignupOtp, resendSignupOtp, supabaseUserId } = useAuth();
+	const { loading, signUpWithEmail, signInWithGoogleSupabase, signInWithAppleSupabase, verifySignupOtp, resendSignupOtp, supabaseUserId } = useAuth();
 	const navigate = useNavigate();
 	const { confirm: confirmEmail } = Route.useSearch();
 	const [mode, setMode] = useState<"form" | "confirm">(confirmEmail ? "confirm" : "form");
@@ -101,11 +101,18 @@ function SignUpPage() {
 		}
 	}
 
-	async function handleGoogleSignIn() {
+	// Back from Google's or Apple's page with the browser's Back: the page comes out of the cache still submitting.
+	useEffect(() => {
+		const onShow = (e: PageTransitionEvent) => { if (e.persisted) setSubmitting(false); };
+		window.addEventListener("pageshow", onShow);
+		return () => window.removeEventListener("pageshow", onShow);
+	}, []);
+
+	async function handleSocialSignIn(signIn: () => Promise<void>) {
 		setSubmitting(true);
 		setServerError(null);
 		try {
-			await signInWithGoogleSupabase();
+			await signIn();
 		} catch (error) {
 			setServerError(friendlyAuthError(error));
 			setSubmitting(false);
@@ -163,7 +170,8 @@ function SignUpPage() {
 				<>
 					<AuthHeader title="Create your account" subtitle="Enter your details below to continue" />
 					<div style={{ height: cu(4) }} />
-					<GooglePill onClick={handleGoogleSignIn} disabled={submitting} />
+					<GooglePill onClick={() => void handleSocialSignIn(signInWithGoogleSupabase)} disabled={submitting} />
+					<ApplePill onClick={() => void handleSocialSignIn(signInWithAppleSupabase)} disabled={submitting} />
 					<OrDivider />
 					<AuthInput value={email} onChange={setEmail} placeholder="Email address" type="email" inputMode="email" autoComplete="email" error={attempted ? problems.email : null} onEnter={handleEmailSignUp} />
 					<AuthInput value={password} onChange={setPassword} placeholder="Password" type={shown ? "text" : "password"} autoComplete="new-password" error={attempted ? problems.password : null} trailing={<ShowHide shown={shown} onToggle={toggle} />} onEnter={handleEmailSignUp} />

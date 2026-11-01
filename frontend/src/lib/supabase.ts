@@ -12,3 +12,8 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 	auth: { flowType: "pkce" },
 });
+
+/** An address Apple made up for "Hide My Email": not one to show. Mirrors the apps' isHiddenAppleEmail. */
+export function isHiddenAppleEmail(email: string | null | undefined): boolean {
+	return !!email && email.toLowerCase().endsWith("@privaterelay.appleid.com");
+}

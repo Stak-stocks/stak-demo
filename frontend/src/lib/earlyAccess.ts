@@ -4,15 +4,48 @@ import { NEW_ACCOUNT_WINDOW_MS } from "@stak/shared";
  * Early access (2026-10-05): new accounts can't be made on the web; visitors join the waitlist on /welcome instead.
  * Signing in still works for existing accounts (teammates, testers), including ones that haven't finished onboarding.
  * Flip this to reopen sign-up.
- * Note: Google sign-in creates a Supabase user on its own, so the root route signs a brand-new one out (see
- * isBrandNewAccount) and, when this tab started that Google sign-in, removes it (POST /api/me/turned-away, which only
- * deletes a Google account minutes old, never onboarded, with nothing on the server). Supabase's own "allow new
+ * Note: Google and Apple sign-in create a Supabase user on their own, so the root route signs a brand-new one out (see
+ * isBrandNewAccount) and, when this tab started that sign-in, removes it (POST /api/me/turned-away, which only
+ * deletes a Google or Apple account minutes old, never onboarded, with nothing on the server). Supabase's own "allow new
  * sign-ups" setting would also stop Android, still open to the team.
  */
 export const WEB_SIGNUP_OPEN = false;
 
-/** Set when this tab sends someone to Google, so only an account this tab's sign-in made is ever removed. */
-export const WEB_GOOGLE_SIGN_IN_KEY = "stak.webGoogleSignIn";
+/**
+ * Set to "google" or "apple" when this tab sends someone to that sign-in, so only an account this tab's sign-in made is
+ * ever removed, and only an Apple one is asked "Have you used STAK before?".
+ */
+export const WEB_SOCIAL_SIGN_IN_KEY = "stak.webSocialSignIn";
+
+/**
+ * Set after "I already have an account": once they've signed in the usual way, the Sign-in methods page offers to link
+ * Apple. Lives for the tab.
+ */
+export const PENDING_APPLE_LINK_KEY = "stak.pendingAppleLink";
+
+/** Reads (and optionally clears) a tab-scoped flag; storage can be unavailable. */
+export function takeTabFlag(key: string, clear = false): string | null {
+	try {
+		const value = sessionStorage.getItem(key);
+		if (clear) sessionStorage.removeItem(key);
+		return value;
+	} catch { return null; }
+}
+
+/** Sets a tab-scoped flag; without storage it just doesn't happen. */
+export function setTabFlag(key: string, value: string): void {
+	try { sessionStorage.setItem(key, value); } catch { /* no storage */ }
+}
+
+/**
+ * A first Sign in with Apple behind "Hide My Email" made this account moments ago: it may belong to someone who
+ * already has STAK under email or Google, so they're asked before anything else (open sign-up or not). Mirrors iOS
+ * AuthViewModel.signInWithApple; unlike iOS, an unknown onboarding state counts, since a new web account has no row
+ * (and so no answer) until its first request.
+ */
+export function isNewHiddenAppleAccount(createdAt: string | null | undefined, onboarded: boolean | undefined, hiddenEmail: boolean, now = Date.now()): boolean {
+	return hiddenEmail && isFreshUnonboarded(createdAt, onboarded, now);
+}
 
 /**
  * An account created moments ago that hasn't finished onboarding: during early access, one the web shouldn't have
@@ -20,7 +53,12 @@ export const WEB_GOOGLE_SIGN_IN_KEY = "stak.webGoogleSignIn";
  * new user doesn't have until their first server request.
  */
 export function isBrandNewAccount(createdAt: string | null | undefined, onboarded: boolean | undefined, now = Date.now()): boolean {
-	if (WEB_SIGNUP_OPEN || onboarded === true || !createdAt) return false;
+	return !WEB_SIGNUP_OPEN && isFreshUnonboarded(createdAt, onboarded, now);
+}
+
+/** Made under NEW_ACCOUNT_WINDOW_MS ago (the window turned-away accepts) and not onboarded. */
+function isFreshUnonboarded(createdAt: string | null | undefined, onboarded: boolean | undefined, now: number): boolean {
+	if (onboarded === true || !createdAt) return false;
 	const t = Date.parse(createdAt);
 	return Number.isFinite(t) && now - t < NEW_ACCOUNT_WINDOW_MS;
 }
