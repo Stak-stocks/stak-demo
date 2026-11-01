@@ -13,3 +13,6 @@ service-account.json
 functions/lib/
 functions/node_modules/
 backend/drafts/
+
+# Apple keys (Sign in with Apple, push) - they live in Secret Manager, never here
+*.p8

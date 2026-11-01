@@ -26,6 +26,7 @@ App users never need any of this: the app's values are built into it when it's b
 | `REDIS_URL`, `ADMIN_SECRET`, `WARM_SECRET`, `WAITLIST_TOKEN_SECRET`, `TALLY_SIGNING_SECRET`, `TALLY_FORM_URL` | Backend |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Backend (web push) |
 | `EARLY_ACCESS_RESEND_KEY`, `ANALYTICS_EXCLUDED_EMAILS` | Backend |
+| `APPLE_SIGNIN_KEY_P8` (secret `apple-signin-key-p8`), `SUPABASE_MANAGEMENT_TOKEN` | Backend - the monthly renewal of the website's Sign in with Apple secret (below) |
 | `GEMINI_EVAL_API_KEY` | The STAK AI test script only (`backend/src/scripts/stakAiEval.ts`) - a billed key kept apart from the live ones |
 | `dev-backend-local` | Settings only a development machine has (`PORT`, the Supabase CLI token, and `GEMINI_DEV_API_KEY` - a Gemini key for local runs, used instead of the live ones whenever it's set) |
 | `dev-frontend-env` | `frontend/.env` |
@@ -35,6 +36,48 @@ App users never need any of this: the app's values are built into it when it's b
 
 The backend reads its keys from Secret Manager directly (Cloud Run secret references), so a deploy never needs a
 key on the machine that deploys.
+
+## Sign in with Apple on the website
+
+Supabase's Apple provider (Authentication -> Sign In / Providers -> Apple) needs a "Secret Key (for OAuth)": a JWT
+signed with the Sign in with Apple key, which Apple accepts for **at most 6 months**. When it lapses, Apple sign-in on
+the website stops working (the iPhone app is unaffected).
+
+It renews itself: Cloud Scheduler's `stak-apple-secret-renew` calls `POST /api/internal/apple-secret/renew` on the
+1st of each month, which makes a fresh secret and sets it on Supabase (`services/appleClientSecret.ts`). Each run
+logs `[apple-secret] renewed; expires <date>` - the latest one is the current expiry. A failed run shows in Cloud
+Scheduler and logs `[apple-secret] renewal failed: <reason>` (usually the Supabase token was revoked). Five monthly
+runs can fail before the secret actually lapses.
+
+One-time setup (done 2026-11):
+
+```sh
+# a Supabase access token (Account -> Access Tokens): Project = STAK only, Auth read & write only, no expiry -
+# stored as SUPABASE_MANAGEMENT_TOKEN in Secret Manager. Then:
+SA=serviceAccount:889057229494-compute@developer.gserviceaccount.com
+gcloud secrets add-iam-policy-binding apple-signin-key-p8 --project stak-c21a3 --member=$SA --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding SUPABASE_MANAGEMENT_TOKEN --project stak-c21a3 --member=$SA --role=roles/secretmanager.secretAccessor
+gcloud run services update stak-backend --region us-central1 --project stak-c21a3   --update-secrets=APPLE_SIGNIN_KEY_P8=apple-signin-key-p8:latest,SUPABASE_MANAGEMENT_TOKEN=SUPABASE_MANAGEMENT_TOKEN:latest
+gcloud scheduler jobs create http stak-apple-secret-renew --project stak-c21a3 --location us-central1   --schedule "0 9 1 * *" --time-zone America/New_York --http-method POST --max-retry-attempts 3   --uri https://stak-backend-889057229494.us-central1.run.app/api/internal/apple-secret/renew   --headers "x-warm-secret=$(gcloud secrets versions access latest --secret=WARM_SECRET --project stak-c21a3)"
+```
+
+If either secret is deleted or made unreadable, Cloud Run won't start a new revision (the deploy's canary check fails
+and traffic stays on the old one). To renew right now, run the job: `gcloud scheduler jobs run stak-apple-secret-renew
+--project stak-c21a3 --location us-central1`. By hand, without the backend:
+
+```sh
+gcloud secrets versions access latest --secret=apple-signin-key-p8 --project=stak-c21a3 > AuthKey.p8
+node scripts/apple-client-secret.mjs AuthKey.p8 | clip    # paste into Supabase, then:
+rm AuthKey.p8
+```
+
+| What | Value |
+|---|---|
+| Services ID (the website's client ID) | `com.stak.demo.web` |
+| Supabase Apple "Client IDs" | `com.stak.demo.web,com.stak.demo` - the website's first (Supabase uses the first for the web sign-in) |
+| Key | "STAK Sign in with Apple", Key ID `5NH9HT5BA3` (Apple Developer -> Keys); the `.p8` is `apple-signin-key-p8` |
+| Team ID | `P6442U4672` |
+| Current expiry | The latest `[apple-secret] renewed` log line (the first, made by hand 2026-10-31, expires 2027-04-29) |
 
 ## Changing a key
 
