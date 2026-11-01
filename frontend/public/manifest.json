@@ -1,0 +1,26 @@
+{
+  "short_name": "The Stak",
+  "name": "The Stak — Discover Stocks You Vibe With",
+  "description": "Swipe through brands, build your portfolio, and follow market news.",
+  "icons": [
+    {
+      "src": "favicon-96x96.png",
+      "type": "image/png",
+      "sizes": "96x96"
+    },
+    {
+      "src": "web-app-manifest-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "web-app-manifest-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#0b1121",
+  "background_color": "#0b1121"
+}

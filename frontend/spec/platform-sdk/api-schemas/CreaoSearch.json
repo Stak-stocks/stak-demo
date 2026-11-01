@@ -1,0 +1,398 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "CloudsWaySearch API",
+    "description": "AI-powered search API for getting news and information. User provides search query and language, system constructs the full URL with query parameters.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://searchapi.cloudsway.net"
+    }
+  ],
+  "paths": {
+    "/search/ZwEDEMkvaTthUZhz/smart": {
+      "get": {
+        "summary": "Search News and Information",
+        "description": "Performs a search query and returns results in the specified language.",
+        "operationId": "search",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search query (e.g., \"weather\", \"AI agent news\")"
+          },
+          {
+            "name": "setLang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "en",
+                "es",
+                "fr",
+                "de",
+                "zh",
+                "ja"
+              ],
+              "default": "en"
+            },
+            "description": "Language setting for search results"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful search response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "queryContext",
+                    "webPages"
+                  ],
+                  "properties": {
+                    "queryContext": {
+                      "type": "object",
+                      "required": [
+                        "originalQuery"
+                      ],
+                      "properties": {
+                        "originalQuery": {
+                          "type": "string",
+                          "description": "The original search query",
+                          "example": "shanghai"
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    "webPages": {
+                      "type": "object",
+                      "required": [
+                        "value"
+                      ],
+                      "properties": {
+                        "value": {
+                          "type": "array",
+                          "description": "Array of web page search results",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "name",
+                              "url"
+                            ],
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "description": "Title of the web page",
+                                "example": "Shanghai - Wikipedia"
+                              },
+                              "url": {
+                                "type": "string",
+                                "format": "uri",
+                                "description": "URL of the web page",
+                                "example": "https://en.wikipedia.org/wiki/Shanghai"
+                              },
+                              "displayUrl": {
+                                "type": "string",
+                                "description": "Display-friendly version of the URL",
+                                "example": "https://en.wikipedia.org/wiki/Shanghai"
+                              },
+                              "snippet": {
+                                "type": "string",
+                                "description": "Brief excerpt or summary of the content",
+                                "example": "Shanghai is a direct-administered municipality and the most populous urban area in China..."
+                              },
+                              "dateLastCrawled": {
+                                "type": "string",
+                                "format": "date-time",
+                                "description": "When the content was last crawled",
+                                "example": "2025-08-10T11:03:00Z"
+                              },
+                              "siteName": {
+                                "type": "string",
+                                "description": "Name of the website",
+                                "example": "Wikipedia"
+                              },
+                              "datePublished": {
+                                "type": "string",
+                                "format": "date-time",
+                                "description": "When the content was published (optional)",
+                                "example": "2025-08-03T00:00:00Z"
+                              },
+                              "thumbnailUrl": {
+                                "type": "string",
+                                "format": "uri",
+                                "description": "URL of thumbnail image (optional)",
+                                "example": "https://www.bing.com/th?id=OIP.nC1rdCACAagIyg9pjPBTWgHaDt&w=80&h=80&c=1&pid=5.1"
+                              }
+                            },
+                            "additionalProperties": true
+                          }
+                        }
+                      },
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing API key"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Bearer token authentication",
+        "x-bearer-token": "vEsmqzTy0oqHAuRkS1bh"
+      }
+    },
+    "schemas": {
+      "SearchResponse": {
+        "type": "object",
+        "required": [
+          "queryContext",
+          "webPages"
+        ],
+        "properties": {
+          "queryContext": {
+            "type": "object",
+            "required": [
+              "originalQuery"
+            ],
+            "properties": {
+              "originalQuery": {
+                "type": "string",
+                "description": "The original search query",
+                "example": "shanghai"
+              }
+            },
+            "additionalProperties": true
+          },
+          "webPages": {
+            "type": "object",
+            "required": [
+              "value"
+            ],
+            "properties": {
+              "value": {
+                "type": "array",
+                "description": "Array of web page search results",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "url"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Title of the web page",
+                      "example": "Shanghai - Wikipedia"
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "URL of the web page",
+                      "example": "https://en.wikipedia.org/wiki/Shanghai"
+                    },
+                    "displayUrl": {
+                      "type": "string",
+                      "description": "Display-friendly version of the URL",
+                      "example": "https://en.wikipedia.org/wiki/Shanghai"
+                    },
+                    "snippet": {
+                      "type": "string",
+                      "description": "Brief excerpt or summary of the content",
+                      "example": "Shanghai is a direct-administered municipality and the most populous urban area in China..."
+                    },
+                    "dateLastCrawled": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "When the content was last crawled",
+                      "example": "2025-08-10T11:03:00Z"
+                    },
+                    "siteName": {
+                      "type": "string",
+                      "description": "Name of the website",
+                      "example": "Wikipedia"
+                    },
+                    "datePublished": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "When the content was published (optional)",
+                      "example": "2025-08-03T00:00:00Z"
+                    },
+                    "thumbnailUrl": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "URL of thumbnail image (optional)",
+                      "example": "https://www.bing.com/th?id=OIP.nC1rdCACAagIyg9pjPBTWgHaDt&w=80&h=80&c=1&pid=5.1"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "QueryContext": {
+        "type": "object",
+        "required": [
+          "originalQuery"
+        ],
+        "properties": {
+          "originalQuery": {
+            "type": "string",
+            "description": "The original search query",
+            "example": "shanghai"
+          }
+        },
+        "additionalProperties": true
+      },
+      "WebPages": {
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "properties": {
+          "value": {
+            "type": "array",
+            "description": "Array of web page search results",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "url"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Title of the web page",
+                  "example": "Shanghai - Wikipedia"
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri",
+                  "description": "URL of the web page",
+                  "example": "https://en.wikipedia.org/wiki/Shanghai"
+                },
+                "displayUrl": {
+                  "type": "string",
+                  "description": "Display-friendly version of the URL",
+                  "example": "https://en.wikipedia.org/wiki/Shanghai"
+                },
+                "snippet": {
+                  "type": "string",
+                  "description": "Brief excerpt or summary of the content",
+                  "example": "Shanghai is a direct-administered municipality and the most populous urban area in China..."
+                },
+                "dateLastCrawled": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "When the content was last crawled",
+                  "example": "2025-08-10T11:03:00Z"
+                },
+                "siteName": {
+                  "type": "string",
+                  "description": "Name of the website",
+                  "example": "Wikipedia"
+                },
+                "datePublished": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "When the content was published (optional)",
+                  "example": "2025-08-03T00:00:00Z"
+                },
+                "thumbnailUrl": {
+                  "type": "string",
+                  "format": "uri",
+                  "description": "URL of thumbnail image (optional)",
+                  "example": "https://www.bing.com/th?id=OIP.nC1rdCACAagIyg9pjPBTWgHaDt&w=80&h=80&c=1&pid=5.1"
+                }
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      },
+      "WebPageResult": {
+        "type": "object",
+        "required": [
+          "name",
+          "url"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Title of the web page",
+            "example": "Shanghai - Wikipedia"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL of the web page",
+            "example": "https://en.wikipedia.org/wiki/Shanghai"
+          },
+          "displayUrl": {
+            "type": "string",
+            "description": "Display-friendly version of the URL",
+            "example": "https://en.wikipedia.org/wiki/Shanghai"
+          },
+          "snippet": {
+            "type": "string",
+            "description": "Brief excerpt or summary of the content",
+            "example": "Shanghai is a direct-administered municipality and the most populous urban area in China..."
+          },
+          "dateLastCrawled": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the content was last crawled",
+            "example": "2025-08-10T11:03:00Z"
+          },
+          "siteName": {
+            "type": "string",
+            "description": "Name of the website",
+            "example": "Wikipedia"
+          },
+          "datePublished": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the content was published (optional)",
+            "example": "2025-08-03T00:00:00Z"
+          },
+          "thumbnailUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL of thumbnail image (optional)",
+            "example": "https://www.bing.com/th?id=OIP.nC1rdCACAagIyg9pjPBTWgHaDt&w=80&h=80&c=1&pid=5.1"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}

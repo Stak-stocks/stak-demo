@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="format-detection" content="telephone=no, date=no, email=no, address=no" />
+
+    <!-- Canonical & SEO -->
+    <link rel="canonical" href="https://thestak.org/" />
+    <title>The Stak — Discover Stocks You Actually Vibe With</title>
+    <meta name="description" content="The Stak lets you discover and build a portfolio of brands you love. Swipe through stocks, follow market news, and learn investing — no jargon, no financial advice." />
+    <meta name="keywords" content="the stak, thestak, stak, stock discovery, invest in brands, stock market for beginners, brand investing, swipe stocks, learn investing" />
+    <meta name="robots" content="index, follow" />
+    <meta name="author" content="The Stak" />
+
+    <!-- Open Graph (Facebook, LinkedIn, WhatsApp previews) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="The Stak" />
+    <meta property="og:url" content="https://thestak.org/" />
+    <meta property="og:title" content="The Stak — Discover Stocks You Actually Vibe With" />
+    <meta property="og:description" content="Swipe through brands, build your portfolio, and follow market news — all in one place. The Stak makes investing feel like discovering music." />
+    <meta property="og:image" content="https://thestak.org/og-image.png" />
+
+    <!-- Twitter / X Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="The Stak — Discover Stocks You Actually Vibe With" />
+    <meta name="twitter:description" content="Swipe through brands, build your portfolio, and follow market news — all in one place." />
+    <meta name="twitter:image" content="https://thestak.org/og-image.png" />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "The Stak",
+      "alternateName": ["thestak", "Stak"],
+      "url": "https://thestak.org",
+      "description": "Discover and invest in stocks you actually care about. The Stak helps you build a brand portfolio by swiping through companies, reading simplified market news, and learning finance concepts along the way.",
+      "applicationCategory": "FinanceApplication",
+      "operatingSystem": "Any",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+
+    <!-- Icons & PWA -->
+    <link rel="icon" type="image/svg+xml" href="/creao_icon.svg" />
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0A1020" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Only the weights the app actually uses (Sora 400-800, Geist 400-700); Orbitron is welcome-page only and
+         loads from there. The stylesheet is swapped in after load so it never blocks first paint (display=swap
+         shows the fallback font until then). -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Geist:wght@400;500;600;700&family=Inter:wght@400&display=swap" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Geist:wght@400;500;600;700&family=Inter:wght@400&display=swap" /></noscript>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
