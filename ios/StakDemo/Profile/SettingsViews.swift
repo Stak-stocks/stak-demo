@@ -733,8 +733,8 @@ private struct AppSettingsView: View {
 							.tint(StakColors.accent)
 							.textInputAutocapitalization(.characters)
 							.autocorrectionDisabled()
+							// Done only closes the keyboard: deleting is the button's job alone (device report, 2026-11-01).
 							.submitLabel(.done)
-							.onSubmit(runDelete)
 							.onChange(of: typedDelete) { _, new in if new.count > 12 { typedDelete = String(new.prefix(12)) } }
 							.padding(.horizontal, 12 * u)
 							.padding(.vertical, 13 * u)

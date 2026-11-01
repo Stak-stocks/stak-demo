@@ -30,7 +30,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -594,7 +593,7 @@ private fun AppSettingsScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onAc
 						textStyle = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (14 * u).sp, color = StakColors.TextPrimary),
 						singleLine = true,
 						keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, autoCorrectEnabled = false, imeAction = ImeAction.Done),
-						keyboardActions = KeyboardActions(onDone = { if (deleteConfirmed && !deleting) runDelete() }),
+						// Done only closes the keyboard (its default): deleting is the button's job alone.
 						cursorBrush = SolidColor(StakColors.Accent),
 						modifier = Modifier
 							.fillMaxWidth()
