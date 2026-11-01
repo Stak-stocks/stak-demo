@@ -11,7 +11,9 @@ import com.stak.demo.R
 @Composable
 fun GoalScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 	MatrixQuizScreen(
-		stepLabel = "STEP 4 OF 6",
+		stepLabel = if (com.stak.demo.ui.profile.QuizRetake.mode != null) "YOUR TASTE" else "STEP 4 OF 6",
+		// The answer already given is selected (a retake), as iOS.
+		initialSelection = com.stak.demo.data.UserProfile.goal,
 		headline = "What brings you here?",
 		subtitle = "Pick one. You can change it any time.",
 		options = listOf(

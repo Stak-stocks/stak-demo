@@ -11,12 +11,13 @@ import type { DailyBriefResponse } from "../api";
 describe("capitalizeWords / greetingFor", () => {
 	it("title-cases each word and drops blanks", () => expect(capitalizeWords("gOODLUCK   b")).toBe("Goodluck B"));
 	it("greets by the hour, like Android", () => {
-		expect(greetingFor(5)).toBe("Good Morning");
+		expect(greetingFor(0)).toBe("Good Morning");
+		expect(greetingFor(3)).toBe("Good Morning");
 		expect(greetingFor(11)).toBe("Good Morning");
 		expect(greetingFor(12)).toBe("Good Afternoon");
 		expect(greetingFor(16)).toBe("Good Afternoon");
 		expect(greetingFor(17)).toBe("Good Evening");
-		expect(greetingFor(3)).toBe("Good Evening");
+		expect(greetingFor(23)).toBe("Good Evening");
 	});
 });
 

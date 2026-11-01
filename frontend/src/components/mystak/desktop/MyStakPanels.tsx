@@ -104,9 +104,9 @@ export function CollectionsPanel({ groups, brandById, loading, failed, onRetry, 
 				</div>
 			) : groups.length === 0 ? (
 				<div className="flex flex-col items-start gap-3 py-4">
-					<p className="text-[14px] text-white">Nothing saved yet.</p>
-					<p className="text-[13px]" style={{ color: DESK.muted }}>Swipe right on companies in Discover and they're grouped into collections here.</p>
-					<DeskButton size="sm" onClick={onDiscover} className="mt-1 self-start">Go to Discover</DeskButton>
+					<p className="text-[14px] text-white">Nothing saved yet</p>
+					<p className="text-[13px]" style={{ color: DESK.muted }}>Save a company from today's deck and it lands here, with what changed since you saved it.</p>
+					<DeskButton size="sm" onClick={onDiscover} className="mt-1 self-start">See today's deck</DeskButton>
 				</div>
 			) : (
 				<div className={TILE_GRID}>

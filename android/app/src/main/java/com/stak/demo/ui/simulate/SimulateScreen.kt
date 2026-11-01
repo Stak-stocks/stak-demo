@@ -1,5 +1,8 @@
 ﻿package com.stak.demo.ui.simulate
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -287,7 +290,12 @@ internal fun SimulateScreen(
 				// 1:4009 plist (exact-design audit 2026-09-04): the three rows sit 10 apart, not the column's 18.
 				if (PaperPortfolio.pickCount == 0) {
 					// Product audit (2026-09-05): a new account has no picks yet.
-					EmptyStateCard(title = "No picks yet", body = "Your first practice buy lands here with its live gain.")
+					EmptyStateCard(
+						title = "No practice trades yet",
+						body = "Buy any company from today's deck with paper money at real prices. Your first buy shows up here with its live gain.",
+						link = "See today's deck",
+						onLink = onOpenDiscover,
+					)
 				} else {
 				Column(verticalArrangement = Arrangement.spacedBy((10 * u).dp)) {
 					PaperPortfolio.positions.take(3).forEach { pos ->
@@ -428,14 +436,20 @@ internal fun EmptyStateCard(title: String, body: String, link: String? = null, o
 			color = Sim.Muted,
 		)
 		if (link != null) {
-			Text(
-				text = "$link ›",
-				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-				color = Sim.Teal,
+			// A full-size target around the line of text; the "›" is drawn, not read.
+			Box(
+				contentAlignment = Alignment.CenterStart,
 				modifier = Modifier
-					.padding(top = (4 * u).dp)
-					.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, onClick = onLink),
-			)
+					.heightIn(min = (44 * u).dp)
+					.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, role = androidx.compose.ui.semantics.Role.Button, onClickLabel = link, onClick = onLink)
+					.semantics(mergeDescendants = true) { contentDescription = link },
+			) {
+				Text(
+					text = "$link ›",
+					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+					color = Sim.Teal,
+				)
+			}
 		}
 	}
 }
@@ -513,16 +527,21 @@ private fun ScoreHero() {
 			else -> points?.firstOrNull()?.value?.let { (PaperPortfolio.portfolioValue - it) to it }
 		}?.takeIf { it.second > 0.0 }
 		val lineUp = if (rangeMove != null) Math.round(rangeMove.first) >= 0 else PaperPortfolio.weekUp
+		// Before the first practice trade there's no move to report and no line to draw (Chinedu_Mobile 1:6556 / 1:6560).
+		val untraded = !PaperPortfolio.demo && PaperPortfolio.hasHydrated && PaperPortfolio.trades.isEmpty()
 		Text(
-			text = if (rangeMove != null) {
+			text = if (untraded) {
+				"No moves yet"
+			} else if (rangeMove != null) {
 				PaperPortfolio.rangeLine(PaperPortfolio.signedWhole(rangeMove.first), rangeMove.first / rangeMove.second * 100.0, lineUp, range)
 			} else {
 				"${if (PaperPortfolio.weekUp) "▲" else "▼"} ${PaperPortfolio.weekGainText} (${PaperPortfolio.weekPctText}) ${PaperPortfolio.gainPeriodLabel}"
 			},
 			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
-			color = if (lineUp) Sim.Green else Sim.Red,
+			color = if (untraded) Sim.Muted else if (lineUp) Sim.Green else Sim.Red,
 			modifier = Modifier.padding(horizontal = (20 * u).dp),
 		)
+		if (untraded) return@Column
 		val chartModifier = Modifier.align(Alignment.CenterHorizontally).size((343 * u).dp, (73.56 * u).dp)
 		val series = RANGE_SERIES[range]
 		if (series == null && PaperPortfolio.demo) {

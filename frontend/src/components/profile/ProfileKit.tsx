@@ -30,10 +30,12 @@ export function SettingsCard({ children, padding = "4u 0" }: { children: ReactNo
 }
 
 /** A 48u row: label on the left; a chevron, a value, or nothing on the right. Not a button unless it has an action. */
-export function SettingsLinkRow({ label, onClick, value, chevron = true, tone, expanded }: {
+export function SettingsLinkRow({ label, onClick, value, chevron = true, tone, expanded, ariaLabel }: {
 	label: string; onClick?: () => void; value?: string; chevron?: boolean; tone?: string;
 	/** For a row that opens a panel below it (Delete account): screen readers hear open / closed. */
 	expanded?: boolean;
+	/** What a screen reader says for the row when its label and value need context ("Change your goal, currently..."). */
+	ariaLabel?: string;
 }) {
 	const inner = (
 		<>
@@ -45,9 +47,20 @@ export function SettingsLinkRow({ label, onClick, value, chevron = true, tone, e
 	);
 	const style = { height: cu(48), padding: `0 ${cu(14)}` };
 	return onClick ? (
-		<button type="button" onClick={onClick} aria-expanded={expanded} className={`flex w-full items-center text-left ${PRESS}`} style={{ ...style, ...focusRing }}>{inner}</button>
+		<button type="button" onClick={onClick} aria-expanded={expanded} aria-label={ariaLabel} className={`flex w-full items-center text-left ${PRESS}`} style={{ ...style, ...focusRing }}>{inner}</button>
 	) : (
 		<div className="flex w-full items-center" style={style}>{inner}</div>
+	);
+}
+
+/** Profile's taste chips (Android's 171:1004): the wrap of rounded labels on Profile and Taste & risk. */
+export function TasteChips({ labels }: { labels: string[] }) {
+	return (
+		<div className="flex flex-wrap" style={{ gap: cu(8) }}>
+			{labels.map((label) => (
+				<span key={label} className="inline-flex items-center whitespace-nowrap" style={{ height: cu(28), borderRadius: cu(14), background: "#1A2333", border: `${cu(1)} solid ${DISC.blue}`, padding: `0 ${cu(12)}`, font: f(500, 12, 16), color: "#69B3CA" }}>{label}</span>
+			))}
+		</div>
 	);
 }
 

@@ -3,12 +3,13 @@ import SwiftUI
 /// Onboarding · 04 Goal · matrix — Figma node 1:498 (CHINEDU file,
 /// "STEP 4 OF 6"). Uses the shared 2x2 matrix quiz layout.
 struct GoalView: View {
+	@Environment(\.quizRetake) private var retake
 	let onBack: () -> Void
 	let onContinue: () -> Void
 
 	var body: some View {
 		MatrixQuizView(
-			stepLabel: "STEP 4 OF 6",
+			stepLabel: retake ? "YOUR TASTE" : "STEP 4 OF 6",
 			headline: "What brings you here?",
 			subtitle: "Pick one. You can change it any time.",
 			options: [

@@ -420,7 +420,7 @@ final class PaperPortfolio: ObservableObject {
 			await previous?.value
 			var failure: Error? = nil
 			do { try await action() } catch { failure = error }
-			lastError = failure.map { PaperPortfolio.serverReason($0) ?? "That didn't go through \u{2014} try again" }
+			lastError = failure.map { PaperPortfolio.serverReason($0) ?? PaperPortfolio.genericError }
 			await hydrate()
 			then?(failure == nil)
 		}
@@ -471,7 +471,9 @@ final class PaperPortfolio: ObservableObject {
 
 	/// A filled paper order: cash moves into the position at the ticket's price. A symbol already held grows that
 	/// position instead of adding a duplicate row; a new one lands at the top.
-	func buy(_ spec: BuySpec, amount: Double) {
+	/// `onResult` hears whether the buy went through and - when the server refused it (a 4xx, so nothing changed) -
+	/// its reason; nil with a failure means it couldn't be confirmed (it may have gone through).
+	func buy(_ spec: BuySpec, amount: Double, onResult: ((Bool, String?) -> Void)? = nil) {
 		guard canBuy(amount) else { return }
 		let neededSetup = ensureSetup()
 		// A bought stock is in your STAK: the receipt's "View in My STAK" lands on a page that lists it. A real account
@@ -524,14 +526,39 @@ final class PaperPortfolio: ObservableObject {
 					_ = try await self.repo.sandboxSetup(startingBalance: defaultSetupBalance, name: PaperPortfolio.defaultPortfolioName, strategy: PaperPortfolio.defaultStrategy.lowercased())
 				}
 				_ = try await self.repo.sandboxBuy(ticker: spec.symbol, amount: amount)
-			}, then: { ok in if ok { MyStakHoldings.shared.add(spec.symbol) } })
+			}, then: { ok in
+				if ok { MyStakHoldings.shared.add(spec.symbol) }
+				onResult?(ok, ok || self.lastError == PaperPortfolio.genericError ? nil : self.lastError)
+			})
+		} else {
+			onResult?(true, nil)
 		}
+	}
+
+	/// What a failed change says when the server gave no reason (a timeout, a 5xx, no connection).
+	static let genericError = "That didn't go through \u{2014} try again"
+
+	/// What a practice buy that didn't go through says (the buy sheet): a refusal's reason in plain words, and that the
+	/// paper money is untouched; or, unconfirmed, to check the portfolio first. Mirrors android buyFailureLine.
+	static func buyFailureLine(_ refusal: String?) -> String {
+		guard let refusal else { return "STAK couldn't confirm this order. Check your portfolio before you try again." }
+		let reason: String
+		if refusal.localizedCaseInsensitiveContains("buying power") {
+			reason = "Not enough paper money for this buy."
+		} else if refusal.localizedCaseInsensitiveContains("live price") {
+			reason = "We couldn't get a live price just now."
+		} else {
+			let trimmed = refusal.trimmingCharacters(in: .whitespacesAndNewlines)
+			reason = [".", "!", "?"].contains(where: trimmed.hasSuffix) ? trimmed : trimmed + "."
+		}
+		return reason + " Your paper money wasn't touched."
 	}
 
 	/// A limit order under today's price (FigJam: Market or limit; Order pending): the stake is reserved from cash until
 	/// it fills or is canceled.
+	/// `onResult` as buy's.
 	@discardableResult
-	func placeLimit(_ spec: BuySpec, amount: Double, limit: Double) -> Bool {
+	func placeLimit(_ spec: BuySpec, amount: Double, limit: Double, onResult: ((Bool, String?) -> Void)? = nil) -> Bool {
 		guard canBuy(amount), limit > 0 else { return false }
 		let neededSetup = ensureSetup()
 		cash -= amount
@@ -541,12 +568,16 @@ final class PaperPortfolio: ObservableObject {
 		), at: 0)
 		persist()
 		if !demo {
-			send {
+			send({
 				if neededSetup {
 					_ = try await self.repo.sandboxSetup(startingBalance: defaultSetupBalance, name: PaperPortfolio.defaultPortfolioName, strategy: PaperPortfolio.defaultStrategy.lowercased())
 				}
 				_ = try await self.repo.sandboxPlaceOrder(ticker: spec.symbol, amount: amount, limitPrice: limit)
-			}
+			}, then: { ok in
+				onResult?(ok, ok || self.lastError == PaperPortfolio.genericError ? nil : self.lastError)
+			})
+		} else {
+			onResult?(true, nil)
 		}
 		return true
 	}

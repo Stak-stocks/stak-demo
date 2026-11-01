@@ -1,14 +1,20 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { fromSharedPickNames } from "@/lib/tasteModel";
 
 const STORAGE_KEY = "stak:onboarding-quiz";
+
+/** Which part of the quiz Taste & risk is redoing (useQuizRetake): all of it, or just the goal or risk question. */
+export type QuizRetakeMode = "all" | "goal" | "risk";
 
 interface OnboardingState {
 	brandPicks: string[];
 	goal: number | null;
 	risk: number | null;
+	/** Set while the quiz pages run as a retake from Profile -> Taste & risk; null in onboarding. */
+	retake: QuizRetakeMode | null;
 }
 
-const EMPTY_STATE: OnboardingState = { brandPicks: [], goal: null, risk: null };
+const EMPTY_STATE: OnboardingState = { brandPicks: [], goal: null, risk: null, retake: null };
 
 function readStored(): OnboardingState {
 	try {
@@ -27,6 +33,10 @@ interface OnboardingContextType extends OnboardingState {
 	setGoal: (goal: number) => void;
 	setRisk: (risk: number) => void;
 	reset: () => void;
+	/** Opens a retake starting from the account's saved answers. */
+	startRetake: (mode: QuizRetakeMode, answers: { picks: string[]; goal: number; risk: number }) => void;
+	/** Ends a retake (saved or left), leaving the quiz empty again. */
+	endRetake: () => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
@@ -66,6 +76,14 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 		setGoal: (goal) => setState((s) => ({ ...s, goal })),
 		setRisk: (risk) => setState((s) => ({ ...s, risk })),
 		reset,
+		startRetake: (mode, answers) => setState({
+			// The server keeps the apps' names; the quiz grid shows "Sony Group Corp" for PlayStation.
+			brandPicks: fromSharedPickNames(answers.picks),
+			goal: answers.goal >= 0 ? answers.goal : null,
+			risk: answers.risk >= 0 ? answers.risk : null,
+			retake: mode,
+		}),
+		endRetake: reset,
 	}), [state, reset]);
 
 	return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;

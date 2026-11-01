@@ -7,6 +7,7 @@ import SwiftUI
 /// live spinner with "Getting everything ready". Auto-advances into the
 /// taste reveal after the authored hold.
 struct PreparingDeckView: View {
+	@Environment(\.quizRetake) private var retake
 	let onDone: () -> Void
 
 	var body: some View {
@@ -22,7 +23,7 @@ struct PreparingDeckView: View {
 				.scaledToFit()
 				.frame(width: 342 * u, height: 488 * u)
 				.offset(y: 135 * u)
-			Text("Building your first deck...")
+			Text(retake ? "Updating your taste..." : "Building your first deck...")
 				.font(StakFont.sora(22 * u, .semiBold))
 				.stakLineHeight(28 * u, size: 22 * u, face: .sora)
 				.multilineTextAlignment(.center)
