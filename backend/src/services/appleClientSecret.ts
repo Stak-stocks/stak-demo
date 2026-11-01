@@ -7,7 +7,8 @@
  * Env (Secret Manager -> Cloud Run only - server-side, so not in .env.example and never on dev machines):
  *   APPLE_SIGNIN_KEY_P8        - the .p8's contents
  *   SUPABASE_MANAGEMENT_TOKEN  - a Supabase access token (Account -> Access Tokens) scoped to this one project, with
- *                                auth config read & write only - unlike the account-wide SUPABASE_ACCESS_TOKEN
+ *                                Project Settings + Auth Config read-write only - unlike the account-wide
+ *                                SUPABASE_ACCESS_TOKEN
  */
 import { createPrivateKey, sign } from "node:crypto";
 

@@ -49,11 +49,12 @@ logs `[apple-secret] renewed; expires <date>` - the latest one is the current ex
 Scheduler and logs `[apple-secret] renewal failed: <reason>` (usually the Supabase token was revoked). Five monthly
 runs can fail before the secret actually lapses.
 
-One-time setup (done 2026-11):
+One-time setup (done 2026-11-01; first automatic renewal ran then):
 
 ```sh
-# a Supabase access token (Account -> Access Tokens): Project = STAK only, Auth read & write only, no expiry -
-# stored as SUPABASE_MANAGEMENT_TOKEN in Secret Manager. Then:
+# a Supabase access token (Account -> Access Tokens): Project = Stak only, no expiry, and only Project -> Project
+# Settings and Application services -> Auth Config at Read-write (the PATCH needs project_admin_write, which is
+# Project Settings; Auth Config alone gets a 403) - stored as SUPABASE_MANAGEMENT_TOKEN in Secret Manager. Then:
 SA=serviceAccount:889057229494-compute@developer.gserviceaccount.com
 gcloud secrets add-iam-policy-binding apple-signin-key-p8 --project stak-c21a3 --member=$SA --role=roles/secretmanager.secretAccessor
 gcloud secrets add-iam-policy-binding SUPABASE_MANAGEMENT_TOKEN --project stak-c21a3 --member=$SA --role=roles/secretmanager.secretAccessor
