@@ -103,8 +103,45 @@ export function ShowHide({ shown, onToggle }: { shown: boolean; onToggle: () => 
 }
 
 export function GooglePill({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
-	// Desktop design: a dark field-coloured button with white text; the phone keeps Android's white pill.
+	return (
+		<SocialPill label="Continue with Google" onClick={onClick} disabled={disabled}>
+			<img src="/app/ic_google_g.png" alt="" draggable={false} style={{ width: cu(18), height: cu(18) }} />
+		</SocialPill>
+	);
+}
+
+/**
+ * Sign in with Apple (as the iPhone app; Android has none). Apple's rules allow only black or white buttons with a
+ * black or white logo and label: white with black on the phone, black outlined in white on the dark desktop page.
+ * The logo takes the label's colour.
+ */
+export function ApplePill({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+	return (
+		<SocialPill label="Continue with Apple" onClick={onClick} disabled={disabled} apple>
+			<svg viewBox="0 0 24 24" aria-hidden="true" style={{ width: cu(18), height: cu(18), fill: "currentColor" }}>
+				<path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
+			</svg>
+		</SocialPill>
+	);
+}
+
+/** A "Continue with ..." button. Desktop design: a dark field-coloured button with white text; the phone keeps Android's white pill. */
+function SocialPill({ label, onClick, disabled, apple = false, children }: { label: string; onClick: () => void; disabled?: boolean; apple?: boolean; children: ReactNode }) {
 	const desk = useContext(AuthDesktop);
+	if (desk && apple) {
+		return (
+			<button
+				type="button"
+				onClick={onClick}
+				disabled={disabled}
+				className="flex w-full items-center justify-center transition-[filter] hover:brightness-125 active:brightness-90 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+				style={{ gap: cu(10), padding: `${cu(14.5)} 0`, borderRadius: cu(10), background: "#000", boxShadow: "inset 0 0 0 1px #fff", font: f(500, 14), color: "#fff", outlineColor: DISC.teal }}
+			>
+				{children}
+				{label}
+			</button>
+		);
+	}
 	if (desk) {
 		return (
 			<button
@@ -114,8 +151,8 @@ export function GooglePill({ onClick, disabled }: { onClick: () => void; disable
 				className="flex w-full items-center justify-center transition-[filter] hover:brightness-110 active:brightness-90 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
 				style={{ gap: cu(10), padding: `${cu(14.5)} 0`, ...sheetCard(10), font: f(500, 14), color: "#fff", outlineColor: DISC.teal }}
 			>
-				<img src="/app/ic_google_g.png" alt="" draggable={false} style={{ width: cu(18), height: cu(18) }} />
-				Continue with Google
+				{children}
+				{label}
 			</button>
 		);
 	}
@@ -125,10 +162,10 @@ export function GooglePill({ onClick, disabled }: { onClick: () => void; disable
 			onClick={onClick}
 			disabled={disabled}
 			className="flex w-full items-center justify-center transition-[filter] active:brightness-90 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-			style={{ gap: cu(10), padding: `${cu(13)} 0`, borderRadius: cu(24), background: "#fff", font: f(500, 14), color: "#0E162B", outlineColor: DISC.teal }}
+			style={{ gap: cu(10), padding: `${cu(13)} 0`, borderRadius: cu(24), background: "#fff", font: f(500, 14), color: apple ? "#000" : "#0E162B", outlineColor: DISC.teal }}
 		>
-			<img src="/app/ic_google_g.png" alt="" draggable={false} style={{ width: cu(18), height: cu(18) }} />
-			Continue with Google
+			{children}
+			{label}
 		</button>
 	);
 }

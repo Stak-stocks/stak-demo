@@ -7,7 +7,7 @@ import {
 	useState,
 	type ReactNode,
 } from "react";
-import { WEB_GOOGLE_SIGN_IN_KEY, isWebLockedOut } from "../lib/earlyAccess";
+import { PENDING_APPLE_LINK_KEY, WEB_SOCIAL_SIGN_IN_KEY, isWebLockedOut, setTabFlag, takeTabFlag } from "../lib/earlyAccess";
 import { supabase } from "../lib/supabase";
 import { disableWebPush } from "../lib/webPush";
 
@@ -30,6 +30,7 @@ interface AuthContextType {
 	signUpWithEmail: (email: string, password: string) => Promise<void>;
 	signInWithEmailSupabase: (email: string, password: string) => Promise<void>;
 	signInWithGoogleSupabase: () => Promise<void>;
+	signInWithAppleSupabase: () => Promise<void>;
 	resetPasswordSupabase: (email: string) => Promise<void>;
 	confirmResetSupabase: (newPassword: string) => Promise<void>;
 	verifySignupOtp: (email: string, code: string) => Promise<void>;
@@ -187,11 +188,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		if (error) throw error;
 	}
 
-	async function signInWithGoogleSupabase() {
-		// Early access: lets the root route tell an account this tab's Google sign-in just made from any other.
-		try { sessionStorage.setItem(WEB_GOOGLE_SIGN_IN_KEY, "1"); } catch { /* no storage: never removed, only signed out */ }
+	async function signInWithOAuthProvider(provider: "google" | "apple") {
+		// Lets the root route tell an account this tab's sign-in just made from any other (without storage: never
+		// removed, only signed out).
+		setTabFlag(WEB_SOCIAL_SIGN_IN_KEY, provider);
 		const { error } = await supabase.auth.signInWithOAuth({
-			provider: "google",
+			provider,
 			options: {
 				// Without redirectTo, Supabase falls back to the dashboard Site URL, which
 				// may not match the current origin (breaks on dev vs prod or staging deploys).
@@ -199,6 +201,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			},
 		});
 		if (error) throw error;
+	}
+
+	function signInWithGoogleSupabase() {
+		return signInWithOAuthProvider("google");
+	}
+
+	/** Apple's own page (the website's Services ID, com.stak.demo.web, in Supabase's Apple provider). */
+	function signInWithAppleSupabase() {
+		return signInWithOAuthProvider("apple");
 	}
 
 	async function resetPasswordSupabase(email: string) {
@@ -234,6 +245,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	}
 
 	async function logout() {
+		// A link offer from "I already have an account" doesn't carry over to whoever signs in next.
+		takeTabFlag(PENDING_APPLE_LINK_KEY, true);
 		// Another person signing in on this browser must not receive this account's alerts.
 		await disableWebPush().catch(() => {});
 		// This browser only, as the apps' Log out: the phone stays signed in.
@@ -257,6 +270,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				signUpWithEmail,
 				signInWithEmailSupabase,
 				signInWithGoogleSupabase,
+				signInWithAppleSupabase,
 				resetPasswordSupabase,
 				confirmResetSupabase,
 				verifySignupOtp,

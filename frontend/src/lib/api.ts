@@ -65,8 +65,8 @@ export function getProfile() {
 	return apiRequest<{ uid: string; email: string; displayName: string; phone?: string; preferences: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean; createdAt?: string; plan?: string; taste?: { goal: number; risk: number; riskStyle: string; picks: string[] } | null }>("/api/me");
 }
 
-/** Early access: remove the brand-new account just turned away (the server only does it for a Google account minutes
- *  old, never onboarded, with nothing saved), so nothing of it stays in Supabase. Given 4 seconds, so a slow server
+/** Early access: remove the brand-new account just turned away (the server only does it for a Google or Apple account
+ *  minutes old, never onboarded, with nothing saved), so nothing of it stays in Supabase. Given 4 seconds, so a slow server
  *  never holds the person on the spinner. */
 export function removeTurnedAwayAccount() {
 	return apiRequest<{ ok: true }>("/api/me/turned-away", { method: "POST", signal: AbortSignal.timeout(4000) });

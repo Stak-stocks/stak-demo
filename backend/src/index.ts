@@ -28,6 +28,7 @@ import { brandAdminRouter } from "./routes/brandAdmin.js";
 import { stakAiRouter } from "./routes/stakAi.js";
 import { sandboxRouter } from "./routes/sandbox.js";
 import { legalRouter } from "./routes/legal.js";
+import { appleSecretRouter } from "./routes/appleSecret.js";
 import { syncNewIPOs } from "./services/ipoService.js";
 
 const app = express();
@@ -102,6 +103,8 @@ app.use("/api/playground", authLimiter, playgroundRouter);
 app.use("/api/stak-ai", authLimiter, stakAiRouter);
 app.use("/api/sandbox", authLimiter, sandboxRouter);
 app.use("/api/legal", publicLimiter, legalRouter);
+// Scheduler-only (WARM_SECRET); the website's Sign in with Apple secret, renewed monthly.
+app.use("/api/internal/apple-secret", publicLimiter, appleSecretRouter);
 // Public early-access sign-up; the router applies its own, much tighter limit.
 app.use("/api/waitlist", waitlistRouter);
 

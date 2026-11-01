@@ -2,9 +2,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
 import { getProfile } from "@/lib/api";
-import { JOIN_WAITLIST, WEB_SIGNUP_OPEN } from "@/lib/earlyAccess";
+import { JOIN_WAITLIST, PENDING_APPLE_LINK_KEY, WEB_SIGNUP_OPEN, takeTabFlag } from "@/lib/earlyAccess";
 import {
-	AuthCta, AuthHeader, AuthInput, AuthScreen, AuthSpinner, ErrorText, GooglePill, OrDivider, ShowHide, SwitchRow,
+	ApplePill, AuthCta, AuthHeader, AuthInput, AuthScreen, AuthSpinner, ErrorText, GooglePill, OrDivider, ShowHide, SwitchRow,
 	emailError as emailProblem, friendlyAuthError, usePasswordVisibility,
 } from "@/components/auth/AuthKit";
 import { DISC, cu } from "@/components/discover/discoverTheme";
@@ -14,9 +14,12 @@ export const Route = createFileRoute("/login")({
 	component: LoginPage,
 });
 
-/** Android's Sign in: Google, or email and password. Problems show inline, after the first tap. */
+/** Sign in: Google, Apple (as the iPhone app), or email and password. Problems show inline, after the first tap. */
 function LoginPage() {
-	const { loading, signInWithEmailSupabase, signInWithGoogleSupabase, resendSignupOtp, supabaseUserId } = useAuth();
+	const { loading, signInWithEmailSupabase, signInWithGoogleSupabase, signInWithAppleSupabase, resendSignupOtp, supabaseUserId } = useAuth();
+	// After "I already have an account" (AppleNewOrExisting): sign in the usual way, then link Apple - not Apple again,
+	// which would only make another account.
+	const [linkingApple, setLinkingApple] = useState(() => takeTabFlag(PENDING_APPLE_LINK_KEY) === "1");
 	const navigate = useNavigate();
 	const [signingIn, setSigningIn] = useState(false);
 	const [email, setEmail] = useState("");
@@ -29,10 +32,18 @@ function LoginPage() {
 		if (!supabaseUserId) return;
 		getProfile()
 			.then((profile) => {
+				// Root takes an account with an Apple link pending on to Sign-in methods.
 				navigate({ to: profile.onboardingCompleted ? "/" : "/onboarding" });
 			})
 			.catch(() => navigate({ to: "/" }));
 	}, [supabaseUserId, navigate]);
+
+	// Back from Google's or Apple's page with the browser's Back: the page comes out of the cache still "signing in".
+	useEffect(() => {
+		const onShow = (e: PageTransitionEvent) => { if (e.persisted) setSigningIn(false); };
+		window.addEventListener("pageshow", onShow);
+		return () => window.removeEventListener("pageshow", onShow);
+	}, []);
 
 	async function handleEmailSignIn() {
 		setAttempted(true);
@@ -54,11 +65,11 @@ function LoginPage() {
 		}
 	}
 
-	async function handleGoogleSignIn() {
+	async function handleSocialSignIn(signIn: () => Promise<void>) {
 		setSigningIn(true);
 		setServerError(null);
 		try {
-			await signInWithGoogleSupabase();
+			await signIn();
 		} catch (error) {
 			setServerError(friendlyAuthError(error));
 			setSigningIn(false);
@@ -84,9 +95,25 @@ function LoginPage() {
 				</>
 			}
 		>
-			<AuthHeader title="Welcome back" subtitle={WEB_SIGNUP_OPEN ? "Your deck kept learning while you were away." : "STAK is in early access: sign in with an existing account."} />
+			<AuthHeader
+				title="Welcome back"
+				subtitle={linkingApple ? "Sign in the way you did before (email or Google) - we'll link Apple to it next."
+					: WEB_SIGNUP_OPEN ? "Your deck kept learning while you were away." : "STAK is in early access: sign in with an existing account."}
+			/>
 			<div style={{ height: cu(4) }} />
-			<GooglePill onClick={handleGoogleSignIn} disabled={signingIn} />
+			<GooglePill onClick={() => void handleSocialSignIn(signInWithGoogleSupabase)} disabled={signingIn} />
+			{linkingApple ? (
+				<button
+					type="button"
+					onClick={() => { takeTabFlag(PENDING_APPLE_LINK_KEY, true); setLinkingApple(false); }}
+					className={`w-fit ${PRESS}`}
+					style={{ font: f(500, 12), color: DISC.teal, minHeight: cu(32), ...focusRing }}
+				>
+					No other account? Sign in with Apple instead
+				</button>
+			) : (
+				<ApplePill onClick={() => void handleSocialSignIn(signInWithAppleSupabase)} disabled={signingIn} />
+			)}
 			<OrDivider />
 			<AuthInput value={email} onChange={setEmail} placeholder="Email address" type="email" inputMode="email" autoComplete="email" error={attempted ? emailProblem(email) : null} onEnter={handleEmailSignIn} />
 			<AuthInput value={password} onChange={setPassword} placeholder="Password" type={shown ? "text" : "password"} autoComplete="current-password" trailing={<ShowHide shown={shown} onToggle={toggle} />} onEnter={handleEmailSignIn} />

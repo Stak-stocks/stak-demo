@@ -868,9 +868,12 @@ async function supabaseIdOf(uid: string): Promise<string> {
  * re-create the users row after it's gone; it's best-effort (it needs the service-role admin API, and a failure is
  * logged, not fatal - the promise that every save and setting is gone is kept either way). Then the `users` row:
  * every save, swipe, event, taste snapshot and push device FKs to it with ON DELETE CASCADE, so one delete clears all.
+ * [requireSignInRemoved]: the sign-in record must go (it holds an identity that's about to be linked elsewhere), so a
+ * failure throws before anything is deleted.
  */
-async function deleteAccount(uid: string, supabaseUid: string, token: string | undefined): Promise<void> {
+async function deleteAccount(uid: string, supabaseUid: string, token: string | undefined, requireSignInRemoved = false): Promise<void> {
 	const { error } = await getSupabaseAdmin().auth.admin.deleteUser(supabaseUid).catch((e: unknown) => ({ error: e }));
+	if (error && requireSignInRemoved) throw new Error(`the Supabase auth record wasn't deleted: ${String((error as { message?: string }).message ?? error)}`);
 	if (error) console.error("[me] the Supabase auth record wasn't deleted (the account's data still is):", error);
 	if (token) forgetVerifiedToken(token);
 	await pgQuery(`delete from users where uid = $1`, [uid]);
@@ -908,9 +911,9 @@ meRouter.post("/eligibility", authMiddleware, async (req: AuthenticatedRequest, 
 });
 
 // POST /api/me/turned-away — removes a sign-in's account that should never have been made: the web's early access
-// signs a brand-new Google account back out (Supabase made the account before STAK could say no), and the iPhone's
-// "I already have an account" removes the one a hidden-email Apple sign-in just made, before Apple is linked to the
-// real account. Only the caller's own account, and only one that is truly brand new: made by Google or Apple sign-in
+// signs a brand-new Google or Apple account back out (Supabase made the account before STAK could say no), and "I
+// already have an account" (iPhone and web) removes the one a hidden-email Apple sign-in just made, before Apple is
+// linked to the real account - so the sign-in record must really go, or the 500 says so. Only the caller's own account, and only one that is truly brand new: made by Google or Apple sign-in
 // under NEW_ACCOUNT_WINDOW_MS ago, never onboarded, with
 // nothing on the server - no saves, swipes, taste, push device or Android state (an Android sign-up mid-quiz has
 // those, and is refused). Anything else is refused (409) and left alone.
@@ -942,7 +945,7 @@ meRouter.post("/turned-away", authMiddleware, async (req: AuthenticatedRequest, 
 			return;
 		}
 
-		await deleteAccount(uid, supabaseUid, bearer(req));
+		await deleteAccount(uid, supabaseUid, bearer(req), true);
 		res.json({ ok: true });
 	} catch (error) {
 		console.error("Error removing a turned-away account:", error);

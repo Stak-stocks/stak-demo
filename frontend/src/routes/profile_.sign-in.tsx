@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { UserIdentity } from "@supabase/supabase-js";
 import { useAuth } from "@/context/AuthContext";
 import { isHiddenAppleEmail, supabase } from "@/lib/supabase";
+import { PENDING_APPLE_LINK_KEY, takeTabFlag } from "@/lib/earlyAccess";
 import { Caption, SettingsCard, SettingsLinkRow, SettingsScaffold } from "@/components/profile/ProfileKit";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { f } from "@/components/phone/phone";
@@ -13,10 +14,10 @@ export const Route = createFileRoute("/profile_/sign-in")({
 
 /** The names the page shows, in its order. */
 const NAMES: Record<string, string> = { email: "Email and password", google: "Google", apple: "Apple" };
-/** What this website can link: Google (Apple once its web sign-in is set up in Supabase). */
-const LINKABLE = ["google"];
+/** What this website can link. */
+const LINKABLE = ["google", "apple"];
 /** The ways in this website can sign in with: Unlink is offered only while one of these is left. */
-const WEB_SIGN_IN = ["email", "google"];
+const WEB_SIGN_IN = ["email", "google", "apple"];
 
 /** Why a link failed, from Supabase's error code. */
 function linkProblem(code: string | null | undefined): string {
@@ -37,6 +38,11 @@ function SignInPage() {
 	const [problem, setProblem] = useState<string | null>(null);
 	const [confirm, setConfirm] = useState<UserIdentity | null>(null);
 	const confirmRef = useRef<HTMLButtonElement>(null);
+	// Just signed in after "I already have an account" (AppleNewOrExisting): offer the Apple link once.
+	const [offerApple, setOfferApple] = useState(() => takeTabFlag(PENDING_APPLE_LINK_KEY, true) === "1");
+	const offerRef = useRef<HTMLButtonElement>(null);
+	const showOffer = offerApple && identities !== null && !identities.some((i) => i.provider === "apple");
+	useEffect(() => { if (showOffer) offerRef.current?.focus(); }, [showOffer]);
 
 	const reload = useCallback(async () => {
 		const { data, error } = await supabase.auth.getUserIdentities();
@@ -65,7 +71,7 @@ function SignInPage() {
 		setBusy(provider);
 		// Leaves for the provider's page; Supabase brings the browser back here with it linked.
 		const { error } = await supabase.auth.linkIdentity({
-			provider: provider as "google",
+			provider: provider as "google" | "apple",
 			options: { redirectTo: `${window.location.origin}/profile/sign-in` },
 		});
 		if (error) {
@@ -95,7 +101,7 @@ function SignInPage() {
 						const identity = list.find((i) => i.provider === provider);
 						// Email and Apple show once they're a way in; Google can always be linked here.
 						if (!identity && !LINKABLE.includes(provider)) return null;
-						// Unlink only while a way in this website can use is left (Apple alone would lock it out here).
+						// Unlink only while another way in is left (on the web that includes Apple).
 						const keepsWayIn = list.some((i) => i !== identity && WEB_SIGN_IN.includes(i.provider));
 						const action = !identity ? () => void link(provider) : keepsWayIn ? () => setConfirm(identity) : undefined;
 						return <MethodRow key={provider} name={name} linked={!!identity} busy={busy === provider} onAction={action} />;
@@ -106,10 +112,23 @@ function SignInPage() {
 				)}
 				{problem && <p role="alert" style={{ padding: `${cu(10)} ${cu(14)}`, font: f(400, 12), color: "#FF6B6B" }}>{problem}</p>}
 			</SettingsCard>
+			{showOffer && (
+				<SettingsCard padding="14u 14u">
+					<p id="apple-offer" style={{ font: f(500, 13, 18), color: "#fff" }}>Link your Apple account?</p>
+					<p id="apple-offer-detail" style={{ marginTop: cu(4), font: f(400, 12, 17), color: DISC.muted }}>Then you can sign in with Apple or your usual way. Apple's page opens, then brings you back here.</p>
+					<div className="flex" style={{ gap: cu(16), marginTop: cu(12) }}>
+						<button ref={offerRef} type="button" aria-describedby="apple-offer apple-offer-detail" onClick={() => { setOfferApple(false); void link("apple"); }} style={{ font: f(500, 13), color: DISC.teal, minHeight: 44 }}>Link Apple</button>
+						<button type="button" onClick={() => setOfferApple(false)} style={{ font: f(500, 13), color: DISC.muted, minHeight: 44 }}>Not now</button>
+					</div>
+				</SettingsCard>
+			)}
 			{confirm && (
 				<SettingsCard padding="14u 14u">
 					<p style={{ font: f(500, 13, 18), color: "#fff" }}>Unlink {NAMES[confirm.provider] ?? confirm.provider}?</p>
-					<p style={{ marginTop: cu(4), font: f(400, 12, 17), color: DISC.muted }}>You won't be able to sign in with it anymore. Your STAK stays the same.</p>
+					<p style={{ marginTop: cu(4), font: f(400, 12, 17), color: DISC.muted }}>
+						You won't be able to sign in with it anymore. Your STAK stays the same.
+						{list.every((i) => i === confirm || i.provider === "apple") && " Apple will be your only way in, and the Android app can't sign in with Apple."}
+					</p>
 					<div className="flex" style={{ gap: cu(16), marginTop: cu(12) }}>
 						<button ref={confirmRef} type="button" onClick={() => void unlink(confirm)} style={{ font: f(500, 13), color: "#FF6B6B", minHeight: 44 }}>Unlink</button>
 						<button type="button" onClick={() => setConfirm(null)} style={{ font: f(500, 13), color: DISC.teal, minHeight: 44 }}>Cancel</button>
