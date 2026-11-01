@@ -175,7 +175,7 @@ struct RootFlowView: View {
 				}
 				.transition(.opacity)
 			case .locked:
-				LockGateView { unlocking = true; withAnimation(.easeOut(duration: 0.35)) { phase = .main } }
+				LockGateView { unlocking = scenePhase != .active; withAnimation(.easeOut(duration: 0.35)) { phase = .main } }
 					.transition(.opacity)
 			case .main:
 				ZStack {
@@ -197,7 +197,7 @@ struct RootFlowView: View {
 					// Locked means locked for VoiceOver too: nothing beneath the gate can be reached.
 					.accessibilityHidden(relocked)
 					if relocked {
-						LockGateView { unlocking = true; withAnimation(.easeOut(duration: 0.35)) { relocked = false } }
+						LockGateView { unlocking = scenePhase != .active; withAnimation(.easeOut(duration: 0.35)) { relocked = false } }
 							.transition(.opacity)
 					} else if scenePhase != .active, !unlocking, Session.shared.signedIn, UserProfile.shared.accountLock {
 						// Only paused (the app switcher, Control Center): the screen is hidden - so the switcher's
