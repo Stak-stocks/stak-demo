@@ -20,6 +20,9 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.providers.builtin.IDToken
+import io.github.jan.supabase.auth.user.Identity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -279,6 +282,82 @@ class AuthViewModel @Inject constructor(
     fun revokeSessionRemotely() {
         viewModelScope.launch {
             runCatching { supabase.auth.signOut() }
+        }
+    }
+
+    // ── The account's ways to sign in (Profile -> Sign-in). Mirrors ios AccountLinking. ──
+
+    /** The signed-in account's identities (email, google, apple...), fresh from the server. */
+    suspend fun signInIdentities(): List<Identity> =
+        supabase.auth.retrieveUserForCurrentSession(updateSession = true).identities.orEmpty()
+
+    /**
+     * Links the Google account picked in Google's own sheet to the signed-in account. supabase-kt only links through
+     * the browser, so this makes the request an ID-token link is: the token sign-in carrying the user's session and
+     * `link_identity` (as iOS does). Needs "Allow manual linking" on in Supabase. Throws with a message to show;
+     * cancelling Google's sheet throws GetCredentialCancellationException.
+     */
+    suspend fun linkGoogle(context: Context) {
+        val result = CredentialManager.create(context).getCredential(
+            context = context,
+            request = GetCredentialRequest.Builder()
+                .addCredentialOption(GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_WEB_CLIENT_ID).build())
+                .build(),
+        )
+        val idToken = GoogleIdTokenCredential.createFrom(result.credential.data).idToken
+        val access = supabase.auth.currentAccessTokenOrNull() ?: throw IllegalStateException("Sign in first, then link.")
+        val answer = withContext(Dispatchers.IO) {
+            val connection = (java.net.URL("${BuildConfig.SUPABASE_URL}/auth/v1/token?grant_type=id_token").openConnection() as java.net.HttpURLConnection).apply {
+                requestMethod = "POST"
+                doOutput = true
+                connectTimeout = 15_000
+                readTimeout = 15_000
+                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("apikey", BuildConfig.SUPABASE_ANON_KEY)
+                setRequestProperty("Authorization", "Bearer $access")
+            }
+            try {
+                val body = org.json.JSONObject().put("provider", "google").put("id_token", idToken).put("link_identity", true)
+                connection.outputStream.use { it.write(body.toString().toByteArray()) }
+                if (connection.responseCode !in 200..299) {
+                    val error = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                    throw IllegalStateException(linkErrorMessage(error))
+                }
+                connection.inputStream.bufferedReader().use { it.readText() }
+            } finally {
+                connection.disconnect()
+            }
+        }
+        // The answer is a session carrying the new identity: the app holds it (refreshing instead would leave this one
+        // unused on the server).
+        runCatching {
+            supabase.auth.importSession(
+                kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+                    .decodeFromString(io.github.jan.supabase.auth.user.UserSession.serializer(), answer),
+            )
+        }.onFailure { runCatching { supabase.auth.refreshCurrentSession() } }
+    }
+
+    /** Removes a sign-in method. Supabase refuses the last one, and the Sign-in page never offers it. */
+    suspend fun unlinkSignInMethod(identity: Identity) {
+        val id = identity.identityId ?: throw IllegalStateException("Couldn't unlink that. Try again.")
+        runCatching { supabase.auth.unlinkIdentity(id, updateLocalUser = true) }
+            .onFailure { throw IllegalStateException("Couldn't unlink that. Try again.") }
+    }
+
+    /** Who handles sign-in when the account has no STAK password (null: it has one - an email sign-in, linked or not). */
+    fun passwordManagedBy(): String? {
+        val identities = supabase.auth.currentUserOrNull()?.identities ?: return if (UserProfile.linkedGoogle) "Google" else null
+        if (identities.any { it.provider == "email" }) return null
+        return if (identities.any { it.provider == "google" }) "Google" else "Apple"
+    }
+
+    private fun linkErrorMessage(body: String): String {
+        val json = runCatching { org.json.JSONObject(body) }.getOrNull()
+        return when (json?.optString("error_code")) {
+            "identity_already_exists" -> "That account already has its own STAK account. To link it here, sign in with it, delete that STAK account in Profile, then try again."
+            "manual_linking_disabled" -> "Linking isn't available yet. Try again later."
+            else -> "Couldn't link that account. Try again."
         }
     }
 

@@ -110,6 +110,10 @@ struct RootFlowView: View {
 	/// so a Google OAuth sheet from SignIn and one from CreateAccount can't race.
 	@StateObject private var authVM = AuthViewModel()
 	@StateObject private var drafts = AuthDrafts()
+	/// The Apple sheet for linking Apple to an account after "I already have an account".
+	@StateObject private var appleLinker = AppleSignInCoordinator()
+	/// What linking Apple came to ("Apple is linked", or why not), shown once.
+	@State private var linkResult: String? = nil
 	/// The left-edge swipe back (EdgeSwipeBack): how far the top screen is dragged, and whether a swipe is still settling.
 	@State private var flowDrag: CGFloat = 0
 	@State private var flowSwipeLive = false
@@ -142,6 +146,7 @@ struct RootFlowView: View {
 		pendingConfirmation = nil
 		drafts.clear()
 		authVM.resetState()
+		authVM.forgetApplePrompts()
 		// B21 (171:995): Home leaves at once and Sign in dissolves in (350), the session stack cleared. Sign up sits
 		// beneath so a swipe back from Sign in still reaches it.
 		anim = .reveal
@@ -236,6 +241,38 @@ struct RootFlowView: View {
 			}
 		}
 		.task { EligibilityGate.shared.check() }
+		// A first Apple sign-in with a hidden email: new to STAK, or someone who already has an account under another
+		// sign-in? Asked before onboarding makes a duplicate.
+		// An alert, not a sheet of choices: no Cancel and no tap outside, so it can't leave a half-made account signed in.
+		.alert(
+			"Have you used STAK before?",
+			isPresented: Binding(get: { authVM.appleNewOrExisting }, set: { if !$0 { authVM.appleNewOrExisting = false } })
+		) {
+			Button("I'm new to STAK") { authVM.continueAsNewAppleAccount() }
+			Button("I already have an account") {
+				Task {
+					guard await authVM.useExistingAccountInstead() else { return }
+					// Sign in the usual way (Sign up beneath, as Log out leaves it); Apple is linked right after.
+					anim = .reveal
+					withAnimation(FlowAnim.reveal.animation) { stack = [.createAccount, .signIn] }
+				}
+			}
+		} message: {
+			Text("You chose to hide your email, so STAK can't tell. If you already have an account, sign in to it and we'll link Apple to it - your saves and history stay together.")
+		}
+		// Signed in after "I already have an account": link the Apple account to this one.
+		.alert(
+			"Link your Apple account?",
+			isPresented: Binding(get: { authVM.pendingAppleLink && phase == .main }, set: { if !$0 { authVM.pendingAppleLink = false } })
+		) {
+			Button("Link Apple") { linkApple() }
+			Button("Not now", role: .cancel) { authVM.pendingAppleLink = false }
+		} message: {
+			Text("Then you can sign in with Apple or your usual way. You can also do this later in Profile → Sign-in.")
+		}
+		.alert(linkResult ?? "", isPresented: Binding(get: { linkResult != nil }, set: { if !$0 { linkResult = nil } })) {
+			Button("OK", role: .cancel) {}
+		}
 		// The account's sign-in was ended somewhere else (Session.endedElsewhere): out to Sign in, as Log out does - Home
 		// would otherwise sit there signed in but empty, every request refused (android StakRoot).
 		.onReceive(Session.shared.$endedElsewhere) { ended in
@@ -289,6 +326,26 @@ struct RootFlowView: View {
 		.environmentObject(authVM)
 		.environmentObject(drafts)
 		.background(StakColors.bg.ignoresSafeArea())
+	}
+
+	/// Apple's sheet again, this time linking to the account now signed in.
+	private func linkApple() {
+		authVM.pendingAppleLink = false
+		appleLinker.start(
+			onCredential: { idToken, nonce, _ in
+				Task {
+					do {
+						try await AccountLinking.link(provider: "apple", idToken: idToken, nonce: nonce)
+						UserProfile.shared.linkedApple = true
+						Session.shared.saveProfile()
+						linkResult = "Apple is linked. You can sign in with it next time."
+					} catch {
+						linkResult = error.localizedDescription
+					}
+				}
+			},
+			onFailure: { error in linkResult = error?.localizedDescription ?? "Couldn't link Apple. Try again in Profile → Sign-in." }
+		)
 	}
 
 	private func push(_ screen: FlowScreen, _ a: FlowAnim) {

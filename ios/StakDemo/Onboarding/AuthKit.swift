@@ -462,14 +462,32 @@ final class AppleSignInCoordinator: NSObject, ObservableObject,
     ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
 
     private var nonce: String?
-    private weak var authVM: AuthViewModel?
+    /// What a returned credential (ID token, nonce, the name Apple shares the first time) and a failure go to.
+    private var onCredential: ((String, String, String?) -> Void)?
+    private var onFailure: ((Error?) -> Void)?
+    private var onCancel: (() -> Void)?
     /// The Apple sheet is up: a second tap on the pill must not stack another request.
     private var inFlight = false
 
+    /// Signs in (or up) with Apple.
     func start(authVM: AuthViewModel) {
+        start(
+            onCredential: { [weak authVM] idToken, nonce, name in authVM?.signInWithApple(idToken: idToken, nonce: nonce, fullName: name) },
+            onFailure: { [weak authVM] error in authVM?.appleSignInFailed(error) }
+        )
+    }
+
+    /// The same sheet for any other use - linking Apple to the signed-in account. Backing out calls `onCancel`.
+    func start(
+        onCredential: @escaping (String, String, String?) -> Void,
+        onFailure: @escaping (Error?) -> Void,
+        onCancel: (() -> Void)? = nil
+    ) {
         guard !inFlight else { return }
         inFlight = true
-        self.authVM = authVM
+        self.onCredential = onCredential
+        self.onFailure = onFailure
+        self.onCancel = onCancel
         let rawNonce = AuthViewModel.randomNonce()
         nonce = rawNonce
         let req = ASAuthorizationAppleIDProvider().createRequest()
@@ -489,18 +507,18 @@ final class AppleSignInCoordinator: NSObject, ObservableObject,
             let idToken = String(data: tokenData, encoding: .utf8),
             let n = nonce
         else {
-            authVM?.appleSignInFailed(nil)
+            onFailure?(nil)
             return
         }
         let name = cred.fullName.flatMap { PersonNameComponentsFormatter.localizedString(from: $0, style: .default) }
-        authVM?.signInWithApple(idToken: idToken, nonce: n, fullName: name)
+        onCredential?(idToken, n, name)
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
         inFlight = false
         // Backing out of the sheet is not an error (Google's cancel is handled the same way); anything else says so.
-        if (error as? ASAuthorizationError)?.code == .canceled { return }
-        authVM?.appleSignInFailed(error)
+        if (error as? ASAuthorizationError)?.code == .canceled { onCancel?(); return }
+        onFailure?(error)
     }
 
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {

@@ -907,9 +907,11 @@ meRouter.post("/eligibility", authMiddleware, async (req: AuthenticatedRequest, 
 	}
 });
 
-// POST /api/me/turned-away — early access: the web signs a brand-new Google account back out (Supabase made the
-// account before STAK could say no), then calls this so nothing of it stays behind. Only the caller's own account, and
-// only one that is truly brand new: made by Google sign-in under NEW_ACCOUNT_WINDOW_MS ago, never onboarded, with
+// POST /api/me/turned-away — removes a sign-in's account that should never have been made: the web's early access
+// signs a brand-new Google account back out (Supabase made the account before STAK could say no), and the iPhone's
+// "I already have an account" removes the one a hidden-email Apple sign-in just made, before Apple is linked to the
+// real account. Only the caller's own account, and only one that is truly brand new: made by Google or Apple sign-in
+// under NEW_ACCOUNT_WINDOW_MS ago, never onboarded, with
 // nothing on the server - no saves, swipes, taste, push device or Android state (an Android sign-up mid-quiz has
 // those, and is refused). Anything else is refused (409) and left alone.
 meRouter.post("/turned-away", authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -919,8 +921,9 @@ meRouter.post("/turned-away", authMiddleware, async (req: AuthenticatedRequest, 
 		const { data, error } = await getSupabaseAdmin().auth.admin.getUserById(supabaseUid);
 		const user = data?.user;
 		const created = user?.created_at ? Date.parse(user.created_at) : NaN;
-		const google = user?.app_metadata?.provider === "google" || (user?.app_metadata?.providers as string[] | undefined)?.includes("google");
-		if (error || !google || !Number.isFinite(created) || Date.now() - created > NEW_ACCOUNT_WINDOW_MS) {
+		const providers = [user?.app_metadata?.provider, ...((user?.app_metadata?.providers as string[] | undefined) ?? [])];
+		const viaSocial = providers.includes("google") || providers.includes("apple");
+		if (error || !viaSocial || !Number.isFinite(created) || Date.now() - created > NEW_ACCOUNT_WINDOW_MS) {
 			res.status(409).json({ error: "Not a brand-new account" });
 			return;
 		}

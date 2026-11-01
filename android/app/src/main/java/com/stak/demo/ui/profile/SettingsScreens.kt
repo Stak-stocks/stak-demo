@@ -51,6 +51,11 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -266,16 +271,151 @@ private fun LinkedAccountsScreen(onBack: () -> Unit) {
 				LinkedRow("Google", UserProfile.linkedGoogle) { UserProfile.linkedGoogle = !UserProfile.linkedGoogle; Session.saveProfile() }
 				LinkedRow("Apple", UserProfile.linkedApple) { UserProfile.linkedApple = !UserProfile.linkedApple; Session.saveProfile() }
 			} else {
-				// A real account shows how it signs in. Linking a second method isn't built,
-				// so there are no switches that would only pretend to.
-				SettingsLinkRow(label = "Signed in with", value = if (UserProfile.linkedGoogle) "Google" else "Email and password", chevron = false, onClick = null)
-				if (UserProfile.email.isNotBlank()) SettingsLinkRow(label = "Email", value = UserProfile.email, chevron = false, onClick = null)
+				SignInMethods()
 			}
 		}
 		Caption(
 			if (demo) "A linked account lets you sign in with one tap. Your STAK stays the same either way."
-			else "Sign in the same way next time, on this phone or a new one. Your saved stocks and taste come with you.",
+			else "Link another way to sign in to this same account, on this phone or a new one. You can unlink one as long as another is left.",
 		)
+	}
+}
+
+/** The names the Sign-in page shows, in its order. */
+private val SIGN_IN_NAMES = linkedMapOf("email" to "Email and password", "google" to "Google", "apple" to "Apple")
+/** The methods this phone can sign in with (no Apple on Android). */
+private val ANDROID_SIGN_IN = setOf("email", "google")
+
+/**
+ * A real account's ways to sign in (Supabase identities): each linked one, with Unlink while another is left, and Link
+ * for Google - the one this phone can sign in with (Apple is linked on an iPhone). Mirrors ios SignInMethods.
+ */
+@Composable
+private fun SignInMethods() {
+	val u = figmaUnit()
+	val authVm: com.stak.demo.ui.onboarding.AuthViewModel = hiltViewModel()
+	val context = LocalContext.current
+	val scope = rememberCoroutineScope()
+	var identities by remember { mutableStateOf<List<io.github.jan.supabase.auth.user.Identity>?>(null) }
+	var busy by remember { mutableStateOf<String?>(null) }
+	var problem by remember { mutableStateOf<String?>(null) }
+	var confirmUnlink by remember { mutableStateOf<io.github.jan.supabase.auth.user.Identity?>(null) }
+
+	suspend fun reload() {
+		runCatching { authVm.signInIdentities() }
+			.onSuccess { list ->
+				identities = list
+				// The demo rows and the account's saved profile follow what's really linked.
+				UserProfile.linkedGoogle = list.any { it.provider == "google" }
+				UserProfile.linkedApple = list.any { it.provider == "apple" }
+				Session.saveProfile()
+			}
+			.onFailure {
+				identities = identities ?: emptyList()
+				problem = "Couldn't load your sign-in methods. Check your connection."
+			}
+	}
+
+	/** Runs a link or unlink, then shows what's linked now. Backing out of Google's sheet isn't an error. */
+	fun run(provider: String, op: suspend () -> Unit) {
+		if (busy != null) return
+		problem = null
+		busy = provider
+		scope.launch {
+			runCatching { op() }.onFailure { e ->
+				if (e !is androidx.credentials.exceptions.GetCredentialCancellationException) problem = e.message ?: "Couldn't do that. Try again."
+			}
+			reload()
+			busy = null
+		}
+	}
+
+	LaunchedEffect(Unit) { reload() }
+
+	val list = identities
+	if (list == null) {
+		Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().padding((16 * u).dp)) {
+			CircularProgressIndicator(color = Teal, strokeWidth = 2.dp, modifier = Modifier.size((22 * u).dp))
+		}
+	} else {
+		SIGN_IN_NAMES.forEach { (provider, name) ->
+			val identity = list.firstOrNull { it.provider == provider }
+			// Email and Apple show once they're a way in; Google can always be linked here.
+			if (identity != null || provider == "google") {
+				MethodRow(
+					name = name,
+					linked = identity != null,
+					busy = busy == provider,
+					action = when {
+						identity == null -> { { run(provider) { authVm.linkGoogle(context) } } }
+						// Unlink only while a way in this phone can use is left (Apple alone would lock it out here).
+						list.any { it !== identity && it.provider in ANDROID_SIGN_IN } -> { { confirmUnlink = identity } }
+						else -> null
+					},
+				)
+			}
+		}
+		if (UserProfile.email.isNotBlank() && !UserProfile.isHiddenAppleEmail(UserProfile.email)) {
+			SettingsLinkRow(label = "Email", value = UserProfile.email, chevron = false, onClick = null)
+		}
+	}
+	problem?.let {
+		Text(
+			it,
+			style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp),
+			color = Color(0xFFFF6B6B),
+			modifier = Modifier
+				.fillMaxWidth()
+				.padding(horizontal = (14 * u).dp, vertical = (10 * u).dp)
+				.semantics { liveRegion = LiveRegionMode.Polite },
+		)
+	}
+	confirmUnlink?.let { identity ->
+		val name = SIGN_IN_NAMES[identity.provider] ?: identity.provider
+		androidx.compose.material3.AlertDialog(
+			onDismissRequest = { confirmUnlink = null },
+			title = { Text("Unlink $name?") },
+			text = { Text("You won't be able to sign in with it anymore. Your STAK stays the same.") },
+			confirmButton = {
+				androidx.compose.material3.TextButton(onClick = {
+					confirmUnlink = null
+					run(identity.provider) { authVm.unlinkSignInMethod(identity) }
+				}) { Text("Unlink", color = Color(0xFFFF6B6B)) }
+			},
+			dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmUnlink = null }) { Text("Cancel") } },
+		)
+	}
+}
+
+/** One way to sign in: linked or not, and its one action (none for the last one left). */
+@Composable
+private fun MethodRow(name: String, linked: Boolean, busy: Boolean, action: (() -> Unit)?) {
+	val u = figmaUnit()
+	Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height((48 * u).dp).padding(horizontal = (14 * u).dp)) {
+		Text(name, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White)
+		Spacer(modifier = Modifier.weight(1f))
+		Text(
+			if (linked) "Linked" else "Not linked",
+			style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp),
+			color = if (linked) Teal else Muted,
+			modifier = Modifier.padding(end = if (action != null || busy) (12 * u).dp else 0.dp),
+		)
+		if (busy) {
+			CircularProgressIndicator(
+				color = Teal,
+				strokeWidth = 2.dp,
+				modifier = Modifier.size((18 * u).dp).semantics { contentDescription = "${if (linked) "Unlinking" else "Linking"} $name" },
+			)
+		} else if (action != null) {
+			Text(
+				if (linked) "Unlink" else "Link",
+				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp),
+				color = Teal,
+				modifier = Modifier
+					.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, onClick = action)
+					.semantics { contentDescription = "${if (linked) "Unlink" else "Link"} $name" },
+			)
+		}
 	}
 }
 
@@ -504,14 +644,15 @@ private fun ChangePasswordScreen(onBack: () -> Unit) {
 	val viewModel: AuthViewModel = hiltViewModel()
 	val scope = rememberCoroutineScope()
 	val u = figmaUnit()
-	if (UserProfile.linkedGoogle) {
+	val managedBy = remember { viewModel.passwordManagedBy() }
+	if (managedBy != null) {
 		SettingsPage(title = "Change password", onBack = onBack) {
 			Column(
 				verticalArrangement = Arrangement.spacedBy((8 * u).dp),
 				modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding((16 * u).dp),
 			) {
-				Text("Password managed by Google", style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp), color = Color.White)
-				Text("Your sign-in is handled by Google. To change your password, visit your Google account settings.", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Body)
+				Text("Password managed by $managedBy", style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (15 * u).sp), color = Color.White)
+				Text("Your sign-in is handled by $managedBy. To change your password, visit your $managedBy account settings.", style = TextStyle(fontFamily = Geist, fontSize = (13 * u).sp, lineHeight = (19 * u).sp, lineHeightStyle = FIGMA_LINE_BOX), color = Body)
 			}
 		}
 		return
