@@ -107,6 +107,10 @@ struct RootFlowView: View {
 	@State private var relocked = false
 	/// Face ID just unlocked: the app is still paused while its panel closes - not a pause to hide the screen for.
 	@State private var unlocking = false
+
+	/// Whether the app is paused right now. Read live: the unlock runs from a closure made when Face ID started, whose
+	/// copy of scenePhase still says active.
+	private static func paused() -> Bool { UIApplication.shared.applicationState != .active }
 	@Environment(\.scenePhase) private var scenePhase
 	/// Shared auth ViewModel — all sign-in/up/password flows share one instance
 	/// so a Google OAuth sheet from SignIn and one from CreateAccount can't race.
@@ -175,7 +179,7 @@ struct RootFlowView: View {
 				}
 				.transition(.opacity)
 			case .locked:
-				LockGateView { unlocking = scenePhase != .active; withAnimation(.easeOut(duration: 0.35)) { phase = .main } }
+				LockGateView { unlocking = Self.paused(); withAnimation(.easeOut(duration: 0.35)) { phase = .main } }
 					.transition(.opacity)
 			case .main:
 				ZStack {
@@ -197,7 +201,7 @@ struct RootFlowView: View {
 					// Locked means locked for VoiceOver too: nothing beneath the gate can be reached.
 					.accessibilityHidden(relocked)
 					if relocked {
-						LockGateView { unlocking = scenePhase != .active; withAnimation(.easeOut(duration: 0.35)) { relocked = false } }
+						LockGateView { unlocking = Self.paused(); withAnimation(.easeOut(duration: 0.35)) { relocked = false } }
 							.transition(.opacity)
 					} else if scenePhase != .active, !unlocking, Session.shared.signedIn, UserProfile.shared.accountLock {
 						// Only paused (the app switcher, Control Center): the screen is hidden - so the switcher's
