@@ -62,7 +62,6 @@ function AppSettingsPage() {
 							maxLength={12}
 							value={typed}
 							onChange={(e) => setTyped(e.target.value)}
-							onKeyDown={(e) => { if (e.key === "Enter") void handleDelete(); }}
 							autoComplete="off"
 							autoCapitalize="characters"
 							spellCheck={false}
