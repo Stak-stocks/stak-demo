@@ -1,5 +1,7 @@
 ﻿package com.stak.demo.ui.discover
 
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import com.stak.demo.ui.theme.FIGMA_LINE_BOX
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -1468,6 +1470,42 @@ private fun PracticeBuyContent(
 	}
 }
 
+/**
+ * "Couldn't place that trade" (Chinedu_Mobile 1:6036 · Practice buy · Failed, 2026-10-07): the title, the red "Order
+ * not placed", the stock row and [line] (PaperPortfolio.buyFailureLine), then Try again (back to the ticket) and Not
+ * now (close). The receipt's 14 rhythm. Announced as it appears. Mirrors ios OrderFailedSheet.
+ */
+@Composable
+private fun OrderFailedContent(spec: BuySpec, line: String, onTryAgain: () -> Unit, onNotNow: () -> Unit) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val view = androidx.compose.ui.platform.LocalView.current
+	LaunchedEffect(Unit) { view.announceForAccessibility("Order not placed. $line") }
+	Column(verticalArrangement = Arrangement.spacedBy((14 * u).dp), modifier = Modifier.fillMaxWidth()) {
+		Text(
+			text = "Couldn't place that trade",
+			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.SemiBold, fontSize = (18 * u).sp, lineHeight = (23 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = Color.White,
+			modifier = Modifier.semantics { heading() },
+		)
+		Text(
+			text = "Order not placed",
+			style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = Color(0xFFE5484D),
+		)
+		NvdaStockRow(spec)
+		Text(
+			text = line,
+			style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (18 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+			color = Disc.Body,
+			modifier = Modifier.fillMaxWidth(),
+		)
+		Column(verticalArrangement = Arrangement.spacedBy((16 * u).dp)) {
+			SheetCta("Try again", onTryAgain)
+			SheetSecondary("Not now", onNotNow)
+		}
+	}
+}
+
 /** "Order filled" sheet content (frame 85:1205, sheet 85:1394). */
 @Composable
 private fun OrderFilledContent(onPrimary: () -> Unit, onSecondary: () -> Unit, spec: BuySpec = NVDA_BUY, primary: String = "View in My STAK", secondary: String = "Keep exploring", pendingLimit: Double? = null) {
@@ -1736,10 +1774,20 @@ internal fun DiscoverBuyFlow(
 		com.stak.demo.data.LiveQuotes.quote(spec.symbol)?.let { (price, change) -> if (!filled) quoted = spec.withQuote(price, change) }
 	}
 	val live = quoted.withAmount(amount, cashBefore)
+	// Practice buy · Failed (Chinedu_Mobile 1:6036): the buy this receipt shows didn't go through. Said here, with Try
+	// again, while the sheet is open - the buy reports its own result, so another change's error is never blamed on it;
+	// once the sheet is gone the app-wide banner says it. The receipt goes up at once and the server's answer comes
+	// after, so the host counts the buy (onFilled) only once it went through.
+	var failed by rememberSaveable { mutableStateOf(false) }
+	var refusal by rememberSaveable { mutableStateOf<String?>(null) }
+	val open = remember { mutableStateOf(true) }
+	androidx.compose.runtime.DisposableEffect(Unit) { onDispose { open.value = false } }
+	// 0 the ticket, 1 the receipt, 2 the failure.
+	val stage = if (failed) 2 else if (filled) 1 else 0
 	// The scrim tap is unauthored - it keeps the per-state plain dismiss.
-	SheetScaffold(onDismiss = { if (filled) onFilledSecondary() else onClose() }) {
+	SheetScaffold(onDismiss = { if (stage == 1) onFilledSecondary() else onClose() }) {
 		AnimatedContent(
-			targetState = filled,
+			targetState = stage,
 			transitionSpec = {
 				ContentTransform(
 					fadeIn(tween(350, easing = EaseOut)),
@@ -1749,8 +1797,16 @@ internal fun DiscoverBuyFlow(
 			},
 			contentAlignment = Alignment.BottomCenter,
 			label = "buyMorph",
-		) { isFilled ->
-			if (!isFilled) {
+		) { shown ->
+			if (shown == 2) {
+				OrderFailedContent(
+					spec = live,
+					line = com.stak.demo.ui.simulate.PaperPortfolio.buyFailureLine(refusal),
+					// Back to the ticket at the same stake (the reason stays put while this fades out).
+					onTryAgain = { failed = false; filled = false; placedLimit = null },
+					onNotNow = onClose,
+				)
+			} else if (shown == 0) {
 				PracticeBuyContent(
 					// Every host's Confirm (Discover, Simulate, Stock Detail) fills
 					// the order into the shared paper portfolio, then tells the host.
@@ -1763,7 +1819,16 @@ internal fun DiscoverBuyFlow(
 								// Below today's price: an open order, no fill yet (FigJam: Order pending).
 								if (com.stak.demo.ui.simulate.PaperPortfolio.placeLimit(quoted, amount, limit)) { placedLimit = limit; filled = true }
 							} else {
-								filled = true; com.stak.demo.ui.simulate.PaperPortfolio.buy(quoted, amount); onFilled()
+								filled = true
+								com.stak.demo.ui.simulate.PaperPortfolio.buy(quoted, amount) { ok, why ->
+									if (ok) {
+										onFilled()
+									} else if (open.value) {
+										refusal = why
+										failed = true
+										com.stak.demo.ui.simulate.PaperPortfolio.dismissError()
+									}
+								}
 							}
 						}
 					},

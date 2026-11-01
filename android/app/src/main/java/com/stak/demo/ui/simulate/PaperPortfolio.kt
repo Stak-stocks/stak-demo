@@ -222,6 +222,9 @@ internal object PaperPortfolio {
 	var lastError by mutableStateOf<String?>(null)
 		private set
 
+	/** What a failed change says when the server gave no reason (a timeout, a 5xx, no connection). */
+	private const val GENERIC_ERROR = "That didn't go through — try again"
+
 	fun dismissError() {
 		lastError = null
 	}
@@ -235,7 +238,7 @@ internal object PaperPortfolio {
 	 */
 	private suspend fun runMutation(action: suspend () -> Unit): Boolean {
 		val failure = runCatching { action() }.exceptionOrNull()
-		val message = failure?.let { serverReason(it) ?: "That didn't go through — try again" }
+		val message = failure?.let { serverReason(it) ?: GENERIC_ERROR }
 		withContext(Dispatchers.Main) { lastError = message }
 		hydrate()
 		return failure == null
@@ -909,7 +912,11 @@ internal object PaperPortfolio {
 	/** True when the cash on hand covers the stake - the ticket's pills and the confirm both read it (Codex review, PR #166). */
 	fun canBuy(amount: Double): Boolean = amount > 0.0 && amount <= cash
 
-	fun buy(spec: BuySpec, amount: Double) {
+	/**
+	 * [onResult] hears, on the main thread, whether the buy went through and - when the server refused it (a 4xx, so
+	 * nothing changed) - its reason; null with a failure means it couldn't be confirmed (it may have gone through).
+	 */
+	fun buy(spec: BuySpec, amount: Double, onResult: ((ok: Boolean, refusal: String?) -> Unit)? = null) {
 		if (!canBuy(amount)) return
 		val neededSetup = ensureSetup()
 		// A bought stock is in your STAK (Codex review, PR #167 mirror): the receipt's
@@ -983,8 +990,28 @@ internal object PaperPortfolio {
 				if (neededSetup) repository?.sandboxSetup(DEFAULT_SETUP_BALANCE, DEFAULT_PORTFOLIO_NAME, strategyToId(DEFAULT_STRATEGY))
 				repository?.sandboxBuy(spec.symbol, amount)
 			},
-			then = { ok -> if (ok) withContext(Dispatchers.Main) { com.stak.demo.data.MyStakHoldings.add(spec.symbol) } },
+			then = { ok ->
+				withContext(Dispatchers.Main) {
+					if (ok) com.stak.demo.data.MyStakHoldings.add(spec.symbol)
+					onResult?.invoke(ok, lastError.takeIf { !ok && it != GENERIC_ERROR })
+				}
+			},
 		)
+		else onResult?.invoke(true, null)
+	}
+
+	/**
+	 * What a practice buy that didn't go through says (the buy sheet): a refusal's reason in plain words, and that the
+	 * paper money is untouched; or, unconfirmed, to check the portfolio first.
+	 */
+	fun buyFailureLine(refusal: String?): String {
+		if (refusal == null) return "STAK couldn't confirm this order. Check your portfolio before you try again."
+		val reason = when {
+			refusal.contains("buying power", ignoreCase = true) -> "Not enough paper money for this buy."
+			refusal.contains("live price", ignoreCase = true) -> "We couldn't get a live price just now."
+			else -> refusal.trim().let { if (it.endsWith('.') || it.endsWith('!') || it.endsWith('?')) it else "$it." }
+		}
+		return "$reason Your paper money wasn't touched."
 	}
 
 	/**

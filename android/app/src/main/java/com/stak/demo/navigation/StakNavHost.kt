@@ -52,6 +52,7 @@ import com.stak.demo.ui.news.LiveNewsDetailScreen
 import com.stak.demo.ui.news.LiveNewsHolder
 import com.stak.demo.ui.news.NewsDetailScreen
 import com.stak.demo.ui.profile.ProfileScreen
+import com.stak.demo.ui.profile.QuizRetake
 import com.stak.demo.ui.simulate.PickDetailScreen
 import com.stak.demo.ui.simulate.SimBuySpecSaver
 import com.stak.demo.ui.simulate.SimPortfolioScreen
@@ -89,6 +90,16 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 	// set by the edge that navigates, read by the route transitions
 	// below, and reset to the house default once the NavHost settles.
 	val shellPop = remember { mutableStateOf(PopStyle.HOUSE_BACK) }
+	// Taste & risk's retake is done: the new answers are kept and sent, and the quiz closes back onto the page (which
+	// clears QuizRetake).
+	val finishRetake: () -> Unit = {
+		if (QuizRetake.mode != null) {
+			QuizRetake.finished()
+			com.stak.demo.data.Session.saveProfile()
+			com.stak.demo.data.ProfileSync.pushTaste()
+			navController.popBackStack(StakRoutes.SETTINGS, inclusive = false)
+		}
+	}
 	val pendingShellTab = remember { mutableStateOf<MainTab?>(null) }
 	val visibleEntries by navController.visibleEntries.collectAsState()
 	LaunchedEffect(visibleEntries) {
@@ -193,12 +204,14 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				}
 			},
 		) {
-			IntroScreen(onGetStarted = { navController.navigate(StakRoutes.BRAND_PICKS) })
+			// A new onboarding: a retake cut short on this phone (a sign-out mid-quiz) mustn't steer it.
+			IntroScreen(onGetStarted = { QuizRetake.finished(); navController.navigate(StakRoutes.BRAND_PICKS) })
 		}
 		composable(StakRoutes.BRAND_PICKS) {
 			BrandPicksScreen(
 				onBack = { navController.popBackStack() },
-				onContinue = { navController.navigate(StakRoutes.SWIPE_TUTORIAL) },
+				// A retake skips the swipe tutorial: they've swiped before.
+				onContinue = { navController.navigate(if (QuizRetake.mode != null) StakRoutes.GOAL else StakRoutes.SWIPE_TUTORIAL) },
 			)
 		}
 		composable(StakRoutes.SWIPE_TUTORIAL) {
@@ -210,13 +223,13 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 		composable(StakRoutes.GOAL) {
 			GoalScreen(
 				onBack = { navController.popBackStack() },
-				onContinue = { navController.navigate(StakRoutes.RISK) },
+				onContinue = { if (QuizRetake.mode == QuizRetake.Mode.GOAL) finishRetake() else navController.navigate(StakRoutes.RISK) },
 			)
 		}
 		composable(StakRoutes.RISK) {
 			RiskScreen(
 				onBack = { navController.popBackStack() },
-				onContinue = { navController.navigate(StakRoutes.PREPARING_DECK) },
+				onContinue = { if (QuizRetake.mode == QuizRetake.Mode.RISK) finishRetake() else navController.navigate(StakRoutes.PREPARING_DECK) },
 			)
 		}
 		composable(
@@ -251,7 +264,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 		) {
 			TasteRevealScreen(
 				onBack = { navController.popBackStack() },
-				onLetsGo = { navController.navigate(StakRoutes.PERMISSIONS) },
+				onLetsGo = { if (QuizRetake.mode != null) finishRetake() else navController.navigate(StakRoutes.PERMISSIONS) },
 			)
 		}
 		composable(
@@ -699,6 +712,17 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 				// Delete account (FigJam Profile board, 2026-09-14): the session is gone, the stack clears to Create account.
 				onAccountDeleted = {
 					navController.navigate(StakRoutes.createAccount(via = "dissolve")) { popUpTo(0) { inclusive = true } }
+				},
+				// Taste & risk: the whole quiz from its brand picks, or just the goal or risk question.
+				onRetakeQuiz = { mode ->
+					QuizRetake.start(mode)
+					navController.navigate(
+						when (mode) {
+							QuizRetake.Mode.ALL -> StakRoutes.BRAND_PICKS
+							QuizRetake.Mode.GOAL -> StakRoutes.GOAL
+							QuizRetake.Mode.RISK -> StakRoutes.RISK
+						},
+					) { launchSingleTop = true }
 				},
 			)
 		}

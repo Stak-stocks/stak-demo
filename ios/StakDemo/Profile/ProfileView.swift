@@ -6,9 +6,6 @@ import UIKit
 private let cardBg = Color(argb: 0xFF10182B)
 private let bodyInk = Color(argb: 0xFFC8D2E0)
 private let brightInk = Color(argb: 0xFFF2F6FC)
-private let chipBg = Color(argb: 0xFF1A2333)
-private let chipBorder = Color(argb: 0xFF2C9DBC)
-private let chipInk = Color(argb: 0xFF7FD4E8)
 
 private struct TasteChip {
 	let label: String
@@ -48,6 +45,7 @@ struct ProfileView: View {
 	/// The paper stats card reads the live ledger (product audit, 2026-09-05).
 	@ObservedObject private var portfolio = PaperPortfolio.shared
 	@ObservedObject private var session = Session.shared
+	/// Not read here directly: ProfileTaste.chips() reads it, and observing it redraws the chips when saves change.
 	@ObservedObject private var holdings = MyStakHoldings.shared
 
 	/// App settings and Invite a friend join the authored four (FigJam Profile board, 2026-09-14); a real account's
@@ -135,7 +133,7 @@ struct ProfileView: View {
 							Text("Edit profile")
 								.font(StakFont.geist(12 * u, .medium))
 								.stakLineHeight(16 * u, size: 12 * u, face: .geist)
-								.foregroundStyle(chipInk)
+								.foregroundStyle(tasteChipInk)
 						}
 						.buttonStyle(.pressDim)
 					}
@@ -150,22 +148,19 @@ struct ProfileView: View {
 							// The demo account keeps the authored chips at their pinned widths; a new
 							// account's chips come from its onboarding answers and hug their labels
 							// (product audit, 2026-09-05).
-							// The onboarding picks plus the stocks saved since that belong to a taste, so the chips follow
-							// what the user keeps from the deck.
-							let saved = holdings.tickers.compactMap { holdings.nameOf($0) }.filter(TasteModel.isTasteBrand)
-							let chips: [TasteChip] = demo ? tasteChips : TasteModel.chips(profile.brandPicks.union(saved), goal: profile.goal, risk: profile.risk).map { TasteChip(label: $0, width: 0) }
+							let chips: [TasteChip] = demo ? tasteChips : ProfileTaste.chips().map { TasteChip(label: $0, width: 0) }
 							ForEach(chips, id: \.label) { chip in
 								Text(chip.label)
 									.font(StakFont.geist(12 * u, .medium))
-									.foregroundStyle(chipInk)
+									.foregroundStyle(tasteChipInk)
 									.lineLimit(1)
 									.fixedSize(horizontal: true, vertical: false)
 									.frame(width: chip.width > 0 ? chip.width * u * typeScale : nil, height: 28 * u * typeScale)
 									.padding(.horizontal, chip.width > 0 ? 0 : 12 * u)
-									.background(chipBg, in: RoundedRectangle(cornerRadius: 14 * u))
+									.background(tasteChipBg, in: RoundedRectangle(cornerRadius: 14 * u))
 									.overlay(
 										RoundedRectangle(cornerRadius: 14 * u)
-											.strokeBorder(chipBorder, lineWidth: 1 * u)
+											.strokeBorder(tasteChipBorder, lineWidth: 1 * u)
 									)
 							}
 						}
@@ -173,6 +168,22 @@ struct ProfileView: View {
 							.font(StakFont.geist(12 * u))
 							.stakLineHeight(16 * u, size: 12 * u, face: .geist)
 							.foregroundStyle(bodyInk)
+						// Taste & risk: the answers behind these chips, each changeable.
+						Button { onOpenSetting(.taste) } label: {
+							HStack {
+								Text("Taste & risk profile")
+									.font(StakFont.geist(13 * u, .medium))
+									.foregroundStyle(StakColors.textPrimary)
+								Spacer()
+								Text("›")
+									.font(StakFont.geist(14 * u))
+									.foregroundStyle(StakColors.muted)
+									.accessibilityHidden(true)
+							}
+							.frame(minHeight: max(44, 40 * u * typeScale))
+							.contentShape(Rectangle())
+						}
+						.buttonStyle(.pressDim)
 					}
 					.frame(maxWidth: .infinity, alignment: .leading)
 					.padding(14 * u)

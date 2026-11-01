@@ -55,6 +55,8 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -100,6 +102,8 @@ object SettingsKind {
 	/** App settings (FigJam Profile board, 2026-09-14): dark mode, biometric login, change password, delete account. */
 	const val APP = "app"
 	const val PASSWORD = "password"
+	/** Taste & risk (Chinedu_Mobile 1:5732): the onboarding answers, each changeable. */
+	const val TASTE = "taste"
 }
 
 /** The hub's header (back circle + centred title) over a dark page. */
@@ -122,22 +126,28 @@ fun SettingsScaffold(title: String, onBack: () -> Unit, content: @Composable Col
 
 /** A hub-style row: label, chevron, tap. */
 @Composable
-/** A settings row; with no [onClick] it only shows a value and doesn't react to taps. */
-fun SettingsLinkRow(label: String, value: String? = null, chevron: Boolean = true, onClick: (() -> Unit)?) {
+/**
+ * A settings row; with no [onClick] it only shows a value and doesn't react to taps. [description] is what a screen
+ * reader says instead of the label and value (when they need context, "Risk style: Balanced").
+ */
+fun SettingsLinkRow(label: String, value: String? = null, chevron: Boolean = true, description: String? = null, onClick: (() -> Unit)?) {
 	val u = figmaUnit()
 	Row(
 		verticalAlignment = Alignment.CenterVertically,
 		modifier = Modifier
 			.fillMaxWidth()
 			.height((48 * u).dp)
-			.then(if (onClick != null) Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, onClick = onClick) else Modifier)
+			.then(if (onClick != null) Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = com.stak.demo.ui.theme.PressDim, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick) else Modifier)
+			.then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier)
 			.padding(horizontal = (14 * u).dp),
 	) {
-		Text(label, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White, maxLines = 1)
+		val spoken = if (description != null) Modifier.clearAndSetSemantics {} else Modifier
+		Text(label, style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (13 * u).sp), color = Color.White, maxLines = 1, modifier = spoken)
 		// The value takes the rest of the row, right-aligned; a long one (an email) ends in
 		// an ellipsis instead of wrapping out of the row.
-		Text(value ?: "", style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, textAlign = androidx.compose.ui.text.style.TextAlign.End), color = Muted, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = (12 * u).dp, end = (8 * u).dp))
-		if (chevron) Text("›", style = TextStyle(fontFamily = Geist, fontSize = (14 * u).sp), color = Muted)
+		Text(value ?: "", style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, textAlign = androidx.compose.ui.text.style.TextAlign.End), color = Muted, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = (12 * u).dp, end = (8 * u).dp).then(spoken))
+		// The chevron is drawn, not read.
+		if (chevron) Text("›", style = TextStyle(fontFamily = Geist, fontSize = (14 * u).sp), color = Muted, modifier = Modifier.clearAndSetSemantics {})
 	}
 }
 
@@ -159,10 +169,20 @@ private fun SettingsPage(title: String, onBack: () -> Unit, content: @Composable
 	}
 }
 
-/** `onOpen` pushes a sibling settings page (App settings -> Appearance / Change password); `onAccountDeleted` leaves the signed-out app on Create account. */
+/**
+ * `onOpen` pushes a sibling settings page (App settings -> Appearance / Change password); `onAccountDeleted` leaves the
+ * signed-out app on Create account; `onRetakeQuiz` re-enters the onboarding quiz from Taste & risk.
+ */
 @Composable
-fun SettingsScreen(kind: String, onBack: () -> Unit, onOpen: (String) -> Unit = {}, onAccountDeleted: () -> Unit = {}) {
+fun SettingsScreen(
+	kind: String,
+	onBack: () -> Unit,
+	onOpen: (String) -> Unit = {},
+	onAccountDeleted: () -> Unit = {},
+	onRetakeQuiz: (QuizRetake.Mode) -> Unit = {},
+) {
 	when (kind) {
+		SettingsKind.TASTE -> TasteRiskScreen(onBack, onRetakeQuiz)
 		SettingsKind.NOTIFICATIONS -> NotificationSettingsScreen(onBack)
 		SettingsKind.APPEARANCE -> AppearanceScreen(onBack)
 		SettingsKind.LINKED -> LinkedAccountsScreen(onBack)
@@ -171,6 +191,92 @@ fun SettingsScreen(kind: String, onBack: () -> Unit, onOpen: (String) -> Unit = 
 		SettingsKind.PASSWORD -> ChangePasswordScreen(onBack)
 		else -> HelpSupportScreen(onBack)
 	}
+}
+
+/**
+ * Taste & risk (Chinedu_Mobile 1:5732, 2026-10-07, on the live answers): the taste chips with "Retake the taste quiz",
+ * and the risk style and goal, each with Change - all three re-enter the onboarding quiz and come back here
+ * (QuizRetake). The demo persona only shows its authored answers. Mirrors ios TasteRiskView.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun TasteRiskScreen(onBack: () -> Unit, onRetakeQuiz: (QuizRetake.Mode) -> Unit) {
+	val u = figmaUnit()
+	// Back on this page with a retake still open means it was left unfinished: its answers go back.
+	LaunchedEffect(Unit) { QuizRetake.abandon() }
+	val demo = Session.demoAccount
+	SettingsPage(title = "Taste & risk", onBack = onBack) {
+		SectionLabel("YOUR TASTE")
+		Column(
+			verticalArrangement = Arrangement.spacedBy((12 * u).dp),
+			modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg).padding(top = (14 * u).dp),
+		) {
+			androidx.compose.foundation.layout.FlowRow(
+				horizontalArrangement = Arrangement.spacedBy((8 * u).dp),
+				verticalArrangement = Arrangement.spacedBy((8 * u).dp),
+				modifier = Modifier.padding(horizontal = (14 * u).dp),
+			) {
+				ProfileTaste.chips().forEach { label ->
+					Text(
+						label,
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+						color = TasteChipInk,
+						maxLines = 1,
+						modifier = Modifier
+							.clip(RoundedCornerShape((14 * u).dp))
+							.background(TasteChipBg)
+							.border((1 * u).dp, TasteChipBorder, RoundedCornerShape((14 * u).dp))
+							.padding(horizontal = (12 * u).dp, vertical = (6 * u).dp),
+					)
+				}
+			}
+			Text(
+				if (demo) "Your taste graph sharpens with every swipe." else "Your taste updates as you save stocks.",
+				style = TextStyle(fontFamily = Geist, fontSize = (12 * u).sp, lineHeight = (16 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+				color = Body,
+				modifier = Modifier.padding(horizontal = (14 * u).dp).padding(bottom = if (demo) (14 * u).dp else 0.dp),
+			)
+			// The demo persona's answers are authored: nothing to retake.
+			if (!demo) SettingsLinkRow(label = "Retake the taste quiz", onClick = { onRetakeQuiz(QuizRetake.Mode.ALL) })
+		}
+		SectionLabel("RISK STYLE")
+		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg)) {
+			val risk = ProfileTaste.riskLabel()
+			SettingsLinkRow(
+				label = risk ?: "Not answered yet",
+				value = if (demo) null else if (risk == null) "Answer" else "Change",
+				chevron = !demo,
+				description = "Risk style: ${risk ?: "not answered yet"}" + if (demo) "" else if (risk == null) ". Answer" else ". Change",
+				onClick = if (demo) null else ({ onRetakeQuiz(QuizRetake.Mode.RISK) }),
+			)
+		}
+		Caption(ProfileTaste.riskBlurb() + " STAK uses it to show how each stock fits you.")
+		SectionLabel("GOAL")
+		Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape((16 * u).dp)).background(CardBg)) {
+			val goal = ProfileTaste.goalLabel()
+			SettingsLinkRow(
+				label = goal ?: "Not answered yet",
+				value = if (demo) null else if (goal == null) "Answer" else "Change",
+				chevron = !demo,
+				description = "Goal: ${goal ?: "not answered yet"}" + if (demo) "" else if (goal == null) ". Answer" else ". Change",
+				onClick = if (demo) null else ({ onRetakeQuiz(QuizRetake.Mode.GOAL) }),
+			)
+		}
+		// What the answers really do: the server builds the deck from what you save and swipe, not from the quiz.
+		Caption("Your answers set your taste chips and how each stock fits you. Your saves and paper portfolio stay as they are.")
+	}
+}
+
+/** A small caps label over a card (YOUR TASTE, RISK STYLE, GOAL). */
+@Composable
+private fun SectionLabel(text: String) {
+	val u = figmaUnit()
+	Text(
+		text,
+		style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (11 * u).sp, lineHeight = (14 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
+		color = Muted,
+		modifier = Modifier.padding(start = (4 * u).dp, top = (4 * u).dp).semantics { heading() },
+	)
 }
 
 @Composable

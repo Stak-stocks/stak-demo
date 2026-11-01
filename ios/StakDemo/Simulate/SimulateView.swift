@@ -146,7 +146,12 @@ struct SimulateView: View {
 						// 1:4009 plist (exact-design audit 2026-09-04): the three rows sit 10 apart, not the column's 18.
 						if portfolio.pickCount == 0 {
 							// A new account has no picks yet.
-							EmptyStateCard(title: "No picks yet", text: "Your first practice buy lands here with its live gain.")
+							EmptyStateCard(
+								title: "No practice trades yet",
+								text: "Buy any company from today's deck with paper money at real prices. Your first buy shows up here with its live gain.",
+								link: "See today's deck",
+								onLink: onOpenDiscover
+							)
 						} else {
 							VStack(spacing: 10 * u) {
 								ForEach(Array(portfolio.positions.prefix(3))) { position in
@@ -371,7 +376,13 @@ private struct ScoreHero: View {
 						.foregroundStyle(Sim.bright)
 				}
 				.accessibilityElement(children: .combine)
-				if let move = rangeMove {
+				// Before the first practice trade there's no move to report and no line to draw (Chinedu_Mobile 1:6556 /
+				// 1:6560).
+				if untraded {
+					Text("No moves yet")
+						.font(StakFont.geist(12 * u, .medium))
+						.foregroundStyle(Sim.muted)
+				} else if let move = rangeMove {
 					Text(move.text)
 						.font(StakFont.geist(12 * u, .medium))
 						.foregroundStyle(move.up ? Sim.green : Sim.red)
@@ -385,13 +396,15 @@ private struct ScoreHero: View {
 			}
 			.padding(.horizontal, 20 * u)
 
-			chart(u)
-				.frame(width: 343 * u, height: 73.56 * u)
-				.frame(maxWidth: .infinity)
-			RangePills(selected: $range, tint: Sim.teal, muted: Sim.muted, labels: portfolioRangeLabels)
-				.frame(maxWidth: .infinity)
-				// Authored chart→pills gap 40; the column gap contributes 11.
-				.padding(.top, 29 * u)
+			if !untraded {
+				chart(u)
+					.frame(width: 343 * u, height: 73.56 * u)
+					.frame(maxWidth: .infinity)
+				RangePills(selected: $range, tint: Sim.teal, muted: Sim.muted, labels: portfolioRangeLabels)
+					.frame(maxWidth: .infinity)
+					// Authored chart→pills gap 40; the column gap contributes 11.
+					.padding(.top, 29 * u)
+			}
 		}
 		.padding(.vertical, 20 * u)
 		.background(Sim.cardBg, in: RoundedRectangle(cornerRadius: 18 * u))
@@ -412,6 +425,9 @@ private struct ScoreHero: View {
 			history[forRange] = built
 		}
 	}
+
+	/// No practice trade yet on a real account: nothing has moved, and there's no line to draw.
+	private var untraded: Bool { !portfolio.demo && portfolio.hasHydrated && portfolio.trades.isEmpty }
 
 	/// The ledger's identity: its size, its newest trade and what's held now (the replay starts from today's shares,
 	/// which a read can change with no trade logged) - the count alone stops moving once /trades' page is full.
@@ -836,13 +852,16 @@ struct EmptyStateCard: View {
 				.stakLineHeight(19 * u, size: 13 * u, face: .geist)
 				.foregroundStyle(Sim.muted)
 			if let link {
+				// A full-size target around the line of text; the "›" is drawn, not read.
 				Button(action: onLink) {
 					Text("\(link) ›")
 						.font(StakFont.geist(13 * u, .medium))
 						.foregroundStyle(Sim.teal)
+						.frame(minHeight: 44, alignment: .leading)
+						.contentShape(Rectangle())
 				}
 				.buttonStyle(.pressDim)
-				.padding(.top, 4 * u)
+				.accessibilityLabel(link)
 			}
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)

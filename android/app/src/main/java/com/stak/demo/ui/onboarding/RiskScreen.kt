@@ -12,7 +12,9 @@ import com.stak.demo.R
 @Composable
 fun RiskScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 	MatrixQuizScreen(
-		stepLabel = "STEP 5 OF 6",
+		stepLabel = if (com.stak.demo.ui.profile.QuizRetake.mode != null) "YOUR TASTE" else "STEP 5 OF 6",
+		// The answer already given is selected (a retake), as iOS.
+		initialSelection = com.stak.demo.data.UserProfile.risk,
 		headline = "A stock you’re watching drops 10% overnight.",
 		subtitle = "No wrong answer. This helps STAK understand your risk style.",
 		options = listOf(

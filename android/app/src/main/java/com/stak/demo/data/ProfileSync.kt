@@ -57,7 +57,11 @@ object ProfileSync {
 				// ...unless this phone's edit hasn't reached the server yet: then it is the newer one, and goes up below.
 				val serverName = me.displayName.trim()
 				if (!StakStore.getBoolean("name.pending", false) && serverName.isNotEmpty() && serverName != UserProfile.displayName) UserProfile.displayName = serverName
-				val taste = me.taste?.takeIf { it.hasAnswers }
+				// Answers changed on this phone (Taste & risk) that haven't reached the server are the newer ones.
+				// (A phone signed out and back in has none left to send: the server's answers win, and the flag goes.)
+				val tastePending = StakStore.getBoolean(TASTE_PENDING, false) && currentTaste().hasAnswers
+				if (!tastePending) StakStore.putBoolean(TASTE_PENDING, false)
+				val taste = me.taste?.takeIf { it.hasAnswers && !tastePending }
 				if (taste != null) {
 					UserProfile.goal = taste.goal
 					UserProfile.risk = taste.risk
@@ -67,7 +71,11 @@ object ProfileSync {
 				Session.saveProfile()
 				currentTaste().takeIf { taste == null && it.hasAnswers }
 			}
-			if (upload != null && Session.accountGeneration == account) runCatching { repo.putMe(taste = upload) }
+			if (upload != null && Session.accountGeneration == account) {
+				runCatching { repo.putMe(taste = upload) }.onSuccess {
+					withContext(Dispatchers.Main) { if (Session.accountGeneration == account && currentTaste() == upload) StakStore.putBoolean(TASTE_PENDING, false) }
+				}
+			}
 			// A rename that didn't reach the server (offline, a save cut short) goes up now.
 			val pendingName = withContext(Dispatchers.Main) {
 				UserProfile.displayName.trim().takeIf { Session.accountGeneration == account && StakStore.getBoolean("name.pending", false) && it.isNotEmpty() }
@@ -76,6 +84,30 @@ object ProfileSync {
 				runCatching { repo.putMe(displayName = pendingName) }.onSuccess {
 					withContext(Dispatchers.Main) { if (Session.accountGeneration == account) StakStore.putBoolean("name.pending", false) }
 				}
+			}
+		}
+	}
+
+	private const val TASTE_PENDING = "taste.pending"
+	private var tasteSend: kotlinx.coroutines.Job? = null
+
+	/**
+	 * The onboarding answers changed after onboarding (Profile -> Taste & risk): sent now, and pending until the
+	 * server has them, so a sync in between doesn't put the old ones back (the next sync sends them if this fails).
+	 */
+	fun pushTaste() {
+		if (Session.demoAccount || Session.token == null) return
+		val repo = repository ?: return
+		StakStore.putBoolean(TASTE_PENDING, true)
+		val account = Session.accountGeneration
+		val taste = currentTaste()
+		// One at a time, newest last: an older send can't land after a newer one, and only a send of what the phone
+		// still holds clears the flag.
+		val previous = tasteSend
+		tasteSend = scope.launch {
+			previous?.join()
+			runCatching { repo.putMe(taste = taste) }.onSuccess {
+				withContext(Dispatchers.Main) { if (Session.accountGeneration == account && currentTaste() == taste) StakStore.putBoolean(TASTE_PENDING, false) }
 			}
 		}
 	}

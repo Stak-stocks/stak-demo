@@ -4,12 +4,13 @@ import SwiftUI
 /// "STEP 5 OF 6"). Shares the matrix layout with step 04; each option
 /// has its own glyph (plus, eye, pause, shield-check), all stroke #819abb.
 struct RiskView: View {
+	@Environment(\.quizRetake) private var retake
 	let onBack: () -> Void
 	let onContinue: () -> Void
 
 	var body: some View {
 		MatrixQuizView(
-			stepLabel: "STEP 5 OF 6",
+			stepLabel: retake ? "YOUR TASTE" : "STEP 5 OF 6",
 			headline: "A stock you’re watching drops 10% overnight.",
 			subtitle: "No wrong answer. This helps STAK understand your risk style.",
 			options: [

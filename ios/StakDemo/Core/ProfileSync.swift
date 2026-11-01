@@ -40,7 +40,11 @@ final class ProfileSync {
 				if !StakStore.bool("name.pending", default: false), !serverName.isEmpty, serverName != UserProfile.shared.displayName {
 					UserProfile.shared.displayName = serverName
 				}
-				if let taste = me.taste, taste.hasAnswers {
+				// Answers changed on this phone (Taste & risk) that haven't reached the server are the newer ones.
+				// (A phone signed out and back in has none left to send: the server's answers win, and the flag goes.)
+				let tastePending = StakStore.bool(Self.tastePending, default: false) && Self.currentTaste().hasAnswers
+				if !tastePending { StakStore.set(false, for: Self.tastePending) }
+				if let taste = me.taste, taste.hasAnswers, !tastePending {
 					UserProfile.shared.goal = taste.goal
 					UserProfile.shared.risk = taste.risk
 					UserProfile.shared.brandPicks = Set(taste.picks)
@@ -49,12 +53,16 @@ final class ProfileSync {
 					}
 				}
 				Session.shared.saveProfile()
-				// The server has no answers but this phone does (answered before taste was synced): they go up.
+				// The server has no answers but this phone does (answered before taste was synced), or this phone's are
+				// newer: they go up.
 				let local = Self.currentTaste()
-				return (me.taste?.hasAnswers ?? false) || !local.hasAnswers ? nil : local
+				return ((me.taste?.hasAnswers ?? false) && !tastePending) || !local.hasAnswers ? nil : local
 			}
-			if let upload, await MainActor.run(body: { Session.shared.accountGeneration == account }) {
-				_ = try? await self.repo.putMe(taste: upload)
+			if let upload, await MainActor.run(body: { Session.shared.accountGeneration == account }),
+			   (try? await self.repo.putMe(taste: upload)) != nil {
+				await MainActor.run {
+					if Session.shared.accountGeneration == account, Self.same(Self.currentTaste(), upload) { StakStore.set(false, for: Self.tastePending) }
+				}
 			}
 			// A rename that didn't reach the server (offline, a save cut short) goes up now.
 			let pendingName: String? = await MainActor.run {
@@ -63,6 +71,33 @@ final class ProfileSync {
 			}
 			if let pendingName, !pendingName.isEmpty, (try? await self.repo.putMe(displayName: pendingName)) != nil {
 				await MainActor.run { if Session.shared.accountGeneration == account { StakStore.set(false, for: "name.pending") } }
+			}
+		}
+	}
+
+	private static let tastePending = "taste.pending"
+	/// The last taste send: each waits for the one before, so an older one can't land after a newer one.
+	private var tasteSend: Task<Void, Never>? = nil
+
+	private static func same(_ a: TasteDto, _ b: TasteDto) -> Bool {
+		a.goal == b.goal && a.risk == b.risk && a.riskStyle == b.riskStyle && Set(a.picks) == Set(b.picks)
+	}
+
+	/// The onboarding answers changed after onboarding (Profile -> Taste & risk): sent now, and pending until the
+	/// server has them, so a sync in between doesn't put the old ones back (the next sync sends them if this fails).
+	@MainActor
+	func pushTaste() {
+		guard !Session.shared.demoAccount, Session.shared.token != nil else { return }
+		StakStore.set(true, for: Self.tastePending)
+		let account = Session.shared.accountGeneration
+		let taste = Self.currentTaste()
+		let previous = tasteSend
+		tasteSend = Task.detached(priority: .utility) {
+			await previous?.value
+			guard (try? await self.repo.putMe(taste: taste)) != nil else { return }
+			// Only a send of what the phone still holds clears the flag.
+			await MainActor.run {
+				if Session.shared.accountGeneration == account, Self.same(Self.currentTaste(), taste) { StakStore.set(false, for: Self.tastePending) }
 			}
 		}
 	}

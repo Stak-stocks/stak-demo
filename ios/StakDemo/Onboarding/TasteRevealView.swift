@@ -8,6 +8,7 @@ import SwiftUI
 /// parity audit 2026-09-04), the Risk style chip ("Growth-Oriented" ›)
 /// and the "Let's go!" / Back CTAs.
 struct TasteRevealView: View {
+	@Environment(\.quizRetake) private var retake
 	let onBack: () -> Void
 	let onLetsGo: () -> Void
 	@ObservedObject private var profile = UserProfile.shared
@@ -20,7 +21,7 @@ struct TasteRevealView: View {
 			HStack {
 				AuthBackCircle(action: onBack)
 				Spacer()
-				StepLabel(text: "STEP 6 OF 6")
+				StepLabel(text: retake ? "YOUR TASTE" : "STEP 6 OF 6")
 			}
 			.padding(.horizontal, 20 * u)
 			.padding(.top, 10 * u)
@@ -28,7 +29,7 @@ struct TasteRevealView: View {
 
 			ScrollView {
 				VStack(alignment: .leading, spacing: 16 * u) {
-					Text("YOUR STARTING STAK TASTE")
+					Text(retake ? "YOUR UPDATED STAK TASTE" : "YOUR STARTING STAK TASTE")
 						.font(StakFont.geist(10 * u, .medium))
 						.tracking(0.9 * u)
 						.foregroundStyle(Auth.linkTeal)
@@ -112,7 +113,7 @@ struct TasteRevealView: View {
 
 			VStack(spacing: 10 * u) {
 				// Copy fix: 1:746 authors "Lets go!" -> "Let's go!" (exact-design audit 2026-09-04).
-				AuthCta(text: "Let's go!", action: onLetsGo)
+				AuthCta(text: retake ? "Save" : "Let's go!", action: onLetsGo)
 				AuthSecondaryButton(text: "Back", action: onBack)
 			}
 			.padding(.top, 8 * u)

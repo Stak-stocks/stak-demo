@@ -1318,6 +1318,41 @@ struct PracticeBuySheet: View {
 	}
 }
 
+/// "Couldn't place that trade" (Chinedu_Mobile 1:6036 · Practice buy · Failed, 2026-10-07): the title, the red "Order
+/// not placed", the stock row and `line` (PaperPortfolio.buyFailureLine), then Try again (back to the ticket) and Not
+/// now (close). The receipt's 14 rhythm. Announced as it appears. Mirrors android OrderFailedContent.
+struct OrderFailedSheet: View {
+	let spec: BuySpec
+	let line: String
+	let onTryAgain: () -> Void
+	let onNotNow: () -> Void
+
+	var body: some View {
+		let u = figmaUnit
+		VStack(alignment: .leading, spacing: 14 * u) {
+			Text("Couldn't place that trade")
+				.font(StakFont.sora(18 * u, .semiBold))
+				.foregroundStyle(Color.white)
+				.accessibilityAddTraits(.isHeader)
+			Text("Order not placed")
+				.font(StakFont.geist(12 * u))
+				.foregroundStyle(Color(argb: 0xFFE5484D))
+			SheetStockRow(spec: spec)
+			Text(line)
+				.font(StakFont.geist(12 * u))
+				.stakLineHeight(18 * u, size: 12 * u, face: .geist)
+				.foregroundStyle(Disc.body)
+				.frame(maxWidth: .infinity, alignment: .leading)
+			VStack(spacing: 16 * u) {
+				SheetCta(text: "Try again", action: onTryAgain)
+				SheetSecondary(text: "Not now", action: onNotNow)
+			}
+		}
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.onAppear { UIAccessibility.post(notification: .announcement, argument: "Order not placed. \(line)") }
+	}
+}
+
 /// "Order filled" receipt (frame 85:1205, sheet 85:1394) — content only;
 /// DiscoverBuyFlow hosts the ONE scaffold both ticket and receipt share.
 struct OrderFilledSheet: View {
@@ -1401,6 +1436,13 @@ struct DiscoverBuyFlow: View {
 	var onFilled: () -> Void = {}
 
 	@State private var filled = false
+	/// Practice buy · Failed (Chinedu_Mobile 1:6036): the buy this receipt shows didn't go through. Said here, with Try
+	/// again, while the sheet is open - the buy reports its own result, so another change's error is never blamed on
+	/// it; once the sheet is gone the app-wide banner says it. The receipt goes up at once and the server's answer comes
+	/// after, so the host counts the buy (onFilled) only once it went through.
+	@State private var failed = false
+	@State private var refusal: String? = nil
+	@State private var life = SheetLife()
 	/// Codex audit (2026-09-04): the chosen stake - both sheets read the
 	/// ticket AT this amount, so "You get", the cash after and "You now
 	/// hold" agree (1:1970 / 85:1205).
@@ -1419,9 +1461,18 @@ struct DiscoverBuyFlow: View {
 	var body: some View {
 		let ticket = quoted ?? spec
 		let live = ticket.withAmount(amount, cash: cashAtOpen)
-		SheetScaffold(onDismiss: { if filled { (onFilledSecondary ?? onClose)() } else { onClose() } }) {
+		SheetScaffold(onDismiss: { if filled && !failed { (onFilledSecondary ?? onClose)() } else { onClose() } }) {
 			ZStack(alignment: .top) {
-				if !filled {
+				if failed {
+					OrderFailedSheet(
+						spec: live,
+						line: PaperPortfolio.buyFailureLine(refusal),
+						// Back to the ticket at the same stake (the reason stays put while this fades out).
+						onTryAgain: { failed = false; filled = false; placedLimit = nil },
+						onNotNow: onClose
+					)
+					.transition(.opacity)
+				} else if !filled {
 					// Codex audit (2026-09-04): every host (Discover, Simulate, Stock
 					// Detail) fills through here, so the paper buy lands once, before
 					// the host's onFilled.
@@ -1435,8 +1486,16 @@ struct DiscoverBuyFlow: View {
 								if PaperPortfolio.shared.placeLimit(ticket, amount: amount, limit: limit) { placedLimit = limit; filled = true }
 							} else {
 								filled = true
-								PaperPortfolio.shared.buy(ticket, amount: amount)
-								onFilled()
+								let life = life
+								PaperPortfolio.shared.buy(ticket, amount: amount) { ok, why in
+									if ok {
+										onFilled()
+									} else if life.open {
+										refusal = why
+										failed = true
+										PaperPortfolio.shared.dismissError()
+									}
+								}
 							}
 						},
 						onDismiss: onTicketSecondary ?? onClose, secondary: ticketSecondary, amount: amount, onAmount: { amount = $0 },
@@ -1462,12 +1521,19 @@ struct DiscoverBuyFlow: View {
 				}
 			}
 			.animation(.easeOut(duration: 0.35), value: filled)
+			.animation(.easeOut(duration: 0.35), value: failed)
 		}
+		.onDisappear { life.open = false }
 		.task(id: spec.symbol) {
 			guard let q = await LiveQuotes.shared.quote(spec.symbol), !filled else { return }
 			quoted = spec.withQuote(q.price, changePct: q.changePct)
 		}
 	}
+}
+
+/// Whether a buy sheet is still up - a reference, so a buy's result arriving after it closed can tell.
+final class SheetLife {
+	var open = true
 }
 
 // MARK: – DeckLoadError

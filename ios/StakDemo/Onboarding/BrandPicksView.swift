@@ -39,6 +39,7 @@ struct BrandPicksView: View {
 	// frame's five were authored demo state). 01 Welcome clears the picks on the way in, so
 	// this reads back only what Continue kept - Back from step 3 finds them still picked.
 	@State private var picked: Set<String> = UserProfile.shared.brandPicks
+	@Environment(\.quizRetake) private var retake
 
 	var body: some View {
 		let u = figmaUnit
@@ -47,7 +48,7 @@ struct BrandPicksView: View {
 			HStack {
 				AuthBackCircle(action: onBack)
 				Spacer()
-				StepLabel(text: "STEP 2 OF 6")
+				StepLabel(text: retake ? "YOUR TASTE" : "STEP 2 OF 6")
 			}
 			.padding(.horizontal, 20 * u)
 			.padding(.top, 10 * u)
