@@ -40,7 +40,7 @@ enum ProfileTaste {
 	static func riskBlurb() -> String {
 		switch UserProfile.shared.risk {
 		case TasteModel.riskHold: return "You hold through a drop and watch it closely."
-		case TasteModel.riskStepAway: return "Big drops make you uncomfortable, so you step back."
+		case TasteModel.riskStepAway: return "You'd rather step back when a stock drops hard."
 		case TasteModel.riskSellSome: return "You'd rather protect part of your money than ride out a drop."
 		case TasteModel.riskBuyMore: return "You're comfortable with dips when the story holds."
 		default: return "Answer one question about a falling stock."

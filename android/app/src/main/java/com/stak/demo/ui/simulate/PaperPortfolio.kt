@@ -684,17 +684,21 @@ internal object PaperPortfolio {
 		trades = listOf(Trade(side, symbol, badge, amount, shares, price, today(), LocalDate.now(marketZone).toEpochDay())) + trades
 	}
 
-	/** True when the cash on hand covers the stake reserved for a limit order too. */
-	fun placeLimit(spec: BuySpec, amount: Double, limit: Double): Boolean {
+	/** True when the cash on hand covers the stake reserved for a limit order too. [onResult] as buy's. */
+	fun placeLimit(spec: BuySpec, amount: Double, limit: Double, onResult: ((ok: Boolean, refusal: String?) -> Unit)? = null): Boolean {
 		if (!canBuy(amount) || limit <= 0.0) return false
 		val neededSetup = ensureSetup()
 		cash -= amount
 		openOrders = listOf(OpenOrder("${spec.symbol}-${System.currentTimeMillis()}", spec.symbol, spec.badge, spec.name, amount, limit, spec.change, today())) + openOrders
 		persist()
-		if (!demo) send({
-			if (neededSetup) repository?.sandboxSetup(DEFAULT_SETUP_BALANCE, DEFAULT_PORTFOLIO_NAME, strategyToId(DEFAULT_STRATEGY))
-			repository?.sandboxPlaceOrder(spec.symbol, amount, limit)
-		})
+		if (!demo) send(
+			{
+				if (neededSetup) repository?.sandboxSetup(DEFAULT_SETUP_BALANCE, DEFAULT_PORTFOLIO_NAME, strategyToId(DEFAULT_STRATEGY))
+				repository?.sandboxPlaceOrder(spec.symbol, amount, limit)
+			},
+			then = { ok -> withContext(Dispatchers.Main) { onResult?.invoke(ok, lastError.takeIf { !ok && it != GENERIC_ERROR }) } },
+		)
+		else onResult?.invoke(true, null)
 		return true
 	}
 

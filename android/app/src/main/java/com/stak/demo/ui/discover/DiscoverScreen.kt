@@ -1817,7 +1817,15 @@ internal fun DiscoverBuyFlow(
 							val limit = limitPrice
 							if (limit != null && limit < quoted.price) {
 								// Below today's price: an open order, no fill yet (FigJam: Order pending).
-								if (com.stak.demo.ui.simulate.PaperPortfolio.placeLimit(quoted, amount, limit)) { placedLimit = limit; filled = true }
+								// A refused order turns the "Order placed" receipt into the failure, as a buy does.
+								val placed = com.stak.demo.ui.simulate.PaperPortfolio.placeLimit(quoted, amount, limit) { ok, why ->
+									if (!ok && open.value) {
+										refusal = why
+										failed = true
+										com.stak.demo.ui.simulate.PaperPortfolio.dismissError()
+									}
+								}
+								if (placed) { placedLimit = limit; filled = true }
 							} else {
 								filled = true
 								com.stak.demo.ui.simulate.PaperPortfolio.buy(quoted, amount) { ok, why ->

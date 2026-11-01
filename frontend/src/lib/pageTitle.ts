@@ -29,6 +29,7 @@ const TITLES: Record<string, string> = {
 	"/profile/personal-details": "Personal details",
 	"/profile/security": "Security",
 	"/profile/sign-in": "Sign-in methods",
+	"/profile/taste": "Taste & risk",
 	"/terms": "Terms of Service",
 	"/privacy": "Privacy Policy",
 	"/onboarding": "Welcome",

@@ -5,9 +5,9 @@ import { useAuth } from "@/context/AuthContext";
 import { getProfile } from "@/lib/api";
 import { useMyStakData } from "@/hooks/useMyStakData";
 import { usePaperPortfolio } from "@/hooks/usePaperPortfolio";
-import { chips } from "@/lib/tasteModel";
+import { profileTasteChips } from "@/lib/tasteModel";
 import { isUp, signedPct, signedUsd, usd, wholeUsd } from "@/lib/simFormat";
-import { SettingsCard, SettingsLinkRow } from "@/components/profile/ProfileKit";
+import { SettingsCard, SettingsLinkRow, TasteChips } from "@/components/profile/ProfileKit";
 import { ProfileDesktop } from "@/components/profile/ProfileDesktop";
 import { shareInvite } from "@/lib/invite";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -33,11 +33,7 @@ function ProfilePage() {
 	useEffect(() => { if (!loading && !appUser) navigate({ to: "/login" }); }, [loading, appUser, navigate]);
 
 	// The taste chips come from the quiz answers plus what's been saved since, strongest first.
-	const tasteChips = useMemo(() => {
-		const taste = me?.taste;
-		if (!taste) return ["Just Exploring"];
-		return chips(new Set([...taste.picks, ...swipedBrands.map((b) => b.name)]), taste.goal, taste.risk);
-	}, [me?.taste, swipedBrands]);
+	const tasteChips = useMemo(() => profileTasteChips(me?.taste, swipedBrands.map((b) => b.name)), [me?.taste, swipedBrands]);
 
 	if (loading || !appUser) return <PhonePage><div /></PhonePage>;
 
@@ -97,12 +93,13 @@ function ProfilePage() {
 
 				<section style={card} aria-label="Your taste">
 					<p style={{ font: f(500, 11, 14), color: DISC.muted }}>YOUR TASTE</p>
-					<div className="flex flex-wrap" style={{ gap: cu(8) }}>
-						{tasteChips.map((label) => (
-							<span key={label} className="inline-flex items-center whitespace-nowrap" style={{ height: cu(28), borderRadius: cu(14), background: "#1A2333", border: `${cu(1)} solid ${DISC.blue}`, padding: `0 ${cu(12)}`, font: f(500, 12, 16), color: "#69B3CA" }}>{label}</span>
-						))}
-					</div>
+					<TasteChips labels={tasteChips} />
 					<p style={{ font: f(400, 12, 16), color: DISC.body }}>Your taste updates as you save stocks.</p>
+					{/* Taste & risk: the answers behind these chips, each changeable. */}
+					<button type="button" onClick={() => navigate({ to: "/profile/taste" })} className={`flex w-full items-center text-left ${PRESS}`} style={{ minHeight: cu(48), ...focusRing }}>
+						<span className="flex-1" style={{ font: f(500, 13, 17), color: "#fff" }}>Taste &amp; risk profile</span>
+						<span style={{ font: f(400, 14, 18), color: DISC.muted }} aria-hidden="true">›</span>
+					</button>
 				</section>
 
 				<section style={card} aria-label="Paper portfolio">

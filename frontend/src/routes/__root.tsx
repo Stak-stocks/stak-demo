@@ -189,6 +189,15 @@ function Root() {
 		}
 	}, [isLoggedIn, loading, accountLoading, account, isAuthPage, needsAuthForOnboardingStep, onboardingCheckApplies, turningAwayNow, askAppleQuestion, navigate]);
 
+	// An onboarded account has no onboarding to do: an onboarding page that isn't a Taste & risk retake (reached with the
+	// browser's Back or Forward after one) sends it home instead of running signup's last steps again.
+	const { retake: quizRetake } = useOnboarding();
+	useEffect(() => {
+		if (isLoggedIn && !accountLoading && account?.onboardingCompleted === true && isOnboardingRoute && !quizRetake) {
+			navigate({ to: "/", replace: true });
+		}
+	}, [isLoggedIn, accountLoading, account?.onboardingCompleted, isOnboardingRoute, quizRetake, navigate]);
+
 	// After "I already have an account": once signed in the usual way - by any route, Google comes back here rather
 	// than to Sign in - on to Sign-in methods, which offers the Apple link (and forgets the flag).
 	useEffect(() => {

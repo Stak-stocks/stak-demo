@@ -55,7 +55,8 @@ export function EmptyStateCard({ title, body, link, onLink }: { title: string; b
 			<p style={{ font: f(600, 15, 19, "heading"), color: "#fff" }}>{title}</p>
 			<p style={{ font: f(400, 13, 19), color: DISC.muted }}>{body}</p>
 			{link && (
-				<button type="button" onClick={onLink} className={`w-fit ${PRESS}`} style={{ paddingTop: cu(4), font: f(500, 13, 17), color: DISC.teal, ...focusRing }}>{link} ›</button>
+				// A full-size target around the line of text; the "›" is drawn, not read.
+				<button type="button" onClick={onLink} className={`w-fit text-left ${PRESS}`} style={{ minHeight: 44, font: f(500, 13, 17), color: DISC.teal, ...focusRing }}>{link} <span aria-hidden="true">›</span></button>
 			)}
 		</div>
 	);

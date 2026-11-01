@@ -1483,7 +1483,15 @@ struct DiscoverBuyFlow: View {
 							guard !filled, ticket.price > 0, PaperPortfolio.shared.canBuy(amount) else { return }
 							if let limit = limitPrice, limit < ticket.price {
 								// Below today's price: an open order, no fill yet (FigJam: Order pending).
-								if PaperPortfolio.shared.placeLimit(ticket, amount: amount, limit: limit) { placedLimit = limit; filled = true }
+								// A refused order turns the "Order placed" receipt into the failure, as a buy does.
+								let life = life
+								let placed = PaperPortfolio.shared.placeLimit(ticket, amount: amount, limit: limit) { ok, why in
+									guard !ok, life.open else { return }
+									refusal = why
+									failed = true
+									PaperPortfolio.shared.dismissError()
+								}
+								if placed { placedLimit = limit; filled = true }
 							} else {
 								filled = true
 								let life = life

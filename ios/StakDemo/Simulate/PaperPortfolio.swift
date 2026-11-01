@@ -556,8 +556,9 @@ final class PaperPortfolio: ObservableObject {
 
 	/// A limit order under today's price (FigJam: Market or limit; Order pending): the stake is reserved from cash until
 	/// it fills or is canceled.
+	/// `onResult` as buy's.
 	@discardableResult
-	func placeLimit(_ spec: BuySpec, amount: Double, limit: Double) -> Bool {
+	func placeLimit(_ spec: BuySpec, amount: Double, limit: Double, onResult: ((Bool, String?) -> Void)? = nil) -> Bool {
 		guard canBuy(amount), limit > 0 else { return false }
 		let neededSetup = ensureSetup()
 		cash -= amount
@@ -567,12 +568,16 @@ final class PaperPortfolio: ObservableObject {
 		), at: 0)
 		persist()
 		if !demo {
-			send {
+			send({
 				if neededSetup {
 					_ = try await self.repo.sandboxSetup(startingBalance: defaultSetupBalance, name: PaperPortfolio.defaultPortfolioName, strategy: PaperPortfolio.defaultStrategy.lowercased())
 				}
 				_ = try await self.repo.sandboxPlaceOrder(ticker: spec.symbol, amount: amount, limitPrice: limit)
-			}
+			}, then: { ok in
+				onResult?(ok, ok || self.lastError == PaperPortfolio.genericError ? nil : self.lastError)
+			})
+		} else {
+			onResult?(true, nil)
 		}
 		return true
 	}

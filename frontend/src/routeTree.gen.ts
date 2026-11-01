@@ -28,6 +28,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as StockSymbolRouteImport } from './routes/stock.$symbol'
 import { Route as StakAiHistoryRouteImport } from './routes/stak-ai_.history'
 import { Route as SimulatePortfolioRouteImport } from './routes/simulate_.portfolio'
+import { Route as ProfileTasteRouteImport } from './routes/profile_.taste'
 import { Route as ProfileSignInRouteImport } from './routes/profile_.sign-in'
 import { Route as ProfileSecurityRouteImport } from './routes/profile_.security'
 import { Route as ProfilePersonalDetailsRouteImport } from './routes/profile_.personal-details'
@@ -144,6 +145,11 @@ const StakAiHistoryRoute = StakAiHistoryRouteImport.update({
 const SimulatePortfolioRoute = SimulatePortfolioRouteImport.update({
   id: '/simulate_/portfolio',
   path: '/simulate/portfolio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileTasteRoute = ProfileTasteRouteImport.update({
+  id: '/profile_/taste',
+  path: '/profile/taste',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileSignInRoute = ProfileSignInRouteImport.update({
@@ -294,6 +300,7 @@ export interface FileRoutesByFullPath {
   '/profile/personal-details': typeof ProfilePersonalDetailsRoute
   '/profile/security': typeof ProfileSecurityRoute
   '/profile/sign-in': typeof ProfileSignInRoute
+  '/profile/taste': typeof ProfileTasteRoute
   '/simulate/portfolio': typeof SimulatePortfolioRoute
   '/stak-ai/history': typeof StakAiHistoryRoute
   '/stock/$symbol': typeof StockSymbolRoute
@@ -337,6 +344,7 @@ export interface FileRoutesByTo {
   '/profile/personal-details': typeof ProfilePersonalDetailsRoute
   '/profile/security': typeof ProfileSecurityRoute
   '/profile/sign-in': typeof ProfileSignInRoute
+  '/profile/taste': typeof ProfileTasteRoute
   '/simulate/portfolio': typeof SimulatePortfolioRoute
   '/stak-ai/history': typeof StakAiHistoryRoute
   '/stock/$symbol': typeof StockSymbolRoute
@@ -381,6 +389,7 @@ export interface FileRoutesById {
   '/profile_/personal-details': typeof ProfilePersonalDetailsRoute
   '/profile_/security': typeof ProfileSecurityRoute
   '/profile_/sign-in': typeof ProfileSignInRoute
+  '/profile_/taste': typeof ProfileTasteRoute
   '/simulate_/portfolio': typeof SimulatePortfolioRoute
   '/stak-ai_/history': typeof StakAiHistoryRoute
   '/stock/$symbol': typeof StockSymbolRoute
@@ -426,6 +435,7 @@ export interface FileRouteTypes {
     | '/profile/personal-details'
     | '/profile/security'
     | '/profile/sign-in'
+    | '/profile/taste'
     | '/simulate/portfolio'
     | '/stak-ai/history'
     | '/stock/$symbol'
@@ -469,6 +479,7 @@ export interface FileRouteTypes {
     | '/profile/personal-details'
     | '/profile/security'
     | '/profile/sign-in'
+    | '/profile/taste'
     | '/simulate/portfolio'
     | '/stak-ai/history'
     | '/stock/$symbol'
@@ -512,6 +523,7 @@ export interface FileRouteTypes {
     | '/profile_/personal-details'
     | '/profile_/security'
     | '/profile_/sign-in'
+    | '/profile_/taste'
     | '/simulate_/portfolio'
     | '/stak-ai_/history'
     | '/stock/$symbol'
@@ -556,6 +568,7 @@ export interface RootRouteChildren {
   ProfilePersonalDetailsRoute: typeof ProfilePersonalDetailsRoute
   ProfileSecurityRoute: typeof ProfileSecurityRoute
   ProfileSignInRoute: typeof ProfileSignInRoute
+  ProfileTasteRoute: typeof ProfileTasteRoute
   SimulatePortfolioRoute: typeof SimulatePortfolioRoute
   StakAiHistoryRoute: typeof StakAiHistoryRoute
   StockSymbolRoute: typeof StockSymbolRoute
@@ -696,6 +709,13 @@ declare module '@tanstack/react-router' {
       path: '/simulate/portfolio'
       fullPath: '/simulate/portfolio'
       preLoaderRoute: typeof SimulatePortfolioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile_/taste': {
+      id: '/profile_/taste'
+      path: '/profile/taste'
+      fullPath: '/profile/taste'
+      preLoaderRoute: typeof ProfileTasteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile_/sign-in': {
@@ -892,6 +912,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfilePersonalDetailsRoute: ProfilePersonalDetailsRoute,
   ProfileSecurityRoute: ProfileSecurityRoute,
   ProfileSignInRoute: ProfileSignInRoute,
+  ProfileTasteRoute: ProfileTasteRoute,
   SimulatePortfolioRoute: SimulatePortfolioRoute,
   StakAiHistoryRoute: StakAiHistoryRoute,
   StockSymbolRoute: StockSymbolRoute,

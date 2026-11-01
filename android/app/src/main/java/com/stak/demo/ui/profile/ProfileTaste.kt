@@ -36,7 +36,7 @@ object ProfileTaste {
 	/** One line on what the risk answer said. */
 	fun riskBlurb(): String = when (UserProfile.risk) {
 		TasteModel.RISK_HOLD -> "You hold through a drop and watch it closely."
-		TasteModel.RISK_STEP_AWAY -> "Big drops make you uncomfortable, so you step back."
+		TasteModel.RISK_STEP_AWAY -> "You'd rather step back when a stock drops hard."
 		TasteModel.RISK_SELL_SOME -> "You'd rather protect part of your money than ride out a drop."
 		TasteModel.RISK_BUY_MORE -> "You're comfortable with dips when the story holds."
 		else -> "Answer one question about a falling stock."
