@@ -31,6 +31,7 @@ App users never need any of this: the app's values are built into it when it's b
 | `dev-frontend-env` | `frontend/.env` |
 | `dev-android-local-properties` | `android/local.properties` |
 | `dev-ios-secrets-xcconfig` | `ios/Secrets.xcconfig` |
+| `dev-ios-google-service-info` | `ios/StakDemo/GoogleService-Info.plist` - Firebase's iOS config; push stays off without it |
 
 The backend reads its keys from Secret Manager directly (Cloud Run secret references), so a deploy never needs a
 key on the machine that deploys.
