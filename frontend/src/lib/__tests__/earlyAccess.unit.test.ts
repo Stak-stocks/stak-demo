@@ -5,7 +5,10 @@ import {
 	applyTeamCode,
 	hasSavedWebSession,
 	isLockedPath,
+	isNewHiddenAppleAccount,
 	isWebLockedOut,
+	setTabFlag,
+	takeTabFlag,
 	takeTeamAccessChange,
 	takeTeamCodeFromUrl,
 } from "../earlyAccess";
@@ -73,5 +76,30 @@ describe("web lock", () => {
 		expect(hasSavedWebSession()).toBe(false);
 		localStorage.setItem("sb-abc123-auth-token", "{}");
 		expect(hasSavedWebSession()).toBe(true);
+	});
+});
+
+describe("a first hidden-email Apple sign-in", () => {
+	const now = Date.parse("2026-11-01T12:00:00Z");
+	const minutesAgo = (m: number) => new Date(now - m * 60_000).toISOString();
+
+	it("asks only for a hidden email, an account minutes old, not yet onboarded", () => {
+		expect(isNewHiddenAppleAccount(minutesAgo(1), false, true, now)).toBe(true);
+		expect(isNewHiddenAppleAccount(minutesAgo(1), undefined, true, now)).toBe(true);
+		expect(isNewHiddenAppleAccount(minutesAgo(1), false, false, now)).toBe(false);
+		expect(isNewHiddenAppleAccount(minutesAgo(1), true, true, now)).toBe(false);
+		expect(isNewHiddenAppleAccount(minutesAgo(11), false, true, now)).toBe(false);
+		expect(isNewHiddenAppleAccount(null, false, true, now)).toBe(false);
+	});
+});
+
+describe("tab flags", () => {
+	afterEach(() => sessionStorage.clear());
+
+	it("reads a flag, and clears it only when asked", () => {
+		setTabFlag("k", "apple");
+		expect(takeTabFlag("k")).toBe("apple");
+		expect(takeTabFlag("k", true)).toBe("apple");
+		expect(takeTabFlag("k")).toBeNull();
 	});
 });

@@ -13,12 +13,17 @@ import { SideNav } from "@/components/SideNav";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { BrandProfile } from "@stak/shared";
 import { useQueryClient } from "@tanstack/react-query";
-import { getMarketEarnings, getStockData, removeTurnedAwayAccount } from "@/lib/api";
+import { ApiError, getMarketEarnings, getStockData, removeTurnedAwayAccount } from "@/lib/api";
 import { NAV_ITEMS } from "@/lib/navItems";
 import { useStakTickers } from "@/hooks/useStakTickers";
 import { useSwipeLimit } from "@/hooks/useSwipeLimit";
 import { STAK_CAPACITY } from "@/lib/constants";
-import { JOIN_WAITLIST, LEGAL_PATHS, WEB_GOOGLE_SIGN_IN_KEY, WEB_SIGNUP_OPEN, hasSavedWebSession, isBrandNewAccount, isLockedPath, isWebLockedOut, takeTeamAccessChange } from "@/lib/earlyAccess";
+import {
+	JOIN_WAITLIST, LEGAL_PATHS, PENDING_APPLE_LINK_KEY, WEB_SIGNUP_OPEN, WEB_SOCIAL_SIGN_IN_KEY, hasSavedWebSession, isBrandNewAccount,
+	isLockedPath, isNewHiddenAppleAccount, isWebLockedOut, setTabFlag, takeTabFlag, takeTeamAccessChange,
+} from "@/lib/earlyAccess";
+import { isHiddenAppleEmail } from "@/lib/supabase";
+import { AppleNewOrExisting } from "@/components/auth/AppleNewOrExisting";
 import { useFirstRunPending } from "@/lib/firstRun";
 import { EligibilityGate } from "@/components/onboarding/EligibilityGate";
 import { pageTitle } from "@/lib/pageTitle";
@@ -156,37 +161,90 @@ function Root() {
 	const onboardingCheckApplies = !!appUser;
 	// Early access: a brand-new account (a first Google sign-in) is signed back out rather than onboarded.
 	const turningAway = isLoggedIn && !loading && !accountLoading && isBrandNewAccount(appUser?.createdAt, account?.onboardingCompleted);
+	// Which sign-in this tab just sent someone to ("google" / "apple"): read as the page comes back from it, then
+	// forgotten, so a reload never counts it twice.
+	const [startedHere] = useState(() => takeTabFlag(WEB_SOCIAL_SIGN_IN_KEY));
+	useEffect(() => { takeTabFlag(WEB_SOCIAL_SIGN_IN_KEY, true); }, []);
+	// A first Apple sign-in from this tab, behind a hidden email: "Have you used STAK before?" comes before anything
+	// else (turning away, onboarding), and stays up once asked - even past the new-account window - until answered.
+	const [appleAnswer, setAppleAnswer] = useState<"asking" | "new" | null>(null);
+	const newHiddenApple = isLoggedIn && !loading && !accountLoading && startedHere === "apple"
+		&& isNewHiddenAppleAccount(appUser?.createdAt, account?.onboardingCompleted, isHiddenAppleEmail(appUser?.email));
+	useEffect(() => { if (newHiddenApple) setAppleAnswer((a) => a ?? "asking"); }, [newHiddenApple]);
+	const askAppleQuestion = isLoggedIn && (appleAnswer === "asking" || (newHiddenApple && appleAnswer === null));
+	// "I'm new" during early access: turned away like any new account, even if the question sat past the window.
+	const turningAwayNow = turningAway || (isLoggedIn && appleAnswer === "new" && !WEB_SIGNUP_OPEN);
+	// "I already have an account" is on its way to Sign in: the signed-out redirect to the landing page waits.
+	const goingToSignIn = useRef(false);
+	useEffect(() => { if (isAuthPage) goingToSignIn.current = false; }, [isAuthPage]);
 	useEffect(() => {
-		if (!loading && !accountLoading && !isLoggedIn && !isAuthPage) {
+		if (!loading && !accountLoading && !isLoggedIn && !isAuthPage && !goingToSignIn.current) {
 			navigate({ to: "/welcome" });
 		}
 		if (!loading && !accountLoading && !isLoggedIn && needsAuthForOnboardingStep) {
 			navigate(WEB_SIGNUP_OPEN ? { to: "/signup" } : JOIN_WAITLIST);
 		}
-		if (!loading && !accountLoading && isLoggedIn && !isAuthPage && onboardingCheckApplies && !turningAway && account?.onboardingCompleted !== true) {
+		if (!loading && !accountLoading && isLoggedIn && !isAuthPage && onboardingCheckApplies && !turningAwayNow && !askAppleQuestion && account?.onboardingCompleted !== true) {
 			navigate({ to: "/onboarding" });
 		}
-	}, [isLoggedIn, loading, accountLoading, account, isAuthPage, needsAuthForOnboardingStep, onboardingCheckApplies, turningAway, navigate]);
+	}, [isLoggedIn, loading, accountLoading, account, isAuthPage, needsAuthForOnboardingStep, onboardingCheckApplies, turningAwayNow, askAppleQuestion, navigate]);
+
+	// After "I already have an account": once signed in the usual way - by any route, Google comes back here rather
+	// than to Sign in - on to Sign-in methods, which offers the Apple link (and forgets the flag).
+	useEffect(() => {
+		if (!isLoggedIn || accountLoading || account?.onboardingCompleted !== true || isAuthPage) return;
+		if (location.pathname !== "/profile/sign-in" && takeTabFlag(PENDING_APPLE_LINK_KEY) === "1") navigate({ to: "/profile/sign-in" });
+	}, [isLoggedIn, accountLoading, account?.onboardingCompleted, isAuthPage, location.pathname, navigate]);
+
+	// A Google or Apple sign-in that didn't finish (cancelled, or refused) comes back with the reason in the address:
+	// say so, then tidy the address. Sign-in methods explains its own link failures.
+	useEffect(() => {
+		if (window.location.pathname === "/profile/sign-in") return;
+		const query = new URLSearchParams(window.location.search);
+		const hash = new URLSearchParams(window.location.hash.slice(1));
+		if (!(query.get("error") ?? hash.get("error"))) return;
+		toast("Sign-in didn't finish", { description: "Try again, or use another way to sign in." });
+		window.history.replaceState(null, "", window.location.pathname);
+	}, []);
 
 	// Sign the brand-new account back out (once - the ref clears only when the session is actually gone) and offer
 	// the waitlist with the form open.
 	const turnedAway = useRef(false);
 	useEffect(() => {
 		if (!isLoggedIn) { turnedAway.current = false; return; }
-		if (!turningAway || turnedAway.current) return;
+		if (!turningAwayNow || askAppleQuestion || turnedAway.current) return;
 		turnedAway.current = true;
-		const who = appUser?.email ? ` for ${appUser.email}` : "";
-		// Only an account this tab's own Google sign-in just made is removed (the server checks again); any other
-		// brand-new account - say an Android sign-up still in its quiz - is only signed out of the web.
-		let mine = false;
-		try { mine = sessionStorage.getItem(WEB_GOOGLE_SIGN_IN_KEY) === "1"; sessionStorage.removeItem(WEB_GOOGLE_SIGN_IN_KEY); } catch { /* no storage */ }
+		// Apple's made-up address would mean nothing to them.
+		const who = appUser?.email && !isHiddenAppleEmail(appUser.email) ? ` for ${appUser.email}` : "";
+		// Only an account this tab's own Google or Apple sign-in just made is removed (the server checks again); any
+		// other brand-new account - say an Android sign-up still in its quiz - is only signed out of the web.
+		const mine = startedHere !== null;
 		void (mine ? removeTurnedAwayAccount().catch(() => {}) : Promise.resolve())
 			.then(() => logout().catch(() => {}))
 			.finally(() => {
 				navigate(JOIN_WAITLIST);
 				toast("STAK is in early access", { description: `We couldn't create a STAK account${who} yet. Join the waitlist and we'll let you know when it opens.`, duration: 8000 });
 			});
-	}, [isLoggedIn, turningAway, appUser?.email, logout, navigate]);
+	}, [isLoggedIn, turningAwayNow, askAppleQuestion, appUser?.email, startedHere, logout, navigate]);
+
+	/**
+	 * "I already have an account": the empty account this Apple sign-in made is removed (its Apple identity with it, so
+	 * it can be linked to the real one), and they sign in the usual way; Sign-in methods then offers the link. Nothing
+	 * changes when it couldn't be removed; "too-late" once the account is past the window the server allows.
+	 */
+	async function undoForExistingAccount(): Promise<"done" | "failed" | "too-late"> {
+		try {
+			await removeTurnedAwayAccount();
+		} catch (e) {
+			return e instanceof ApiError && e.status === 409 ? "too-late" : "failed";
+		}
+		goingToSignIn.current = true;
+		await logout().catch(() => {});
+		// After the sign-out, which forgets any earlier one.
+		setTabFlag(PENDING_APPLE_LINK_KEY, "1");
+		navigate({ to: "/login" });
+		return "done";
+	}
 
 	// Prevent browser from restoring scroll positions
 	useEffect(() => {
@@ -222,8 +280,19 @@ function Root() {
 		return () => window.removeEventListener("keydown", onKey);
 	}, [isMobile, isAuthPage]);
 
+	if (askAppleQuestion) {
+		return (
+			<main>
+				<AppleNewOrExisting
+					onNew={() => setAppleAnswer("new")}
+					onExisting={undoForExistingAccount}
+					onSignOut={() => { void logout().catch(() => {}); }}
+				/>
+			</main>
+		);
+	}
 	// Turning a brand-new account away: nothing of the app shows on its way out.
-	if (turningAway) {
+	if (turningAwayNow) {
 		return (
 			<div className="flex items-center justify-center h-full bg-background">
 				<div role="status" aria-label="Loading" className="w-8 h-8 border-2 border-[#69B3CA] border-t-transparent rounded-full animate-spin" />
@@ -260,7 +329,7 @@ function Root() {
 	// "Before we get started" (18+, U.S., Terms / Privacy - one "Agree and continue") over everything until the account confirms - new and
 	// existing accounts alike (as the apps); an account with no row yet hasn't confirmed either. The server refuses a
 	// new account's other requests until then too.
-	if (isLoggedIn && !accountLoading && !turningAway && !isLegalPage && !eligibilityConfirmed && (account === null || account.needsEligibility === true)) {
+	if (isLoggedIn && !accountLoading && !turningAwayNow && !isLegalPage && !eligibilityConfirmed && (account === null || account.needsEligibility === true)) {
 		return (
 			<main>
 			<EligibilityGate

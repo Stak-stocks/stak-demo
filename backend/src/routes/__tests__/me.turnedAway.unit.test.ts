@@ -69,13 +69,13 @@ describe("POST /turned-away", () => {
 		expect(deleteUser).toHaveBeenCalledWith("sb-mapped");
 	});
 
-	it("still clears the account when the sign-in record can't be deleted (logged, best-effort)", async () => {
+	it("fails, deleting nothing, when the sign-in record can't be deleted (its Apple identity must be freed to link)", async () => {
 		account();
 		signIn();
 		deleteUser.mockResolvedValue({ error: { message: "admin down" } });
 		const res = await request(await buildApp()).post("/turned-away");
-		expect(res.status).toBe(200);
-		expect(usersDeletes()).toHaveLength(1);
+		expect(res.status).toBe(500);
+		expect(usersDeletes()).toHaveLength(0);
 	});
 
 	it("leaves alone an account older than 10 minutes, or not made by Google or Apple sign-in", async () => {
