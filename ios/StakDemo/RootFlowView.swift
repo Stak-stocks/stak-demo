@@ -197,6 +197,11 @@ struct RootFlowView: View {
 					if relocked {
 						LockGateView { withAnimation(.easeOut(duration: 0.35)) { relocked = false } }
 							.transition(.opacity)
+					} else if scenePhase != .active, Session.shared.signedIn, UserProfile.shared.accountLock {
+						// Only paused (the app switcher, Control Center): the screen is hidden - so the switcher's
+						// snapshot shows no portfolio - but no Face ID is asked for on the way back.
+						SplashView(onContinue: {})
+							.accessibilityHidden(true)
 					}
 				}
 				.transition(anim.transition)
@@ -282,12 +287,11 @@ struct RootFlowView: View {
 		.onChange(of: scenePhase) { _, next in
 			// Opening the app reads the notifications: the icon's badge (asked for when one arrives in front) clears.
 			if next == .active { UNUserNotificationCenter.current().setBadgeCount(0) }
-			// Leaving the active state locks a protected account at once - .inactive too
-			// (Control Center, the app switcher, a system interruption), so the promise
-			// "authenticate whenever you come back" holds (Codex review, PR #167). The
-			// gate's own Face ID prompt also makes the scene inactive: relocked is
-			// already true then, so this is a no-op until the unlock clears it.
-			if next != .active, phase == .main, Session.shared.signedIn, UserProfile.shared.accountLock { relocked = true }
+			// Leaving the app locks a protected account: going to the background, as android's ON_STOP. Only pausing
+			// (.inactive: the app switcher, Control Center, a notification pulled down) hides the screen instead of
+			// asking for Face ID on the way back (see the cover above) - asking on every peek at the switcher was too
+			// much (device report, 2026-11-01).
+			if next == .background, phase == .main, Session.shared.signedIn, UserProfile.shared.accountLock { relocked = true }
 		}
 		.onChange(of: authVM.uiState) { _, state in
 			switch state {
