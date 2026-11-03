@@ -107,6 +107,7 @@ struct HomeView: View {
 	@ObservedObject var newsVM: NewsViewModel
 	@ObservedObject private var session = Session.shared
 	@ObservedObject private var holdings = MyStakHoldings.shared
+	@ObservedObject private var profileSync = ProfileSync.shared
 	@Environment(\.scenePhase) private var scenePhase
 
 	var body: some View {
@@ -140,6 +141,11 @@ struct HomeView: View {
 								impactText: WhyThisMattersFeed.body(brief: brief, savedCount: holdings.tickers.count, demo: demo),
 								onOpenMyStak: onOpenMyStak
 							)
+							// Not on first run: the scrim covers everything below Market Mood there. Once answered it shows how
+							// that went until the brief stops asking (the server only asks a learner).
+							if !firstRun, let checkIn = brief?.goalCheckIn {
+								GoalCheckInCard(checkIn: checkIn, status: profileSync.goalCheckIn).padding(.top, 10 * u)
+							}
 							Spacer().frame(height: 20 * u)
 							DeckBanner(onOpenDeck: onOpenDeck)
 							// The board's Trending stocks and Saved peek follow the authored
@@ -562,6 +568,95 @@ private struct WhyThisMattersCard: View {
 		.buttonStyle(.pressDim)
 		.accessibilityElement(children: .combine)
 		.accessibilityHint("Opens My STAK")
+	}
+}
+
+/// "Ready to go beyond the basics?" - for someone whose quiz goal is learning, once they've made a few practice buys or
+/// used STAK on enough days (the server decides: the brief's goalCheckIn). Switch to long-term moves the goal to growing
+/// money long-term; Keep the basics leaves it, and the server waits weeks before asking again. Answered, the card says
+/// how it went (announced too) until the brief stops asking; a failed send can be tried again. Android's GoalCheckInCard.
+private struct GoalCheckInCard: View {
+	let checkIn: GoalCheckInDto
+	let status: GoalCheckInStatus
+
+	var body: some View {
+		let u = figmaUnit
+		let copy = GoalCheckInCopy(checkIn: checkIn, status: status)
+		VStack(alignment: .leading, spacing: 8 * u) {
+			Text(copy.title)
+				.font(StakFont.sora(14 * u))
+				.foregroundStyle(Color.white)
+				.fixedSize(horizontal: false, vertical: true)
+				.accessibilityAddTraits(.isHeader)
+			Text(copy.body)
+				.font(StakFont.geist(12 * u, .light))
+				.stakLineHeight(17 * u, size: 12 * u, face: .geist)
+				.foregroundStyle(Color.white)
+				.fixedSize(horizontal: false, vertical: true)
+			if copy.asking {
+				HStack(spacing: 16 * u) {
+					Button { ProfileSync.shared.answerGoalCheckIn(switchToGrow: true) } label: {
+						Text("Switch to long-term")
+							.font(StakFont.geist(12 * u, .medium))
+							.foregroundStyle(Color.black)
+							.padding(.horizontal, 16 * u)
+							.frame(minHeight: 44)
+							.background(Home.teal, in: Capsule())
+					}
+					.buttonStyle(.pressDim)
+					Button { ProfileSync.shared.answerGoalCheckIn(switchToGrow: false) } label: {
+						Text("Keep the basics")
+							.font(StakFont.geist(12 * u, .medium))
+							.foregroundStyle(Home.teal)
+							.padding(.horizontal, 4 * u)
+							.frame(minHeight: 44)
+							.contentShape(Rectangle())
+					}
+					.buttonStyle(.pressDim)
+				}
+				.disabled(status == .sending)
+			}
+			Text(copy.footnote)
+				.font(StakFont.geist(11 * u, .light))
+				.foregroundStyle(Color.white.opacity(0.6))
+				.fixedSize(horizontal: false, vertical: true)
+		}
+		.padding(14 * u)
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.background(Home.cardBg, in: RoundedRectangle(cornerRadius: 8 * u))
+		.onChange(of: status) { _, _ in
+			if let said = copy.announcement { UIAccessibility.post(notification: .announcement, argument: said) }
+		}
+	}
+}
+
+/// The check-in card's words for where it stands; the same on Android (goalCheckInCopy) and the web.
+struct GoalCheckInCopy {
+	let title: String, body: String, footnote: String, asking: Bool, announcement: String?
+
+	init(checkIn: GoalCheckInDto, status: GoalCheckInStatus) {
+		let change = "You can change this any time in Profile, then Taste & risk."
+		switch status {
+		case .switched:
+			self.init("Goal updated", "Your goal is now Grow my money long-term. STAK AI and your brief will focus on the long-term picture.", change, false,
+				"Goal updated to Grow my money long-term.")
+		case .kept:
+			self.init("Got it", "STAK AI and your brief will keep explaining the basics.", change, false,
+				"Got it. STAK will keep explaining the basics.")
+		default:
+			let did = checkIn.reason == "trades" ? "You've made \(checkIn.count)+ practice buys." : "You've used STAK on \(checkIn.count)+ different days."
+			self.init(
+				"Ready to go beyond the basics?",
+				"\(did) Switching changes your goal to Grow my money long-term, so STAK AI and your brief focus on the long-term picture instead of the basics.",
+				status == .failed ? "Couldn't save that. Check your connection and try again." : status == .sending ? "Saving…" : change,
+				true,
+				status == .failed ? "Couldn't save that. Try again." : nil
+			)
+		}
+	}
+
+	private init(_ title: String, _ body: String, _ footnote: String, _ asking: Bool, _ announcement: String?) {
+		self.title = title; self.body = body; self.footnote = footnote; self.asking = asking; self.announcement = announcement
 	}
 }
 

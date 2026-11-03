@@ -702,6 +702,8 @@ export interface DailyBriefResponse {
 	contextQuestion?: string;
 	/** "What to watch next" rows; `icon` is an emoji the app ignores in favour of its own glyphs. */
 	watchItems?: Array<{ icon: string; label: string; body: string }>;
+	/** Home's "Still want STAK to explain the basics?" card, when it's due (GoalCheckInCard); null otherwise. */
+	goalCheckIn?: GoalCheckIn | null;
 	decks: DailyBriefDeck[];
 	featuredLesson?: FeaturedLesson;
 	marketSnapshot: {
@@ -710,6 +712,17 @@ export interface DailyBriefResponse {
 		diaChange: number | null;
 	};
 	generatedAt: string;
+}
+
+/** Why the goal check-in is shown: practice buys made, or days STAK was used, with how many. */
+export interface GoalCheckIn {
+	reason: "trades" | "days";
+	count: number;
+}
+
+/** Home's goal check-in: "keep" (still learning) or "switch" (the server moves the goal to growing money long-term). */
+export function answerGoalCheckIn(answer: "keep" | "switch") {
+	return apiRequest<{ ok: boolean }>("/api/me/goal-check-in", { method: "POST", body: JSON.stringify({ answer }) });
 }
 
 export function getDailyBrief() {

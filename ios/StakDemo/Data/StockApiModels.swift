@@ -148,7 +148,13 @@ struct DailyBriefResponse: Decodable, Equatable {
     var moodExplanation: String = ""; var plainEnglish: String = ""
     var personalizedImpact: String = ""; var whatHappened: [WhatHappenedItem] = []
     var contextQuestion: String = ""; var watchItems: [WatchItem] = []
+    /// Home's "Still want STAK to explain the basics?" card, when it's due (GoalCheckInCard); nil otherwise.
+    var goalCheckIn: GoalCheckInDto? = nil
 }
+
+/// Why the check-in is shown: "trades" (practice buys made) or "days" (days STAK was used), with how many.
+struct GoalCheckInDto: Decodable, Equatable { var reason: String = ""; var count: Int = 0 }
+struct GoalCheckInRequest: Encodable { let answer: String }
 
 // MARK: – Brands
 
@@ -424,7 +430,7 @@ extension WatchItem {
 extension DailyBriefResponse {
     private enum CodingKeys: String, CodingKey {
         case mood, session, dayLabel, marketClosed, nextTradingDayLabel, moodExplanation, plainEnglish
-        case personalizedImpact, whatHappened, contextQuestion, watchItems
+        case personalizedImpact, whatHappened, contextQuestion, watchItems, goalCheckIn
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -434,6 +440,7 @@ extension DailyBriefResponse {
         personalizedImpact = c.value(.personalizedImpact, or: "")
         whatHappened = c.value(.whatHappened, or: []); contextQuestion = c.value(.contextQuestion, or: "")
         watchItems = c.value(.watchItems, or: [])
+        goalCheckIn = try? c.decodeIfPresent(GoalCheckInDto.self, forKey: .goalCheckIn)
     }
 }
 

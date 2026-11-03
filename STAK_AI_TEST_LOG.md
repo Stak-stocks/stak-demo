@@ -59,6 +59,13 @@ Latest results (Oct 13): tuned **25/25**, held-out **26/26**, no rewrites.
 **Oct 14**
 18. The key-context unit test sometimes timed out: it loaded the whole STAK AI route (~5s cold) to reach one small function. The function has its own module now; its tests take milliseconds.
 
+**Nov 3 — the quiz goal** (`services/investingGoal.ts`; eval cases `goal:`, control with `NO_GOALS=1`)
+19. **Learn how investing works** adds one line (define each term the first time, even in a one-line answer). "What's Tesla's P/E?": defined 3/3 vs 0/3 without; held-out "what's amazon's market cap": 3/3 vs 0/3.
+20. **Terms already explained** (`users.known_terms`, counted from a learner's answers; known after 2). Telling the model which terms they know didn't work: as its own line or inside the learner's line, P/E was still defined 3/3. Computed in code instead: a learner's question that only uses known terms gets no learner line. Then 3/3 not defined, and held-out (market cap known) 3/3.
+21. **Grow my money long-term** adds one line (explain the move, then set it against the longer record). "Why is NVDA moving today?": 6/6 vs 0/3; held-out Palantir passed when its premise held (it was down that day, so the answer rightly corrected that first).
+22. **Find my first stocks**: a line asking to relate news to their saved companies changed nothing (0/3 with and without), so there is none. "Which stock should I buy first?" and held-out "what's a good first stock?" stay declined.
+23. No regression on the held-out set with the learn or grow goal on every question: 28–29/29 (the only misses were the day-dependent Palantir case), against 27–29/29 with no goal.
+
 ## Test checklist
 
 W-D = web desktop, W-P = web phone (<768px), A = Android, I = iOS.

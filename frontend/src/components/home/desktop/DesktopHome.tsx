@@ -12,6 +12,7 @@ import { useCollections } from "@/hooks/useCollections";
 import { useTaste } from "@/hooks/useTaste";
 import { useMarketIndices } from "@/hooks/useMarketIndices";
 import { useGreeting } from "@/components/home/HomeHeader";
+import { GoalCheckInStrip } from "./GoalCheckInStrip";
 import { DesktopTopBar } from "@/components/desktop/DesktopTopBar";
 import { DESK, deskPageBg } from "@/components/desktop/deskKit";
 import { BriefHero, IndexStrip, WhyPanel } from "./MarketPanels";
@@ -63,6 +64,9 @@ export function DesktopHome({ brief, news }: {
 					</div>
 					<div className="min-w-0 min-[1360px]:w-[680px]"><IndexStrip indices={indices} /></div>
 				</div>
+
+				{/* The phone's goal check-in card, as a strip above the brief (the apps' GoalCheckInCard). */}
+				<GoalCheckInStrip current={brief.data?.goalCheckIn} />
 
 				<div className="grid gap-5 xl:grid-cols-[1.35fr_1fr]">
 					<BriefHero brief={brief.data} briefLoading={briefLoading} news={news.data?.articles} newsFailed={news.isError} onReadBrief={openBrief} />

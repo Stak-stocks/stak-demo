@@ -12,6 +12,7 @@ import {
 import { getISOWeek } from "../services/streakService.js";
 import { getFinnhubKeys, FINNHUB_BASE } from "../services/finnhubService.js";
 import { getGeminiKeys, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH } from "../services/geminiService.js";
+import { briefGoalRule, goalCheckIn, goalOf } from "../services/investingGoal.js";
 
 export const dailyBriefRouter = Router();
 
@@ -608,13 +609,16 @@ async function generatePersonalizedImpact(
 	marketDrivers: string | null = null,
 	holiday: string | null = null,
 	dayLabel = "Today's",
+	goal = -1,
 ): Promise<string> {
 	const today = getEasternDateKey();
 	// v14: each stock now carries its real category into the prompt (v13; device report,
 	// 2026-09-24: Amazon miscast as "communications"), and the key is now built through the
 	// shared briefStateKey - v13 and earlier didn't include mood, so a mood reclassification
 	// mid-session couldn't force this one to regenerate the way the mood-explanation cache did.
-	const cacheKey = `daily-brief:impact:v14:${uid}:${today}:${briefStateKey(mood, session, marketClosed, dayLabel)}`;
+	// The goal is in the key, so changing it on Taste & risk takes effect the same day.
+	const goalRule = briefGoalRule(goal);
+	const cacheKey = `daily-brief:impact:v14:${uid}:${today}:${briefStateKey(mood, session, marketClosed, dayLabel)}${goalRule ? `:g${goal}` : ""}`;
 	const cached = await cacheGet<string>(cacheKey);
 	if (cached) return cached;
 
@@ -699,7 +703,7 @@ CRITICAL RULES:
 - Each listed stock's "category:" is what that company actually is - if you name a sector or category for a stock, it MUST be that one. NEVER pair a stock with the day's leading/lagging sector unless its own category IS that sector - a stock moving alongside a sector it doesn't belong to is a coincidence, not a cause.
 - Do NOT write phrases like "if [stock] is in your list" or any conditional about whether a stock is relevant — just use the names given or omit them.
 - Use real numbers from the data, plain language, no jargon, no disclaimers, no "it's important to", don't start with "I". Max 280 characters total.
-- Plain text only — NO markdown, NO asterisks, NO bold, NO formatting of any kind.`;
+- Plain text only — NO markdown, NO asterisks, NO bold, NO formatting of any kind.${goalRule ? `\n- ${goalRule}` : ""}`;
 
 	const keys = getGeminiKeys();
 	for (const key of keys) {
@@ -1255,7 +1259,7 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 		const [shared, [userRow, stakResult]] = await Promise.all([
 			buildSharedMarketData(),
 			Promise.all([
-				pgQuery<{ tag_scores: Record<string, number> | null }>(`select tag_scores from users where uid = $1`, [uid]),
+				pgQuery<{ tag_scores: Record<string, number> | null; preferences: Record<string, unknown> | null }>(`select tag_scores, preferences from users where uid = $1`, [uid]),
 				pgQuery<{ brand_id: string }>(`select brand_id from stak_brands where uid = $1`, [uid]),
 			]),
 		]);
@@ -1263,13 +1267,16 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 		const { session, marketClosed, holiday, dayLabel, nextTradingDayLabel } = marketStatus;
 		const tagScores: Record<string, number> = userRow.rows[0]?.tag_scores ?? {};
 		const stakBrandIds: string[] = stakResult.rows.map((r) => r.brand_id);
+		const goal = goalOf(userRow.rows[0]?.preferences);
+		// Home's goal check-in: worked out on every request, never cached with the brief, so an answer takes effect at once.
+		const checkIn = goalCheckIn(uid, goal);
 
 		// Full-response cache — subsequent requests from the same user in the same session are instant
 		// v3: dropped v2 entries built during the open-lag window. The day label is part of
 		// the key, so a brief for one session's label is never served under another's.
-		const fullCacheKey = `daily-brief:full:v3:${today}:${session}:${dayLabel.replace(/[^a-z]/gi, "")}:${uid}`;
+		const fullCacheKey = `daily-brief:full:v3:${today}:${session}:${dayLabel.replace(/[^a-z]/gi, "")}:${uid}${briefGoalRule(goal) ? `:g${goal}` : ""}`;
 		const cachedFull = await cacheGet<object>(fullCacheKey);
-		if (cachedFull) { res.json(cachedFull); return; }
+		if (cachedFull) { res.json({ ...cachedFull, goalCheckIn: await checkIn }); return; }
 
 		// Hard 8s outer timeout so multi-key exhaustion (3 keys × 8s each) can't block for a minute
 		const marketDrivers = await Promise.race([
@@ -1279,7 +1286,7 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 
 		const [{ moodExplanation, plainEnglish }, personalizedImpact, events] = await Promise.all([
 			generateMarketText(mood, session, spyDp, qqqDp, diaDp, vixDp, sectorsGreen, sectorsRed, topSector, worstSector, marketClosed, dayLabel, marketDrivers, holiday),
-			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, marketData, uid, marketClosed, marketDrivers, holiday, dayLabel),
+			generatePersonalizedImpact(tagScores, stakBrandIds, mood, session, marketData, uid, marketClosed, marketDrivers, holiday, dayLabel, goal),
 			generateWhatHappenedAndContext(session, marketClosed, dayLabel, marketDrivers, mood, spyDp, qqqDp, diaDp, topSector, worstSector),
 		]);
 
@@ -1306,7 +1313,7 @@ dailyBriefRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res)
 			generatedAt: new Date().toISOString(),
 		};
 		await cacheSet(fullCacheKey, response, 15 * 60 * 1000);
-		res.json(response);
+		res.json({ ...response, goalCheckIn: await checkIn });
 	} catch (error) {
 		console.error("Error generating daily brief:", error);
 		res.status(500).json({ error: "Failed to generate daily brief" });

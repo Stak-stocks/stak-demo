@@ -95,6 +95,10 @@ interface StockApiService {
     @GET("api/me")
     suspend fun getMe(): MeResponse
 
+    /** Home's goal check-in: "keep" (still learning) or "switch" (to growing money long-term). */
+    @POST("api/me/goal-check-in")
+    suspend fun answerGoalCheckIn(@Body body: GoalCheckInRequest): OkResponse
+
     @PUT("api/me")
     suspend fun putMe(@Body body: MePutRequest): MeResponse
 

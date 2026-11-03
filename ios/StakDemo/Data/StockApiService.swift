@@ -86,6 +86,8 @@ final class StockApiService {
     func getLegal(_ doc: String) async throws -> LegalDocResponse { try await net.get("api/legal/\(doc)") }
     /// "Before we get started": 400 = not all three confirmations.
     func confirmEligibility(_ body: EligibilityRequest) async throws -> OkResponse { try await net.post("api/me/eligibility", body: body) }
+    /// Home's goal check-in: "keep" (still learning) or "switch" (to growing money long-term).
+    func answerGoalCheckIn(_ body: GoalCheckInRequest) async throws -> OkResponse { try await net.post("api/me/goal-check-in", body: body) }
     func getTaste() async throws -> TasteResponse { try await net.get("api/me/taste") }
     func getUpdates() async throws -> UpdatesResponse { try await net.get("api/me/updates") }
     func markUpdateRead(_ id: Int64) async throws -> OkResponse { try await net.post("api/me/updates/\(id)/read", body: EmptyBody()) }

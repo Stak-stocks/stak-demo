@@ -285,7 +285,13 @@ data class DailyBriefResponse(
     val whatHappened: List<WhatHappenedItem> = emptyList(),
     val contextQuestion: String = "",
     val watchItems: List<WatchItem> = emptyList(),
+    /** Home's "Still want STAK to explain the basics?" card, when it's due (GoalCheckInCard); null otherwise. */
+    val goalCheckIn: GoalCheckInDto? = null,
 )
+
+/** Why the check-in is shown: "trades" (practice buys made) or "days" (days STAK was used), with how many. */
+data class GoalCheckInDto(val reason: String = "", val count: Int = 0)
+data class GoalCheckInRequest(val answer: String)
 
 data class CulturalSectionDto(val heading: String = "", val content: String = "")
 data class CulturalContextDto(val title: String = "", val sections: List<CulturalSectionDto> = emptyList())

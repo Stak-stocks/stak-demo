@@ -206,7 +206,7 @@ private struct TasteRiskView: View {
 			SectionLabel(text: "GOAL")
 			answerCard("Goal", ProfileTaste.goalLabel(), demo: demo) { onRetakeQuiz(.goal) }
 			// What the answers really do: the server builds the deck from what you save and swipe, not from the quiz.
-			Caption(text: "Your answers set your taste chips and how each stock fits you. Your saves and paper portfolio stay as they are.")
+			Caption(text: "Your answers set your taste chips and how each stock fits you, and your goal shapes how STAK AI and your brief explain things. Your saves and paper portfolio stay as they are.")
 		}
 	}
 

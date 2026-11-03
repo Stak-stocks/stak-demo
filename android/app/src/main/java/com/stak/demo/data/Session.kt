@@ -292,6 +292,7 @@ object Session {
 		// Clear singleton data caches so the next user never sees a previous user's content
 		com.stak.demo.ui.news.DailyBriefHolder.current = null
 		com.stak.demo.ui.news.DailyBriefHolder.news = emptyList()
+		ProfileSync.goalCheckIn = GoalCheckInStatus.Open
 		// The copied avatar leaves with the session it belonged to (Codex review, PR #166):
 		// Delete account promised the photo is gone, and a logged-out profile keeps no photo.
 		filesDir?.listFiles()?.filter { it.name.startsWith("avatar_") && it.name.endsWith(".jpg") }?.forEach { it.delete() }

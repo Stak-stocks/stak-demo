@@ -7,6 +7,7 @@ import { getCompanyNews, nameVariants, type FinnhubArticle } from "../services/f
 import { getQuarterlyEps, getStockSnapshot, type QuarterlyEps } from "./stock.js";
 import { unsupportedFigures } from "../services/stakAiFigures.js";
 import { keyContext } from "../services/stakAiKeyContext.js";
+import { chatGoalLine, goalOf, knownTerms, readTermCounts, recordTerms } from "../services/investingGoal.js";
 import {
 	STAK_AI_WINDOW_HOURS,
 	STAK_AI_WINDOW_LIMIT,
@@ -811,10 +812,14 @@ export function parseAnswer(raw: string): { text: string; kind: StakAiAnswerKind
 }
 
 /** The fixed rules first and the per-user profile last, so the rules form a shared prefix Gemini can cache. */
-function buildSystemContext(params: { familiarity: string | null; brandNames: string[]; topTags: string[]; easternDate: string }): string {
+function buildSystemContext(params: { familiarity: string | null; brandNames: string[]; topTags: string[]; easternDate: string; goal: number; knownTerms: string[]; question: string }): string {
 	const brandList = params.brandNames.length > 0 ? params.brandNames.join(", ") : "no stocks yet";
 	const topTagsList = params.topTags.length > 0 ? params.topTags.join(", ") : "none recorded";
 	const familiarity = params.familiarity ?? "not set — assume a beginner";
+	// Only said when there's something to say: other goals and no answer leave the prompt as it was, and so does a
+	// learner's question about terms they already know (chatGoalLine).
+	const goalLine = chatGoalLine(params.goal, params.knownTerms, params.question);
+	const extra = goalLine ? `- Their goal: ${goalLine}\n` : "";
 
 	return `You are STAK AI, the learning assistant inside STAK — an app that helps people, many of them new to investing, understand stocks through brands they already know.
 
@@ -883,7 +888,7 @@ On a normal answer (not [[DECLINED]] or [[CLARIFY]]), end with one final line: [
 - Financial knowledge: ${familiarity}
 - Their STAK (saved stocks): ${brandList}
 - Top interests: ${topTagsList}
-- Today (US Eastern): ${params.easternDate}
+${extra}- Today (US Eastern): ${params.easternDate}
 `;
 }
 
@@ -1021,6 +1026,8 @@ const VIA = new Set<string>(STAK_AI_VIA);
 /** Everything a question needs before the model is called: its claim on the limit, the conversation and the prompt. */
 interface Prepared {
 	uid: string;
+	/** The quiz goal (investingGoal.ts), for counting the terms an answer defined. */
+	goal: number;
 	question: string;
 	via: string;
 	usageId: number;
@@ -1056,6 +1063,10 @@ export interface ChatInput {
 	familiarity: string | null;
 	brandNames: string[];
 	topTags: string[];
+	/** The quiz's goal (investingGoal.ts); -1 or left out for none. */
+	goal?: number;
+	/** Investing terms already explained to them enough times (investingGoal.knownTerms). */
+	knownTerms?: string[];
 }
 
 /**
@@ -1064,7 +1075,7 @@ export interface ChatInput {
  * stored parts, and the eval script (scripts/stakAiEval.ts) passes its own.
  */
 export async function assembleChat(input: ChatInput) {
-	const { question, newContext, contextIsNew, context, lastTickers, history, familiarity, brandNames, topTags } = input;
+	const { question, newContext, contextIsNew, context, lastTickers, history, familiarity, brandNames, topTags, goal = -1, knownTerms = [] } = input;
 	// Which companies get live price + news: the ones this question names; else a page it was just opened from;
 	// else, if it points back ("is that normal for it?") or asks what's happening ("any lawsuit?"), the ones the
 	// conversation was last about. A question that does none of these ("what's a P/E?", or a company outside the
@@ -1095,7 +1106,7 @@ export async function assembleChat(input: ChatInput) {
 	}
 	const { sources, liveContextLog } = loaded;
 
-	const systemInstruction = buildSystemContext({ familiarity, brandNames, topTags, easternDate: HEADLINE_DAY.format(new Date()) });
+	const systemInstruction = buildSystemContext({ familiarity, brandNames, topTags, easternDate: HEADLINE_DAY.format(new Date()), goal, knownTerms, question });
 	const contents: GeminiContent[] = history.map((m) => ({
 		role: m.role === "assistant" ? "model" : "user",
 		parts: [{ text: m.content }],
@@ -1170,7 +1181,7 @@ async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Pr
 		const contextIsNew = !!newContext && JSON.stringify(newContext) !== JSON.stringify(storedContext);
 		const context = contextIsNew ? newContext : storedContext;
 
-		const [userResult, stakResult, historyResult] = await Promise.all([
+		const [userResult, stakResult, historyResult, termCounts] = await Promise.all([
 			pgQuery<{ tag_scores: Record<string, number> | null; preferences: Record<string, unknown> | null; research_cohort: boolean }>(
 				`SELECT tag_scores, preferences, research_cohort FROM users WHERE uid = $1`,
 				[uid],
@@ -1186,10 +1197,13 @@ async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Pr
 					[conversationId],
 				)
 				: Promise.resolve({ rows: [] as { role: string; content: string }[] }),
+			// Read on its own, so a missing column (before its migration) costs only this.
+			readTermCounts(uid),
 		]);
 
 		const tagScores = userResult.rows[0]?.tag_scores ?? {};
 		const familiarity = (userResult.rows[0]?.preferences as { familiarity?: string } | null)?.familiarity ?? null;
+		const goal = goalOf(userResult.rows[0]?.preferences);
 
 		// The first 50 STAK AI users join the research cohort. Awaited so a new member's first question is logged.
 		let inCohort = userResult.rows[0]?.research_cohort ?? false;
@@ -1214,11 +1228,12 @@ async function prepareChat(req: AuthenticatedRequest, res: Response): Promise<Pr
 
 		const { tickers, sources, liveContextLog, systemInstruction, contents, evidence } = await assembleChat({
 			question, newContext, contextIsNew, context, lastTickers, history: historyResult.rows, familiarity, brandNames, topTags,
+			goal, knownTerms: knownTerms(termCounts),
 		});
 
 		return {
 			uid, question, via, usageId, usageBefore: reservation.usage, conversationId, newContext, contextIsNew, context,
-			lastTickers, tickers, sources, liveContextLog, inCohort, systemInstruction, contents, startedAt, evidence,
+			lastTickers, tickers, sources, liveContextLog, inCohort, systemInstruction, contents, startedAt, evidence, goal,
 		};
 	} catch (e) {
 		void releaseQuestion(usageId);
@@ -1271,6 +1286,8 @@ async function saveChat(p: Prepared, ai: { text: string; refused: boolean }, str
 	// Only real answers count against the limit; a decline or a question back is handed back.
 	const counts = parsed.kind === "answer";
 	if (!counts) void releaseQuestion(p.usageId);
+	// The terms a real answer to a learner used, so after a couple it stops defining them (fire-and-forget).
+	if (counts) void recordTerms(p.uid, p.goal, parsed.text);
 	const before = p.usageBefore;
 	const usage: StakAiUsage = counts
 		? { ...before, used: before.used + 1, remaining: Math.max(0, before.remaining - 1), resetsAt: before.resetsAt ?? windowEnd(new Date()) }

@@ -6,7 +6,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useMyStakData } from "@/hooks/useMyStakData";
 import { HomeHeader } from "@/components/home/HomeHeader";
 import { MarketMoodCard } from "@/components/home/MarketMoodCard";
-import { DeckBanner, SavedPeekCard, TrendingStrip, WhyThisMattersCard } from "@/components/home/HomeCards";
+import { DeckBanner, GoalCheckInCard, SavedPeekCard, TrendingStrip, WhyThisMattersCard } from "@/components/home/HomeCards";
+import { useGoalCheckIn } from "@/hooks/useGoalCheckIn";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { PRESS, PhonePage, f, focusRing } from "@/components/phone/phone";
 import { PHONE_MAX_WIDTH } from "@/components/discover/useFigmaUnit";
@@ -44,6 +45,7 @@ function PhoneHome({ brief, news }: { brief: UseQueryResult<DailyBriefResponse>;
 	const { swipedBrands, batchQuotes } = useMyStakData();
 	const openStock = (ticker: string) => navigate({ to: "/stock/$symbol", params: { symbol: ticker } });
 	const firstRun = useFirstRunPending(appUser?.uid);
+	const { checkIn, status: checkInStatus, answer: answerCheckIn } = useGoalCheckIn(brief.data?.goalCheckIn);
 	// Leaving for another tab ends the first run, like Android's tab hops.
 	const toTab = (to: "/feed" | "/my-stak" | "/discover") => { completeFirstRun(appUser?.uid); navigate({ to }); };
 
@@ -72,6 +74,12 @@ function PhoneHome({ brief, news }: { brief: UseQueryResult<DailyBriefResponse>;
 				/>
 				<div style={{ height: cu(10) }} />
 				<WhyThisMattersCard body={whyBody} onOpen={() => toTab("/my-stak")} />
+				{/* Not on first run: the scrim covers everything below Market Mood there. */}
+				{checkIn && !firstRun && (
+					<div style={{ paddingTop: cu(10) }}>
+						<GoalCheckInCard checkIn={checkIn} status={checkInStatus} onAnswer={(switchToGrow) => void answerCheckIn(switchToGrow)} />
+					</div>
+				)}
 				<div style={{ height: cu(20) }} />
 				<DeckBanner hasSaved={swipedBrands.length > 0} onClick={() => toTab("/discover")} />
 				<div style={{ height: cu(20) }} />

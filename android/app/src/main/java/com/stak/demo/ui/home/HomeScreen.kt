@@ -43,6 +43,8 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import androidx.compose.ui.draw.clip
@@ -114,6 +116,13 @@ fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> 
 					MarketMoodCard(onOpenNews = onOpenNews)
 					Spacer(modifier = Modifier.height((10 * u).dp))
 					WhyThisMattersCard(onOpenMyStak = onOpenMyStak)
+					// Not on first run: the scrim covers everything below Market Mood there. Once answered it shows how that
+					// went until the brief stops asking (the server only asks a learner).
+					val checkIn = DailyBriefHolder.current?.goalCheckIn
+					if (!firstRun && checkIn != null) {
+						Spacer(modifier = Modifier.height((10 * u).dp))
+						GoalCheckInCard(checkIn)
+					}
 					Spacer(modifier = Modifier.height((20 * u).dp))
 					DeckBanner(onOpenDeck = onOpenDeck)
 					// The board's Trending stocks and Saved peek follow the authored
@@ -571,6 +580,110 @@ private fun WhyThisMattersCard(onOpenMyStak: () -> Unit) {
 				style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Light, fontSize = (12 * u).sp, lineHeight = (17 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 				color = Color.White,
 				modifier = Modifier.fillMaxWidth(),
+			)
+		}
+	}
+}
+
+/**
+ * "Ready to go beyond the basics?" - for someone whose quiz goal is learning, once they've made a few practice buys or
+ * used STAK on enough days (the server decides: the brief's goalCheckIn). Switch to long-term moves the goal to growing
+ * money long-term; Keep the basics leaves it, and the server waits weeks before asking again. Answered, the card says
+ * how it went (announced too) until the brief stops asking; a failed send can be tried again.
+ */
+@Composable
+private fun GoalCheckInCard(checkIn: com.stak.demo.data.GoalCheckInDto) {
+	val u = com.stak.demo.ui.onboarding.figmaUnit()
+	val status = com.stak.demo.data.ProfileSync.goalCheckIn
+	val copy = goalCheckInCopy(checkIn, status)
+	val view = androidx.compose.ui.platform.LocalView.current
+	androidx.compose.runtime.LaunchedEffect(status) { copy.announcement?.let { view.announceForAccessibility(it) } }
+	Column(
+		verticalArrangement = Arrangement.spacedBy((8 * u).dp),
+		modifier = Modifier
+			.fillMaxWidth()
+			.background(Home.CardBg, RoundedCornerShape((8 * u).dp))
+			.padding((14 * u).dp),
+	) {
+		Text(
+			text = copy.title,
+			style = TextStyle(fontFamily = Sora, fontWeight = FontWeight.Normal, fontSize = (14 * u).sp, lineHeight = (18 * u).sp),
+			color = Color.White,
+			modifier = Modifier.semantics { heading() },
+		)
+		Text(
+			text = copy.body,
+			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Light, fontSize = (12 * u).sp, lineHeight = (17 * u).sp),
+			color = Color.White,
+		)
+		if (copy.asking) {
+			val sending = status == com.stak.demo.data.GoalCheckInStatus.Sending
+			Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((16 * u).dp)) {
+				Box(
+					contentAlignment = Alignment.Center,
+					modifier = Modifier
+						.heightIn(min = 48.dp)
+						.clip(RoundedCornerShape((24 * u).dp))
+						.clickable(enabled = !sending, role = androidx.compose.ui.semantics.Role.Button) { com.stak.demo.data.ProfileSync.answerGoalCheckIn(switchToGrow = true) }
+						.background(Home.Teal)
+						.padding(horizontal = (16 * u).dp),
+				) {
+					Text(
+						text = "Switch to long-term",
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (15 * u).sp),
+						color = Color.Black,
+					)
+				}
+				Box(
+					contentAlignment = Alignment.Center,
+					modifier = Modifier
+						.heightIn(min = 48.dp)
+						.clickable(enabled = !sending, role = androidx.compose.ui.semantics.Role.Button) { com.stak.demo.data.ProfileSync.answerGoalCheckIn(switchToGrow = false) }
+						.padding(horizontal = (4 * u).dp),
+				) {
+					Text(
+						text = "Keep the basics",
+						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (12 * u).sp, lineHeight = (15 * u).sp),
+						color = Home.Teal,
+					)
+				}
+			}
+		}
+		Text(
+			text = copy.footnote,
+			style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Light, fontSize = (11 * u).sp, lineHeight = (14 * u).sp),
+			color = Color.White.copy(alpha = 0.6f),
+		)
+	}
+}
+
+/** The check-in card's words for where it stands; the same on iOS (GoalCheckInCopy) and the web (goalCheckInCopy). */
+internal data class GoalCheckInCopy(val title: String, val body: String, val footnote: String, val asking: Boolean, val announcement: String?)
+
+internal fun goalCheckInCopy(checkIn: com.stak.demo.data.GoalCheckInDto, status: com.stak.demo.data.GoalCheckInStatus): GoalCheckInCopy {
+	val change = "You can change this any time in Profile, then Taste & risk."
+	return when (status) {
+		com.stak.demo.data.GoalCheckInStatus.Switched -> GoalCheckInCopy(
+			"Goal updated", "Your goal is now Grow my money long-term. STAK AI and your brief will focus on the long-term picture.", change, false,
+			"Goal updated to Grow my money long-term.",
+		)
+		com.stak.demo.data.GoalCheckInStatus.Kept -> GoalCheckInCopy(
+			"Got it", "STAK AI and your brief will keep explaining the basics.", change, false,
+			"Got it. STAK will keep explaining the basics.",
+		)
+		else -> {
+			val did = if (checkIn.reason == "trades") "You've made ${checkIn.count}+ practice buys." else "You've used STAK on ${checkIn.count}+ different days."
+			val failed = status == com.stak.demo.data.GoalCheckInStatus.Failed
+			GoalCheckInCopy(
+				"Ready to go beyond the basics?",
+				"$did Switching changes your goal to Grow my money long-term, so STAK AI and your brief focus on the long-term picture instead of the basics.",
+				when {
+					failed -> "Couldn't save that. Check your connection and try again."
+					status == com.stak.demo.data.GoalCheckInStatus.Sending -> "Saving…"
+					else -> change
+				},
+				true,
+				if (failed) "Couldn't save that. Try again." else null,
 			)
 		}
 	}

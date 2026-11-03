@@ -8,6 +8,7 @@ import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 import { planOf } from "../lib/entitlements.js";
 import { getSupabaseAdmin } from "../lib/supabaseAdmin.js";
 import { seedTasteFromPicks } from "../services/tasteProfileService.js";
+import { answerCheckIn } from "../services/investingGoal.js";
 
 export const meRouter = Router();
 
@@ -880,6 +881,24 @@ async function deleteAccount(uid: string, supabaseUid: string, token: string | u
 }
 
 const bearer = (req: AuthenticatedRequest) => req.headers.authorization?.replace(/^Bearer\s+/i, "") || undefined;
+
+// POST /api/me/goal-check-in { answer: "keep" | "switch" } - Home's "Ready to go beyond the basics?" card (the
+// brief's goalCheckIn). "switch" moves the quiz goal from learning to growing money long-term in the same statement
+// that keeps the answer, which decides when the card may come back (investingGoal.answerCheckIn / checkInDue).
+meRouter.post("/goal-check-in", authMiddleware, async (req: AuthenticatedRequest, res) => {
+	try {
+		const answer = (req.body ?? {}).answer;
+		if (answer !== "keep" && answer !== "switch") {
+			res.status(400).json({ error: "answer must be keep or switch" });
+			return;
+		}
+		await answerCheckIn(req.user!.uid, answer);
+		res.json({ ok: true });
+	} catch (error) {
+		console.error("Error answering the goal check-in:", error);
+		res.status(500).json({ error: "Failed to save" });
+	}
+});
 
 // POST /api/me/eligibility { ageConfirmed: true, inUS: true, acceptTerms: true } - "Before we get started": three
 // confirmations, given by one "Agree and continue" in the apps and on the web - 18 or older, living in the United
