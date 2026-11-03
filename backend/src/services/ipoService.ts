@@ -165,9 +165,7 @@ async function tryGeminiKey(key: string, prompt: string): Promise<GeneratedBrand
 				body: JSON.stringify({
 					system_instruction: AMERICAN_ENGLISH,
 					contents: [{ parts: [{ text: prompt }] }],
-					generationConfig: { thinkingConfig: MINIMAL_THINKING,
-						responseMimeType: "application/json",
-					},
+					generationConfig: { thinkingConfig: MINIMAL_THINKING, responseMimeType: "application/json" },
 				}),
 			},
 		);

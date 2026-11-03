@@ -2,7 +2,7 @@
 
 What STAK AI does now, how to test it, what's been found and fixed, and what's still open. Status marks: ✅ passed · ❌ failed (see Open) · 🔧 fixed, needs retest · ⬜ not tested yet.
 
-## How it works (as of Oct 13, 2026)
+## How it works (as of Nov 3, 2026)
 
 1. **Data up front.** When a question plainly names a company (or follows up on one), the backend loads its live line (price, today's move, 5-day / 13-week / 26-week / 1-year changes, valuation, growth, margin), its headlines (publisher, date, summary; stories the question names from the past month) and, for earnings questions, its last four quarters' EPS against estimates. Casual names, one-letter typos, lowercase tickers and "app"-style phrasing are recognised.
 2. **Key context, computed in code.** The facts that matter for most questions — a big year, a price at its yearly low or high, revenue and the stock going different ways — are worked out by the backend (`services/stakAiKeyContext.ts`) and added as `KEY CONTEXT`, so the model reports them rather than having to notice them.
@@ -10,7 +10,7 @@ What STAK AI does now, how to test it, what's been found and fixed, and what's s
 4. **Rules.** Figures only from what it was given, never from memory; no browsing or claims of it; never advice or predictions (declined); short, plain, balanced.
 5. **Number check.** Every $ and % figure in an answer is checked against what it was given (`services/stakAiFigures.ts`). A figure from nowhere gets one quiet rewrite; the outcome is logged on the usage event (`figures`).
 
-All ungrounded Gemini 2.5 Flash, no thinking. Measured cost: about **$1.55 per 1,000 answers**.
+All ungrounded Gemini 3.5 Flash-Lite on "low" thinking (2.5 Flash, no thinking, until Nov 3: entries 24–26). Measured cost: about **$2.55 per 1,000 answers** (was $1.55).
 
 ## How to test it
 
@@ -20,7 +20,7 @@ All ungrounded Gemini 2.5 Flash, no thinking. Measured cost: about **$1.55 per 1
 - **Key:** set `GEMINI_EVAL_API_KEY` (a billed key kept for testing) in `backend/.env`; without it the script uses the free-tier `GEMINI_API_KEY`, paced at 7s a question, and stops after roughly ten.
 - **How to fix things:** compute facts in code or improve the data before adding a prompt rule; keep prompt rules general, with no real figures in examples; ship only what both sets hold up on.
 
-Latest results (Oct 13): tuned **25/25**, held-out **26/26**, no rewrites.
+Latest results (Nov 3, 3.5 Flash-Lite): main **28/29**, held-out **30–31/31**.
 
 ## Open
 
@@ -31,7 +31,7 @@ Latest results (Oct 13): tuned **25/25**, held-out **26/26**, no rewrites.
 | 3 | Oct 13 | "any news on the taiwanese chip maker" sometimes asks "which one?" rather than answering about TSMC. Reasonable for a vague question. | info |
 | 4 | Oct 13 | Checklist below: limits, history, streaming, offline, and the web-phone / Android screens are untested. | to test |
 | 5 | Nov 3 | On 3.5 Flash-Lite, 1 run in 4: "the Unity court case" answered from the loaded headlines ("The notes and news I have don't mention…") without looking for the older story. | watch |
-| 6 | Nov 3 | The brand tip prompt's own example says "Small stakes, long views." - borderline advice; the model copies it ("Keep positions small."). | decision needed |
+| 6 | Nov 3 | The brand tip prompt's own example said "Small stakes, long views." - borderline advice; the model copied it ("Keep positions small."). | fixed (28) |
 
 ## Fixed
 
@@ -73,6 +73,8 @@ Latest results (Oct 13): tuned **25/25**, held-out **26/26**, no rewrites.
 25. STAK AI on "minimal" thinking (what budget 0 was): held-out 27–28/30. "How risky is tesla stock" refused as advice 3/3; Roblox's −62% left out 2/3. On "low": 28–29/30, both fixed, about 1.5s and $1 per 1,000 answers more (~$2.55 vs ~$1.60). "Medium": no better, ~4s, ~$3.40. STAK AI uses "low".
 26. 3.5 Flash-Lite defines a P/E even with no learner line, so a learner's question about only known terms is now told outright not to define them: 6/6, and "remind me what a P/E ratio means?" still explained. Final run: held-out 31/31 and 30/31, main 28/29.
 27. Spot-checked on a local server against production (2.5): brief, daily move, key risk, analyst actions, tips, quick looks, earnings all work. Key risks are no longer cut off with "…"; wording is a little more generic ("Unstoppable demand").
+28. Review fixes: 3.5 Flash-Lite sometimes leaves out `[[FOLLOWUPS]]` and ends with "a? | b?" - those are now taken as the follow-ups, and the eval fails on any left in the text. Asking what a term means is told apart from asking for a figure more carefully (curly apostrophes from the iPhone keyboard, "how do… work", "stand for"). One no-hype, no-verdict, no-advice line on tips, Quick Looks, key risks and daily moves (`NEUTRAL_WORDS`); the tip examples describe instead of advising ("AI chips swing hard. Big drops happen fast."). The grounded earnings-date lookup keeps some thinking ("low"), as 2.5 Flash did by default.
+29. **Grounding cost:** 3.5 Flash-Lite's searches are $14 per 1,000 against 2.5's $35, but the free allowance drops from 1,500 a day (~45,000 a month) to 5,000 a month, shared by all Gemini 3 models on the project. Below about 2,400 grounded calls a day that's dearer, not cheaper: at STAK's size, roughly $0 → $0–70 a month. Check Cloud billing a few days after the switch.
 
 ## Test checklist
 

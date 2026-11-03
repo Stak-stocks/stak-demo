@@ -98,6 +98,12 @@ export const GEMINI_MODEL = "gemini-3.5-flash-lite";
  */
 export const MINIMAL_THINKING = { thinkingLevel: "minimal" } as const;
 /**
+ * One rule for every short card people read about a stock (tip, Quick Look, key risk, daily move). 3.5 Flash-Lite
+ * follows a prompt's wording more literally than 2.5 Flash did: it wrote "Unstoppable demand" and copied the tip
+ * example "Small stakes" as "Keep positions small."
+ */
+export const NEUTRAL_WORDS = `Neutral words: no hype (soaring, unstoppable, massive, skyrocketing) and no verdicts (overvalued, undervalued, cheap, a good or bad buy). Never tell the reader what to do with their money (how much to invest, buy, sell or hold).`;
+/**
  * Sent as the system instruction on every Gemini call that writes text people read: STAK writes American English
  * (STAK AI's own prompt says the same). Not on data-only calls (classifiers, JSON, holiday lists), where "US
  * punctuation" could turn an exact answer like `beat` into `Beat.`.
@@ -124,6 +130,7 @@ async function trySimplifyKey(key: string, prompt: string, count: number): Promi
 		const controller = new AbortController();
 		const timeout = setTimeout(() => controller.abort(), SIMPLIFY_TIMEOUT_MS);
 		try {
+			// 2.5 Flash-Lite still takes thinkingBudget and temperature: unlike GEMINI_MODEL's calls, keep them.
 			const res = await fetch(
 				geminiUrl(SIMPLIFY_MODEL, key),
 				{
@@ -270,7 +277,7 @@ type EarningsOutcome = "beat" | "miss" | "none";
 const WEB_EARNINGS_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
- * Use Gemini 2.0 Flash with Google Search grounding to determine if a company
+ * Use Gemini (GEMINI_MODEL) with Google Search grounding to determine if a company
  * beat or missed earnings in their most recent quarter, along with the report date.
  * Makes 1 call per stock per 24 hours.
  */

@@ -418,7 +418,9 @@ Return a factual 3-4 sentence paragraph summarising the 1-3 most significant thi
 						contents: [{ parts: [{ text: prompt }] }],
 						generationConfig: { thinkingConfig: MINIMAL_THINKING },
 					}),
-					signal: AbortSignal.timeout(8000),
+					// The brief stops waiting at 8s (its own race); this runs on so a slow grounded search still lands in the
+					// cache for the next request rather than being billed and thrown away.
+					signal: AbortSignal.timeout(15000),
 				},
 			);
 			if (!res.ok) continue;

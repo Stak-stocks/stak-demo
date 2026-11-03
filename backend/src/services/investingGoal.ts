@@ -17,8 +17,21 @@ export function goalOf(preferences: Record<string, unknown> | null | undefined):
 	return typeof goal === "number" && Number.isInteger(goal) ? goal : -1;
 }
 
-/** A question asking what a term means ("what does P/E mean?", "explain beta"), not for a figure ("what's Tesla's P/E?"). */
-const ASKS_MEANING = /\bmean(?:s|ing)?\b|\bwhat(?:'s| is| are) (?:a|an|the)? ?(?:P\/E|EPS|beta|market cap|dividend|ETF|IPO)s?\b(?! (?:of|for)\b)|\bexplain\b|\bdefin(?:e|ition)\b|\bhow does .* work\b/i;
+/**
+ * Whether a question asks what a term means ("what does P/E mean?", "what's a P/E?", "how do dividends work?",
+ * "explain beta") rather than for a figure ("what's Tesla's P/E?", "what is the P/E on Tesla?"). The iPhone keyboard
+ * types ’, so apostrophes are evened out first.
+ */
+export function asksMeaning(question: string): boolean {
+	const q = question.replace(/[‘’]/g, "'");
+	if (/\bmean(?:s|ing)?\b|\bstands? for\b|\bdefin(?:e|ition)\b|\bremind me what\b|\bexplain (?!why\b|how come\b)|\bhow (?:do|does) .+ work\b/i.test(q)) return true;
+	// "What's a P/E?", "what is guidance?": the term itself follows, with no company or "the" before it and no "of
+	// Tesla" after it.
+	return TERMS.some((t) => {
+		const m = new RegExp(`\\bwhat(?:'s|s| is| are)\\s+(?:a |an )?(?:${t.pattern.source})`, "i").exec(q);
+		return m != null && !/^\s*(?:of|for|on|at)\b/i.test(q.slice(m.index + m[0].length));
+	});
+}
 
 /**
  * STAK AI's line about the goal, for "About this user" - null where the test set showed no difference (first stocks:
@@ -36,7 +49,7 @@ export function chatGoalLine(goal: number, known: string[] = [], question = ""):
 			const asked = termsIn(question);
 			// 3.5 Flash-Lite defines a P/E unprompted, so leaving the learner line out isn't enough: it's told outright.
 			// Asking what one means always gets the learner line - and so an explanation.
-			if (asked.length > 0 && asked.every((t) => known.includes(t)) && !ASKS_MEANING.test(question)) return `Learning how investing works, and already knows ${asked.join(", ")}: use ${asked.length === 1 ? "it" : "them"} without explaining what ${asked.length === 1 ? "it means" : "they mean"}.`;
+			if (asked.length > 0 && asked.every((t) => known.includes(t)) && !asksMeaning(question)) return `Learning how investing works, and already knows ${asked.join(", ")}: use ${asked.length === 1 ? "it" : "them"} without explaining what ${asked.length === 1 ? "it means" : "they mean"}.`;
 			return "Learning how investing works. Define each investing term the first time you use it in this conversation, in a short plain clause - even in a one-line factual answer - add one everyday comparison when it makes an idea clearer, and keep jargon out.";
 		}
 		case GOAL_GROW: return "Growing their money over the long term. Explain a move as usual, then say how it compares with the stock's longer record (the past months or year), so one day isn't made to sound bigger than it is.";

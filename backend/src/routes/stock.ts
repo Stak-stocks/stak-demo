@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH, MINIMAL_THINKING } from "../services/geminiService.js";
+import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH, MINIMAL_THINKING, NEUTRAL_WORDS } from "../services/geminiService.js";
 import { getFinnhubKeys, FINNHUB_BASE } from "../services/finnhubService.js";
 import { getConsensusEarningsDate, FMP_BASE } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
@@ -1156,7 +1156,9 @@ async function fetchGeminiEarningsDates(
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { thinkingConfig: MINIMAL_THINKING },
+						// "low", not minimal: on 2.5 Flash this lookup thought by default (it set no thinking), and the dates
+						// it finds are shown as they are.
+						generationConfig: { thinkingConfig: { thinkingLevel: "low" } },
 					}),
 					signal: AbortSignal.timeout(15000),
 				},
@@ -1960,12 +1962,15 @@ Rules:
 - Use real numbers and data when available. Use → for changes (e.g. "odds dropped 25% → 15%")
 - tone must be exactly "bullish", "bearish", or "neutral" — pick whichever fits that point
 - Plain everyday language — no jargon, no "it is worth noting", no filler
-- When referencing when the move happened, use "${timeRef}" — do not substitute a different time reference`
+- When referencing when the move happened, use "${timeRef}" — do not substitute a different time reference
+- ${NEUTRAL_WORDS}`
 		: `${subject} stock (ticker: ${symbol}) was ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} ${timeRef}.${marketClosed ? " Note: US markets are currently closed." : ""}
 
 Search the web right now for the specific reason why ${symbol} moved ${searchRef}. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
 
 Write exactly 1 sentence (max 20 words) explaining the main catalyst to a young investor. Be specific — name the actual event. Do not say "various factors" or be vague.${directionNote} Use "${timeRef}" when referencing when the move happened.
+
+${NEUTRAL_WORDS}
 
 Return ONLY that single sentence — no bullet points, no markdown, no JSON, no additional sentences.`;
 
@@ -2161,11 +2166,11 @@ ${financialLines ? `Static financial context: ${financialLines}.` : ""}
 
 Search the web for what the main risk facing ${companyName} is right now. Look for:
 - Macro risk relevant to this company (interest rate sensitivity, tariff/trade exposure, currency risk, sector headwinds)
-- Valuation risk (is it trading at a stretched multiple?)
+- Valuation risk (a high price compared with earnings means high expectations to meet)
 - Company-specific financial risk (high debt load, slowing revenue growth, margin pressure, competition)
 - Any significant recent news that introduces new risk
 
-Write a single sentence (35 words max) in plain English naming the most important risk and why it matters to a beginner investor. No disclaimers, no "it's important to note", no financial advice language.
+Write a single sentence (35 words max) in plain English naming the most important risk and why it matters to a beginner investor. No disclaimers, no "it's important to note", no financial advice language. ${NEUTRAL_WORDS}
 
 Return ONLY that sentence as plain text — no markdown, no JSON, no bullets.`;
 

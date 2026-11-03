@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	CHECK_IN_AGAIN_DAYS, GOAL_EXPLORE, GOAL_FIRST_STOCKS, GOAL_GROW, GOAL_LEARN,
-	briefGoalRule, chatGoalLine, checkInDue, goalOf, knownTerms, termsIn,
+	asksMeaning, briefGoalRule, chatGoalLine, checkInDue, goalOf, knownTerms, termsIn,
 } from "../investingGoal.js";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -33,6 +33,15 @@ describe("investing goal", () => {
 		expect(briefGoalRule(GOAL_LEARN)).toMatch(/plain words/);
 		expect(briefGoalRule(GOAL_FIRST_STOCKS)).toBeNull();
 		expect(briefGoalRule(-1)).toBeNull();
+	});
+
+	it("tells asking what a term means from asking for a figure", () => {
+		for (const q of ["What’s a P/E?", "whats a P/E", "how do dividends work?", "what does P/E stand for?", "remind me what P/E is", "what is market capitalization?", "what is guidance?", "explain beta"]) {
+			expect(asksMeaning(q), q).toBe(true);
+		}
+		for (const q of ["What's Tesla's P/E?", "What is the P/E on Tesla?", "what's the dividend yield of Apple", "what is the beta?", "explain why Nvidia's P/E is so high", "what's a P/E for Tesla?"]) {
+			expect(asksMeaning(q), q).toBe(false);
+		}
 	});
 
 	it("spots the terms an answer used", () => {

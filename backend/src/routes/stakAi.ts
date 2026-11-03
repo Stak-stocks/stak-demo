@@ -804,7 +804,10 @@ export function parseAnswer(raw: string): { text: string; kind: StakAiAnswerKind
 		text = text.slice(lead[0].length);
 	}
 	let followUps: string[] = [];
-	const tail = text.match(/\[\[FOLLOWUPS\]\]([^\n]*)\s*$/i);
+	// 3.5 Flash-Lite sometimes leaves the marker out and ends with the questions alone ("...is 495.7. What does a high
+	// P/E mean? | What's Tesla's market cap?"): two or three questions joined by " | " at the very end are follow-ups
+	// too, or they'd show as text with no chips.
+	const tail = text.match(/\[\[FOLLOWUPS\]\]([^\n]*)\s*$/i) ?? text.match(/((?:[^|\n?.!]{2,100}\?\s*\|\s*){1,2}[^|\n?.!]{2,100}\?)\s*$/);
 	if (tail) {
 		followUps = tail[1]!.split("|").map((s) => s.trim().replace(/^[-*•]\s*/, "")).filter((s) => s.length > 0 && s.length <= 100).slice(0, 3);
 		text = text.slice(0, tail.index).trimEnd();
@@ -818,8 +821,7 @@ function buildSystemContext(params: { familiarity: string | null; brandNames: st
 	const brandList = params.brandNames.length > 0 ? params.brandNames.join(", ") : "no stocks yet";
 	const topTagsList = params.topTags.length > 0 ? params.topTags.join(", ") : "none recorded";
 	const familiarity = params.familiarity ?? "not set — assume a beginner";
-	// Only said when there's something to say: other goals and no answer leave the prompt as it was, and so does a
-	// learner's question about terms they already know (chatGoalLine).
+	// Only said when there's something to say: other goals and no answer leave the prompt as it was (chatGoalLine).
 	const goalLine = chatGoalLine(params.goal, params.knownTerms, params.question);
 	const extra = goalLine ? `- Their goal: ${goalLine}\n` : "";
 

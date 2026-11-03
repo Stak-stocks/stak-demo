@@ -16,6 +16,7 @@ vi.mock("../../authMiddleware.js", () => ({
 }));
 vi.mock("../../services/geminiService.js", () => ({
 	MINIMAL_THINKING: { thinkingLevel: "minimal" },
+	NEUTRAL_WORDS: "",
 	AMERICAN_ENGLISH: { parts: [{ text: "American English" }] },
 	getGeminiKeys: () => ["key-1", "key-2"],
 	withGeminiConcurrencyLimit: (fn: () => unknown) => fn(),
@@ -715,6 +716,12 @@ describe("helpers", () => {
 		expect(parseAnswer("[[CLARIFY]] Do you mean Apple or Alphabet?")).toEqual({ text: "Do you mean Apple or Alphabet?", kind: "clarify", followUps: [] });
 		expect(parseAnswer("Answer.\n\n[[FOLLOWUPS]] - One? | Two? ")).toEqual({ text: "Answer.", kind: "answer", followUps: ["One?", "Two?"] });
 		expect(parseAnswer("Plain answer.")).toEqual({ text: "Plain answer.", kind: "answer", followUps: [] });
+		// 3.5 Flash-Lite sometimes leaves the marker out: questions joined by " | " at the end are still the follow-ups.
+		expect(parseAnswer("Tesla's P/E ratio is **495.7**. What does a high P/E mean? | What's Tesla's market cap?"))
+			.toEqual({ text: "Tesla's P/E ratio is **495.7**.", kind: "answer", followUps: ["What does a high P/E mean?", "What's Tesla's market cap?"] });
+		expect(parseAnswer("It fell 3%.\nWhy did it fall? | Is that normal? | What's beta?").followUps).toHaveLength(3);
+		// A question in the answer itself isn't one.
+		expect(parseAnswer("Is it growing? Yes, revenue rose 12%.").followUps).toEqual([]);
 	});
 });
 

@@ -189,9 +189,10 @@ async function runCase(c: Case): Promise<Result[]> {
 		for (const re of expect.says ?? []) if (!re.test(parsed.text)) problems.push(`doesn't say ${re}`);
 		for (const re of expect.never ?? []) if (re.test(parsed.text)) problems.push(`says ${re}`);
 		if (ai.figures.unsupported.length > 0) problems.push(`figures not in its data: ${ai.figures.unsupported.join(", ")}`);
-		// Checked on every answer: no marker leaking, no talk of "the notes".
+		// Checked on every answer: no marker leaking, no talk of "the notes", no follow-ups left in the text ("a? | b?").
 		if (/\[\[/.test(parsed.text)) problems.push("a [[marker]] shows");
-		if (/\b(the data provided|the notes|the context provided|based on the data)\b/i.test(parsed.text)) problems.push("talks about its notes");
+		if (/\b(the data (provided|shows|I have)|the notes|the context provided|based on the data)\b/i.test(parsed.text)) problems.push("talks about its notes");
+		if (/\?\s*\|/.test(parsed.text)) problems.push("follow-ups show in the text");
 		if (expect.judgement) {
 			// Sentence by sentence (split after ". ", so "$51.20" stays whole): one names the stock and its fall.
 			const sentences = parsed.text.split(/(?<=[.!?])\s+/);
