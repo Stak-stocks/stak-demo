@@ -17,20 +17,26 @@ export function goalOf(preferences: Record<string, unknown> | null | undefined):
 	return typeof goal === "number" && Number.isInteger(goal) ? goal : -1;
 }
 
+/** A question asking what a term means ("what does P/E mean?", "explain beta"), not for a figure ("what's Tesla's P/E?"). */
+const ASKS_MEANING = /\bmean(?:s|ing)?\b|\bwhat(?:'s| is| are) (?:a|an|the)? ?(?:P\/E|EPS|beta|market cap|dividend|ETF|IPO)s?\b(?! (?:of|for)\b)|\bexplain\b|\bdefin(?:e|ition)\b|\bhow does .* work\b/i;
+
 /**
  * STAK AI's line about the goal, for "About this user" - null where the test set showed no difference (first stocks:
  * relating news to their saved companies didn't happen with or without a line), for "Just exploring" and for no
  * answer, which leave the prompt as it was.
  *
- * A learner whose question only uses terms they already know gets no line for it: telling the model which terms they
- * know didn't work (as its own line or inside this one, P/E was still defined 3 times in 3), while without the line a
- * question about a P/E gets the plain figure. Decided here, in code, from the question.
+ * A learner whose question only uses terms they already know - and doesn't ask what one means - is told so, about
+ * those terms only: a standing list of every term they know was ignored (P/E defined 3 times in 3 on 2.5 Flash), and
+ * 3.5 Flash-Lite defines a P/E even with no learner line at all. Which terms, and whether to say it, is decided here
+ * in code from the question.
  */
 export function chatGoalLine(goal: number, known: string[] = [], question = ""): string | null {
 	switch (goal) {
 		case GOAL_LEARN: {
 			const asked = termsIn(question);
-			if (asked.length > 0 && asked.every((t) => known.includes(t))) return null;
+			// 3.5 Flash-Lite defines a P/E unprompted, so leaving the learner line out isn't enough: it's told outright.
+			// Asking what one means always gets the learner line - and so an explanation.
+			if (asked.length > 0 && asked.every((t) => known.includes(t)) && !ASKS_MEANING.test(question)) return `Learning how investing works, and already knows ${asked.join(", ")}: use ${asked.length === 1 ? "it" : "them"} without explaining what ${asked.length === 1 ? "it means" : "they mean"}.`;
 			return "Learning how investing works. Define each investing term the first time you use it in this conversation, in a short plain clause - even in a one-line factual answer - add one everyday comparison when it makes an idea clearer, and keep jargon out.";
 		}
 		case GOAL_GROW: return "Growing their money over the long term. Explain a move as usual, then say how it compares with the stock's longer record (the past months or year), so one day isn't made to sound bigger than it is.";

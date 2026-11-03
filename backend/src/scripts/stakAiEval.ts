@@ -130,6 +130,7 @@ const CASES: Case[] = [
 	// The goal lines on questions they weren't written for ("goal:" picks these up with the cases above).
 	{ name: "held-out: goal: learner market cap", who: { goal: 0 }, turns: [{ q: "what's amazon's market cap", expect: { tickers: ["AMZN"], says: [/total (market )?value|all (of )?(its|the company's|amazon's) shares|shares outstanding|value of (all|every)|times the (share |stock )?price|every share/i] } }] },
 	{ name: "held-out: goal: learner knows market cap", who: { goal: 0, knownTerms: ["market cap"] }, turns: [{ q: "what's apple's market cap", expect: { tickers: ["AAPL"], never: [/total (market )?value|all (of )?(its|the company's|apple's) shares|shares outstanding|value of (all|every)|times the (share |stock )?price|every share/i] } }] },
+	{ name: "held-out: goal: learner asks what a known term means", who: { goal: 0, knownTerms: ["P/E ratio"] }, turns: [{ q: "remind me what a P/E ratio means?", expect: { noLookups: true, kind: "answer", says: [DEFINES_PE] } }] },
 	{ name: "held-out: goal: grow spike", who: { goal: 1 }, turns: [{ q: "why is palantir up today", expect: { tickers: ["PLTR"], says: [LONGER_VIEW] } }] },
 	{ name: "held-out: goal: first stocks advice", who: { goal: 2, brandNames: ["Netflix (NFLX)", "Nike (NKE)"] }, turns: [{ q: "what's a good first stock for a beginner?", expect: { kind: "declined" } }] },
 	{ name: "held-out: who grew more", turns: [{ q: "Google vs Meta, which grew more last quarter?", expect: { tickers: ["GOOGL", "META"], kind: "answer" } }] },
@@ -238,9 +239,9 @@ const passed = all.filter((r) => r.ok).length;
 const rewritten = all.filter((r) => r.rewritten).length;
 const answered = all.filter((r) => r.ms > 0);
 console.log(`\n${passed}/${all.length} passed; ${rewritten} rewritten by the number check; average ${(answered.reduce((s, r) => s + r.ms, 0) / Math.max(1, answered.length) / 1000).toFixed(1)}s per answer`);
-// Cost at Gemini 2.5 Flash list prices: $0.30 per million tokens in, $2.50 per million out (thinking bills as output).
+// Cost at Gemini 3.5 Flash-Lite list prices (the same as 2.5 Flash's): $0.30 per million tokens in, $2.50 per million out (thinking bills as output).
 const tokens = all.reduce((t, r) => ({ input: t.input + (r.usage?.input ?? 0), output: t.output + (r.usage?.output ?? 0), thinking: t.thinking + (r.usage?.thinking ?? 0) }), { input: 0, output: 0, thinking: 0 });
 const dollars = (tokens.input * 0.3 + (tokens.output + tokens.thinking) * 2.5) / 1e6;
-const budget = process.env.STAK_AI_THINKING_BUDGET;
-console.log(`tokens: ${tokens.input} in, ${tokens.output} out, ${tokens.thinking} thinking - about $${((dollars / Math.max(1, answered.length)) * 1000).toFixed(2)} per 1,000 answers${budget ? ` (thinking budget ${budget})` : ""}`);
+const level = process.env.STAK_AI_THINKING_LEVEL;
+console.log(`tokens: ${tokens.input} in, ${tokens.output} out, ${tokens.thinking} thinking - about $${((dollars / Math.max(1, answered.length)) * 1000).toFixed(2)} per 1,000 answers${level ? ` (thinking level ${level})` : ""}`);
 process.exit(passed === all.length ? 0 : 1);

@@ -15,6 +15,7 @@ vi.mock("../../authMiddleware.js", () => ({
 	},
 }));
 vi.mock("../../services/geminiService.js", () => ({
+	MINIMAL_THINKING: { thinkingLevel: "minimal" },
 	AMERICAN_ENGLISH: { parts: [{ text: "American English" }] },
 	getGeminiKeys: () => ["key-1", "key-2"],
 	withGeminiConcurrencyLimit: (fn: () => unknown) => fn(),
@@ -94,7 +95,7 @@ function fakePg(sql: string, params: unknown[] = []) {
 let geminiBodies: any[];
 let geminiReply: string | null;
 /** Tool requests the model makes first, one round per entry, before it answers with geminiReply. */
-let geminiToolRounds: { name: string; args: Record<string, unknown> }[][];
+let geminiToolRounds: { id?: string; name: string; args: Record<string, unknown> }[][];
 /** Answers given in turn before geminiReply (an answer and then its rewrite, say). */
 let geminiTexts: string[];
 function stubFetch() {
@@ -112,8 +113,9 @@ function stubFetch() {
 }
 
 /** A streamed reply that only asks for tools. */
-function geminiCallSse(calls: { name: string; args: Record<string, unknown> }[]) {
-	const chunk = { candidates: [{ content: { role: "model", parts: calls.map((c) => ({ functionCall: c })) }, finishReason: "STOP" }] };
+function geminiCallSse(calls: { id?: string; name: string; args: Record<string, unknown> }[]) {
+	// A call with an id comes as 3.5 Flash-Lite sends it: with a thought signature on its part.
+	const chunk = { candidates: [{ content: { role: "model", parts: calls.map((c) => ({ functionCall: c, ...(c.id ? { thoughtSignature: `sig-${c.id}` } : {}) })) }, finishReason: "STOP" }] };
 	return new Response(`data: ${JSON.stringify(chunk)}\r\n\r\n`, { headers: { "Content-Type": "text/event-stream" } });
 }
 
@@ -335,6 +337,15 @@ describe("POST /chat", () => {
 		expect(JSON.parse(calls(/INSERT INTO events/)[0]![1][1]).tools).toBe(1);
 	});
 
+	it("hands each result back with its call's id and the model turn with its thought signature; low thinking, no temperature", async () => {
+		geminiToolRounds = [[{ id: "call_7", name: "get_stock", args: { ticker: "AAPL" } }]];
+		await request(await buildApp()).post("/chat").send({ message: "How is the company that makes the iPhone doing?" });
+		expect(geminiBodies[0].generationConfig).toEqual({ thinkingConfig: { thinkingLevel: "low" } });
+		const [modelTurn, results] = geminiBodies[1].contents.slice(-2);
+		expect(modelTurn.parts[0]).toMatchObject({ functionCall: { id: "call_7", name: "get_stock" }, thoughtSignature: "sig-call_7" });
+		expect(results.parts[0].functionResponse).toMatchObject({ id: "call_7", name: "get_stock" });
+	});
+
 	it("a misspelled company is found through find_company", async () => {
 		const { findCompanies } = await import("../stakAi.js");
 		expect(findCompanies("apploving")).toEqual([{ ticker: "APP", name: "AppLovin Corp" }]);
@@ -489,7 +500,7 @@ describe("POST /chat", () => {
 		expect(refused.body.response).not.toContain("[[");
 	});
 
-	it("tells a learner's model to define terms - except for a question only about terms they know - and counts the terms each answer uses", async () => {
+	it("tells a learner's model to define terms - or, for a question only about terms they know, not to - and counts the terms each answer uses", async () => {
 		db.preferences = { android_taste: { goal: 0, risk: 1, riskStyle: "Balanced", picks: [] } };
 		db.knownTerms = { "P/E ratio": 2, beta: 1 };
 		geminiReply = "Its P/E is 30, and its market cap is $1T.\n[[FOLLOWUPS]] What's EPS? | How has it done this year?";
@@ -497,7 +508,7 @@ describe("POST /chat", () => {
 		const system = () => geminiBodies.at(-1)!.system_instruction.parts[0].text as string;
 		expect(system()).toContain("- Their goal: Learning how investing works.");
 		await request(await buildApp()).post("/chat").send({ message: "What's Nvidia's P/E?" });
-		expect(system()).not.toContain("Their goal");
+		expect(system()).toContain("- Their goal: Learning how investing works, and already knows P/E ratio: use it without explaining what it means.");
 		await vi.waitFor(() => expect(calls(/set known_terms/)).toHaveLength(2));
 		expect(calls(/set known_terms/)[0]![1]).toEqual(["u1", ["P/E ratio", "market cap"]]);
 	});

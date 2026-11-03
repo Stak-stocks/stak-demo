@@ -5,7 +5,7 @@ import { pgQuery } from "../lib/postgres.js";
 import { brands } from "@stak/shared/brands";
 import type { BrandProfile, BrandSummary } from "@stak/shared";
 import { getBrandLogoUrl, getBrandHeroUrl } from "@stak/shared";
-import { getGeminiKeys, GEMINI_MODEL, geminiUrl, withGeminiConcurrencyLimit, AMERICAN_ENGLISH } from "../services/geminiService.js";
+import { getGeminiKeys, GEMINI_MODEL, geminiUrl, withGeminiConcurrencyLimit, AMERICAN_ENGLISH, MINIMAL_THINKING } from "../services/geminiService.js";
 import { getCompanyNews } from "../services/finnhubService.js";
 
 export const brandsRouter = Router();
@@ -127,7 +127,7 @@ Return ONLY the two-sentence tip. Nothing else.`;
 			body: JSON.stringify({
 				system_instruction: AMERICAN_ENGLISH,
 				contents: [{ parts: [{ text: prompt }] }],
-				generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.7, maxOutputTokens: 80 },
+				generationConfig: { thinkingConfig: MINIMAL_THINKING, maxOutputTokens: 80 },
 			}),
 		});
 		const data = await resp.json() as any;
@@ -227,7 +227,7 @@ async function generateQuickLook(prompt: string, keys: string[], ticker: string)
 				body: JSON.stringify({
 					system_instruction: AMERICAN_ENGLISH,
 					contents: [{ parts: [{ text: prompt }] }],
-					generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
+					generationConfig: { thinkingConfig: MINIMAL_THINKING, responseMimeType: "application/json" },
 				}),
 			});
 			if (!resp.ok) {

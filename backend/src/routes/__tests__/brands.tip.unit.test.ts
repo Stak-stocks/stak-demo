@@ -13,6 +13,7 @@ vi.mock("../../lib/postgres.js", () => ({
 	ensureUserRow: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../../services/geminiService.js", () => ({
+	MINIMAL_THINKING: { thinkingLevel: "minimal" },
 	AMERICAN_ENGLISH: { parts: [{ text: "American English" }] },
 	getGeminiKeys: () => ["test-key"],
 	GEMINI_MODEL: "test-model",

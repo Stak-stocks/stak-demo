@@ -14,6 +14,7 @@ vi.mock("../../services/finnhubService.js", () => ({
 	classifyArticle: () => "company",
 }));
 vi.mock("../../services/geminiService.js", () => ({
+	MINIMAL_THINKING: { thinkingLevel: "minimal" },
 	simplifyArticles: async (articles: { headline: string }[], types: string[]) =>
 		articles.map((a, i) => ({ headline: a.headline, url: `https://x.test/${a.headline}`, type: types[i], datetime: 1 })),
 	classifyEarnings: async () => "none",

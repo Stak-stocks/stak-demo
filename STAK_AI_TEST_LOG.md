@@ -30,6 +30,8 @@ Latest results (Oct 13): tuned **25/25**, held-out **26/26**, no rewrites.
 | 2 | Oct 9 | Old answers in history still contain earlier made-up figures. Nothing to fix; don't mistake them for new failures. | info |
 | 3 | Oct 13 | "any news on the taiwanese chip maker" sometimes asks "which one?" rather than answering about TSMC. Reasonable for a vague question. | info |
 | 4 | Oct 13 | Checklist below: limits, history, streaming, offline, and the web-phone / Android screens are untested. | to test |
+| 5 | Nov 3 | On 3.5 Flash-Lite, 1 run in 4: "the Unity court case" answered from the loaded headlines ("The notes and news I have don't mention…") without looking for the older story. | watch |
+| 6 | Nov 3 | The brand tip prompt's own example says "Small stakes, long views." - borderline advice; the model copies it ("Keep positions small."). | decision needed |
 
 ## Fixed
 
@@ -65,6 +67,12 @@ Latest results (Oct 13): tuned **25/25**, held-out **26/26**, no rewrites.
 21. **Grow my money long-term** adds one line (explain the move, then set it against the longer record). "Why is NVDA moving today?": 6/6 vs 0/3; held-out Palantir passed when its premise held (it was down that day, so the answer rightly corrected that first).
 22. **Find my first stocks**: a line asking to relate news to their saved companies changed nothing (0/3 with and without), so there is none. "Which stock should I buy first?" and held-out "what's a good first stock?" stay declined.
 23. No regression on the held-out set with the learn or grow goal on every question: 28–29/29 (the only misses were the day-dependent Palantir case), against 27–29/29 with no goal.
+
+**Nov 3 — Gemini 3.5 Flash-Lite** (2.5 Flash shuts down Dec 1, 2026; requests would be redirected to 3.5 Flash-Lite)
+24. 3.5 Flash-Lite refuses `thinkingBudget: 0` (HTTP 400 - every call in the app would have failed after the redirect) and a tool call sent back without its thought signature; temperature is ignored. All calls now use `thinkingLevel`, tool results carry the call's id, and temperature is gone. The article simplifier stays on 2.5 Flash-Lite (not deprecated).
+25. STAK AI on "minimal" thinking (what budget 0 was): held-out 27–28/30. "How risky is tesla stock" refused as advice 3/3; Roblox's −62% left out 2/3. On "low": 28–29/30, both fixed, about 1.5s and $1 per 1,000 answers more (~$2.55 vs ~$1.60). "Medium": no better, ~4s, ~$3.40. STAK AI uses "low".
+26. 3.5 Flash-Lite defines a P/E even with no learner line, so a learner's question about only known terms is now told outright not to define them: 6/6, and "remind me what a P/E ratio means?" still explained. Final run: held-out 31/31 and 30/31, main 28/29.
+27. Spot-checked on a local server against production (2.5): brief, daily move, key risk, analyst actions, tips, quick looks, earnings all work. Key risks are no longer cut off with "…"; wording is a little more generic ("Unstoppable demand").
 
 ## Test checklist
 

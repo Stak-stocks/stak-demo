@@ -19,7 +19,10 @@ describe("investing goal", () => {
 	it("has a line for learning and growing; first stocks, exploring or no answer leave the prompts alone", () => {
 		expect(chatGoalLine(GOAL_LEARN)).toMatch(/Define each investing term the first time/);
 		// A learner asking only about terms they already know gets no line for that question; anything new keeps it.
-		expect(chatGoalLine(GOAL_LEARN, ["P/E ratio", "beta"], "What's Tesla's P/E?")).toBeNull();
+		expect(chatGoalLine(GOAL_LEARN, ["P/E ratio", "beta"], "What's Tesla's P/E?")).toBe("Learning how investing works, and already knows P/E ratio: use it without explaining what it means.");
+		// Asking what one means still gets the explanation.
+		expect(chatGoalLine(GOAL_LEARN, ["P/E ratio"], "What does P/E mean?")).toMatch(/Define each investing term/);
+		expect(chatGoalLine(GOAL_LEARN, ["P/E ratio"], "what's a P/E?")).toMatch(/Define each investing term/);
 		expect(chatGoalLine(GOAL_LEARN, ["P/E ratio"], "Tesla's P/E and market cap?")).toMatch(/Define each investing term/);
 		expect(chatGoalLine(GOAL_LEARN, ["P/E ratio"], "Why is Nvidia up?")).toMatch(/Define each investing term/);
 		expect(chatGoalLine(GOAL_GROW, ["P/E ratio"], "What's Tesla's P/E?")).toMatch(/longer record/);

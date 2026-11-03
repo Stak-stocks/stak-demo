@@ -7,6 +7,7 @@ vi.mock("../finnhubService.js", () => ({
 }));
 
 vi.mock("../geminiService.js", () => ({
+	MINIMAL_THINKING: { thinkingLevel: "minimal" },
 	getEarningsBeatMissFromWeb: vi.fn(),
 }));
 

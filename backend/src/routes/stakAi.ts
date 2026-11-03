@@ -482,8 +482,8 @@ function withDeadline<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
 /** A part of a Gemini message: text, the model asking for a tool, or a tool's result going back. */
 interface GeminiPart {
 	text?: string;
-	functionCall?: { name: string; args?: Record<string, unknown> };
-	functionResponse?: { name: string; response: Record<string, unknown> };
+	functionCall?: { id?: string; name: string; args?: Record<string, unknown> };
+	functionResponse?: { id?: string; name: string; response: Record<string, unknown> };
 	thoughtSignature?: string;
 }
 interface GeminiContent { role: string; parts: GeminiPart[] }
@@ -660,12 +660,14 @@ async function runTool(call: { name: string; args?: Record<string, unknown> }, l
 
 
 /**
- * Gemini's thinking before it answers, in tokens: none in production (fast, cheapest). STAK_AI_THINKING_BUDGET sets
- * it for an experiment - the test set measuring whether some thinking is worth its time and cost. Tested 2026-10-13:
- * a budget of 512 was no more accurate on the held-out questions, 0.6s slower and 28% dearer. A value Gemini would
- * reject (negative, fractional, over 24,576) falls back to 0 rather than failing every request.
+ * How much Gemini thinks before it answers: "low" in production. On 3.5 Flash-Lite (2026-11-03), "minimal" refused
+ * "how risky is tesla stock" as advice 3 times in 3 and left Roblox's fall out of most answers (held-out 27-28/30);
+ * "low" answered both (28-29/30) for about 1.5s and $1 per 1,000 answers more; "medium" was no better, slower and
+ * dearer still. STAK_AI_THINKING_LEVEL (minimal, low, medium or high) sets another, for trying one in the eval
+ * (scripts/stakAiEval.ts) before it's set on the server; anything else falls back to "low" rather than failing every
+ * request. (On 2.5 Flash, 2026-10-13, a thinking budget of 512 wasn't worth it - that model was fine without.)
  */
-const THINKING_BUDGET = ((n) => (Number.isInteger(n) && n >= 0 && n <= 24_576 ? n : 0))(Number(process.env.STAK_AI_THINKING_BUDGET ?? 0));
+const THINKING_LEVEL = ((v) => (["minimal", "low", "medium", "high"].includes(v) ? v : "low"))(process.env.STAK_AI_THINKING_LEVEL ?? "low");
 
 /** No first words from a key by now: try the next. */
 const FIRST_CHUNK_MS = 20_000;
@@ -709,7 +711,7 @@ async function askGemini(
 						contents,
 						tools: STAK_AI_TOOLS,
 						toolConfig: { functionCallingConfig: { mode: toolMode } },
-						generationConfig: { thinkingConfig: { thinkingBudget: THINKING_BUDGET }, temperature: 0.3 },
+						generationConfig: { thinkingConfig: { thinkingLevel: THINKING_LEVEL } },
 					}),
 					signal: controller.signal,
 				});
@@ -1003,7 +1005,9 @@ export async function answer(p: AnswerInput, hooks: { onText?: (full: string) =>
 			const response = calls + i < MAX_TOOL_CALLS
 				? await runTool(call, loaded, allowed).catch(() => ({ error: "That lookup failed just now." }))
 				: { error: "Too many lookups: answer with what you have." };
-			return { functionResponse: { name: call.name, response } };
+			// The call's id goes back with its result (3.5 Flash-Lite pairs them by it; the model turn above keeps its
+			// thought signature, without which the request is refused).
+			return { functionResponse: { ...(call.id ? { id: call.id } : {}), name: call.name, response } };
 		}));
 		calls += reply.callParts.length;
 		evidence += `\n${results.map((r) => JSON.stringify(r.functionResponse.response)).join("\n")}`;

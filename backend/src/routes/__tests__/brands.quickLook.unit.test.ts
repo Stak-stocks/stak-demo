@@ -17,6 +17,7 @@ vi.mock("../../services/finnhubService.js", () => ({
 	getCompanyNews: newsMock,
 }));
 vi.mock("../../services/geminiService.js", () => ({
+	MINIMAL_THINKING: { thinkingLevel: "minimal" },
 	AMERICAN_ENGLISH: { parts: [{ text: "American English" }] },
 	getGeminiKeys: () => ["test-key"],
 	GEMINI_MODEL: "test-model",

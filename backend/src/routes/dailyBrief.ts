@@ -11,7 +11,7 @@ import {
 } from "../services/marketMood.js";
 import { getISOWeek } from "../services/streakService.js";
 import { getFinnhubKeys, FINNHUB_BASE } from "../services/finnhubService.js";
-import { getGeminiKeys, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH } from "../services/geminiService.js";
+import { getGeminiKeys, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH, MINIMAL_THINKING } from "../services/geminiService.js";
 import { briefGoalRule, goalCheckIn, goalOf } from "../services/investingGoal.js";
 
 export const dailyBriefRouter = Router();
@@ -192,7 +192,7 @@ Return ONLY the raw JSON object, no markdown, no code fences.`;
 				body: JSON.stringify({
 					system_instruction: AMERICAN_ENGLISH,
 					contents: [{ parts: [{ text: prompt }] }],
-					generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
+					generationConfig: { thinkingConfig: MINIMAL_THINKING, responseMimeType: "application/json" },
 				}),
 				signal: AbortSignal.timeout(12000),
 			});
@@ -267,7 +267,7 @@ async function fetchMarketHolidays(): Promise<Set<string>> {
 						contents: [{ parts: [{ text:
 							`List every official NYSE US stock market holiday in ${year} — including any unexpected closures — as a JSON array of date strings in YYYY-MM-DD format. Return ONLY the JSON array, no explanation, no markdown fences.`
 						}] }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0 },
+						generationConfig: { thinkingConfig: MINIMAL_THINKING },
 					}),
 					signal: AbortSignal.timeout(15000),
 				},
@@ -416,7 +416,7 @@ Return a factual 3-4 sentence paragraph summarising the 1-3 most significant thi
 						tools: [{ google_search: {} }],
 						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.2 },
+						generationConfig: { thinkingConfig: MINIMAL_THINKING },
 					}),
 					signal: AbortSignal.timeout(8000),
 				},
@@ -520,7 +520,7 @@ No financial advice. No disclaimers. Just describe what happened clearly.`;
 					body: JSON.stringify({
 						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
+						generationConfig: { thinkingConfig: MINIMAL_THINKING, responseMimeType: "application/json" },
 					}),
 					signal: AbortSignal.timeout(12000),
 				},
@@ -716,7 +716,7 @@ CRITICAL RULES:
 					body: JSON.stringify({
 						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.7, maxOutputTokens: 200 },
+						generationConfig: { thinkingConfig: MINIMAL_THINKING, maxOutputTokens: 200 },
 					}),
 					signal: AbortSignal.timeout(12000),
 				},
@@ -919,7 +919,7 @@ Tone: confident, plain English, no jargon without a quick explanation. No financ
 							tools: [{ google_search: {} }],
 							system_instruction: AMERICAN_ENGLISH,
 							contents: [{ parts: [{ text: prompt }] }],
-							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3 },
+							generationConfig: { thinkingConfig: MINIMAL_THINKING },
 						}),
 						signal: AbortSignal.timeout(30000),
 					},
@@ -1091,8 +1091,7 @@ Tone: confident, conversational, no financial advice, no disclaimers.`;
 						contents: [{ parts: [{ text: prompt }] }],
 						generationConfig: {
 							responseMimeType: "application/json",
-							thinkingConfig: { thinkingBudget: 0 },
-							temperature: 0.4,
+							thinkingConfig: MINIMAL_THINKING,
 						},
 					}),
 					signal: AbortSignal.timeout(8000),

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH } from "../services/geminiService.js";
+import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH, MINIMAL_THINKING } from "../services/geminiService.js";
 import { getFinnhubKeys, FINNHUB_BASE } from "../services/finnhubService.js";
 import { getConsensusEarningsDate, FMP_BASE } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
@@ -1156,7 +1156,7 @@ async function fetchGeminiEarningsDates(
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { temperature: 0.1 },
+						generationConfig: { thinkingConfig: MINIMAL_THINKING },
 					}),
 					signal: AbortSignal.timeout(15000),
 				},
@@ -1594,7 +1594,7 @@ Where low/avg/high are numbers (no $ sign). If any value is not found, use null.
 						body: JSON.stringify({
 							contents: [{ parts: [{ text: prompt }] }],
 							tools: [{ google_search: {} }],
-							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0 },
+							generationConfig: { thinkingConfig: MINIMAL_THINKING },
 						}),
 						signal: controller.signal,
 					},
@@ -1706,7 +1706,7 @@ Rules:
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, maxOutputTokens: 500 },
+						generationConfig: { thinkingConfig: MINIMAL_THINKING, maxOutputTokens: 500 },
 					}),
 					signal: controller.signal,
 				},
@@ -1986,7 +1986,7 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, maxOutputTokens: sentences > 1 ? 500 : 200 },
+						generationConfig: { thinkingConfig: MINIMAL_THINKING, maxOutputTokens: sentences > 1 ? 500 : 200 },
 					}),
 					signal: controller.signal,
 				},
@@ -2182,7 +2182,7 @@ Return ONLY that sentence as plain text — no markdown, no JSON, no bullets.`;
 						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, maxOutputTokens: 80 },
+						generationConfig: { thinkingConfig: MINIMAL_THINKING, maxOutputTokens: 80 },
 					}),
 					signal: controller.signal,
 				},
