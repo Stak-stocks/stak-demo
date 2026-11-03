@@ -152,7 +152,7 @@ struct DailyBriefResponse: Decodable, Equatable {
     var goalCheckIn: GoalCheckInDto? = nil
 }
 
-/// Why the check-in is shown: "trades" (practice buys made) or "days" (days STAK was used), with how many.
+/// The check-in: reason "months", and how many months they've been with STAK.
 struct GoalCheckInDto: Decodable, Equatable { var reason: String = ""; var count: Int = 0 }
 struct GoalCheckInRequest: Encodable { let answer: String }
 

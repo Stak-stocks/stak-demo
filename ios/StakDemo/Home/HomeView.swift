@@ -571,8 +571,8 @@ private struct WhyThisMattersCard: View {
 	}
 }
 
-/// "Ready to go beyond the basics?" - for someone whose quiz goal is learning, once they've made a few practice buys or
-/// used STAK on enough days (the server decides: the brief's goalCheckIn). Switch to long-term moves the goal to growing
+/// "Ready to go beyond the basics?" - for someone whose quiz goal is learning, a month after they joined and, if they
+/// kept the basics, once more two months later (the server decides: the brief's goalCheckIn). Switch to long-term moves the goal to growing
 /// money long-term; Keep the basics leaves it, and the server waits weeks before asking again. Answered, the card says
 /// how it went (announced too) until the brief stops asking; a failed send can be tried again. Android's GoalCheckInCard.
 private struct GoalCheckInCard: View {
@@ -644,7 +644,7 @@ struct GoalCheckInCopy {
 			self.init("Got it", "STAK AI and your brief will keep explaining the basics.", change, false,
 				"Got it. STAK will keep explaining the basics.")
 		default:
-			let did = checkIn.reason == "trades" ? "You've made \(checkIn.count)+ practice buys." : "You've used STAK on \(checkIn.count)+ different days."
+			let did = "You've been learning with STAK for \(checkIn.count) month\(checkIn.count == 1 ? "" : "s")."
 			self.init(
 				"Ready to go beyond the basics?",
 				"\(did) Switching changes your goal to Grow my money long-term, so STAK AI and your brief focus on the long-term picture instead of the basics.",

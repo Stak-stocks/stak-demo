@@ -32,8 +32,8 @@ export function WhyThisMattersCard({ body, onOpen }: { body: string; onOpen: () 
 }
 
 /**
- * "Ready to go beyond the basics?" - for someone whose quiz goal is learning, once they've made a few practice buys or
- * used STAK on enough days (the server decides: the brief's goalCheckIn). Answered, it says how it went (read out, and
+ * "Ready to go beyond the basics?" - for someone whose quiz goal is learning, a month after they joined and, if they
+ * kept the basics, once more two months later (the server decides: the brief's goalCheckIn). Answered, it says how it went (read out, and
  * focus moves to its heading as the buttons go). The apps' GoalCheckInCard.
  */
 export function GoalCheckInCard({ checkIn, status, onAnswer }: { checkIn: GoalCheckIn; status: GoalCheckInStatus; onAnswer: (switchToGrow: boolean) => void }) {

@@ -53,20 +53,22 @@ describe("investing goal", () => {
 	});
 
 	describe("Home's check-in", () => {
-		it("is for a learner who has made 5 practice buys or used STAK on 14 days", () => {
-			expect(checkInDue(GOAL_LEARN, 5, 0, null, NOW)).toEqual({ reason: "trades", count: 5 });
-			expect(checkInDue(GOAL_LEARN, 2, 14, null, NOW)).toEqual({ reason: "days", count: 14 });
-			expect(checkInDue(GOAL_LEARN, 4, 13, null, NOW)).toBeNull();
-			expect(checkInDue(GOAL_GROW, 50, 50, null, NOW)).toBeNull();
-			expect(checkInDue(-1, 50, 50, null, NOW)).toBeNull();
+		it("is for a learner whose account is a month old", () => {
+			expect(checkInDue(GOAL_LEARN, ago(30), null, NOW)).toEqual({ reason: "months", count: 1 });
+			expect(checkInDue(GOAL_LEARN, ago(29), null, NOW)).toBeNull();
+			expect(checkInDue(GOAL_LEARN, ago(95), null, NOW)).toEqual({ reason: "months", count: 3 });
+			expect(checkInDue(GOAL_GROW, ago(400), null, NOW)).toBeNull();
+			expect(checkInDue(-1, ago(400), null, NOW)).toBeNull();
+			expect(checkInDue(GOAL_LEARN, null, null, NOW)).toBeNull();
 		});
 
-		it("after 'Keep the basics', comes back once, six weeks later", () => {
-			expect(checkInDue(GOAL_LEARN, 9, 0, { asks: 1, lastAskedAt: ago(CHECK_IN_AGAIN_DAYS - 1), last: "keep" }, NOW)).toBeNull();
-			expect(checkInDue(GOAL_LEARN, 9, 0, { asks: 1, lastAskedAt: ago(CHECK_IN_AGAIN_DAYS), last: "keep" }, NOW)).toEqual({ reason: "trades", count: 9 });
-			expect(checkInDue(GOAL_LEARN, 9, 0, { asks: 2, lastAskedAt: ago(365), last: "keep" }, NOW)).toBeNull();
+		it("after 'Keep the basics', comes back once, two months later", () => {
+			const keptAt = (days: number) => ({ asks: 1, lastAskedAt: ago(days), last: "keep" as const });
+			expect(checkInDue(GOAL_LEARN, ago(89), keptAt(CHECK_IN_AGAIN_DAYS - 1), NOW)).toBeNull();
+			expect(checkInDue(GOAL_LEARN, ago(90), keptAt(CHECK_IN_AGAIN_DAYS), NOW)).toEqual({ reason: "months", count: 3 });
+			expect(checkInDue(GOAL_LEARN, ago(400), { asks: 2, lastAskedAt: ago(300), last: "keep" }, NOW)).toBeNull();
 			// A bad date never brings it back.
-			expect(checkInDue(GOAL_LEARN, 9, 0, { asks: 1, lastAskedAt: "nonsense", last: "keep" }, NOW)).toBeNull();
+			expect(checkInDue(GOAL_LEARN, ago(400), { asks: 1, lastAskedAt: "nonsense", last: "keep" }, NOW)).toBeNull();
 		});
 	});
 });

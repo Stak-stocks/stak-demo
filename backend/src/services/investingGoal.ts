@@ -122,63 +122,45 @@ export async function recordTerms(uid: string, goal: number, text: string): Prom
 
 // ── Home's check-in ─────────────────────────────────────────────────────────
 
-/** Practice buys that count as having found their feet. */
-export const CHECK_IN_TRADES = 5;
-/** Or different days they used STAK on. */
-export const CHECK_IN_DAYS = 14;
-/** After "Keep explaining", not asked again for this long, */
-export const CHECK_IN_AGAIN_DAYS = 42;
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** First asked once the account is a month old, */
+export const CHECK_IN_FIRST_DAYS = 30;
+/** after "Keep the basics", asked once more two months later, */
+export const CHECK_IN_AGAIN_DAYS = 60;
 /** and never more than this many times. */
 export const CHECK_IN_MAX_ASKS = 2;
 
-/** What the card says they've done: "You've made 5 practice buys." / "You've used STAK on 14 different days." */
-export type GoalCheckIn = { reason: "trades"; count: number } | { reason: "days"; count: number };
+/** How long they've been with STAK, for the card: "You've been learning with STAK for 3 months." */
+export interface GoalCheckIn { reason: "months"; count: number }
 
 /** The stored answers (users.goal_check_in). */
 export interface CheckInRecord { asks: number; lastAskedAt: string; last: "keep" | "switch" }
 
-/** Whether the earlier answers still allow asking: never asked, or "keep" long enough ago and not too often. */
-export function mayAskAgain(record: CheckInRecord | null, now: Date): boolean {
-	if (!record) return true;
-	if (record.asks >= CHECK_IN_MAX_ASKS) return false;
-	const since = now.getTime() - new Date(record.lastAskedAt).getTime();
-	return since >= CHECK_IN_AGAIN_DAYS * 24 * 60 * 60 * 1000;
-}
-
-/** Whether the check-in is due, from the facts - no database, so it's tested on its own. */
-export function checkInDue(goal: number, trades: number, days: number, record: CheckInRecord | null, now: Date): GoalCheckIn | null {
-	if (goal !== GOAL_LEARN || !mayAskAgain(record, now)) return null;
-	if (trades >= CHECK_IN_TRADES) return { reason: "trades", count: trades };
-	if (days >= CHECK_IN_DAYS) return { reason: "days", count: days };
-	return null;
-}
-
 /**
- * The check-in for this account, or null. It runs on every Home load, so: only a learner is looked at, the earlier
- * answers are read first (a card that can't be due counts nothing), and each count stops at its threshold. Any
- * failure (the columns not there yet, say) is no check-in.
+ * Whether the check-in is due, from the facts - no database, so it's tested on its own: a learner whose account is a
+ * month old and who hasn't answered, or who kept the basics two months ago and has been asked only once.
  */
+export function checkInDue(goal: number, createdAt: string | Date | null, record: CheckInRecord | null, now: Date): GoalCheckIn | null {
+	if (goal !== GOAL_LEARN || createdAt == null) return null;
+	const age = now.getTime() - new Date(createdAt).getTime();
+	if (!(age >= CHECK_IN_FIRST_DAYS * DAY_MS)) return null;
+	if (record) {
+		if (record.asks >= CHECK_IN_MAX_ASKS) return null;
+		const since = now.getTime() - new Date(record.lastAskedAt).getTime();
+		if (!(since >= CHECK_IN_AGAIN_DAYS * DAY_MS)) return null;
+	}
+	return { reason: "months", count: Math.floor(age / (CHECK_IN_FIRST_DAYS * DAY_MS)) };
+}
+
+/** The check-in for this account, or null: one small read, only for a learner. Any failure is no check-in. */
 export async function goalCheckIn(uid: string, goal: number, now = new Date()): Promise<GoalCheckIn | null> {
 	if (goal !== GOAL_LEARN) return null;
-	const stored = await pgQuery<{ record: CheckInRecord | null }>(
-		`select goal_check_in as record from users where uid = $1`, [uid],
-	).catch(() => null);
-	const record = stored?.rows[0]?.record ?? null;
-	if (!stored || !mayAskAgain(record, now)) return null;
-	const result = await pgQuery<{ trades: number; days: number }>(
-		`select
-			(select count(*)::int from (select 1 from sandbox_trades where uid = $1 and side = 'buy' limit $2) t) as trades,
-			(select count(*)::int from (
-				select date from sessions where uid = $1
-				union
-				select to_char(occurred_at at time zone 'America/New_York', 'YYYY-MM-DD') from swipes where uid = $1
-				limit $3
-			) d) as days`,
-		[uid, CHECK_IN_TRADES, CHECK_IN_DAYS],
+	const result = await pgQuery<{ created_at: string | Date | null; record: CheckInRecord | null }>(
+		`select created_at, goal_check_in as record from users where uid = $1`, [uid],
 	).catch(() => null);
 	const row = result?.rows[0];
 	if (!row) return null;
-	return checkInDue(goal, row.trades, row.days, record, now);
+	return checkInDue(goal, row.created_at, row.record, now);
 }
 
 /**

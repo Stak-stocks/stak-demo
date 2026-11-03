@@ -14,7 +14,7 @@ export function goalCheckInCopy(checkIn: GoalCheckIn, status: GoalCheckInStatus)
 	if (status === "kept") {
 		return { title: "Got it", body: "STAK AI and your brief will keep explaining the basics.", footnote: change, asking: false };
 	}
-	const did = checkIn.reason === "trades" ? `You've made ${checkIn.count}+ practice buys.` : `You've used STAK on ${checkIn.count}+ different days.`;
+	const did = `You've been learning with STAK for ${checkIn.count} month${checkIn.count === 1 ? "" : "s"}.`;
 	return {
 		title: "Ready to go beyond the basics?",
 		body: `${did} Switching changes your goal to Grow my money long-term, so STAK AI and your brief focus on the long-term picture instead of the basics.`,

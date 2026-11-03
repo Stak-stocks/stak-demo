@@ -586,8 +586,8 @@ private fun WhyThisMattersCard(onOpenMyStak: () -> Unit) {
 }
 
 /**
- * "Ready to go beyond the basics?" - for someone whose quiz goal is learning, once they've made a few practice buys or
- * used STAK on enough days (the server decides: the brief's goalCheckIn). Switch to long-term moves the goal to growing
+ * "Ready to go beyond the basics?" - for someone whose quiz goal is learning, a month after they joined and, if they
+ * kept the basics, once more two months later (the server decides: the brief's goalCheckIn). Switch to long-term moves the goal to growing
  * money long-term; Keep the basics leaves it, and the server waits weeks before asking again. Answered, the card says
  * how it went (announced too) until the brief stops asking; a failed send can be tried again.
  */
@@ -672,7 +672,7 @@ internal fun goalCheckInCopy(checkIn: com.stak.demo.data.GoalCheckInDto, status:
 			"Got it. STAK will keep explaining the basics.",
 		)
 		else -> {
-			val did = if (checkIn.reason == "trades") "You've made ${checkIn.count}+ practice buys." else "You've used STAK on ${checkIn.count}+ different days."
+			val did = "You've been learning with STAK for ${checkIn.count} month${if (checkIn.count == 1) "" else "s"}."
 			val failed = status == com.stak.demo.data.GoalCheckInStatus.Failed
 			GoalCheckInCopy(
 				"Ready to go beyond the basics?",

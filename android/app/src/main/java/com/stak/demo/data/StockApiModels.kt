@@ -289,7 +289,7 @@ data class DailyBriefResponse(
     val goalCheckIn: GoalCheckInDto? = null,
 )
 
-/** Why the check-in is shown: "trades" (practice buys made) or "days" (days STAK was used), with how many. */
+/** The check-in: reason "months", and how many months they've been with STAK. */
 data class GoalCheckInDto(val reason: String = "", val count: Int = 0)
 data class GoalCheckInRequest(val answer: String)
 

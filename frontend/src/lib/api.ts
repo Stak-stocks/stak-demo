@@ -714,9 +714,9 @@ export interface DailyBriefResponse {
 	generatedAt: string;
 }
 
-/** Why the goal check-in is shown: practice buys made, or days STAK was used, with how many. */
+/** The goal check-in: for a learner a month after joining, and once more two months after keeping the basics. `count` is months with STAK. */
 export interface GoalCheckIn {
-	reason: "trades" | "days";
+	reason: "months";
 	count: number;
 }
 
