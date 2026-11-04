@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH } from "../services/geminiService.js";
+import { getEarningsBeatMissFromWeb, getGeminiKeys, withGeminiConcurrencyLimit, GEMINI_REFUSAL_RE, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH, MINIMAL_THINKING, NEUTRAL_WORDS } from "../services/geminiService.js";
 import { getFinnhubKeys, FINNHUB_BASE } from "../services/finnhubService.js";
 import { getConsensusEarningsDate, FMP_BASE } from "../services/earningsConsensus.js";
 import { getConsensusEarningsResult, hasSameDayEarningsArticle } from "../services/earningsResultConsensus.js";
@@ -566,11 +566,11 @@ async function mapWithLimit<T, R>(items: T[], limit: number, fn: (item: T) => Pr
 //
 // Pre-generates the "why it moved" text for every stock someone has saved, once per
 // trading day, so the first person to open one reads it straight away. Scoped to
-// saved stocks (not the whole catalogue) and to the multi-sentence answer both apps
-// read (Android asks for 2, web My STAK for 4; the prompt is the same for any length
-// over one, so they share one cache entry) at the "today" reference used during
+// saved stocks (not the whole catalogue) and to the multi-sentence answer the apps
+// read (Android and iOS ask for 2; web asks for one sentence, its own entry) at the "today" reference used during
 // market hours: one grounded call per saved stock per day (user decision,
-// 2026-09-16, lifting the June hold on cache warming with this scope).
+// 2026-09-16, lifting the June hold on cache warming with this scope) - and none for
+// a stock moving under QUIET_MOVE_PCT, which the page explains for whoever opens it.
 //
 // Called by Cloud Scheduler with the same x-warm-secret as the daily-brief warm.
 // A Cloud Run request can't outlive five minutes, and a full pass can't fit in one,
@@ -601,9 +601,9 @@ stockRouter.get("/warm-saved", async (req, res) => {
 		const tickerById = new Map(brands.map((b) => [b.id, { ticker: b.ticker.toUpperCase(), name: b.name }]));
 		const stocks = saved.rows.map((r) => tickerById.get(r.brand_id)).filter((x): x is { ticker: string; name: string } => !!x);
 
-		let warmed = 0, skipped = 0, pending = 0, updates = 0;
+		let warmed = 0, quiet = 0, skipped = 0, pending = 0, updates = 0;
 		for (const { ticker, name } of stocks) {
-			if (Date.now() - started > WARM_BUDGET_MS || (limit > 0 && warmed >= limit)) { pending++; continue; }
+			if (Date.now() - started > WARM_BUDGET_MS || (limit > 0 && warmed + quiet >= limit)) { pending++; continue; }
 			const doneKey = `warm-saved:done:${today}:${ticker}`;
 			const moveDone = await cacheGet<boolean>(doneKey);
 			if (!forceUpdates && moveDone && await cacheGet<boolean>(`updates:done:v6:${today}:1:${ticker}`)) { skipped++; continue; }
@@ -635,18 +635,25 @@ stockRouter.get("/warm-saved", async (req, res) => {
 				}
 
 				const changePercent = quote.dp;
-				const direction: "up" | "down" | "flat" = changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
-				const cacheKey = dailyMoveCacheKey(symbol, direction, 2, "today");
-				if (!(await cacheGet<DailyMoveResult>(lastDailyMoveKey(cacheKey)))) {
-					await dailyMoveCompute({ symbol, changePercent, companyName: name, sentences: 2, marketClosed: false, closeRef: "today", direction, cacheKey });
-				}
-				// Done only once a real answer is kept; a failed call leaves the stock for the
-				// next run instead of writing it off for the day.
-				if (await cacheGet<DailyMoveResult>(lastDailyMoveKey(cacheKey))) {
+				if (isQuietMove(changePercent)) {
+					// A quiet day: no grounded call ahead of time - the page still explains it
+					// for whoever opens it. Done for the day; its updates and risk still run below.
 					await cacheSet(doneKey, true, DAILY_MOVE_LAST_TTL_MS);
-					warmed++;
+					quiet++;
 				} else {
-					skipped++;
+					const direction = moveDirection(changePercent);
+					const cacheKey = dailyMoveCacheKey(symbol, direction, 2, "today", false);
+					if (!(await cacheGet<DailyMoveResult>(lastDailyMoveKey(cacheKey)))) {
+						await dailyMoveCompute({ symbol, changePercent, companyName: name, sentences: 2, marketClosed: false, closeRef: "today", direction, cacheKey });
+					}
+					// Done only once a real answer is kept; a failed call leaves the stock for the
+					// next run instead of writing it off for the day.
+					if (await cacheGet<DailyMoveResult>(lastDailyMoveKey(cacheKey))) {
+						await cacheSet(doneKey, true, DAILY_MOVE_LAST_TTL_MS);
+						warmed++;
+					} else {
+						skipped++;
+					}
 				}
 				// What changed at this company today, for "Updates in your STAK" - after the
 				// move explanation, which is the more time-sensitive of the two, and inside
@@ -662,8 +669,8 @@ stockRouter.get("/warm-saved", async (req, res) => {
 				skipped++;
 			}
 		}
-		console.log(`[warm-saved] ${today} warmed=${warmed} updates=${updates} skipped=${skipped} pending=${pending} of ${stocks.length} in ${Math.round((Date.now() - started) / 1000)}s`);
-		res.json({ ok: true, today, total: stocks.length, warmed, updates, skipped, pending });
+		console.log(`[warm-saved] ${today} warmed=${warmed} quiet=${quiet} updates=${updates} skipped=${skipped} pending=${pending} of ${stocks.length} in ${Math.round((Date.now() - started) / 1000)}s`);
+		res.json({ ok: true, today, total: stocks.length, warmed, quiet, updates, skipped, pending });
 	} catch (error) {
 		console.error("[warm-saved] error:", error);
 		res.status(500).json({ error: "warm failed" });
@@ -1156,7 +1163,9 @@ async function fetchGeminiEarningsDates(
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { temperature: 0.1 },
+						// "low", not minimal: on 2.5 Flash this lookup thought by default (it set no thinking), and the dates
+						// it finds are shown as they are.
+						generationConfig: { thinkingConfig: { thinkingLevel: "low" } },
 					}),
 					signal: AbortSignal.timeout(15000),
 				},
@@ -1594,7 +1603,7 @@ Where low/avg/high are numbers (no $ sign). If any value is not found, use null.
 						body: JSON.stringify({
 							contents: [{ parts: [{ text: prompt }] }],
 							tools: [{ google_search: {} }],
-							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0 },
+							generationConfig: { thinkingConfig: MINIMAL_THINKING },
 						}),
 						signal: controller.signal,
 					},
@@ -1706,7 +1715,7 @@ Rules:
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, maxOutputTokens: 500 },
+						generationConfig: { thinkingConfig: MINIMAL_THINKING, maxOutputTokens: 500 },
 					}),
 					signal: controller.signal,
 				},
@@ -1829,9 +1838,24 @@ stockRouter.get("/peer-metrics/:ticker", async (req, res) => {
 // ── Daily move explanation ───────────────────────────────────────────────────
 // GET /api/stock/:symbol/daily-move
 // Asks Gemini to explain why a stock is moving today, using live quote + recent headlines.
-// Cached 30 minutes.
+// Cached 30 minutes (2 hours for a move under QUIET_MOVE_PCT).
 
 const DAILY_MOVE_TTL_MS = 30 * 60 * 1000;
+/**
+ * Under this move (%, either way) the warm job doesn't explain it ahead of time, and the
+ * page refreshes its answer (a grounded search) every QUIET_MOVE_TTL_MS: a small move's
+ * story rarely changes within the hour.
+ */
+const QUIET_MOVE_PCT = 1;
+const QUIET_MOVE_TTL_MS = 2 * 60 * 60 * 1000;
+
+function isQuietMove(changePercent: number): boolean {
+	return Math.abs(changePercent) < QUIET_MOVE_PCT;
+}
+
+function moveDirection(changePercent: number): "up" | "down" | "flat" {
+	return changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
+}
 
 type DailyMoveResult = { explanation: string; direction: "up" | "down" | "flat"; bullets?: Array<{ text: string; tone: string }> };
 
@@ -1855,8 +1879,8 @@ function lastDailyMoveKey(cacheKey: string): string {
 	return cacheKey.replace(/^daily-move:/, `daily-move:last:${getEasternDateKey()}:`);
 }
 
-async function rememberDailyMove(cacheKey: string, result: DailyMoveResult): Promise<void> {
-	await cacheSet(cacheKey, result, DAILY_MOVE_TTL_MS);
+async function rememberDailyMove(cacheKey: string, result: DailyMoveResult, changePercent: number): Promise<void> {
+	await cacheSet(cacheKey, result, isQuietMove(changePercent) ? QUIET_MOVE_TTL_MS : DAILY_MOVE_TTL_MS);
 	await cacheSet(lastDailyMoveKey(cacheKey), result, DAILY_MOVE_LAST_TTL_MS);
 }
 
@@ -1865,8 +1889,10 @@ async function rememberDailyMove(cacheKey: string, result: DailyMoveResult): Pro
  * gets the same prompt, so Android's 2 and web's 4 share a key instead of paying for
  * the same grounded answer twice.
  */
-function dailyMoveCacheKey(symbol: string, direction: "up" | "down" | "flat", sentences: number, closeRef: string): string {
-	return `daily-move:v12:${symbol}:${direction}:${sentences > 1 ? "multi" : "one"}:${closeRef}`;
+function dailyMoveCacheKey(symbol: string, direction: "up" | "down" | "flat", sentences: number, closeRef: string, quiet: boolean): string {
+	// Quiet answers keep for 2h: their own key, so a quiet morning's story isn't served
+	// once the stock is moving a lot.
+	return `daily-move:v12:${symbol}:${direction}${quiet ? "-quiet" : ""}:${sentences > 1 ? "multi" : "one"}:${closeRef}`;
 }
 
 /** Starts (or joins) the computation for a key, de-duplicated per instance. */
@@ -1891,10 +1917,9 @@ stockRouter.get("/:symbol/daily-move", async (req, res) => {
 	const marketClosed = req.query.marketClosed === "1";
 	// closeRef: "today", "yesterday", "Friday", etc. — tells us exactly when last close was
 	const closeRef = ((req.query.closeRef as string | undefined)?.trim()) || (marketClosed ? "recently" : "today");
-	const direction: "up" | "down" | "flat" =
-		changePercent > 0.15 ? "up" : changePercent < -0.15 ? "down" : "flat";
+	const direction = moveDirection(changePercent);
 
-	const cacheKey = dailyMoveCacheKey(symbol, direction, sentences, closeRef);
+	const cacheKey = dailyMoveCacheKey(symbol, direction, sentences, closeRef, isQuietMove(changePercent));
 	try {
 		const cached = await cacheGet<DailyMoveResult>(cacheKey);
 		if (cached !== null) { res.json(cached); return; }
@@ -1960,12 +1985,15 @@ Rules:
 - Use real numbers and data when available. Use → for changes (e.g. "odds dropped 25% → 15%")
 - tone must be exactly "bullish", "bearish", or "neutral" — pick whichever fits that point
 - Plain everyday language — no jargon, no "it is worth noting", no filler
-- When referencing when the move happened, use "${timeRef}" — do not substitute a different time reference`
+- When referencing when the move happened, use "${timeRef}" — do not substitute a different time reference
+- ${NEUTRAL_WORDS}`
 		: `${subject} stock (ticker: ${symbol}) was ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} ${timeRef}.${marketClosed ? " Note: US markets are currently closed." : ""}
 
 Search the web right now for the specific reason why ${symbol} moved ${searchRef}. Look for: earnings results, product announcements, analyst upgrades/downgrades, partnerships, regulatory news, or broader sector moves.
 
 Write exactly 1 sentence (max 20 words) explaining the main catalyst to a young investor. Be specific — name the actual event. Do not say "various factors" or be vague.${directionNote} Use "${timeRef}" when referencing when the move happened.
+
+${NEUTRAL_WORDS}
 
 Return ONLY that single sentence — no bullet points, no markdown, no JSON, no additional sentences.`;
 
@@ -1986,7 +2014,7 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, maxOutputTokens: sentences > 1 ? 500 : 200 },
+						generationConfig: { thinkingConfig: MINIMAL_THINKING, maxOutputTokens: sentences > 1 ? 500 : 200 },
 					}),
 					signal: controller.signal,
 				},
@@ -2032,21 +2060,21 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 						if (bullets.length > 0) {
 							const explanation = bullets.map((b) => b.text).join(" ");
 							const result = { explanation, bullets, direction };
-							await rememberDailyMove(cacheKey, result);
+							await rememberDailyMove(cacheKey, result, changePercent);
 							return result;
 						}
 					}
 				} catch { /* fall through to plain text fallback */ }
 				if (raw) {
 					const result = { explanation: raw, direction };
-					await rememberDailyMove(cacheKey, result);
+					await rememberDailyMove(cacheKey, result, changePercent);
 					return result;
 				}
 			} else {
 				const explanation = raw.match(/^[^.!?]+[.!?]/)?.[0]?.trim() ?? raw.split("\n")[0]?.trim() ?? raw;
 				if (explanation) {
 					const result = { explanation, direction };
-					await rememberDailyMove(cacheKey, result);
+					await rememberDailyMove(cacheKey, result, changePercent);
 					return result;
 				}
 			}
@@ -2063,7 +2091,12 @@ Return ONLY that single sentence — no bullet points, no markdown, no JSON, no 
 	// key hid it for five minutes from everyone, including the visitor who had just
 	// been shown it.
 	const lastGood = await cacheGet<DailyMoveResult>(lastDailyMoveKey(cacheKey));
-	if (lastGood) return lastGood;
+	if (lastGood) {
+		// Held under the fresh key briefly too, or every visit until Gemini recovers would
+		// start another grounded refresh behind it.
+		await cacheSet(cacheKey, lastGood, 5 * 60 * 1000);
+		return lastGood;
+	}
 	const fallback = { explanation: `${symbol} is ${direction === "flat" ? "roughly flat" : `${direction} ${moveSummary}`} today.`, direction };
 	await cacheSet(cacheKey, fallback, 5 * 60 * 1000); // short TTL so we retry sooner
 	return fallback;
@@ -2161,11 +2194,11 @@ ${financialLines ? `Static financial context: ${financialLines}.` : ""}
 
 Search the web for what the main risk facing ${companyName} is right now. Look for:
 - Macro risk relevant to this company (interest rate sensitivity, tariff/trade exposure, currency risk, sector headwinds)
-- Valuation risk (is it trading at a stretched multiple?)
+- Valuation risk (a high price compared with earnings means high expectations to meet)
 - Company-specific financial risk (high debt load, slowing revenue growth, margin pressure, competition)
 - Any significant recent news that introduces new risk
 
-Write a single sentence (35 words max) in plain English naming the most important risk and why it matters to a beginner investor. No disclaimers, no "it's important to note", no financial advice language.
+Write a single sentence (35 words max) in plain English naming the most important risk and why it matters to a beginner investor. No disclaimers, no "it's important to note", no financial advice language. ${NEUTRAL_WORDS}
 
 Return ONLY that sentence as plain text — no markdown, no JSON, no bullets.`;
 
@@ -2182,7 +2215,7 @@ Return ONLY that sentence as plain text — no markdown, no JSON, no bullets.`;
 						system_instruction: AMERICAN_ENGLISH,
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.3, maxOutputTokens: 80 },
+						generationConfig: { thinkingConfig: MINIMAL_THINKING, maxOutputTokens: 80 },
 					}),
 					signal: controller.signal,
 				},

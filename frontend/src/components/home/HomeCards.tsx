@@ -1,6 +1,8 @@
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { BrandSummary } from "@stak/shared";
-import { getTrending } from "@/lib/api";
+import { getTrending, type GoalCheckIn } from "@/lib/api";
+import { goalCheckInCopy, type GoalCheckInStatus } from "@/hooks/useGoalCheckIn";
 import { DISC, cu, sessionWord } from "@/components/discover/discoverTheme";
 import { PRESS, f, focusRing } from "@/components/phone/phone";
 import { HOME } from "./MarketMoodCard";
@@ -26,6 +28,33 @@ export function WhyThisMattersCard({ body, onOpen }: { body: string; onOpen: () 
 				<p style={{ font: f(300, 12, 17), color: "#fff" }}>{body}</p>
 			</div>
 		</button>
+	);
+}
+
+/**
+ * "Ready to go beyond the basics?" - for someone whose quiz goal is learning, a month after they joined and, if they
+ * kept the basics, once more two months later (the server decides: the brief's goalCheckIn). Answered, it says how it went (read out, and
+ * focus moves to its heading as the buttons go). The apps' GoalCheckInCard.
+ */
+export function GoalCheckInCard({ checkIn, status, onAnswer }: { checkIn: GoalCheckIn; status: GoalCheckInStatus; onAnswer: (switchToGrow: boolean) => void }) {
+	const copy = goalCheckInCopy(checkIn, status);
+	const heading = useRef<HTMLHeadingElement>(null);
+	useEffect(() => { if (!copy.asking) heading.current?.focus(); }, [copy.asking]);
+	const sending = status === "sending";
+	return (
+		<section aria-labelledby="goal-check-in" style={{ borderRadius: cu(8), background: HOME.cardBg, padding: cu(14), display: "flex", flexDirection: "column", gap: cu(8) }}>
+			<h2 id="goal-check-in" ref={heading} tabIndex={-1} style={{ font: f(400, 14, 18, "heading"), color: "#fff", outline: "none" }}>{copy.title}</h2>
+			<div aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: cu(8) }}>
+				<p style={{ font: f(300, 12, 17), color: "#fff" }}>{copy.body}</p>
+				{copy.asking && (
+					<div className="flex items-center" style={{ gap: cu(16) }}>
+						<button type="button" disabled={sending} onClick={() => onAnswer(true)} className={`rounded-full ${PRESS}`} style={{ minHeight: 44, padding: `0 ${cu(16)}`, background: HOME.teal, font: f(500, 12, 15), color: "#000", ...focusRing }}>Switch to long-term</button>
+						<button type="button" disabled={sending} onClick={() => onAnswer(false)} className={PRESS} style={{ minHeight: 44, padding: `0 ${cu(4)}`, font: f(500, 12, 15), color: HOME.teal, ...focusRing }}>Keep the basics</button>
+					</div>
+				)}
+				<p style={{ font: f(300, 11, 14), color: "rgba(255,255,255,0.6)" }}>{copy.footnote}</p>
+			</div>
+		</section>
 	);
 }
 

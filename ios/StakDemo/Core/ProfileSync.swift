@@ -4,8 +4,13 @@ import Foundation
 /// from the server's creation time, and the onboarding answers (taste chips, risk style)
 /// are stored with the account instead of only on this phone.
 /// Mirrors android/data/ProfileSync.kt.
-final class ProfileSync {
+/// Home's goal check-in this session: not answered yet, being sent, answered either way, or the send failed.
+enum GoalCheckInStatus { case open, sending, kept, switched, failed }
+
+final class ProfileSync: ObservableObject {
 	static let shared = ProfileSync()
+	/// Where Home's goal check-in stands this session (see answerGoalCheckIn); back to .open on sign-out.
+	@Published var goalCheckIn: GoalCheckInStatus = .open
 	private let repo = StockRepository.shared
 	private var syncedAt: Date? = nil
 	private let interval: TimeInterval = 5 * 60
@@ -98,6 +103,29 @@ final class ProfileSync {
 			// Only a send of what the phone still holds clears the flag.
 			await MainActor.run {
 				if Session.shared.accountGeneration == account, Self.same(Self.currentTaste(), taste) { StakStore.set(false, for: Self.tastePending) }
+			}
+		}
+	}
+
+	/// Home's goal check-in answered. The server keeps the answer and, for "switch", moves the goal in the same
+	/// statement; once it has, this phone takes the new goal too (the server already holds it, so there's nothing to
+	/// send). The card says how it went - goalCheckIn - until the brief stops asking; a failure lets them try again.
+	/// Mirrors Android's ProfileSync.answerGoalCheckIn.
+	@MainActor
+	func answerGoalCheckIn(switchToGrow: Bool) {
+		guard goalCheckIn != .sending, !Session.shared.demoAccount, Session.shared.token != nil else { return }
+		goalCheckIn = .sending
+		let account = Session.shared.accountGeneration
+		let answer = switchToGrow ? "switch" : "keep"
+		Task.detached(priority: .utility) {
+			let ok = (try? await self.repo.answerGoalCheckIn(answer)) != nil
+			await MainActor.run {
+				guard Session.shared.accountGeneration == account else { return }
+				if ok, switchToGrow {
+					UserProfile.shared.goal = TasteModel.goalGrow
+					Session.shared.saveProfile()
+				}
+				self.goalCheckIn = !ok ? .failed : switchToGrow ? .switched : .kept
 			}
 		}
 	}

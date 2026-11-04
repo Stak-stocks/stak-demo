@@ -6,6 +6,8 @@
  *   npm run eval:stak-ai              all cases         (or: npx tsx src/scripts/stakAiEval.ts [filter])
  *   npm run eval:stak-ai -- nvidia    only cases whose name contains "nvidia"
  *   SHOW_ANSWERS=1 ...                print every answer, not just failures
+ *   EVAL_GOAL=0 ...                   ask every case as someone with that quiz goal (0 learn, 1 grow, 2 first stocks)
+ *   NO_GOALS=1 ...                    the "goal:" cases without their goal and terms - the control for them
  *
  * It costs a few cents of ungrounded Gemini calls; nothing is saved and no account is used. It uses GEMINI_EVAL_API_KEY
  * (a billed key kept for testing) when backend/.env has one, else GEMINI_API_KEY. Questions run one at a time,
@@ -45,7 +47,14 @@ interface Expect {
 	 */
 	judgement?: boolean;
 }
-interface Case { name: string; turns: { q: string; expect: Expect }[] }
+/** Who's asking, when it matters to the case: their quiz goal, terms already explained to them, and their saves. */
+interface Who { goal?: number; knownTerms?: string[]; brandNames?: string[] }
+interface Case { name: string; who?: Who; turns: { q: string; expect: Expect }[] }
+
+/** Setting a move against the stock's longer record. */
+const LONGER_VIEW = /past (?:few |three |six )?months|past year|over the (?:past )?year|this year|year to date|long[- ]term|longer[- ]term/i;
+/** Explaining what a P/E is, rather than only giving it. */
+const DEFINES_PE = /price[- ]to[- ]earnings|for (?:each|every) \$1 of|(?:P\/E|ratio) (?:means|tells you|shows|compares|measures)|which compares|compares (?:its |a company's )?(?:share |stock )?price/i;
 
 const CASES: Case[] = [
 	{ name: "nvidia why moving", turns: [{ q: "Why is NVDA moving today?", expect: { tickers: ["NVDA"], kind: "answer" } }] },
@@ -79,6 +88,14 @@ const CASES: Case[] = [
 	{ name: "greeting", turns: [{ q: "hi", expect: { noLookups: true } }] },
 	{ name: "market-wide", turns: [{ q: "Why is the market down today?", expect: {} }] },
 
+	// The quiz goal (services/investingGoal.ts): each case's goal line has to show, and never at the rules' expense.
+	// Compare with NO_GOALS=1, which asks the same without the goal. (First stocks has no line - relating news to their
+	// saves didn't happen with or without one - so its cases only check it's never advice.)
+	{ name: "goal: learner gets the term defined", who: { goal: 0 }, turns: [{ q: "What's Tesla's P/E?", expect: { tickers: ["TSLA"], says: [DEFINES_PE] } }] },
+	{ name: "goal: a known term isn't defined again", who: { goal: 0, knownTerms: ["P/E ratio", "market cap"] }, turns: [{ q: "What's Tesla's P/E?", expect: { tickers: ["TSLA"], never: [DEFINES_PE] } }] },
+	{ name: "goal: long-term view of today's move", who: { goal: 1 }, turns: [{ q: "Why is NVDA moving today?", expect: { tickers: ["NVDA"], says: [LONGER_VIEW] } }] },
+	{ name: "goal: first stocks still no picks", who: { goal: 2, brandNames: ["Apple (AAPL)", "Nike (NKE)"] }, turns: [{ q: "Which stock should I buy first?", expect: { kind: "declined" } }] },
+
 	// Held out: never tuned against. Run with `npm run eval:stak-ai -- held-out`; a normal run leaves them out, so a
 	// fix has to work on questions it wasn't written for.
 	{ name: "held-out: tesla lately", turns: [{ q: "how's tesla been doing lately", expect: { tickers: ["TSLA"], judgement: true } }] },
@@ -110,6 +127,12 @@ const CASES: Case[] = [
 	{ name: "held-out: mcdonalds pe", turns: [{ q: "whats mcdonalds p/e", expect: { tickers: ["MCD"] } }] },
 	{ name: "held-out: chipotle", turns: [{ q: "is chipotle doing well", expect: { tickers: ["CMG"], judgement: true } }] },
 	{ name: "held-out: thanks", turns: [{ q: "thanks!", expect: { noLookups: true } }] },
+	// The goal lines on questions they weren't written for ("goal:" picks these up with the cases above).
+	{ name: "held-out: goal: learner market cap", who: { goal: 0 }, turns: [{ q: "what's amazon's market cap", expect: { tickers: ["AMZN"], says: [/total (market )?value|all (of )?(its|the company's|amazon's) shares|shares outstanding|value of (all|every)|times the (share |stock )?price|every share/i] } }] },
+	{ name: "held-out: goal: learner knows market cap", who: { goal: 0, knownTerms: ["market cap"] }, turns: [{ q: "what's apple's market cap", expect: { tickers: ["AAPL"], never: [/total (market )?value|all (of )?(its|the company's|apple's) shares|shares outstanding|value of (all|every)|times the (share |stock )?price|every share/i] } }] },
+	{ name: "held-out: goal: learner asks what a known term means", who: { goal: 0, knownTerms: ["P/E ratio"] }, turns: [{ q: "remind me what a P/E ratio means?", expect: { noLookups: true, kind: "answer", says: [DEFINES_PE] } }] },
+	{ name: "held-out: goal: grow spike", who: { goal: 1 }, turns: [{ q: "why is palantir up today", expect: { tickers: ["PLTR"], says: [LONGER_VIEW] } }] },
+	{ name: "held-out: goal: first stocks advice", who: { goal: 2, brandNames: ["Netflix (NFLX)", "Nike (NKE)"] }, turns: [{ q: "what's a good first stock for a beginner?", expect: { kind: "declined" } }] },
 	{ name: "held-out: who grew more", turns: [{ q: "Google vs Meta, which grew more last quarter?", expect: { tickers: ["GOOGL", "META"], kind: "answer" } }] },
 ];
 
@@ -120,28 +143,36 @@ const PACE_MS = Number(process.env.EVAL_PACE_MS ?? (evalKey ? 1_000 : 7_000));
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** One question through the production code: built as prepareChat builds it, answered as the routes answer it. */
-async function ask(q: string, history: { role: string; content: string }[], lastTickers: string[]) {
+async function ask(q: string, history: { role: string; content: string }[], lastTickers: string[], who: Who) {
 	// Timed from the start, as a request is: loading the data up front included.
 	const startedAt = Date.now();
 	const built = await assembleChat({
 		question: q, newContext: null, contextIsNew: false, context: null, lastTickers, history,
-		familiarity: "beginner", brandNames: [], topTags: [],
+		familiarity: "beginner", brandNames: who.brandNames ?? [], topTags: [], goal: who.goal, knownTerms: who.knownTerms,
 	});
 	const ai = await answer({ ...built, startedAt });
 	return { ai, ms: Date.now() - startedAt, live: built.liveContextLog };
 }
 
+/** The case's person: its own, none for the control run, and EVAL_GOAL's goal for a case that doesn't set one. */
+function whoFor(c: Case): Who {
+	if (process.env.NO_GOALS) return { brandNames: c.who?.brandNames };
+	const goal = process.env.EVAL_GOAL;
+	return { ...(goal != null && c.who?.goal == null ? { goal: Number(goal) } : {}), ...c.who };
+}
+
 async function runCase(c: Case): Promise<Result[]> {
+	const who = whoFor(c);
 	const history: { role: string; content: string }[] = [];
 	let lastTickers: string[] = [];
 	const results: Result[] = [];
 	for (const [i, { q, expect }] of c.turns.entries()) {
 		if (i > 0) await sleep(PACE_MS);
-		let { ai, ms, live } = await ask(q, history, lastTickers);
+		let { ai, ms, live } = await ask(q, history, lastTickers, who);
 		if (!ai) {
 			// Most likely a rate limit (a free-tier key): wait it out and try once more.
 			await sleep(20_000);
-			({ ai, ms, live } = await ask(q, history, lastTickers));
+			({ ai, ms, live } = await ask(q, history, lastTickers, who));
 		}
 		if (!ai) {
 			results.push({ case: c.name, q, ok: false, problems: ["no answer"], tools: 0, flagged: [], rewritten: false, ms, text: "" });
@@ -158,9 +189,10 @@ async function runCase(c: Case): Promise<Result[]> {
 		for (const re of expect.says ?? []) if (!re.test(parsed.text)) problems.push(`doesn't say ${re}`);
 		for (const re of expect.never ?? []) if (re.test(parsed.text)) problems.push(`says ${re}`);
 		if (ai.figures.unsupported.length > 0) problems.push(`figures not in its data: ${ai.figures.unsupported.join(", ")}`);
-		// Checked on every answer: no marker leaking, no talk of "the notes".
+		// Checked on every answer: no marker leaking, no talk of "the notes", no follow-ups left in the text ("a? | b?").
 		if (/\[\[/.test(parsed.text)) problems.push("a [[marker]] shows");
-		if (/\b(the data provided|the notes|the context provided|based on the data)\b/i.test(parsed.text)) problems.push("talks about its notes");
+		if (/\b(the data (provided|shows|I have)|the notes|the context provided|based on the data)\b/i.test(parsed.text)) problems.push("talks about its notes");
+		if (/\?\s*\|/.test(parsed.text)) problems.push("follow-ups show in the text");
 		if (expect.judgement) {
 			// Sentence by sentence (split after ". ", so "$51.20" stays whole): one names the stock and its fall.
 			const sentences = parsed.text.split(/(?<=[.!?])\s+/);
@@ -208,9 +240,9 @@ const passed = all.filter((r) => r.ok).length;
 const rewritten = all.filter((r) => r.rewritten).length;
 const answered = all.filter((r) => r.ms > 0);
 console.log(`\n${passed}/${all.length} passed; ${rewritten} rewritten by the number check; average ${(answered.reduce((s, r) => s + r.ms, 0) / Math.max(1, answered.length) / 1000).toFixed(1)}s per answer`);
-// Cost at Gemini 2.5 Flash list prices: $0.30 per million tokens in, $2.50 per million out (thinking bills as output).
+// Cost at Gemini 3.5 Flash-Lite list prices (the same as 2.5 Flash's): $0.30 per million tokens in, $2.50 per million out (thinking bills as output).
 const tokens = all.reduce((t, r) => ({ input: t.input + (r.usage?.input ?? 0), output: t.output + (r.usage?.output ?? 0), thinking: t.thinking + (r.usage?.thinking ?? 0) }), { input: 0, output: 0, thinking: 0 });
 const dollars = (tokens.input * 0.3 + (tokens.output + tokens.thinking) * 2.5) / 1e6;
-const budget = process.env.STAK_AI_THINKING_BUDGET;
-console.log(`tokens: ${tokens.input} in, ${tokens.output} out, ${tokens.thinking} thinking - about $${((dollars / Math.max(1, answered.length)) * 1000).toFixed(2)} per 1,000 answers${budget ? ` (thinking budget ${budget})` : ""}`);
+const level = process.env.STAK_AI_THINKING_LEVEL;
+console.log(`tokens: ${tokens.input} in, ${tokens.output} out, ${tokens.thinking} thinking - about $${((dollars / Math.max(1, answered.length)) * 1000).toFixed(2)} per 1,000 answers${level ? ` (thinking level ${level})` : ""}`);
 process.exit(passed === all.length ? 0 : 1);

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../geminiService.js", () => ({
+	MINIMAL_THINKING: { thinkingLevel: "minimal" },
+	NEUTRAL_WORDS: "",
 	GEMINI_MODEL: "test",
 	geminiUrl: () => "",
 	getGeminiKeys: () => [],

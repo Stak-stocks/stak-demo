@@ -1,7 +1,7 @@
 import { getEasternDateKey } from "@stak/shared";
 import { pgQuery } from "../lib/postgres.js";
 import { getFinnhubKeys, FINNHUB_BASE } from "./finnhubService.js";
-import { getGeminiKeys, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH } from "./geminiService.js";
+import { getGeminiKeys, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH, MINIMAL_THINKING } from "./geminiService.js";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -165,10 +165,7 @@ async function tryGeminiKey(key: string, prompt: string): Promise<GeneratedBrand
 				body: JSON.stringify({
 					system_instruction: AMERICAN_ENGLISH,
 					contents: [{ parts: [{ text: prompt }] }],
-					generationConfig: { thinkingConfig: { thinkingBudget: 0 },
-						temperature: 0.4,
-						responseMimeType: "application/json",
-					},
+					generationConfig: { thinkingConfig: MINIMAL_THINKING, responseMimeType: "application/json" },
 				}),
 			},
 		);

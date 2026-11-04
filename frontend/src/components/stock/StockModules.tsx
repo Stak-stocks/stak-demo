@@ -148,8 +148,10 @@ const isoDayLabel = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00`).to
 
 export function NewsSignalCard({ symbol, name, changePct }: { symbol: string; name: string; changePct: number | null }) {
 	const direction = changePct == null ? null : changePct > 0.15 ? "up" : changePct < -0.15 ? "down" : "flat";
+	// The server explains a quiet day (under 1%) and a big move separately: so does this cache.
+	const quiet = changePct != null && Math.abs(changePct) < 1;
 	const move = useQuery({
-		queryKey: ["daily-move", symbol, direction],
+		queryKey: ["daily-move", symbol, direction, quiet],
 		queryFn: () => getDailyMove(symbol, changePct ?? undefined, name),
 		enabled: direction !== null,
 		staleTime: 30 * 60 * 1000,

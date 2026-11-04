@@ -17,6 +17,8 @@ vi.mock("../../services/earningsResultConsensus.js", () => ({
 }));
 
 vi.mock("../../services/geminiService.js", () => ({
+	MINIMAL_THINKING: { thinkingLevel: "minimal" },
+	NEUTRAL_WORDS: "",
 	AMERICAN_ENGLISH: { parts: [{ text: "American English" }] },
 	getEarningsBeatMissFromWeb: getEarningsBeatMissFromWebMock,
 	getGeminiKeys: vi.fn(() => []),

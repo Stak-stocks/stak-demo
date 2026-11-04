@@ -215,6 +215,7 @@ final class Session: ObservableObject {
 		accountGeneration += 1
 		signedIn = false
 		resumedSignedIn = false
+		ProfileSync.shared.goalCheckIn = .open
 		demoAccount = true
 		firstRunPending = false
 		StakStore.demoAccount = true

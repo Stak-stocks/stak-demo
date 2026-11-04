@@ -15,6 +15,8 @@ vi.mock("../../authMiddleware.js", () => ({
 	},
 }));
 vi.mock("../../services/geminiService.js", () => ({
+	MINIMAL_THINKING: { thinkingLevel: "minimal" },
+	NEUTRAL_WORDS: "",
 	AMERICAN_ENGLISH: { parts: [{ text: "American English" }] },
 	getGeminiKeys: () => ["key-1", "key-2"],
 	withGeminiConcurrencyLimit: (fn: () => unknown) => fn(),
@@ -51,6 +53,9 @@ interface Db {
 	ownLimit?: number | "none" | null;
 	conversation?: { id: string; uid: string; title?: string; context: unknown; last_tickers: string[] } | null;
 	failMessageInsert?: boolean;
+	/** The account's preferences (the quiz goal lives there) and its explained-term counts. */
+	preferences?: Record<string, unknown>;
+	knownTerms?: Record<string, number>;
 }
 let db: Db;
 
@@ -66,7 +71,8 @@ function fakePg(sql: string, params: unknown[] = []) {
 		const c = db.conversation;
 		return rows(c && c.id === params[0] && c.uid === params[1] ? [{ title: "A chat", ...c }] : []);
 	}
-	if (/FROM users WHERE uid/.test(s)) return rows([{ tag_scores: { tech: 3 }, preferences: {}, research_cohort: true }]);
+	if (/FROM users WHERE uid/.test(s)) return rows([{ tag_scores: { tech: 3 }, preferences: db.preferences ?? {}, research_cohort: true }]);
+	if (/^select known_terms from users/.test(s)) return rows([{ known_terms: db.knownTerms ?? {} }]);
 	if (/FROM stak_brands/.test(s)) return rows([]);
 	if (/FROM stak_ai_messages WHERE conversation_id = \$1 ORDER BY created_at DESC/.test(s)) return rows([]);
 	if (/^INSERT INTO stak_ai_conversations/.test(s)) return rows([{ id: "conv-new" }]);
@@ -90,7 +96,7 @@ function fakePg(sql: string, params: unknown[] = []) {
 let geminiBodies: any[];
 let geminiReply: string | null;
 /** Tool requests the model makes first, one round per entry, before it answers with geminiReply. */
-let geminiToolRounds: { name: string; args: Record<string, unknown> }[][];
+let geminiToolRounds: { id?: string; name: string; args: Record<string, unknown> }[][];
 /** Answers given in turn before geminiReply (an answer and then its rewrite, say). */
 let geminiTexts: string[];
 function stubFetch() {
@@ -108,8 +114,9 @@ function stubFetch() {
 }
 
 /** A streamed reply that only asks for tools. */
-function geminiCallSse(calls: { name: string; args: Record<string, unknown> }[]) {
-	const chunk = { candidates: [{ content: { role: "model", parts: calls.map((c) => ({ functionCall: c })) }, finishReason: "STOP" }] };
+function geminiCallSse(calls: { id?: string; name: string; args: Record<string, unknown> }[]) {
+	// A call with an id comes as 3.5 Flash-Lite sends it: with a thought signature on its part.
+	const chunk = { candidates: [{ content: { role: "model", parts: calls.map((c) => ({ functionCall: c, ...(c.id ? { thoughtSignature: `sig-${c.id}` } : {}) })) }, finishReason: "STOP" }] };
 	return new Response(`data: ${JSON.stringify(chunk)}\r\n\r\n`, { headers: { "Content-Type": "text/event-stream" } });
 }
 
@@ -331,6 +338,15 @@ describe("POST /chat", () => {
 		expect(JSON.parse(calls(/INSERT INTO events/)[0]![1][1]).tools).toBe(1);
 	});
 
+	it("hands each result back with its call's id and the model turn with its thought signature; low thinking, no temperature", async () => {
+		geminiToolRounds = [[{ id: "call_7", name: "get_stock", args: { ticker: "AAPL" } }]];
+		await request(await buildApp()).post("/chat").send({ message: "How is the company that makes the iPhone doing?" });
+		expect(geminiBodies[0].generationConfig).toEqual({ thinkingConfig: { thinkingLevel: "low" } });
+		const [modelTurn, results] = geminiBodies[1].contents.slice(-2);
+		expect(modelTurn.parts[0]).toMatchObject({ functionCall: { id: "call_7", name: "get_stock" }, thoughtSignature: "sig-call_7" });
+		expect(results.parts[0].functionResponse).toMatchObject({ id: "call_7", name: "get_stock" });
+	});
+
 	it("a misspelled company is found through find_company", async () => {
 		const { findCompanies } = await import("../stakAi.js");
 		expect(findCompanies("apploving")).toEqual([{ ticker: "APP", name: "AppLovin Corp" }]);
@@ -483,6 +499,29 @@ describe("POST /chat", () => {
 		const refused = await request(await buildApp()).post("/chat").send({ message: "?" });
 		expect(refused.body.answerKind).toBe("declined");
 		expect(refused.body.response).not.toContain("[[");
+	});
+
+	it("tells a learner's model to define terms - or, for a question only about terms they know, not to - and counts the terms each answer uses", async () => {
+		db.preferences = { android_taste: { goal: 0, risk: 1, riskStyle: "Balanced", picks: [] } };
+		db.knownTerms = { "P/E ratio": 2, beta: 1 };
+		geminiReply = "Its P/E is 30, and its market cap is $1T.\n[[FOLLOWUPS]] What's EPS? | How has it done this year?";
+		await request(await buildApp()).post("/chat").send({ message: "What's Nvidia's beta?" });
+		const system = () => geminiBodies.at(-1)!.system_instruction.parts[0].text as string;
+		expect(system()).toContain("- Their goal: Learning how investing works.");
+		await request(await buildApp()).post("/chat").send({ message: "What's Nvidia's P/E?" });
+		expect(system()).toContain("- Their goal: Learning how investing works, and already knows P/E ratio: use it without explaining what it means.");
+		await vi.waitFor(() => expect(calls(/set known_terms/)).toHaveLength(2));
+		expect(calls(/set known_terms/)[0]![1]).toEqual(["u1", ["P/E ratio", "market cap"]]);
+	});
+
+	it("says nothing about a goal or terms when there are none, and a decline counts no terms", async () => {
+		db.preferences = { android_taste: { goal: 3, risk: 1, riskStyle: "Balanced", picks: [] } };
+		geminiReply = "[[DECLINED]] I can't tell you whether to buy it. Its P/E is a common gauge, though.";
+		await request(await buildApp()).post("/chat").send({ message: "Should I buy Nvidia?" });
+		const system = geminiBodies.at(-1)!.system_instruction.parts[0].text as string;
+		expect(system).not.toContain("Their goal");
+		await new Promise((r) => setTimeout(r, 20));
+		expect(calls(/set known_terms/)).toHaveLength(0);
 	});
 
 	it("a company with no quote is said to have none", async () => {
@@ -677,6 +716,12 @@ describe("helpers", () => {
 		expect(parseAnswer("[[CLARIFY]] Do you mean Apple or Alphabet?")).toEqual({ text: "Do you mean Apple or Alphabet?", kind: "clarify", followUps: [] });
 		expect(parseAnswer("Answer.\n\n[[FOLLOWUPS]] - One? | Two? ")).toEqual({ text: "Answer.", kind: "answer", followUps: ["One?", "Two?"] });
 		expect(parseAnswer("Plain answer.")).toEqual({ text: "Plain answer.", kind: "answer", followUps: [] });
+		// 3.5 Flash-Lite sometimes leaves the marker out: questions joined by " | " at the end are still the follow-ups.
+		expect(parseAnswer("Tesla's P/E ratio is **495.7**. What does a high P/E mean? | What's Tesla's market cap?"))
+			.toEqual({ text: "Tesla's P/E ratio is **495.7**.", kind: "answer", followUps: ["What does a high P/E mean?", "What's Tesla's market cap?"] });
+		expect(parseAnswer("It fell 3%.\nWhy did it fall? | Is that normal? | What's beta?").followUps).toHaveLength(3);
+		// A question in the answer itself isn't one.
+		expect(parseAnswer("Is it growing? Yes, revenue rose 12%.").followUps).toEqual([]);
 	});
 });
 

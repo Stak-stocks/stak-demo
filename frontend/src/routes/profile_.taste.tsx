@@ -75,7 +75,7 @@ function TasteRiskPage() {
 				<AnswerRow question="goal" answer={goal} onChange={() => retake("goal")} />
 			</SettingsCard>
 			{/* What the answers really do: the server builds the deck from what you save and swipe, not from the quiz. */}
-			<Caption>Your answers set your taste chips and how each stock fits you. Your saves and paper portfolio stay as they are.</Caption>
+			<Caption>Your answers set your taste chips and how each stock fits you, and your goal shapes how STAK AI and your brief explain things. Your saves and paper portfolio stay as they are.</Caption>
 		</SettingsScaffold>
 	);
 }

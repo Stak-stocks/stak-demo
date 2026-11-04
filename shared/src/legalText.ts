@@ -2,7 +2,9 @@
 // STAK_Privacy_Policy, October 7, 2026) with the October 8 corrections that bring them in line with the app (the
 // eligibility confirmation at sign-up, web and iOS push, Google sign-in, the Gemini models, in-app account deletion,
 // notification settings and time zone, hosting) - in use pending the lawyer's review. Changing either means bumping
-// TERMS_VERSION / PRIVACY_VERSION in shared/src/eligibility.ts, which asks every account to accept again. The web
+// TERMS_VERSION / PRIVACY_VERSION in shared/src/eligibility.ts, which asks every account to accept again. (Nov 3: the
+// Gemini model names were dropped for "Google Gemini models" - same provider, data and purpose - without a bump, so a
+// model change never needs a legal edit; flagged for the lawyer's review.) The web
 // renders these as pages (/terms, /privacy); the apps read them from GET /api/legal/:doc and show them in a sheet - one
 // text everywhere.
 
@@ -64,7 +66,7 @@ export const PRIVACY_POLICY: LegalDoc = {
 			"STAK may use these interactions to personalize the companies, explanations, news, educational content, and other information shown to you. Personalized content reflects your activity on STAK and is not a determination that any investment is suitable for you.",
 		] },
 		{ heading: "", sub: "E. STAK AI information", blocks: [
-			"If you use STAK AI, we may collect the prompts, questions, and other content you submit, along with relevant STAK context used to generate a response (for example, a company you are viewing or companies you have saved). STAK currently uses Google Gemini models (currently Gemini 2.5 Flash and Gemini 2.5 Flash-Lite) to support AI functionality, including STAK AI and AI-generated summaries of news and company information, and information included in an AI request may be transmitted to Google for processing.",
+			"If you use STAK AI, we may collect the prompts, questions, and other content you submit, along with relevant STAK context used to generate a response (for example, a company you are viewing or companies you have saved). STAK uses Google Gemini models to support AI functionality, including STAK AI and AI-generated summaries of news and company information, and information included in an AI request may be transmitted to Google for processing.",
 			"Please do not submit highly sensitive information to STAK AI, such as Social Security numbers, bank or brokerage passwords, payment-card numbers, medical information, or other credentials.",
 		] },
 		{ heading: "", sub: "F. Technical and device information", blocks: [
@@ -111,7 +113,7 @@ export const PRIVACY_POLICY: LegalDoc = {
 				"Vercel Analytics - website analytics and performance measurement.",
 				"Resend - application and product email delivery.",
 				"Zoho Mail - STAK business and support inboxes, including support@thestak.org.",
-				"Google Gemini (currently Gemini 2.5 Flash and Gemini 2.5 Flash-Lite) - AI processing for STAK AI and AI-generated summaries.",
+				"Google Gemini - AI processing for STAK AI and AI-generated summaries.",
 				"Tally and Google Sheets - beta forms and response storage, if used for the beta questionnaire.",
 				"Professional advisers and service providers, such as lawyers, accountants, security providers, hosting providers, and contractors, where reasonably necessary to support STAK.",
 				"Government authorities, courts, regulators, or other parties when required by law or when reasonably necessary to protect rights, safety, security, or prevent fraud or abuse.",
@@ -203,7 +205,7 @@ export const TERMS_OF_SERVICE: LegalDoc = {
 		] },
 		{ heading: "9. STAK AI", blocks: [
 			"STAK AI uses artificial intelligence to generate explanations, summaries, comparisons, and other content. AI output may be incomplete, outdated, misleading, or incorrect. You should independently verify important information before relying on it.",
-			"STAK currently uses Google Gemini models (currently Gemini 2.5 Flash and Gemini 2.5 Flash-Lite) to support AI functionality. By using STAK AI, you authorize us to process your prompts and relevant Service context as described in the Privacy Policy.",
+			"STAK uses Google Gemini models to support AI functionality. By using STAK AI, you authorize us to process your prompts and relevant Service context as described in the Privacy Policy.",
 			"Do not submit sensitive credentials or highly sensitive personal information to STAK AI, including Social Security numbers, bank or brokerage passwords, payment-card numbers, or other account credentials.",
 		] },
 		{ heading: "10. Market, News, and Third-Party Data", blocks: [
