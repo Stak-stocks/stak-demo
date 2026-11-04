@@ -117,6 +117,13 @@ struct LiveDetail: Codable, Equatable {
 /// The line's padding from the box's top and bottom, as a fraction of its height.
 private let chartEdge: CGFloat = 0.08
 
+/// Which "why it moved" answer a day's move gets, as the server splits them: its direction (flat within 0.15%), and
+/// whether it's a quiet day under 1%.
+func moveBand(_ pct: Double) -> String {
+	let direction = pct > 0.15 ? "up" : (pct < -0.15 ? "down" : "flat")
+	return abs(pct) < 1 ? "\(direction)-quiet" : direction
+}
+
 /// Prices as fractions of the chart's height (0 = bottom), min to max, a little in from both edges; a flat series
 /// sits mid-height.
 func chartFractions(_ values: [Double]) -> [CGFloat] {
@@ -272,8 +279,8 @@ final class StockDetailViewModel: ObservableObject {
 	private var referenceTask: Task<Void, Never>? = nil
 	private var chartTask: Task<Void, Never>? = nil
 	private var quoteTask: Task<Void, Never>? = nil
-	/// The direction the shown "why it moved" text explains, so a refresh can tell when it no longer fits.
-	private var explainedDirection: String? = nil
+	/// The move the shown "why it moved" text explains (see `moveBand`), so a refresh can tell when it no longer fits.
+	private var explainedBand: String? = nil
 	/// When the price refresh last wrote this page to the phone.
 	private var persistedAt = Date.distantPast
 
@@ -437,7 +444,7 @@ final class StockDetailViewModel: ObservableObject {
 						group.addTask { .move(try? await repo.getDailyMove(symbol, pct: pct)) }
 					case .move(let m):
 						parts.move = m
-						explainedDirection = m?.direction
+						explainedBand = m.map { _ in moveBand(parts.stock?.quote?.changePercent ?? 0) }
 					}
 					publish()
 				}
@@ -480,12 +487,12 @@ final class StockDetailViewModel: ObservableObject {
 			if persist { persistedAt = Date() }
 			StockDetailCache.put(symbol, updated, persist: persist)
 
-			// The "why it moved" text explains one direction: if the stock has turned since, ask for the new one.
-			let direction = pct > 0.15 ? "up" : (pct < -0.15 ? "down" : "flat")
-			if explainedDirection != nil && direction != explainedDirection {
-				explainedDirection = direction
+			// The "why it moved" text explains one direction, and a quiet day or a big move: if the stock has turned
+			// since, or a quiet day has become a big move, ask for the new one.
+			let band = moveBand(pct)
+			if explainedBand != nil && band != explainedBand {
+				explainedBand = band
 				if let move = try? await repo.getDailyMove(symbol, pct: pct) {
-					explainedDirection = move.direction
 					if !move.explanation.isEmpty { liveDetail?.newsSignal = move.explanation }
 				}
 			}

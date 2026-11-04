@@ -97,4 +97,25 @@ describe("GET /:symbol/daily-move", () => {
 
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
+
+	it("keeps a quiet move's answer for 2 hours, but not once the stock moves a lot", async () => {
+		fetchMock.mockImplementation(async () => geminiBulletsResponse([
+			{ text: "Quiet day bullet", tone: "neutral" },
+		]));
+		let now = Date.parse("2026-11-03T15:00:00Z");
+		const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+		try {
+			const app = await buildApp();
+			await request(app).get("/NVDA/daily-move?pct=0.5&name=Nvidia&sentences=3");
+			now += 31 * 60 * 1000;
+			await request(app).get("/NVDA/daily-move?pct=0.6&name=Nvidia&sentences=3");
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+
+			// Same direction, now a big move: its own key, so a fresh search rather than the quiet story.
+			await request(app).get("/NVDA/daily-move?pct=4&name=Nvidia&sentences=3");
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+		} finally {
+			clock.mockRestore();
+		}
+	});
 });
