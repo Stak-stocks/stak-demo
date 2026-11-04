@@ -65,6 +65,7 @@ final class StockRepository {
     /// Removes the caller's account only if a Google or Apple sign-in made it minutes ago and nothing is on it yet.
     func turnedAway() async throws -> OkResponse { try await api.turnedAway() }
     func confirmEligibility() async throws -> OkResponse { try await api.confirmEligibility(EligibilityRequest()) }
+    func answerGoalCheckIn(_ answer: String) async throws -> OkResponse { try await api.answerGoalCheckIn(GoalCheckInRequest(answer: answer)) }
     func getLegal(_ doc: String) async throws -> LegalDocResponse { try await api.getLegal(doc) }
     func getTaste() async throws -> TasteResponse { try await api.getTaste() }
     func getUpdates() async throws -> UpdatesResponse { try await api.getUpdates() }

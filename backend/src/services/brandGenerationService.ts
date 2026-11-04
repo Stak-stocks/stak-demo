@@ -1,4 +1,4 @@
-import { getGeminiKeys, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH } from "./geminiService.js";
+import { getGeminiKeys, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH, MINIMAL_THINKING } from "./geminiService.js";
 import { getFinnhubKeys, FINNHUB_BASE } from "./finnhubService.js";
 import { getHeroImage } from "./ipoService.js";
 import { getPeerTickers, TAG_TO_DISPLAY_BUCKETS, STAK_WEIGHTED_STOCK_TAGS, formatMarketCap, type BrandProfile, type VibeMetric } from "@stak/shared";
@@ -171,7 +171,7 @@ async function callGemini(prompt: string): Promise<GeminiBrandFields> {
 						body: JSON.stringify({
 							system_instruction: AMERICAN_ENGLISH,
 							contents: [{ parts: [{ text: prompt }] }],
-							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
+							generationConfig: { thinkingConfig: MINIMAL_THINKING, responseMimeType: "application/json" },
 						}),
 					},
 				);

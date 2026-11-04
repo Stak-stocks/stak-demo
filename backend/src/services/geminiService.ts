@@ -68,8 +68,8 @@ export async function withGeminiConcurrencyLimit<T>(fn: () => Promise<T>, { resu
 	}
 }
 
-// Gemini occasionally returns a refusal/apology string instead of content when
-// thinkingBudget:0 conflicts with google_search tool invocation. Use this to detect and skip.
+// Gemini occasionally returns a refusal/apology string instead of content (seen on 2.5 Flash with a grounded search
+// and no thinking). Use this to detect and skip.
 export const GEMINI_REFUSAL_RE = /^(i('?m| am) sorry|i cannot|i'?m unable|i can'?t|sorry,|unfortunately,|i apologize)/i;
 
 export function getGeminiKeys(): string[] {
@@ -86,7 +86,23 @@ export function getGeminiKeys(): string[] {
 
 type SimplifyResult = { explanation: string; whyItMatters: string; sentiment: string; ticker: string };
 
-export const GEMINI_MODEL = "gemini-2.5-flash";
+/**
+ * Every Gemini call but the article simplifier. gemini-2.5-flash is shut down on December 1, 2026 (requests then go
+ * to 3.5 Flash-Lite anyway); 3.5 Flash-Lite costs the same per token, and grounding is $14 per 1,000 searches against
+ * 2.5's $35. It refuses thinkingBudget (400) - see MINIMAL_THINKING - and ignores temperature, so neither is sent.
+ */
+export const GEMINI_MODEL = "gemini-3.5-flash-lite";
+/**
+ * The thinking setting for GEMINI_MODEL's calls: "minimal", what thinkingBudget 0 was on 2.5 Flash (no thought
+ * tokens, fastest). 3.5 Flash-Lite answers thinkingBudget 0 with HTTP 400.
+ */
+export const MINIMAL_THINKING = { thinkingLevel: "minimal" } as const;
+/**
+ * One rule for every short card people read about a stock (tip, Quick Look, key risk, daily move). 3.5 Flash-Lite
+ * follows a prompt's wording more literally than 2.5 Flash did: it wrote "Unstoppable demand" and copied the tip
+ * example "Small stakes" as "Keep positions small."
+ */
+export const NEUTRAL_WORDS = `Neutral words: no hype (soaring, unstoppable, massive, skyrocketing) and no verdicts (overvalued, undervalued, cheap, a good or bad buy). Never tell the reader what to do with their money (how much to invest, buy, sell or hold).`;
 /**
  * Sent as the system instruction on every Gemini call that writes text people read: STAK writes American English
  * (STAK AI's own prompt says the same). Not on data-only calls (classifiers, JSON, holiday lists), where "US
@@ -114,6 +130,7 @@ async function trySimplifyKey(key: string, prompt: string, count: number): Promi
 		const controller = new AbortController();
 		const timeout = setTimeout(() => controller.abort(), SIMPLIFY_TIMEOUT_MS);
 		try {
+			// 2.5 Flash-Lite still takes thinkingBudget and temperature: unlike GEMINI_MODEL's calls, keep them.
 			const res = await fetch(
 				geminiUrl(SIMPLIFY_MODEL, key),
 				{
@@ -260,7 +277,7 @@ type EarningsOutcome = "beat" | "miss" | "none";
 const WEB_EARNINGS_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
- * Use Gemini 2.0 Flash with Google Search grounding to determine if a company
+ * Use Gemini (GEMINI_MODEL) with Google Search grounding to determine if a company
  * beat or missed earnings in their most recent quarter, along with the report date.
  * Makes 1 call per stock per 24 hours.
  */
@@ -312,7 +329,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0 },
+						generationConfig: { thinkingConfig: MINIMAL_THINKING },
 					}),
 				},
 			);
@@ -383,7 +400,7 @@ Return ONLY one of these exact strings: beat, miss, none`;
 					signal: AbortSignal.timeout(15000),
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, maxOutputTokens: 10 },
+						generationConfig: { thinkingConfig: MINIMAL_THINKING, maxOutputTokens: 10 },
 					}),
 				},
 			);
@@ -467,7 +484,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
 							contents: [{ parts: [{ text: prompt }] }],
-							generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0, responseMimeType: "application/json" },
+							generationConfig: { thinkingConfig: MINIMAL_THINKING, responseMimeType: "application/json" },
 						}),
 						signal: controller.signal,
 					},

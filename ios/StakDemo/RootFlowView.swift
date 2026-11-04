@@ -105,6 +105,12 @@ struct RootFlowView: View {
 	/// snapshot shows the splash backdrop and unlocking returns to the same
 	/// place. Mirrors android (LOCK pushed on ON_STOP, popped on unlock).
 	@State private var relocked = false
+	/// Face ID just unlocked: the app is still paused while its panel closes - not a pause to hide the screen for.
+	@State private var unlocking = false
+
+	/// Whether the app is paused right now. Read live: the unlock runs from a closure made when Face ID started, whose
+	/// copy of scenePhase still says active.
+	private static func paused() -> Bool { UIApplication.shared.applicationState != .active }
 	@Environment(\.scenePhase) private var scenePhase
 	/// Shared auth ViewModel — all sign-in/up/password flows share one instance
 	/// so a Google OAuth sheet from SignIn and one from CreateAccount can't race.
@@ -173,7 +179,7 @@ struct RootFlowView: View {
 				}
 				.transition(.opacity)
 			case .locked:
-				LockGateView { withAnimation(.easeOut(duration: 0.35)) { phase = .main } }
+				LockGateView { unlocking = Self.paused(); withAnimation(.easeOut(duration: 0.35)) { phase = .main } }
 					.transition(.opacity)
 			case .main:
 				ZStack {
@@ -195,11 +201,12 @@ struct RootFlowView: View {
 					// Locked means locked for VoiceOver too: nothing beneath the gate can be reached.
 					.accessibilityHidden(relocked)
 					if relocked {
-						LockGateView { withAnimation(.easeOut(duration: 0.35)) { relocked = false } }
+						LockGateView { unlocking = Self.paused(); withAnimation(.easeOut(duration: 0.35)) { relocked = false } }
 							.transition(.opacity)
-					} else if scenePhase != .active, Session.shared.signedIn, UserProfile.shared.accountLock {
+					} else if scenePhase != .active, !unlocking, Session.shared.signedIn, UserProfile.shared.accountLock {
 						// Only paused (the app switcher, Control Center): the screen is hidden - so the switcher's
-						// snapshot shows no portfolio - but no Face ID is asked for on the way back.
+						// snapshot shows no portfolio - but no Face ID is asked for on the way back. Not while Face ID's
+						// own panel is closing after an unlock: that pause would put the splash back over the app.
 						SplashView(onContinue: {})
 							.accessibilityHidden(true)
 					}
@@ -286,7 +293,7 @@ struct RootFlowView: View {
 		}
 		.onChange(of: scenePhase) { _, next in
 			// Opening the app reads the notifications: the icon's badge (asked for when one arrives in front) clears.
-			if next == .active { UNUserNotificationCenter.current().setBadgeCount(0) }
+			if next == .active { UNUserNotificationCenter.current().setBadgeCount(0); unlocking = false }
 			// Leaving the app locks a protected account: going to the background, as android's ON_STOP. Only pausing
 			// (.inactive: the app switcher, Control Center, a notification pulled down) hides the screen instead of
 			// asking for Face ID on the way back (see the cover above) - asking on every peek at the switcher was too

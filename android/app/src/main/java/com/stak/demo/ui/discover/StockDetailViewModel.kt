@@ -83,6 +83,15 @@ data class LiveDetail(
 )
 
 /**
+ * Which "why it moved" answer a day's move gets, as the server splits them: its direction
+ * (flat within 0.15%), and whether it's a quiet day under 1%.
+ */
+internal fun moveBand(pct: Double): String {
+    val direction = if (pct > 0.15) "up" else if (pct < -0.15) "down" else "flat"
+    return if (kotlin.math.abs(pct) < 1.0) "$direction-quiet" else direction
+}
+
+/**
  * This detail with any section it hasn't got yet taken from [previous] - used only
  * while a page's parts are still arriving, never for the finished page.
  */
@@ -268,8 +277,8 @@ class StockDetailViewModel @Inject constructor(
     private val _quotePending = MutableStateFlow(false)
     val quotePending: StateFlow<Boolean> = _quotePending
 
-    /** The direction the shown "why it moved" text explains, so a refresh can tell when it no longer fits. */
-    private var explainedDirection: String? = null
+    /** The move the shown "why it moved" text explains (see [moveBand]), so a refresh can tell when it no longer fits. */
+    private var explainedBand: String? = null
 
     /** When the price refresh last wrote this page to the phone. */
     private var persistedAt = 0L
@@ -367,7 +376,7 @@ class StockDetailViewModel @Inject constructor(
                     publish()
                     val pct = stockData?.quote?.changePercent ?: 0.0
                     move = runCatching { repository.getDailyMove(symbol, pct) }.getOrNull()
-                    explainedDirection = move?.direction
+                    explainedBand = move?.let { moveBand(pct) }
                     publish()
                 }
             }
@@ -425,13 +434,13 @@ class StockDetailViewModel @Inject constructor(
             if (persist) persistedAt = now
             StockDetailCache.putDetail(symbol, updated, persist)
 
-            // The "why it moved" text explains one direction. If the stock has turned
-            // since, it now contradicts the line above it - ask for the new one.
-            val direction = if (pct > 0.15) "up" else if (pct < -0.15) "down" else "flat"
-            if (explainedDirection != null && direction != explainedDirection) {
-                explainedDirection = direction
+            // The "why it moved" text explains one direction, and a quiet day or a big move.
+            // If the stock has turned since, or a quiet day has become a big move, it no
+            // longer fits the line above it - ask for the new one.
+            val band = moveBand(pct)
+            if (explainedBand != null && band != explainedBand) {
+                explainedBand = band
                 runCatching { repository.getDailyMove(symbol, pct) }.getOrNull()?.let { m ->
-                    explainedDirection = m.direction
                     m.explanation.takeIf { it.isNotBlank() }?.let { text ->
                         _liveDetail.value = _liveDetail.value?.copy(newsSignal = text)
                     }

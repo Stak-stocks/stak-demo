@@ -1,5 +1,8 @@
 package com.stak.demo.data
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -14,6 +17,9 @@ import kotlinx.coroutines.withContext
  * from the server's creation time, and the onboarding answers (taste chips, risk style)
  * are stored with the account instead of only on this phone.
  */
+/** Home's goal check-in this session: not answered yet, being sent, answered either way, or the send failed. */
+enum class GoalCheckInStatus { Open, Sending, Kept, Switched, Failed }
+
 object ProfileSync {
 	private var repository: StockRepository? = null
 	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -88,6 +94,9 @@ object ProfileSync {
 		}
 	}
 
+	/** Where Home's goal check-in stands this session (see answerGoalCheckIn); back to Open on sign-out. */
+	var goalCheckIn by mutableStateOf(GoalCheckInStatus.Open)
+
 	private const val TASTE_PENDING = "taste.pending"
 	private var tasteSend: kotlinx.coroutines.Job? = null
 
@@ -108,6 +117,33 @@ object ProfileSync {
 			previous?.join()
 			runCatching { repo.putMe(taste = taste) }.onSuccess {
 				withContext(Dispatchers.Main) { if (Session.accountGeneration == account && currentTaste() == taste) StakStore.putBoolean(TASTE_PENDING, false) }
+			}
+		}
+	}
+
+	/**
+	 * Home's goal check-in answered. The server keeps the answer and, for "switch", moves the goal in the same
+	 * statement; once it has, this phone takes the new goal too (the server already holds it, so there's nothing to
+	 * send). The card says how it went - [goalCheckIn] - until the brief stops asking; a failure lets them try again.
+	 */
+	fun answerGoalCheckIn(switchToGrow: Boolean) {
+		if (goalCheckIn == GoalCheckInStatus.Sending || Session.demoAccount || Session.token == null) return
+		val repo = repository ?: return
+		goalCheckIn = GoalCheckInStatus.Sending
+		val account = Session.accountGeneration
+		scope.launch {
+			val ok = runCatching { repo.answerGoalCheckIn(if (switchToGrow) "switch" else "keep") }.isSuccess
+			withContext(Dispatchers.Main) {
+				if (Session.accountGeneration != account) return@withContext
+				if (ok && switchToGrow) {
+					UserProfile.goal = com.stak.demo.ui.onboarding.TasteModel.GOAL_GROW
+					Session.saveProfile()
+				}
+				goalCheckIn = when {
+					!ok -> GoalCheckInStatus.Failed
+					switchToGrow -> GoalCheckInStatus.Switched
+					else -> GoalCheckInStatus.Kept
+				}
 			}
 		}
 	}

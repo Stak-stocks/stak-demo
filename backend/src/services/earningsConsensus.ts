@@ -8,7 +8,7 @@
 import { cacheGet, cacheSet } from "../lib/cache.js";
 import { getYahooCrumb, invalidateYahooCrumb, type YahooCrumbCache } from "../lib/yahooAuth.js";
 import { getEasternDateKey } from "@stak/shared";
-import { getGeminiKeys, GEMINI_MODEL, geminiUrl } from "./geminiService.js";
+import { getGeminiKeys, GEMINI_MODEL, geminiUrl, MINIMAL_THINKING } from "./geminiService.js";
 
 export const FMP_BASE = "https://financialmodelingprep.com/stable";
 const FMP_KEY = process.env.FMP_API_KEY ?? "";
@@ -124,7 +124,7 @@ Return ONLY valid JSON, no markdown, no extra text.`;
 					body: JSON.stringify({
 						contents: [{ parts: [{ text: prompt }] }],
 						tools: [{ google_search: {} }],
-						generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0 },
+						generationConfig: { thinkingConfig: MINIMAL_THINKING },
 					}),
 				},
 			);

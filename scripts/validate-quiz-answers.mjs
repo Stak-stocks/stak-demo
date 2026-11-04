@@ -84,16 +84,16 @@ Marked correct: ${quiz.correctId}) ${quiz.correctText}
 Is the marked answer correct? Reply CORRECT or WRONG:<id of actual correct option>:<one-line reason>`;
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_KEY}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
+        // 3.5 Flash-Lite (2.5 Flash shuts down 2026-12-01): thinkingLevel, not thinkingBudget; temperature is ignored.
         generationConfig: {
-          temperature: 0,
           maxOutputTokens: 200,
-          thinkingConfig: { thinkingBudget: 0 },
+          thinkingConfig: { thinkingLevel: "minimal" },
         },
       }),
     }

@@ -5,7 +5,7 @@ import { pgQuery } from "../lib/postgres.js";
 import { brands } from "@stak/shared/brands";
 import type { BrandProfile, BrandSummary } from "@stak/shared";
 import { getBrandLogoUrl, getBrandHeroUrl } from "@stak/shared";
-import { getGeminiKeys, GEMINI_MODEL, geminiUrl, withGeminiConcurrencyLimit, AMERICAN_ENGLISH } from "../services/geminiService.js";
+import { getGeminiKeys, GEMINI_MODEL, geminiUrl, withGeminiConcurrencyLimit, AMERICAN_ENGLISH, MINIMAL_THINKING, NEUTRAL_WORDS } from "../services/geminiService.js";
 import { getCompanyNews } from "../services/finnhubService.js";
 
 export const brandsRouter = Router();
@@ -103,13 +103,14 @@ async function generateTip(brand: (typeof brands)[number], cacheKey: string): Pr
 	const keys = getGeminiKeys();
 	if (!keys.length) return { tip: "" };
 
-	const prompt = `You write investment tip cards for a finance app for young retail investors.
+	const prompt = `You write the tip card for a stock in a finance app for young retail investors: a quick fact about how it tends to behave.
 Write a TWO-SENTENCE tip for ${brand.name} (${brand.ticker}).
-Each sentence must be under 8 words. Plain language. Punchy. Specific to this stock's nature or risk.
+Each sentence must be under 8 words. Plain language. Specific to this stock's nature or risk.
+${NEUTRAL_WORDS}
 
 Examples:
-"Chip stocks swing hard. Small stakes, long views."
-"Steady giants move slower. Stable stocks often do."
+"Chip stocks swing hard. Demand cycles drive it."
+"Steady giants move slower. Big drops are rarer."
 "Ad money tracks the economy. Some quarters drift."
 
 Brand: ${brand.name} (${brand.ticker})
@@ -127,7 +128,7 @@ Return ONLY the two-sentence tip. Nothing else.`;
 			body: JSON.stringify({
 				system_instruction: AMERICAN_ENGLISH,
 				contents: [{ parts: [{ text: prompt }] }],
-				generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.7, maxOutputTokens: 80 },
+				generationConfig: { thinkingConfig: MINIMAL_THINKING, maxOutputTokens: 80 },
 			}),
 		});
 		const data = await resp.json() as any;
@@ -208,7 +209,8 @@ Return JSON with exactly these keys:
 "whatToWatch": "the next concrete checkpoint (earnings, a launch, demand data), under 25 words",
 "keyThemes": ["2 to 4 themes, chosen ONLY from: ${QUICK_LOOK_THEMES.join(", ")}"]
 }
-Plain words, no jargon. Use the bio as background only and write in your own neutral words, not its slang. No advice ("you should"), no disclaimers. Do not invent numbers or events that are not given above.`;
+Plain words, no jargon. Use the bio as background only and write in your own neutral words, not its slang. No advice ("you should"), no disclaimers. Do not invent numbers or events that are not given above.
+${NEUTRAL_WORDS}`;
 
 	const quickLook = await withGeminiConcurrencyLimit(() => generateQuickLook(prompt, keys, brand.ticker));
 	await cacheSet(CACHE_KEY, { quickLook }, quickLook ? 24 * 60 * 60 * 1000 : QUICK_LOOK_FAILURE_TTL_MS);
@@ -227,7 +229,7 @@ async function generateQuickLook(prompt: string, keys: string[], ticker: string)
 				body: JSON.stringify({
 					system_instruction: AMERICAN_ENGLISH,
 					contents: [{ parts: [{ text: prompt }] }],
-					generationConfig: { thinkingConfig: { thinkingBudget: 0 }, temperature: 0.4, responseMimeType: "application/json" },
+					generationConfig: { thinkingConfig: MINIMAL_THINKING, responseMimeType: "application/json" },
 				}),
 			});
 			if (!resp.ok) {

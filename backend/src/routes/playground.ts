@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authMiddleware } from "../authMiddleware.js";
 import { cacheGet, cacheSet, cacheDelete } from "../lib/cache.js";
-import { getGeminiKeys, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH } from "../services/geminiService.js";
+import { getGeminiKeys, GEMINI_MODEL, geminiUrl, AMERICAN_ENGLISH, MINIMAL_THINKING } from "../services/geminiService.js";
 import { pgQuery, pgPool, ensureUserRow } from "../lib/postgres.js";
 import type { AuthenticatedRequest } from "../authMiddleware.js";
 import { TIER_XP, ACTIVITY_TYPES, ACTIVITY_XP_CAP, getEasternDateKey } from "@stak/shared";
@@ -80,8 +80,7 @@ async function callGemini(prompt: string): Promise<string | null> {
 						contents: [{ parts: [{ text: prompt }] }],
 						generationConfig: {
 							responseMimeType: "application/json",
-							temperature: 0.7,
-							thinkingConfig: { thinkingBudget: 0 },
+							thinkingConfig: MINIMAL_THINKING,
 						},
 					}),
 				}
