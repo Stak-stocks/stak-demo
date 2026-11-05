@@ -181,6 +181,10 @@ struct DiscoverView: View {
 	private let dragSlop: CGFloat = 10
 
 	@State private var swipeOffset: CGFloat = 0
+	/// The height the deck gets between the header and the buttons, and the front card's own: on a short screen
+	/// (iPhone SE) the card is taller than that room and ran under the buttons, so the stack is scaled to fit.
+	@State private var deckRoom: CGFloat = 0
+	@State private var frontHeight: CGFloat = 0
 	/// True while a finger is on the deck; drops back on its own when the system cancels the drag (a call, a sheet),
 	/// which never reaches onEnded - the card then springs home instead of staying stuck off-centre.
 	@GestureState private var dragActive = false
@@ -448,6 +452,9 @@ struct DiscoverView: View {
 
 	@ViewBuilder
 	private func deckArea(deck: [DiscoverCard], front: DiscoverCard, u: CGFloat) -> some View {
+		// 1 wherever the card fits (every iPhone but the smallest); the drag below is in screen points, so the card's
+		// own offsets are divided by it to keep following the finger.
+		let fit = deckRoom > 0 && frontHeight > 0 ? min(1, deckRoom / (54.65 * u + frontHeight)) : 1
 		ZStack(alignment: .top) {
 			// Peek card farthest back — tilts right, smallest. Equatable: a drag frame doesn't redraw the peeks.
 			if deck.count > 2 {
@@ -471,8 +478,9 @@ struct DiscoverView: View {
 			}
 			// Front card - swipes horizontally, tilting up to 8° at the commit distance (none under Reduce Motion).
 			FrontDeckCard(card: front, u: u, showLearnMore: true, onLearnMore: { openQuickLook(front) })
+				.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { frontHeight = $0 }
 				.rotationEffect(.degrees(reduceMotion ? 0 : Double(swipeOffset / commitPx) * 8))
-				.offset(x: swipeOffset, y: 54.65 * u)
+				.offset(x: swipeOffset / fit, y: 54.65 * u)
 				.accessibilityElement(children: .combine)
 				.accessibilityHint("Swipe right to STAK, left to pass")
 				.accessibilityAction(named: "STAK") { animateAndCommit(front, isSTAK: true) }
@@ -482,12 +490,14 @@ struct DiscoverView: View {
 				FrontDeckCard(card: ghost, u: u, showLearnMore: true)
 					.equatable()
 					.opacity(flyFade)
-					.offset(x: flyOffset, y: 54.65 * u)
+					.offset(x: flyOffset / fit, y: 54.65 * u)
 					.allowsHitTesting(false)
 					.accessibilityHidden(true)
 			}
 		}
+		.scaleEffect(fit, anchor: .top)
 		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+		.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { deckRoom = $0 }
 		.padding(.horizontal, 20 * u)
 		// Unclipped and above its siblings: a dragged or flying card stays WHOLE past the deck bounds - it passes over
 		// the CTA zone like a real card deck.

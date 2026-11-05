@@ -1256,6 +1256,8 @@ private fun SaveSuccessOverlay(facts: NewsArticleFeed.StockFacts, onViewInMyStak
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 private fun NewsVideoPlayer(video: NewsMedia.Video, modifier: Modifier = Modifier, paused: Boolean = false, onDone: () -> Unit = {}, onLoaded: () -> Unit = {}) {
+	// figmaUnit, read here for the hero's corners (the view factory below isn't composable).
+	val heroU = com.stak.demo.ui.onboarding.figmaUnit()
 	val embed = video.youTubeEmbedUrl
 	if (embed != null) {
 		androidx.compose.ui.viewinterop.AndroidView(
@@ -1335,7 +1337,7 @@ private fun NewsVideoPlayer(video: NewsMedia.Video, modifier: Modifier = Modifie
 					playWhenReady = true
 				}
 				// Aspect-correct, cropped to the hero (never stretched), r10 corners.
-				VideoSurfaceHost(ctx, player, zoom = true, cornerRadiusPx = 10f * ctx.resources.displayMetrics.widthPixels / 390f).also { it.tag = player }  // 10u in px (figmaUnit x density)
+				VideoSurfaceHost(ctx, player, zoom = true, cornerRadiusPx = 10f * heroU * ctx.resources.displayMetrics.density).also { it.tag = player }  // 10u in px (figmaUnit x density)
 			},
 			// Play/pause toggle: ExoPlayer.pause keeps the position, so
 			// resuming continues where the clip stopped.

@@ -92,7 +92,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 		setContent {
 			StakTheme {
 				Box(modifier = Modifier.fillMaxSize()) {
-					StakRoot()
+					// A phone-shaped column on a tablet or an unfolded foldable; the whole window on a phone.
+					com.stak.demo.ui.components.PhoneColumn { StakRoot() }
 					// The OS PiP window shows this activity scaled down: while
 					// shrunk, only the video renders. The article stays composed
 					// beneath (it owns the player); composed AFTER StakRoot, this

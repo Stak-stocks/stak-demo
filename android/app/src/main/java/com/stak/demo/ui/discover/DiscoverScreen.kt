@@ -78,6 +78,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
@@ -396,7 +397,8 @@ internal fun DiscoverScreen(
 	val scope = rememberCoroutineScope()
 	val density = LocalDensity.current
 	val u = com.stak.demo.ui.onboarding.figmaUnit()
-	val screenWidthPx = with(density) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
+	// The width the app draws in (the column on a tablet), as figmaUnit reads it.
+	val screenWidthPx = with(density) { (390f * u).dp.toPx() }
 
 	LaunchedEffect(Unit) { DeckSession.load() }
 
@@ -506,6 +508,14 @@ internal fun DiscoverScreen(
 					onReviewSaves = onReviewSaves,
 				)
 			} else if (frontCard != null) {
+				// The deck's room and the front card's own height: on a short screen the card is taller
+				// than the room and ran under the buttons, so the stack is scaled to fit (1 wherever it
+				// fits). The scale sits before the drag detector, so drags are measured in the scaled
+				// space and the card keeps following the finger.
+				var deckRoom by remember { mutableIntStateOf(0) }
+				var frontHeight by remember { mutableIntStateOf(0) }
+				val topPx = with(density) { (54.65 * u).dp.toPx() }
+				val fit = if (deckRoom > 0 && frontHeight > 0) minOf(1f, deckRoom / (topPx + frontHeight)) else 1f
 				Box(
 					modifier = Modifier
 						.padding(horizontal = (20 * u).dp)
@@ -521,6 +531,12 @@ internal fun DiscoverScreen(
 						// "i noticed a cut") - it passes over the hint/CTA zone
 						// like a real card deck, fading as it goes.
 						.zIndex(1f)
+						.onSizeChanged { deckRoom = it.height }
+						.graphicsLayer {
+							transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
+							scaleX = fit
+							scaleY = fit
+						}
 						.pointerInput(Unit) {
 							var dragTotal = 0f
 							val commitPx = with(density) { (110 * u).dp.toPx() }
@@ -591,6 +607,7 @@ internal fun DiscoverScreen(
 						u = u,
 						modifier = Modifier
 							.align(Alignment.TopCenter)
+							.onSizeChanged { frontHeight = it.height }
 							.offset(y = (54.65 * u).dp)
 							.offset { androidx.compose.ui.unit.IntOffset(swipeOffset.value.roundToInt(), 0) }
 							.graphicsLayer {

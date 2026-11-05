@@ -75,6 +75,8 @@ internal object Auth {
  */
 @Composable
 internal fun figmaUnit(): Float {
+	// In the tablet/foldable column, its width (PhoneColumn).
+	com.stak.demo.ui.components.LocalAppWidthDp.current?.let { return it / 390f }
 	// Configuration.screenWidthDp is an INTEGER (411 on a 1080/2.625 Pixel 7
 	// whose true width is 411.43dp) — that 0.1% shortfall compounds to a
 	// few px over a full-height artboard. Derive u from the real pixel width.
