@@ -66,6 +66,8 @@ final class StakNotifications: ObservableObject {
 	/// Re-reads the saved stocks' moves and today's deck, at most every few minutes.
 	func refresh(force: Bool = false) {
 		guard !StakStore.demoAccount, Session.shared.token != nil else { return }
+		// What another device has read - on its own, shorter clock than the moves.
+		DeviceStateSync.shared.pullReads()
 		guard force || Date().timeIntervalSince(refreshedAt) >= Self.refreshEvery else { return }
 		refreshedAt = Date()
 		let started = generation

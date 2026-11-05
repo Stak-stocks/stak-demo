@@ -81,6 +81,8 @@ object StakNotifications {
 	fun refresh(force: Boolean = false) {
 		if (Session.demoAccount || Session.token == null) return
 		val repo = repository ?: return
+		// What another device has read - on its own, shorter clock than the moves.
+		DeviceStateSync.pullReads()
 		val now = System.currentTimeMillis()
 		if (!force && now - refreshedAt < REFRESH_MS) return
 		refreshedAt = now

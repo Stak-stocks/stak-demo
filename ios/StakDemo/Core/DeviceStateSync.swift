@@ -22,9 +22,7 @@ final class DeviceStateSync {
 			let current = await MainActor.run { Session.shared.accountGeneration == account }
 			guard current else { return }
 			await MainActor.run {
-				if StakStore.stringSet("notif.read") == nil, !remote.notifRead.isEmpty {
-					StakStore.set(Set(remote.notifRead), for: "notif.read")
-				}
+				Self.mergeReads(remote.notifRead)
 				if StakStore.stringSet("news.saved") == nil, !remote.newsSaved.isEmpty {
 					StakStore.set(Set(remote.newsSaved), for: "news.saved")
 				}
@@ -33,6 +31,36 @@ final class DeviceStateSync {
 			}
 			await self.doPush()
 		}
+	}
+
+	private var readsPulledAt = Date.distantPast
+
+	/// Another device's read marks, pulled in when the inbox refreshes (at most every 30s), so a notification read on
+	/// one device isn't unread on the other. Sign-in alone was too rare a pull: a phone that had its own marks kept
+	/// them, and its next push overwrote the other's.
+	@MainActor
+	func pullReads() {
+		guard !Session.shared.demoAccount, Session.shared.token != nil,
+			Date().timeIntervalSince(readsPulledAt) >= 30 else { return }
+		readsPulledAt = Date()
+		let account = Session.shared.accountGeneration
+		Task.detached(priority: .utility) {
+			guard let remote = try? await self.repo.getAndroidState() else { return }
+			await MainActor.run {
+				guard Session.shared.accountGeneration == account else { return }
+				Self.mergeReads(remote.notifRead)
+				StakNotifications.shared.reloadReadIds()
+			}
+		}
+	}
+
+	/// The server's read marks joined with this device's. Marks only add up (the inbox trims its own to what it
+	/// lists), so a union never turns a read notification unread.
+	@MainActor
+	private static func mergeReads(_ remote: [String]) {
+		let local = StakStore.stringSet("notif.read")
+		let merged = (local ?? []).union(remote)
+		if merged != local ?? [] || (local == nil && !remote.isEmpty) { StakStore.set(merged, for: "notif.read") }
 	}
 
 	/// Fire-and-forget: whatever this phone holds right now becomes the server's copy.
