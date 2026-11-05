@@ -181,10 +181,13 @@ struct DiscoverView: View {
 	private let dragSlop: CGFloat = 10
 
 	@State private var swipeOffset: CGFloat = 0
-	/// The height the deck gets between the header and the buttons, and the tallest card's height without its art, in
-	/// u (the art is what gives way): on a short screen (iPhone SE) the card ran under the buttons. See DeckFit.
+	/// The height the deck gets between the header and the buttons (points), and the tallest card's height without its
+	/// art (u, at the text size it was measured at): the art is what gives way on a short screen (iPhone SE), where the
+	/// card ran under the buttons. See DeckFit.
 	@State private var deckRoom: CGFloat = 0
 	@State private var cardText: CGFloat = 0
+	@State private var cardTextSize: DynamicTypeSize?
+	@Environment(\.dynamicTypeSize) private var dynamicTypeSize
 	/// True while a finger is on the deck; drops back on its own when the system cancels the drag (a call, a sheet),
 	/// which never reaches onEnded - the card then springs home instead of staying stuck off-centre.
 	@GestureState private var dragActive = false
@@ -452,10 +455,10 @@ struct DiscoverView: View {
 
 	@ViewBuilder
 	private func deckArea(deck: [DiscoverCard], front: DiscoverCard, u: CGFloat) -> some View {
-		// Art 229 and scale 1 wherever the card fits (every iPhone but the smallest). The drag below is in screen
-		// points, so the card's own offsets are divided by the scale to keep following the finger.
-		// In u. The art starts at 229 shrunk for larger text (iOS only: Android's card doesn't trade art for text).
-		let sized = DeckFit.solve(room: deckRoom / u, text: cardText, top: 54.65, art: 229 / typeScale, minArt: min(120, 229 / typeScale))
+		// Art 229 and scale 1 wherever the card fits (every iPhone but the smallest); larger text makes the card taller,
+		// and DeckFit gives that room from the art the same way. The drag below is in screen points, so the card's own
+		// offsets are divided by the scale to keep following the finger.
+		let sized = DeckFit.solve(room: deckRoom / u, text: cardText, top: 54.65, art: 229, minArt: 130)
 		let fit = sized.scale
 		let art = sized.art * u
 		ZStack(alignment: .top) {
@@ -484,7 +487,15 @@ struct DiscoverView: View {
 			// measured on its own (the art's height doesn't change it), plus the 25 gap and 4+4 padding around it.
 			FrontDeckCard(
 				card: front, u: u, artHeight: art, showLearnMore: true, onLearnMore: { openQuickLook(front) },
-				onTextHeight: { cardText = max(cardText, $0 / u + 33) }
+				onTextHeight: { height in
+					// A new text size starts the tallest-so-far again - here, with the measurement it brings, so the
+					// two can't land in the wrong order.
+					if cardTextSize != dynamicTypeSize {
+						cardTextSize = dynamicTypeSize
+						cardText = 0
+					}
+					cardText = max(cardText, height / u + 33)
+				}
 			)
 				.rotationEffect(.degrees(reduceMotion ? 0 : Double(swipeOffset / commitPx) * 8))
 				.offset(x: swipeOffset / fit, y: 54.65 * u)
@@ -506,8 +517,6 @@ struct DiscoverView: View {
 		// minHeight 0: the room on offer, even when the card alone is taller than it.
 		.frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .top)
 		.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { deckRoom = $0 }
-		// Smaller text makes a shorter card: the tallest so far is measured again.
-		.onChange(of: typeScale) { cardText = 0 }
 		.padding(.horizontal, 20 * u)
 		// Unclipped and above its siblings: a dragged or flying card stays WHOLE past the deck bounds - it passes over
 		// the CTA zone like a real card deck.
@@ -1862,7 +1871,7 @@ struct DecisionButtons: View {
 /// How Discover's deck fits a short screen, in u. The card at its authored size needs `top` (the front card's drop
 /// below the peeks) + `text` (everything but its art) + `art`. When the room is shorter, the art gives way first,
 /// down to `minArt`; only what's still missing is made up by scaling the whole stack, so the text shrinks as little as
-/// it can (about 0.82 on a 360x640 Android with button navigation). Android: DeckFit in DiscoverScreen.kt.
+/// it can (about 0.80 on a 360x640 Android with button navigation; 130 keeps the whole glass ball). Android: DeckFit in DiscoverScreen.kt.
 enum DeckFit {
 	static func solve(room: CGFloat, text: CGFloat, top: CGFloat, art: CGFloat, minArt: CGFloat) -> (art: CGFloat, scale: CGFloat) {
 		guard room > 0, text > 0, top + text + art > room else { return (art, 1) }

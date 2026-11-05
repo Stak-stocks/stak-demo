@@ -462,7 +462,8 @@ internal fun DiscoverScreen(
 	// The deck's room (px) and the tallest card's height without its art (u - so folding a foldable,
 	// which changes u, doesn't keep a stale one): the art is what gives way on a short screen, where
 	// the card ran under the buttons. See DeckFit. Kept above the deck's branch so a return from
-	// loading or the end screen doesn't draw one frame at full size.
+	// loading or the end screen doesn't draw one frame at full size. A font-size change rebuilds the
+	// activity (fontScale isn't in the manifest's configChanges), so it starts again from 0.
 	var deckRoom by remember { mutableIntStateOf(0) }
 	var cardText by remember { mutableFloatStateOf(0f) }
 
@@ -521,7 +522,7 @@ internal fun DiscoverScreen(
 				// screen pixels, like the iPhone's), so the commit distance doesn't shrink with it and the
 				// card's own offsets are divided by the scale to keep following the finger.
 				val pxPerU = with(density) { u.dp.toPx() }
-				val sized = DeckFit.solve(room = deckRoom / pxPerU, text = cardText, top = 54.65f, art = 229f, minArt = 120f)
+				val sized = DeckFit.solve(room = deckRoom / pxPerU, text = cardText, top = 54.65f, art = 229f, minArt = 130f)
 				val fit = sized.scale
 				val artU = sized.art
 				Box(
@@ -568,7 +569,6 @@ internal fun DiscoverScreen(
 						},
 				) {
 					val commitPx = with(density) { (110 * u).dp.toPx() }
-					val btnRatio = (swipeOffset.value / commitPx).coerceIn(-1f, 1f)
 						// Peek card farthest back — tilts right, smallest
 					if (remainingDeck.size > 2) {
 						FrontDeckCard(
@@ -2066,8 +2066,8 @@ private fun QuickLookIconRow(iconRes: Int, label: String, body: String, u: Float
  * How Discover's deck fits a short screen, in u. The card at its authored size needs top (the
  * front card's drop below the peeks) + text (everything but its art) + art. When the room is
  * shorter, the art gives way first, down to minArt; only what's still missing is made up by
- * scaling the whole stack, so the text shrinks as little as it can (about 0.82 on a 360x640
- * phone with button navigation). iOS: DeckFit in DiscoverView.swift.
+ * scaling the whole stack, so the text shrinks as little as it can (about 0.80 on a 360x640
+ * phone with button navigation; 130 keeps the whole glass ball). iOS: DeckFit in DiscoverView.swift.
  */
 internal object DeckFit {
 	data class Sized(val art: Float, val scale: Float)
