@@ -71,12 +71,17 @@ struct SwipeTutorialView: View {
 	@State private var flyGen = 0
 	/// Bumped on every commit - the decision haptic.
 	@State private var decisionTick = 0
+	/// The room above Continue/Back and the deck + Pass/STAK's own height: on a short screen (iPhone SE) they ran into
+	/// Continue, so they're scaled to fit (1 wherever they fit). Android: the same in SwipeTutorialScreen.
+	@State private var deckRoom: CGFloat = 0
+	@State private var deckNeed: CGFloat = 0
 	private let dragSlop: CGFloat = 10
 
 	var body: some View {
 		let u = figmaUnit
 		let u2 = u * deckScale
 		let commitPx = 110 * u2
+		let fit = deckRoom > 0 && deckNeed > 0 ? min(1, deckRoom / deckNeed) : 1
 		Artboard {
 			HStack {
 				AuthBackCircle(action: onBack)
@@ -170,9 +175,14 @@ struct SwipeTutorialView: View {
 						onPass: { advance(isSTAK: false) },
 						onStak: { advance(isSTAK: true) }
 					)
-					Spacer(minLength: 0)
 				}
-				.frame(maxWidth: .infinity)
+				.fixedSize(horizontal: false, vertical: true)
+				.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { deckNeed = $0 }
+				// The drag sits inside the scale, so the card follows the finger and the commit distance scales with
+				// the deck (as on Android).
+				.scaleEffect(fit, anchor: .top)
+				.frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .top)
+				.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { deckRoom = $0 }
 				.padding(.top, 10 * u)
 			}
 			.padding(.horizontal, 24 * u)

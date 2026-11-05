@@ -41,12 +41,14 @@ struct IntroView: View {
 				// the flattened group's first vector tops out at 235.5 in 1:179).
 				// The title's natural-height excess is absorbed by the gap above, so
 				// this is the authored pad (mirrors Android, 2026-09-05).
+				// At most its authored 342x488, fitted to the room above "Get started": on a short screen (iPhone SE)
+				// the fixed frame ran under the button. Android's size() inside weight(1f) fits it the same way.
 				Image(decorative: "IntroHeroBox")
 					.resizable()
 					.scaledToFit()
-					.frame(width: 342 * u, height: 488 * u)
+					.frame(maxWidth: 342 * u, maxHeight: 488 * u)
 					.padding(.top, 34.95 * u)
-					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+					.frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .top)
 			}
 			.padding(.horizontal, 24 * u)
 			.padding(.top, 24 * u)

@@ -461,10 +461,13 @@ struct DiscoverView: View {
 		let sized = DeckFit.solve(room: deckRoom / u, text: cardText, top: 54.65, art: 229, minArt: 130)
 		let fit = sized.scale
 		let art = sized.art * u
+		// The card's smallest labels (ticker, change, TIP) keep at least 92% of their size however far the stack
+		// scales - drawn larger in place, so the card's measured height doesn't change with them.
+		let boost = min(1.2, max(1, 0.92 / fit))
 		ZStack(alignment: .top) {
 			// Peek card farthest back — tilts right, smallest. Equatable: a drag frame doesn't redraw the peeks.
 			if deck.count > 2 {
-				FrontDeckCard(card: deck[2], u: u, artHeight: art)
+				FrontDeckCard(card: deck[2], u: u, artHeight: art, labelBoost: boost)
 					.equatable()
 					.scaleEffect(0.72, anchor: .top)
 					.rotationEffect(.degrees(5), anchor: .top)
@@ -474,7 +477,7 @@ struct DiscoverView: View {
 			}
 			// Peek card middle — tilts left, medium.
 			if deck.count > 1 {
-				FrontDeckCard(card: deck[1], u: u, artHeight: art)
+				FrontDeckCard(card: deck[1], u: u, artHeight: art, labelBoost: boost)
 					.equatable()
 					.scaleEffect(0.82, anchor: .top)
 					.rotationEffect(.degrees(-3), anchor: .top)
@@ -486,7 +489,7 @@ struct DiscoverView: View {
 			// The tallest card so far sets the size, so the deck doesn't change size from card to card. Its text part is
 			// measured on its own (the art's height doesn't change it), plus the 25 gap and 4+4 padding around it.
 			FrontDeckCard(
-				card: front, u: u, artHeight: art, showLearnMore: true, onLearnMore: { openQuickLook(front) },
+				card: front, u: u, artHeight: art, labelBoost: boost, showLearnMore: true, onLearnMore: { openQuickLook(front) },
 				onTextHeight: { height in
 					// A new text size starts the tallest-so-far again - here, with the measurement it brings, so the
 					// two can't land in the wrong order.
@@ -505,7 +508,7 @@ struct DiscoverView: View {
 				.accessibilityAction(named: "Pass") { animateAndCommit(front, isSTAK: false) }
 				.accessibilityAction(named: "Learn more") { openQuickLook(front) }
 			if let ghost = flyingCard {
-				FrontDeckCard(card: ghost, u: u, artHeight: art, showLearnMore: true)
+				FrontDeckCard(card: ghost, u: u, artHeight: art, labelBoost: boost, showLearnMore: true)
 					.equatable()
 					.opacity(flyFade)
 					.offset(x: flyOffset / fit, y: 54.65 * u)
@@ -663,6 +666,8 @@ private struct FrontDeckCard: View, Equatable {
 	let u: CGFloat
 	/// Nil: the authored 229 (less at larger text). Discover's deck shortens it on a short screen (DeckFit).
 	var artHeight: CGFloat? = nil
+	/// How much larger the smallest labels are drawn when Discover scales the stack down (1 otherwise).
+	var labelBoost: CGFloat = 1
 	var showLearnMore = false
 	var onLearnMore: (() -> Void)? = nil
 	/// The height of the card's text part, for Discover's DeckFit.
@@ -670,11 +675,11 @@ private struct FrontDeckCard: View, Equatable {
 
 	/// The closures are left out: peeks and the fly-out ghost have none, so they redraw only when their card changes.
 	static func == (a: Self, b: Self) -> Bool {
-		a.card == b.card && a.u == b.u && a.artHeight == b.artHeight && a.showLearnMore == b.showLearnMore && (a.onLearnMore == nil) == (b.onLearnMore == nil)
+		a.card == b.card && a.u == b.u && a.artHeight == b.artHeight && a.labelBoost == b.labelBoost && a.showLearnMore == b.showLearnMore && (a.onLearnMore == nil) == (b.onLearnMore == nil)
 	}
 
 	var body: some View {
-		DeckCardBody(card: card, u: u, artHeight: artHeight, showLearnMore: showLearnMore, onLearnMore: onLearnMore, onTextHeight: onTextHeight)
+		DeckCardBody(card: card, u: u, artHeight: artHeight, labelBoost: labelBoost, showLearnMore: showLearnMore, onLearnMore: onLearnMore, onTextHeight: onTextHeight)
 			.frame(width: 350 * u)
 			.background { CardSeam(u: u) }
 	}
@@ -711,6 +716,7 @@ private struct DeckCardBody: View {
 	let card: DiscoverCard
 	let u: CGFloat
 	var artHeight: CGFloat? = nil
+	var labelBoost: CGFloat = 1
 	var showLearnMore = false
 	var onLearnMore: (() -> Void)? = nil
 	var onTextHeight: ((CGFloat) -> Void)? = nil
@@ -752,6 +758,7 @@ private struct DeckCardBody: View {
 						.font(StakFont.geist(10 * u))
 						.stakLineHeight(13 * u, size: 10 * u, face: .geist)
 						.foregroundStyle(Disc.muted)
+						.scaleEffect(labelBoost, anchor: .leading)
 					Text(card.headline)
 						.font(StakFont.geist(16 * u))
 						.stakLineHeight(23 * u, size: 16 * u, face: .geist)
@@ -770,6 +777,7 @@ private struct DeckCardBody: View {
 							.lineLimit(1)
 							.fixedSize()
 							.foregroundStyle(card.change.hasPrefix("▼") ? Disc.red : Disc.green)
+							.scaleEffect(labelBoost, anchor: .bottomLeading)
 							.padding(.bottom, 2 * u)
 					}
 				}
@@ -779,6 +787,7 @@ private struct DeckCardBody: View {
 							.font(StakFont.geist(10 * u, .medium))
 							.tracking(0.9 * u)
 							.foregroundStyle(Disc.teal)
+							.scaleEffect(labelBoost, anchor: .leading)
 						Text(card.tip)
 							.font(StakFont.geist(11 * u))
 							.stakLineHeight(15 * u, size: 11 * u, face: .geist)

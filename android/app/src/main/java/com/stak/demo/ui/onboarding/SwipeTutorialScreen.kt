@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +36,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import com.stak.demo.ui.discover.DeckCard
@@ -142,9 +144,26 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 				)
 			}
 
+			// The room above Continue/Back and the deck + Pass/STAK's own height: on a short screen
+			// they ran into Continue, so they're scaled to fit (1 wherever they fit). The drag sits
+			// inside the scale, so the card follows the finger. iOS: the same in SwipeTutorialView.
+			var deckRoom by remember { mutableIntStateOf(0) }
+			var deckNeed by remember { mutableIntStateOf(0) }
+			val fit = if (deckRoom > 0 && deckNeed > 0) minOf(1f, deckRoom.toFloat() / deckNeed) else 1f
 			Column(
 				horizontalAlignment = Alignment.CenterHorizontally,
-				modifier = Modifier.weight(1f).fillMaxWidth().padding(top = (10 * u).dp),
+				modifier = Modifier
+					.weight(1f)
+					.fillMaxWidth()
+					.padding(top = (10 * u).dp)
+					.onSizeChanged { deckRoom = it.height }
+					.wrapContentHeight(Alignment.Top, unbounded = true)
+					.onSizeChanged { deckNeed = it.height }
+					.graphicsLayer {
+						transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
+						scaleX = fit
+						scaleY = fit
+					},
 			) {
 				val rows = DeckRowTweaks(overlay = -1.35f, headline = 0.55f, price = 0.95f, tip = 0.1f)
 				val commitPx = with(density) { (110 * u2).dp.toPx() }
