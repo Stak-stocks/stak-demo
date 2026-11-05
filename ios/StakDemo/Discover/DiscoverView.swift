@@ -245,7 +245,7 @@ struct DiscoverView: View {
 		}
 		// Travel past the screen edge by a full card width so the card genuinely leaves the frame. Reduce Motion
 		// fades it where it stands instead.
-		let flyDistance = UIScreen.main.bounds.width + 350 * figmaUnit
+		let flyDistance = appWidth + 350 * figmaUnit
 		let flyTarget = reduceMotion ? gestureOffset : (isSTAK ? flyDistance : -flyDistance)
 		flyGen += 1
 		let gen = flyGen

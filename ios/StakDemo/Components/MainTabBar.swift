@@ -71,6 +71,9 @@ struct MainTabBar: View {
 								// Authored label face: Inter Regular 12.
 								.font(StakFont.inter(12 * u))
 								.foregroundStyle(Color.white)
+								// One line, never wrapped - android's maxLines = 1, softWrap = false.
+								.lineLimit(1)
+								.fixedSize()
 						}
 						// Authored: only Tab - Home has a fixed width (34); the rest hug.
 						.frame(width: tab == .home ? 34 * u : nil)

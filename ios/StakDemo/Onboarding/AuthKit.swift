@@ -12,7 +12,16 @@ import AuthenticationServices
 /// the swipe deck) multiply by this so their proportions hold on wider
 /// devices instead of shrinking relative to the screen.
 var figmaUnit: CGFloat {
-	UIScreen.main.bounds.width / 390
+	appWidth / 390
+}
+
+/// The width of the window the app draws in. Not UIScreen.main: on an iPad, this iPhone app runs in an iPhone-sized
+/// window while the screen is the whole iPad's, so sizes measured from the screen came out too big (labels wrapped).
+/// On an iPhone the two are the same.
+var appWidth: CGFloat {
+	let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+	let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+	return scene?.keyWindow?.bounds.width ?? scene?.coordinateSpace.bounds.width ?? UIScreen.main.bounds.width
 }
 
 /// Frame-exact vertical composition (user ruling 2026-08-30, "just what's

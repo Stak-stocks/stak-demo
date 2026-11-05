@@ -217,7 +217,7 @@ struct RootFlowView: View {
 					ForEach(flowLayers, id: \.self) { s in
 						let isTop = s == stack.last
 						screen(for: s)
-							.offset(x: isTop ? 0 : EdgeSwipe.underlayOffset(flowDrag, width: UIScreen.main.bounds.width))
+							.offset(x: isTop ? 0 : EdgeSwipe.underlayOffset(flowDrag, width: appWidth))
 							.allowsHitTesting(isTop)
 							.accessibilityHidden(!isTop)
 							.edgeSwipeBack(

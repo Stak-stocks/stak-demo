@@ -70,7 +70,7 @@ private struct EdgeSwipeBackModifier: ViewModifier {
 	private let edgeWidth: CGFloat = 20
 
 	func body(content: Content) -> some View {
-		let width = UIScreen.main.bounds.width
+		let width = appWidth
 		content
 			// VoiceOver's two-finger scrub - the same back, for anyone not dragging.
 			.accessibilityAction(.escape) { if enabled { onBack() } }
