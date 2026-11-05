@@ -8,7 +8,9 @@ struct StakDemoApp: App {
 	var body: some Scene {
 		WindowGroup {
 			TextSizeRoot {
-				RootFlowView()
+				PhoneColumn {
+					RootFlowView()
+				}
 			}
 			// The STAK app is dark-only by design; ignore the system light theme.
 			.preferredColorScheme(.dark)
@@ -29,14 +31,5 @@ private struct TextSizeRoot<Content: View>: View {
 		content
 			.onAppear { TextScale.shared.update(dynamicTypeSize) }
 			.onChange(of: dynamicTypeSize) { _, size in TextScale.shared.update(size) }
-			// And `appWidth` (figmaUnit's base) on the window's size: read once per change, not per view.
-			.background(
-				GeometryReader { geo in
-					Color.clear
-						.onAppear { AppWindow.refresh() }
-						.onChange(of: geo.size) { _, _ in AppWindow.refresh() }
-				}
-				.ignoresSafeArea()
-			)
 	}
 }

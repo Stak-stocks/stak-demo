@@ -419,7 +419,9 @@ private struct NewsDeck: View {
 			}
 			if interactive {
 				Color.clear
-					.contentShape(Rectangle())
+					// Only the cards take the drag: one that starts elsewhere on the mood card scrolls Home, which a
+					// catcher over the whole card had held still.
+					.contentShape(DeckCardsShape(cards: deckCards, offsets: drags.offsets, u: u))
 					.sensoryFeedback(.selection, trigger: pickTick)
 					.highPriorityGesture(
 						DragGesture(minimumDistance: 8)
@@ -469,6 +471,28 @@ private struct NewsDeck: View {
 			}
 		}
 		return -1
+	}
+}
+
+/// The deck's cards as one shape, each its rotated 236.86x278.45 rect where pickCard finds it.
+private struct DeckCardsShape: Shape {
+	let cards: [DeckCard]
+	let offsets: [CGFloat]
+	let u: CGFloat
+
+	func path(in rect: CGRect) -> Path {
+		var path = Path()
+		for (i, card) in cards.enumerated() {
+			let center = CGPoint(
+				x: rect.minX + 175 * u + card.offsetX * u,
+				y: rect.minY + 198.5 * u + card.offsetY * u + (i < offsets.count ? offsets[i] : 0)
+			)
+			let size = CGSize(width: 236.86 * u, height: 278.45 * u)
+			let transform = CGAffineTransform(translationX: center.x, y: center.y)
+				.rotated(by: card.rotation * .pi / 180)
+			path.addPath(Path(CGRect(x: -size.width / 2, y: -size.height / 2, width: size.width, height: size.height)), transform: transform)
+		}
+		return path
 	}
 }
 

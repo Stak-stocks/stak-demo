@@ -41,7 +41,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.verticalDrag
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -404,50 +407,50 @@ private fun BoxScope.NewsDeck(
 		// with a rotation-aware point-in-card test, topmost first.
 		val density = androidx.compose.ui.platform.LocalDensity.current
 		val uPx = with(density) { (1f * u).dp.toPx() }
-		val active = remember { intArrayOf(-1) }
 		Box(
 			modifier = Modifier
 				.matchParentSize()
 				.pointerInput(uPx) {
-					detectVerticalDragGestures(
-						onDragStart = { pos ->
-							active[0] = -1
-							for (i in slots.indices.reversed()) {
-								val slot = slots[i]
-								val cx = size.width / 2f + slot.dx * uPx
-								val cy = size.height / 2f + slot.dy * uPx + drags[i].value
-								val rad = Math.toRadians(-slot.rot.toDouble())
-								val dxp = pos.x - cx
-								val dyp = pos.y - cy
-								val lx = dxp * Math.cos(rad).toFloat() + dyp * Math.sin(rad).toFloat()
-								val ly = -dxp * Math.sin(rad).toFloat() + dyp * Math.cos(rad).toFloat()
-							if (Math.abs(lx) <= 236.86f * uPx / 2f && Math.abs(ly) <= 278.45f * uPx / 2f) {
-									active[0] = i
-									break
-								}
-							}
-						},
-						onDragEnd = {
-							val i = active[0]
-							if (i >= 0) dragScope.launch {
-								drags[i].animateTo(0f, androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.EaseOut))
-							}
-							active[0] = -1
-						},
-						onDragCancel = {
-							val i = active[0]
-							if (i >= 0) dragScope.launch {
-								drags[i].animateTo(0f, androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.EaseOut))
-							}
-							active[0] = -1
-						},
-					) { change, dy ->
-						val i = active[0]
-						if (i >= 0) {
-							change.consume()
-							val maxUpPx = slots[i].maxUpU * uPx
-							dragScope.launch { drags[i].snapTo((drags[i].value + dy).coerceIn(-maxUpPx, 0f)) }
+					// Only a drag that starts on a card is the deck's: one elsewhere on the mood card is left
+					// unconsumed, so Home scrolls (a deck-wide drag detector had held the page still).
+					fun pick(pos: androidx.compose.ui.geometry.Offset): Int {
+						for (i in slots.indices.reversed()) {
+							val slot = slots[i]
+							val cx = size.width / 2f + slot.dx * uPx
+							val cy = size.height / 2f + slot.dy * uPx + drags[i].value
+							val rad = Math.toRadians(-slot.rot.toDouble())
+							val dxp = pos.x - cx
+							val dyp = pos.y - cy
+							val lx = dxp * Math.cos(rad).toFloat() + dyp * Math.sin(rad).toFloat()
+							val ly = -dxp * Math.sin(rad).toFloat() + dyp * Math.cos(rad).toFloat()
+							if (Math.abs(lx) <= 236.86f * uPx / 2f && Math.abs(ly) <= 278.45f * uPx / 2f) return i
 						}
+						return -1
+					}
+					fun move(i: Int, dy: Float) {
+						val maxUpPx = slots[i].maxUpU * uPx
+						dragScope.launch { drags[i].snapTo((drags[i].value + dy).coerceIn(-maxUpPx, 0f)) }
+					}
+					fun settle(i: Int) {
+						dragScope.launch {
+							drags[i].animateTo(0f, androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.EaseOut))
+						}
+					}
+					awaitEachGesture {
+						val down = awaitFirstDown(requireUnconsumed = false)
+						val i = pick(down.position)
+						if (i < 0) return@awaitEachGesture
+						val started = awaitVerticalTouchSlopOrCancellation(down.id) { change, over ->
+							change.consume()
+							move(i, over)
+						}
+						if (started != null) {
+							verticalDrag(started.id) { change ->
+								move(i, change.positionChange().y)
+								change.consume()
+							}
+						}
+						settle(i)
 					}
 				},
 		)
