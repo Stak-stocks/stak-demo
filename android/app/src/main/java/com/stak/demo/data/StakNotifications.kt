@@ -170,9 +170,28 @@ object StakNotifications {
 			?.let { StakStore.putString("notif.createdAt", it.toString()) }
 	}
 
-	/** Opening the inbox reads everything - like an activity feed. Nothing new to read, nothing written. */
+	/** Read marks are kept this long: a move's or a deck's id carries its day, and none older is listed again. */
+	private const val KEEP_READ_DAYS = 14L
+
+	/**
+	 * The marks worth keeping - a dated id (move:2026-11-05:..., deck:2026-11-05) from more than
+	 * KEEP_READ_DAYS ago is dropped, so the marks don't grow forever now that they're only ever added to.
+	 */
+	fun recent(ids: Set<String>, today: java.time.LocalDate = java.time.LocalDate.now()): Set<String> {
+		val cutoff = today.minusDays(KEEP_READ_DAYS).toString()
+		return ids.filterTo(mutableSetOf()) { id ->
+			val day = id.split(":").getOrNull(1)
+			day == null || day.length != 10 || !day.all { it.isDigit() || it == '-' } || day >= cutoff
+		}
+	}
+
+	/**
+	 * Opening the inbox reads everything - like an activity feed. Nothing new to read, nothing written.
+	 * Added to the marks, never replacing them: marks pulled from another device, for items this one
+	 * doesn't list yet, would otherwise be dropped here and erased from the account's copy by the push.
+	 */
 	fun markAllRead() {
-		val next = items.map { it.id }.toSet()
+		val next = recent(readIds + items.map { it.id })
 		if (next == readIds) return
 		readIds = next
 		StakStore.putSet("notif.read", readIds)

@@ -8,13 +8,15 @@ import SwiftUI
 /// There the app draws in an iPhone-shaped column in the middle (PhoneColumn), and this is that column's width.
 ///
 /// Stored, not looked up per read: figmaUnit runs in nearly every view body and through every font, so a walk over
-/// the app's scenes each time added up during a swipe. The app's root refreshes it whenever its size changes.
+/// the app's scenes each time added up during a swipe. PhoneColumn sets it from the window it measures.
 enum AppWindow {
 	private(set) static var width: CGFloat = columnWidth(for: measure())
 
-	static func refresh() {
-		let width = columnWidth(for: measure())
-		if width > 0 { self.width = width }
+	/// The column's width for this window, from PhoneColumn's own measurement - one source for the column's frame
+	/// and figmaUnit.
+	static func update(window: CGSize) {
+		let column = columnWidth(for: window)
+		if column > 0 { width = column }
 	}
 
 	/// The window's width, or on a window too short for the frame (portrait, under 1.7x as tall as wide - the
@@ -24,7 +26,8 @@ enum AppWindow {
 		return (window.height * 390 / 844).rounded(.down)
 	}
 
-	private static func measure() -> CGSize {
+	/// The first value, before PhoneColumn has measured: the key window, or the scene before there is one.
+	static func measure() -> CGSize {
 		let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
 		let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
 		return scene?.keyWindow?.bounds.size ?? scene?.coordinateSpace.bounds.size ?? UIScreen.main.bounds.size
@@ -33,37 +36,45 @@ enum AppWindow {
 
 var appWidth: CGFloat { AppWindow.width }
 
-/// The app in its column: the whole window on an iPhone, an iPhone-shaped column centred on the page colour on an
-/// iPad (see AppWindow). Clipped, so a page sliding in from the side doesn't show beside the column.
+/// The app in its column: the whole window on an iPhone; on an iPad, an iPhone-shaped column centred between two
+/// panels of the page colour (see AppWindow). The panels are solid and take touches: pages parked beside the column
+/// (a tab's shell, a page under a pushed one) would otherwise show in the margins and answer taps there.
 struct PhoneColumn<Content: View>: View {
 	@ViewBuilder let content: Content
+	@State private var window = AppWindow.measure()
 
 	var body: some View {
-		GeometryReader { geo in
-			let window = CGSize(
-				width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
-				height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom
+		let column = AppWindow.columnWidth(for: window)
+		let margin = max(0, (window.width - column) / 2)
+		content
+			.frame(width: margin > 0 ? column : nil)
+			.frame(maxWidth: .infinity, maxHeight: .infinity)
+			.overlay {
+				HStack(spacing: 0) {
+					StakColors.bg.frame(width: margin)
+					Spacer(minLength: 0)
+					StakColors.bg.frame(width: margin)
+				}
+				.ignoresSafeArea()
+				.opacity(margin > 0 ? 1 : 0)
+				.allowsHitTesting(margin > 0)
+			}
+			.background(StakColors.bg.ignoresSafeArea())
+			// The whole window, safe areas and keyboard included, so a keyboard opening doesn't change it.
+			.background(
+				GeometryReader { geo in
+					Color.clear
+						.onAppear { set(geo.size) }
+						.onChange(of: geo.size) { _, size in set(size) }
+				}
+				.ignoresSafeArea()
 			)
-			let column = AppWindow.columnWidth(for: window)
-			let columned = column < window.width
-			content
-				.frame(width: columned ? column : nil)
-				.frame(maxWidth: .infinity, maxHeight: .infinity)
-				.clipShape(SidesClip(active: columned))
-				// figmaUnit and the page widths follow the column: read once per change, not per view.
-				.onAppear { AppWindow.refresh() }
-				.onChange(of: window) { _, _ in AppWindow.refresh() }
-		}
-		.background(StakColors.bg.ignoresSafeArea())
 	}
-}
 
-/// Clips the column's sides only: above and below, the status bar's and the tab bar's backgrounds run on to the
-/// window's edges (ignoring the safe area), and must not be cut. Clips nothing when there is no column.
-private struct SidesClip: Shape {
-	let active: Bool
-
-	func path(in rect: CGRect) -> Path {
-		Path(active ? rect.insetBy(dx: 0, dy: -10_000) : rect.insetBy(dx: -10_000, dy: -10_000))
+	private func set(_ size: CGSize) {
+		guard size != window, size.width > 0 else { return }
+		// figmaUnit first, so the redraw this state change causes already reads the new width.
+		AppWindow.update(window: size)
+		window = size
 	}
 }

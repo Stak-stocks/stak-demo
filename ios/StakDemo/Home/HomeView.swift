@@ -174,7 +174,7 @@ struct HomeView: View {
 					// y629 vs banner y670) — anchor to the same content geometry:
 					// banner top = status inset + 626, so the scrim starts 585 below
 					// the inset and runs to the physical bottom of the screen.
-					// Never shorter than the frame's 226 overlay: on a short screen (iPhone SE, or this app on an iPad)
+					// Never shorter than the frame's 226 overlay: on a short screen (iPhone SE)
 					// the 585 anchor left it ~85 tall, with its pill (105 down) off the bottom.
 					FirstRunOverlay(onSeeTodaysPick: onSeeTodaysPick)
 						.frame(height: max(geo.size.height + geo.safeAreaInsets.bottom - 585 * u, 226 * u))
@@ -209,6 +209,7 @@ private struct TopNav: View {
 	/// Time-of-day in the user's own timezone (device clock); re-read every
 	/// 30s so an open app rolls over at noon / 5pm.
 	@State private var greeting = Greeting.now()
+	@Environment(\.scenePhase) private var scenePhase
 
 	var body: some View {
 		let u = figmaUnit
@@ -292,6 +293,9 @@ private struct TopNav: View {
 		}
 		// The bell's dot follows the account's own moves and deck (at most every few minutes).
 		.task { notifications.refresh() }
+		// And on coming back to the app, which doesn't show Home again: a notification read meanwhile on another
+		// device clears the dot here.
+		.onChange(of: scenePhase) { _, phase in if phase == .active { notifications.refresh() } }
 	}
 }
 
@@ -452,47 +456,52 @@ private struct NewsDeck: View {
 					)
 			}
 		}
+		// A drag cut off mid-way (the page leaving) never reaches onEnded: put a lifted card back, or it would stay up
+		// and the next drag would skip picking.
+		.onDisappear {
+			guard drags.active >= 0 else { return }
+			drags.offsets[drags.active] = 0
+			drags.raised = -1
+			drags.active = -1
+			lastDragY = 0
+		}
 	}
 
-	/// Topmost card whose rotated 236.86x278.45 rect contains the point;
-	/// the deck area is the 350x397 mood card.
+	/// Topmost card under the point, as drawn (rotated, lifted) and inside the 350x397 mood card that clips the deck.
 	private func pickCard(at p: CGPoint, u: CGFloat) -> Int {
-		for i in deckCards.indices.reversed() {
-			let card = deckCards[i]
-			let cx = 175 * u + card.offsetX * u
-			let cy = 198.5 * u + card.offsetY * u + drags.offsets[i]
-			let rad = -card.rotation * .pi / 180
-			let dx = p.x - cx
-			let dy = p.y - cy
-			let lx = dx * CGFloat(cos(rad)) + dy * CGFloat(sin(rad))
-			let ly = -dx * CGFloat(sin(rad)) + dy * CGFloat(cos(rad))
-			if abs(lx) <= 236.86 * u / 2, abs(ly) <= 278.45 * u / 2 {
-				return i
-			}
-		}
-		return -1
+		guard DeckCardsShape.area(u).contains(p) else { return -1 }
+		return deckCards.indices.reversed().first { i in
+			DeckCardsShape.cardPath(deckCards[i], lift: drags.offsets[i], u: u).contains(p)
+		} ?? -1
 	}
 }
 
-/// The deck's cards as one shape, each its rotated 236.86x278.45 rect where pickCard finds it.
+/// The deck's cards as one shape - each as drawn, rotated and lifted - cut to the mood card, which clips the deck: a
+/// card's hidden lower part must not catch touches meant for what's below the card.
 private struct DeckCardsShape: Shape {
 	let cards: [DeckCard]
 	let offsets: [CGFloat]
 	let u: CGFloat
 
+	/// The 350x397 mood card the deck sits in.
+	static func area(_ u: CGFloat) -> CGRect { CGRect(x: 0, y: 0, width: 350 * u, height: 397 * u) }
+
+	/// One 236.86x278.45 card, centred on its authored offset from the mood card's centre and turned as
+	/// NewsDeckCard's rotationEffect turns it.
+	static func cardPath(_ card: DeckCard, lift: CGFloat, u: CGFloat) -> Path {
+		let size = CGSize(width: 236.86 * u, height: 278.45 * u)
+		let transform = CGAffineTransform(translationX: 175 * u + card.offsetX * u, y: 198.5 * u + card.offsetY * u + lift)
+			.rotated(by: card.rotation * .pi / 180)
+		return Path(CGRect(x: -size.width / 2, y: -size.height / 2, width: size.width, height: size.height))
+			.applying(transform)
+	}
+
 	func path(in rect: CGRect) -> Path {
 		var path = Path()
 		for (i, card) in cards.enumerated() {
-			let center = CGPoint(
-				x: rect.minX + 175 * u + card.offsetX * u,
-				y: rect.minY + 198.5 * u + card.offsetY * u + (i < offsets.count ? offsets[i] : 0)
-			)
-			let size = CGSize(width: 236.86 * u, height: 278.45 * u)
-			let transform = CGAffineTransform(translationX: center.x, y: center.y)
-				.rotated(by: card.rotation * .pi / 180)
-			path.addPath(Path(CGRect(x: -size.width / 2, y: -size.height / 2, width: size.width, height: size.height)), transform: transform)
+			path.addPath(Self.cardPath(card, lift: i < offsets.count ? offsets[i] : 0, u: u))
 		}
-		return path
+		return path.intersection(Path(Self.area(u)))
 	}
 }
 

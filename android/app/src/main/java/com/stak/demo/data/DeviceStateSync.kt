@@ -22,6 +22,9 @@ import kotlinx.coroutines.withContext
 object DeviceStateSync {
 	private var repository: StockRepository? = null
 	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+	/** pullReads' throttle: Home and the inbox ask on every visit. */
+	private const val READS_PULL_MS = 30_000L
+	@Volatile private var readsPulledAt = 0L
 
 	fun init(repo: StockRepository) {
 		repository = repo
@@ -29,15 +32,16 @@ object DeviceStateSync {
 
 	/**
 	 * Called once per real sign-in, after MyStakHoldings/StakNotifications/NewsSaves have
-	 * already loaded whatever this phone has locally for the account. A brand-new phone has
-	 * none of their StakStore keys yet - if the server holds this account's copy, that's
-	 * exactly what's missing here, so pull it down and reload the singletons that were
-	 * missing it. A phone that already has local data leaves it alone (it's what's showing)
-	 * and just pushes it, so the server catches up instead of a second, older copy winning.
+	 * already loaded whatever this phone has locally for the account. Read marks are merged
+	 * with the server's; saved news is pulled only into a phone with none yet (a phone that
+	 * has its own leaves it alone - it's what's showing). Then pushes what this phone has,
+	 * so the server catches up.
 	 */
 	fun sync() {
 		val repo = repository ?: return
 		if (Session.demoAccount || Session.token == null) return
+		// This pull covers the inbox's own first one.
+		readsPulledAt = System.currentTimeMillis()
 		// A read that lands after a sign-out or account switch belongs to the account that left (the store's keys
 		// resolve to the current one at write time).
 		val account = Session.accountGeneration
@@ -56,36 +60,39 @@ object DeviceStateSync {
 		}
 	}
 
-	@Volatile private var readsPulledAt = 0L
-
 	/**
-	 * Another device's read marks, pulled in when the inbox refreshes (at most every 30s), so a
-	 * notification read on one device isn't unread on the other. Sign-in alone was too rare a pull: a
-	 * phone that had its own marks kept them, and its next push overwrote the other's.
+	 * Another device's read marks, pulled in when Home shows, the inbox opens or the app comes
+	 * back (at most every READS_PULL_MS), so a notification read on one device isn't unread on
+	 * the other. Sign-in alone was too rare a pull: a phone that had its own marks kept them, and
+	 * its next push overwrote the other's.
 	 */
 	fun pullReads() {
 		val repo = repository ?: return
 		if (Session.demoAccount || Session.token == null) return
 		val now = System.currentTimeMillis()
-		if (now - readsPulledAt < 30_000L) return
+		if (now - readsPulledAt < READS_PULL_MS) return
 		readsPulledAt = now
 		val account = Session.accountGeneration
 		scope.launch {
 			val remote = runCatching { repo.getAndroidState() }.getOrNull() ?: return@launch
 			if (Session.accountGeneration != account) return@launch
-			mergeReads(remote.notifRead)
-			withContext(Dispatchers.Main) { StakNotifications.reloadReadIds() }
+			withContext(Dispatchers.Main) {
+				// Checked again where it's written: the account can change while the read is out.
+				if (Session.accountGeneration != account) return@withContext
+				mergeReads(remote.notifRead)
+				StakNotifications.reloadReadIds()
+			}
 		}
 	}
 
 	/**
-	 * The server's read marks joined with this phone's. Marks only add up (the inbox trims its own to
-	 * what it lists), so a union never turns a read notification unread.
+	 * The server's read marks joined with this phone's. Marks are only added to (markAllRead too),
+	 * so a union never turns a read notification unread.
 	 */
 	private fun mergeReads(remote: List<String>) {
-		val local = StakStore.getSet("notif.read")
-		val merged: Set<String> = (local ?: emptySet<String>()) + remote
-		if (merged != (local ?: emptySet<String>()) || (local == null && remote.isNotEmpty())) StakStore.putSet("notif.read", merged)
+		val local = StakStore.getSet("notif.read") ?: emptySet()
+		val merged = local + remote
+		if (merged != local) StakStore.putSet("notif.read", merged)
 	}
 
 	/** Fire-and-forget: whatever this phone holds right now becomes the server's copy too. */

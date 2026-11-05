@@ -44,7 +44,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.verticalDrag
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -247,8 +249,14 @@ private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, onAskAi: () -
 		}
 		Spacer(modifier = Modifier.height((10 * u).dp))
 		// The bell's dot reflects today's moves and deck: re-read (at most every few
-		// minutes) whenever Home is shown.
-		androidx.compose.runtime.LaunchedEffect(Unit) { com.stak.demo.data.StakNotifications.refresh() }
+		// minutes) whenever Home is shown, and on coming back to the app - a notification
+		// read meanwhile on another device clears the dot here.
+		val homeLifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
+		androidx.compose.runtime.LaunchedEffect(homeLifecycle) {
+			homeLifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+				com.stak.demo.data.StakNotifications.refresh()
+			}
+		}
 		// Time-of-day in the user's own timezone (device clock); re-read
 		// every 30s so an open app rolls over at noon / 5pm.
 		val greeting by androidx.compose.runtime.produceState(initialValue = com.stak.demo.ui.Greeting.now()) {
@@ -413,12 +421,14 @@ private fun BoxScope.NewsDeck(
 				.pointerInput(uPx) {
 					// Only a drag that starts on a card is the deck's: one elsewhere on the mood card is left
 					// unconsumed, so Home scrolls (a deck-wide drag detector had held the page still).
-					fun pick(pos: androidx.compose.ui.geometry.Offset): Int {
+					// Into the card's own frame: turned back by its rotation (graphicsLayer rotationZ = rot draws it
+					// turned clockwise by rot), so the test matches the card as drawn.
+					fun pick(pos: Offset): Int {
 						for (i in slots.indices.reversed()) {
 							val slot = slots[i]
 							val cx = size.width / 2f + slot.dx * uPx
 							val cy = size.height / 2f + slot.dy * uPx + drags[i].value
-							val rad = Math.toRadians(-slot.rot.toDouble())
+							val rad = Math.toRadians(slot.rot.toDouble())
 							val dxp = pos.x - cx
 							val dyp = pos.y - cy
 							val lx = dxp * Math.cos(rad).toFloat() + dyp * Math.sin(rad).toFloat()
@@ -440,17 +450,21 @@ private fun BoxScope.NewsDeck(
 						val down = awaitFirstDown(requireUnconsumed = false)
 						val i = pick(down.position)
 						if (i < 0) return@awaitEachGesture
-						val started = awaitVerticalTouchSlopOrCancellation(down.id) { change, over ->
-							change.consume()
-							move(i, over)
-						}
-						if (started != null) {
-							verticalDrag(started.id) { change ->
-								move(i, change.positionChange().y)
+						// finally: a drag cut off mid-way (the deck leaving, a text-size change) still settles.
+						try {
+							val started = awaitVerticalTouchSlopOrCancellation(down.id) { change, over ->
 								change.consume()
+								move(i, over)
 							}
+							if (started != null) {
+								verticalDrag(started.id) { change ->
+									move(i, change.positionChange().y)
+									change.consume()
+								}
+							}
+						} finally {
+							settle(i)
 						}
-						settle(i)
 					}
 				},
 		)
