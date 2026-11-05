@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -457,11 +459,12 @@ internal fun DiscoverScreen(
 		}
 	}
 
-	// The deck's room and the tallest card's height without its art (the art is what gives way): on a
-	// short screen the card ran under the buttons. See DeckFit. Kept above the deck's branch so a
-	// return from loading or the end screen doesn't draw one frame at full size.
+	// The deck's room (px) and the tallest card's height without its art (u - so folding a foldable,
+	// which changes u, doesn't keep a stale one): the art is what gives way on a short screen, where
+	// the card ran under the buttons. See DeckFit. Kept above the deck's branch so a return from
+	// loading or the end screen doesn't draw one frame at full size.
 	var deckRoom by remember { mutableIntStateOf(0) }
-	var cardText by remember { mutableIntStateOf(0) }
+	var cardText by remember { mutableFloatStateOf(0f) }
 
 	Box(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
@@ -518,7 +521,7 @@ internal fun DiscoverScreen(
 				// screen pixels, like the iPhone's), so the commit distance doesn't shrink with it and the
 				// card's own offsets are divided by the scale to keep following the finger.
 				val pxPerU = with(density) { u.dp.toPx() }
-				val sized = DeckFit.solve(room = deckRoom / pxPerU, text = cardText / pxPerU, top = 54.65f, art = 229f, minArt = 150f)
+				val sized = DeckFit.solve(room = deckRoom / pxPerU, text = cardText, top = 54.65f, art = 229f, minArt = 120f)
 				val fit = sized.scale
 				val artU = sized.art
 				Box(
@@ -616,7 +619,7 @@ internal fun DiscoverScreen(
 						// The tallest card so far sets the size, so the deck doesn't change size from card to
 						// card. Its text part is measured on its own (the art's height doesn't change it), plus
 						// the 25 gap and 4+4 padding around it.
-						onTextHeight = { h -> cardText = maxOf(cardText, h + (33 * pxPerU).roundToInt()) },
+						onTextHeight = { h -> cardText = maxOf(cardText, h / pxPerU + 33f) },
 						modifier = Modifier
 							.align(Alignment.TopCenter)
 							.offset(y = (54.65 * u).dp)
@@ -940,12 +943,19 @@ private fun DeckCardBody(card: DeckCard, onSave: (() -> Unit)?, u: Float, rows: 
 				.clip(RoundedCornerShape((18 * u).dp))
 				.background(card.artBg),
 		) {
+			// A shorter box shows a window of the 340x229 art kept on the glass ball (centred near 100
+			// of 229), not the art's middle, which would cut the top of the ball.
+			val artTopU = maxOf(0f, minOf(229f - artU, 100f - artU / 2f))
+			val fullArt = Modifier
+				.wrapContentHeight(Alignment.Top, unbounded = true)
+				.size((340 * u).dp, (229 * u).dp)
+				.offset(y = (-artTopU * u).dp)
 			if (card.artRes != 0) {
 				Image(
 					painter = painterResource(card.artRes),
 					contentDescription = null,
 					contentScale = ContentScale.Crop,
-					modifier = Modifier.size((340 * u).dp, (artU * u).dp),
+					modifier = fullArt,
 				)
 			} else {
 				// No pre-generated card (a brand added since tools/card-art last ran):
@@ -955,11 +965,10 @@ private fun DeckCardBody(card: DeckCard, onSave: (() -> Unit)?, u: Float, rows: 
 					painter = painterResource(R.drawable.disc_basket_template),
 					contentDescription = null,
 					contentScale = ContentScale.Crop,
-					modifier = Modifier.size((340 * u).dp, (artU * u).dp),
+					modifier = fullArt,
 				)
-				// Placed for the full 229 box; a shorter box crops the template from the centre, so the
-				// logo moves up with the ball.
-				card.logoUrl?.let { Box(Modifier.offset(y = (-(229f - artU) / 2f * u).dp)) { GlassLogo(url = it, u = u) } }
+				// Placed for the full 229 box, so it moves with the window like the ball.
+				card.logoUrl?.let { Box(Modifier.offset(y = (-artTopU * u).dp)) { GlassLogo(url = it, u = u) } }
 			}
 		}
 		Column(
@@ -2056,16 +2065,16 @@ private fun QuickLookIconRow(iconRes: Int, label: String, body: String, u: Float
 /**
  * How Discover's deck fits a short screen, in u. The card at its authored size needs top (the
  * front card's drop below the peeks) + text (everything but its art) + art. When the room is
- * shorter, the art gives way first, down to minArt, keeping the card at no less than 85% scale;
- * only then does the whole stack scale down to fit, so its text stays readable. iOS: DeckFit in
- * DiscoverView.swift.
+ * shorter, the art gives way first, down to minArt; only what's still missing is made up by
+ * scaling the whole stack, so the text shrinks as little as it can (about 0.82 on a 360x640
+ * phone with button navigation). iOS: DeckFit in DiscoverView.swift.
  */
 internal object DeckFit {
 	data class Sized(val art: Float, val scale: Float)
 
 	fun solve(room: Float, text: Float, top: Float, art: Float, minArt: Float): Sized {
 		if (room <= 0f || text <= 0f || top + text + art <= room) return Sized(art, 1f)
-		val shortened = minOf(art, maxOf(minOf(minArt, art), room / 0.85f - top - text))
+		val shortened = minOf(art, maxOf(minArt, room - top - text))
 		return Sized(shortened, minOf(1f, room / (top + text + shortened)))
 	}
 }

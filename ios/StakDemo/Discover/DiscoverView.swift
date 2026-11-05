@@ -181,8 +181,8 @@ struct DiscoverView: View {
 	private let dragSlop: CGFloat = 10
 
 	@State private var swipeOffset: CGFloat = 0
-	/// The height the deck gets between the header and the buttons, and the tallest card's height without its art
-	/// (the art is what gives way): on a short screen (iPhone SE) the card ran under the buttons. See DeckFit.
+	/// The height the deck gets between the header and the buttons, and the tallest card's height without its art, in
+	/// u (the art is what gives way): on a short screen (iPhone SE) the card ran under the buttons. See DeckFit.
 	@State private var deckRoom: CGFloat = 0
 	@State private var cardText: CGFloat = 0
 	/// True while a finger is on the deck; drops back on its own when the system cancels the drag (a call, a sheet),
@@ -454,9 +454,10 @@ struct DiscoverView: View {
 	private func deckArea(deck: [DiscoverCard], front: DiscoverCard, u: CGFloat) -> some View {
 		// Art 229 and scale 1 wherever the card fits (every iPhone but the smallest). The drag below is in screen
 		// points, so the card's own offsets are divided by the scale to keep following the finger.
-		let sized = DeckFit.solve(room: deckRoom, text: cardText, top: 54.65 * u, art: 229 * u / typeScale, minArt: 150 * u)
+		// In u. The art starts at 229 shrunk for larger text (iOS only: Android's card doesn't trade art for text).
+		let sized = DeckFit.solve(room: deckRoom / u, text: cardText, top: 54.65, art: 229 / typeScale, minArt: min(120, 229 / typeScale))
 		let fit = sized.scale
-		let art = sized.art
+		let art = sized.art * u
 		ZStack(alignment: .top) {
 			// Peek card farthest back — tilts right, smallest. Equatable: a drag frame doesn't redraw the peeks.
 			if deck.count > 2 {
@@ -483,7 +484,7 @@ struct DiscoverView: View {
 			// measured on its own (the art's height doesn't change it), plus the 25 gap and 4+4 padding around it.
 			FrontDeckCard(
 				card: front, u: u, artHeight: art, showLearnMore: true, onLearnMore: { openQuickLook(front) },
-				onTextHeight: { cardText = max(cardText, $0 + 33 * u) }
+				onTextHeight: { cardText = max(cardText, $0 / u + 33) }
 			)
 				.rotationEffect(.degrees(reduceMotion ? 0 : Double(swipeOffset / commitPx) * 8))
 				.offset(x: swipeOffset / fit, y: 54.65 * u)
@@ -505,6 +506,8 @@ struct DiscoverView: View {
 		// minHeight 0: the room on offer, even when the card alone is taller than it.
 		.frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .top)
 		.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { deckRoom = $0 }
+		// Smaller text makes a shorter card: the tallest so far is measured again.
+		.onChange(of: typeScale) { cardText = 0 }
 		.padding(.horizontal, 20 * u)
 		// Unclipped and above its siblings: a dragged or flying card stays WHOLE past the deck bounds - it passes over
 		// the CTA zone like a real card deck.
@@ -704,7 +707,10 @@ private struct DeckCardBody: View {
 	var onTextHeight: ((CGFloat) -> Void)? = nil
 
 	var body: some View {
-		let art = artHeight ?? 229 * u / typeScale
+		let artH = artHeight ?? 229 * u / typeScale
+		// A shorter box shows a window of the 340x229 art kept on the glass ball (centred near 100 of 229), not the
+		// art's middle, which would cut the top of the ball.
+		let artTop = max(0, min(229 * u - artH, 100 * u - artH / 2))
 		// The authored card template (1:1740): art 340x229 at y4, overlay at 258 -> gap 25.
 		VStack(spacing: 25 * u) {
 			ZStack(alignment: .topLeading) {
@@ -712,7 +718,8 @@ private struct DeckCardBody: View {
 					Image(uiImage: image)
 						.resizable()
 						.scaledToFill()
-						.frame(width: 340 * u, height: art)
+						.frame(width: 340 * u, height: 229 * u)
+						.offset(y: -artTop)
 				} else {
 					// No pre-generated card (a brand added since the art last ran): the same basket template, with the
 					// logo lifted off its tile and set into the glass at runtime.
@@ -720,14 +727,14 @@ private struct DeckCardBody: View {
 						Image(uiImage: template)
 							.resizable()
 							.scaledToFill()
-							.frame(width: 340 * u, height: art)
+							.frame(width: 340 * u, height: 229 * u)
+							.offset(y: -artTop)
 					}
-					// Placed for the full 229 box; a shorter box crops the template from the centre, so the logo
-					// moves up with the ball.
-					if let url = card.logoUrl { GlassLogo(url: url, u: u).offset(y: -(229 * u - art) / 2) }
+					// Placed for the full 229 box, so it moves with the window like the ball.
+					if let url = card.logoUrl { GlassLogo(url: url, u: u).offset(y: -artTop) }
 				}
 			}
-			.frame(width: 340 * u, height: art)
+			.frame(width: 340 * u, height: artH, alignment: .top)
 			.background(card.artBg)
 			.clipShape(RoundedRectangle(cornerRadius: 18 * u))
 			VStack(alignment: .leading, spacing: 19 * u) {
@@ -1852,14 +1859,14 @@ struct DecisionButtons: View {
 	}
 }
 
-/// How Discover's deck fits a short screen. The card at its authored size needs `top` (the front card's drop below
-/// the peeks) + `text` (everything but its art) + `art`. When the room is shorter, the art gives way first, down to
-/// `minArt`, keeping the card at no less than 85% scale; only then does the whole stack scale down to fit, so its
-/// text stays readable. Android: DeckFit in DiscoverScreen.kt.
+/// How Discover's deck fits a short screen, in u. The card at its authored size needs `top` (the front card's drop
+/// below the peeks) + `text` (everything but its art) + `art`. When the room is shorter, the art gives way first,
+/// down to `minArt`; only what's still missing is made up by scaling the whole stack, so the text shrinks as little as
+/// it can (about 0.82 on a 360x640 Android with button navigation). Android: DeckFit in DiscoverScreen.kt.
 enum DeckFit {
 	static func solve(room: CGFloat, text: CGFloat, top: CGFloat, art: CGFloat, minArt: CGFloat) -> (art: CGFloat, scale: CGFloat) {
 		guard room > 0, text > 0, top + text + art > room else { return (art, 1) }
-		let shortened = min(art, max(min(minArt, art), room / 0.85 - top - text))
+		let shortened = min(art, max(minArt, room - top - text))
 		return (shortened, min(1, room / (top + text + shortened)))
 	}
 }
