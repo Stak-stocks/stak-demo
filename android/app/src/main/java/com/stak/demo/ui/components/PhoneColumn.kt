@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,13 +25,22 @@ import com.stak.demo.ui.theme.StakColors
  */
 val LocalAppWidthDp = staticCompositionLocalOf<Float?> { null }
 
+/** What the column follows beyond the window's shape. */
+object AppColumn {
+	/** The news video's fullscreen: the whole window, even on a tablet held upright. */
+	var fullBleed by mutableStateOf(false)
+}
+
 /**
  * The window's width, or on a window too short for the 390x844 frame (portrait, under 1.7x as tall
  * as wide - a tablet, an unfolded foldable; the shortest phones are ~1.78x), the width of a column
  * with the frame's shape. Landscape is left whole: there the app is only ever the fullscreen video.
+ * So is a window under 500dp wide - a phone sharing its screen in split screen, where a column
+ * would be a sliver. (The iPhone app has no such window, and an iPad's window for it is columned
+ * at any width.)
  */
 internal fun columnWidthDp(width: Float, height: Float): Float =
-	if (width > 0f && height > width && height / width < 1.7f) kotlin.math.floor(height * 390f / 844f) else width
+	if (width >= 500f && height > width && height / width < 1.7f) kotlin.math.floor(height * 390f / 844f) else width
 
 /**
  * The app in its column: the whole window on a phone; on a tablet or an unfolded foldable, a
@@ -41,7 +53,7 @@ internal fun columnWidthDp(width: Float, height: Float): Float =
 fun PhoneColumn(content: @Composable () -> Unit) {
 	BoxWithConstraints(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		val window = maxWidth.value
-		val column = columnWidthDp(window, maxHeight.value)
+		val column = if (AppColumn.fullBleed) window else columnWidthDp(window, maxHeight.value)
 		val columned = column < window
 		val margin = if (columned) (window - column) / 2f else 0f
 		// The same tree either way, so unfolding a foldable doesn't reset what's on screen.

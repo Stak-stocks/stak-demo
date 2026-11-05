@@ -181,10 +181,10 @@ struct DiscoverView: View {
 	private let dragSlop: CGFloat = 10
 
 	@State private var swipeOffset: CGFloat = 0
-	/// The height the deck gets between the header and the buttons, and the front card's own: on a short screen
-	/// (iPhone SE) the card is taller than that room and ran under the buttons, so the stack is scaled to fit.
+	/// The height the deck gets between the header and the buttons, and the tallest card's height without its art
+	/// (the art is what gives way): on a short screen (iPhone SE) the card ran under the buttons. See DeckFit.
 	@State private var deckRoom: CGFloat = 0
-	@State private var frontHeight: CGFloat = 0
+	@State private var cardText: CGFloat = 0
 	/// True while a finger is on the deck; drops back on its own when the system cancels the drag (a call, a sheet),
 	/// which never reaches onEnded - the card then springs home instead of staying stuck off-centre.
 	@GestureState private var dragActive = false
@@ -452,13 +452,15 @@ struct DiscoverView: View {
 
 	@ViewBuilder
 	private func deckArea(deck: [DiscoverCard], front: DiscoverCard, u: CGFloat) -> some View {
-		// 1 wherever the card fits (every iPhone but the smallest); the drag below is in screen points, so the card's
-		// own offsets are divided by it to keep following the finger.
-		let fit = deckRoom > 0 && frontHeight > 0 ? min(1, deckRoom / (54.65 * u + frontHeight)) : 1
+		// Art 229 and scale 1 wherever the card fits (every iPhone but the smallest). The drag below is in screen
+		// points, so the card's own offsets are divided by the scale to keep following the finger.
+		let sized = DeckFit.solve(room: deckRoom, text: cardText, top: 54.65 * u, art: 229 * u / typeScale, minArt: 150 * u)
+		let fit = sized.scale
+		let art = sized.art
 		ZStack(alignment: .top) {
 			// Peek card farthest back — tilts right, smallest. Equatable: a drag frame doesn't redraw the peeks.
 			if deck.count > 2 {
-				FrontDeckCard(card: deck[2], u: u)
+				FrontDeckCard(card: deck[2], u: u, artHeight: art)
 					.equatable()
 					.scaleEffect(0.72, anchor: .top)
 					.rotationEffect(.degrees(5), anchor: .top)
@@ -468,7 +470,7 @@ struct DiscoverView: View {
 			}
 			// Peek card middle — tilts left, medium.
 			if deck.count > 1 {
-				FrontDeckCard(card: deck[1], u: u)
+				FrontDeckCard(card: deck[1], u: u, artHeight: art)
 					.equatable()
 					.scaleEffect(0.82, anchor: .top)
 					.rotationEffect(.degrees(-3), anchor: .top)
@@ -477,8 +479,12 @@ struct DiscoverView: View {
 					.accessibilityHidden(true)
 			}
 			// Front card - swipes horizontally, tilting up to 8° at the commit distance (none under Reduce Motion).
-			FrontDeckCard(card: front, u: u, showLearnMore: true, onLearnMore: { openQuickLook(front) })
-				.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { frontHeight = $0 }
+			// The tallest card so far sets the size, so the deck doesn't change size from card to card. Its text part is
+			// measured on its own (the art's height doesn't change it), plus the 25 gap and 4+4 padding around it.
+			FrontDeckCard(
+				card: front, u: u, artHeight: art, showLearnMore: true, onLearnMore: { openQuickLook(front) },
+				onTextHeight: { cardText = max(cardText, $0 + 33 * u) }
+			)
 				.rotationEffect(.degrees(reduceMotion ? 0 : Double(swipeOffset / commitPx) * 8))
 				.offset(x: swipeOffset / fit, y: 54.65 * u)
 				.accessibilityElement(children: .combine)
@@ -487,7 +493,7 @@ struct DiscoverView: View {
 				.accessibilityAction(named: "Pass") { animateAndCommit(front, isSTAK: false) }
 				.accessibilityAction(named: "Learn more") { openQuickLook(front) }
 			if let ghost = flyingCard {
-				FrontDeckCard(card: ghost, u: u, showLearnMore: true)
+				FrontDeckCard(card: ghost, u: u, artHeight: art, showLearnMore: true)
 					.equatable()
 					.opacity(flyFade)
 					.offset(x: flyOffset / fit, y: 54.65 * u)
@@ -496,7 +502,8 @@ struct DiscoverView: View {
 			}
 		}
 		.scaleEffect(fit, anchor: .top)
-		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+		// minHeight 0: the room on offer, even when the card alone is taller than it.
+		.frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .top)
 		.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { deckRoom = $0 }
 		.padding(.horizontal, 20 * u)
 		// Unclipped and above its siblings: a dragged or flying card stays WHOLE past the deck bounds - it passes over
@@ -642,16 +649,20 @@ struct ProgressRing: View {
 private struct FrontDeckCard: View, Equatable {
 	let card: DiscoverCard
 	let u: CGFloat
+	/// Nil: the authored 229 (less at larger text). Discover's deck shortens it on a short screen (DeckFit).
+	var artHeight: CGFloat? = nil
 	var showLearnMore = false
 	var onLearnMore: (() -> Void)? = nil
+	/// The height of the card's text part, for Discover's DeckFit.
+	var onTextHeight: ((CGFloat) -> Void)? = nil
 
-	/// The closure is left out: peeks and the fly-out ghost have none, so they redraw only when their card changes.
+	/// The closures are left out: peeks and the fly-out ghost have none, so they redraw only when their card changes.
 	static func == (a: Self, b: Self) -> Bool {
-		a.card == b.card && a.u == b.u && a.showLearnMore == b.showLearnMore && (a.onLearnMore == nil) == (b.onLearnMore == nil)
+		a.card == b.card && a.u == b.u && a.artHeight == b.artHeight && a.showLearnMore == b.showLearnMore && (a.onLearnMore == nil) == (b.onLearnMore == nil)
 	}
 
 	var body: some View {
-		DeckCardBody(card: card, u: u, showLearnMore: showLearnMore, onLearnMore: onLearnMore)
+		DeckCardBody(card: card, u: u, artHeight: artHeight, showLearnMore: showLearnMore, onLearnMore: onLearnMore, onTextHeight: onTextHeight)
 			.frame(width: 350 * u)
 			.background { CardSeam(u: u) }
 	}
@@ -687,10 +698,13 @@ private struct CardSeam: View {
 private struct DeckCardBody: View {
 	let card: DiscoverCard
 	let u: CGFloat
+	var artHeight: CGFloat? = nil
 	var showLearnMore = false
 	var onLearnMore: (() -> Void)? = nil
+	var onTextHeight: ((CGFloat) -> Void)? = nil
 
 	var body: some View {
+		let art = artHeight ?? 229 * u / typeScale
 		// The authored card template (1:1740): art 340x229 at y4, overlay at 258 -> gap 25.
 		VStack(spacing: 25 * u) {
 			ZStack(alignment: .topLeading) {
@@ -698,7 +712,7 @@ private struct DeckCardBody: View {
 					Image(uiImage: image)
 						.resizable()
 						.scaledToFill()
-						.frame(width: 340 * u, height: 229 * u / typeScale)
+						.frame(width: 340 * u, height: art)
 				} else {
 					// No pre-generated card (a brand added since the art last ran): the same basket template, with the
 					// logo lifted off its tile and set into the glass at runtime.
@@ -706,12 +720,14 @@ private struct DeckCardBody: View {
 						Image(uiImage: template)
 							.resizable()
 							.scaledToFill()
-							.frame(width: 340 * u, height: 229 * u / typeScale)
+							.frame(width: 340 * u, height: art)
 					}
-					if let url = card.logoUrl { GlassLogo(url: url, u: u) }
+					// Placed for the full 229 box; a shorter box crops the template from the centre, so the logo
+					// moves up with the ball.
+					if let url = card.logoUrl { GlassLogo(url: url, u: u).offset(y: -(229 * u - art) / 2) }
 				}
 			}
-			.frame(width: 340 * u, height: 229 * u / typeScale)
+			.frame(width: 340 * u, height: art)
 			.background(card.artBg)
 			.clipShape(RoundedRectangle(cornerRadius: 18 * u))
 			VStack(alignment: .leading, spacing: 19 * u) {
@@ -784,6 +800,7 @@ private struct DeckCardBody: View {
 			}
 			.padding(.horizontal, 18 * u)
 			.padding(.bottom, (showLearnMore ? 10 : 16) * u)
+			.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { onTextHeight?($0) }
 		}
 		.padding(.top, 4 * u)
 		.padding(.bottom, 4 * u)
@@ -1832,5 +1849,17 @@ struct DecisionButtons: View {
 			gamma(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
 			gamma(-0.0004196086 * l - 0.7034186147 * m + 1.7076147010 * s)
 		)
+	}
+}
+
+/// How Discover's deck fits a short screen. The card at its authored size needs `top` (the front card's drop below
+/// the peeks) + `text` (everything but its art) + `art`. When the room is shorter, the art gives way first, down to
+/// `minArt`, keeping the card at no less than 85% scale; only then does the whole stack scale down to fit, so its
+/// text stays readable. Android: DeckFit in DiscoverScreen.kt.
+enum DeckFit {
+	static func solve(room: CGFloat, text: CGFloat, top: CGFloat, art: CGFloat, minArt: CGFloat) -> (art: CGFloat, scale: CGFloat) {
+		guard room > 0, text > 0, top + text + art > room else { return (art, 1) }
+		let shortened = min(art, max(min(minArt, art), room / 0.85 - top - text))
+		return (shortened, min(1, room / (top + text + shortened)))
 	}
 }

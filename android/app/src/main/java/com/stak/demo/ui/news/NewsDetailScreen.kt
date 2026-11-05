@@ -2127,8 +2127,13 @@ private fun FullscreenPlayer(player: HeroPlayer, exo: ExoPlayer) {
 		// Follow the phone (all four ways) while fullscreen is up - like a
 		// video app, the rotate lock does not pin the player.
 		activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+		// Fullscreen is the whole window, even on a tablet held upright (where the app is in its column).
+		com.stak.demo.ui.components.AppColumn.fullBleed = true
 		// Every exit path (glyph, back, PiP glyph, clip end) lands back in portrait.
-		onDispose { activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
+		onDispose {
+			activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+			com.stak.demo.ui.components.AppColumn.fullBleed = false
+		}
 	}
 	val landscape = cfg.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 	LaunchedEffect(player.leavingFullscreen) {

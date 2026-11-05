@@ -457,6 +457,12 @@ internal fun DiscoverScreen(
 		}
 	}
 
+	// The deck's room and the tallest card's height without its art (the art is what gives way): on a
+	// short screen the card ran under the buttons. See DeckFit. Kept above the deck's branch so a
+	// return from loading or the end screen doesn't draw one frame at full size.
+	var deckRoom by remember { mutableIntStateOf(0) }
+	var cardText by remember { mutableIntStateOf(0) }
+
 	Box(modifier = Modifier.fillMaxSize().background(StakColors.Bg)) {
 		Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
 			val count = if (atEnd) swipedToday.coerceAtMost(dailyLimit) else (swipedToday + 1).coerceAtMost(dailyLimit)
@@ -508,14 +514,13 @@ internal fun DiscoverScreen(
 					onReviewSaves = onReviewSaves,
 				)
 			} else if (frontCard != null) {
-				// The deck's room and the front card's own height: on a short screen the card is taller
-				// than the room and ran under the buttons, so the stack is scaled to fit (1 wherever it
-				// fits). The scale sits before the drag detector, so drags are measured in the scaled
-				// space and the card keeps following the finger.
-				var deckRoom by remember { mutableIntStateOf(0) }
-				var frontHeight by remember { mutableIntStateOf(0) }
-				val topPx = with(density) { (54.65 * u).dp.toPx() }
-				val fit = if (deckRoom > 0 && frontHeight > 0) minOf(1f, deckRoom / (topPx + frontHeight)) else 1f
+				// Art 229 and scale 1 wherever the card fits. The drag is measured outside the scale (in
+				// screen pixels, like the iPhone's), so the commit distance doesn't shrink with it and the
+				// card's own offsets are divided by the scale to keep following the finger.
+				val pxPerU = with(density) { u.dp.toPx() }
+				val sized = DeckFit.solve(room = deckRoom / pxPerU, text = cardText / pxPerU, top = 54.65f, art = 229f, minArt = 150f)
+				val fit = sized.scale
+				val artU = sized.art
 				Box(
 					modifier = Modifier
 						.padding(horizontal = (20 * u).dp)
@@ -532,11 +537,6 @@ internal fun DiscoverScreen(
 						// like a real card deck, fading as it goes.
 						.zIndex(1f)
 						.onSizeChanged { deckRoom = it.height }
-						.graphicsLayer {
-							transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
-							scaleX = fit
-							scaleY = fit
-						}
 						.pointerInput(Unit) {
 							var dragTotal = 0f
 							val commitPx = with(density) { (110 * u).dp.toPx() }
@@ -557,6 +557,11 @@ internal fun DiscoverScreen(
 								dragTotal += dragAmount
 								scope.launch { swipeOffset.snapTo(dragTotal) }
 							}
+						}
+						.graphicsLayer {
+							transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
+							scaleX = fit
+							scaleY = fit
 						},
 				) {
 					val commitPx = with(density) { (110 * u).dp.toPx() }
@@ -568,6 +573,7 @@ internal fun DiscoverScreen(
 							onSave = {},
 							saved = remainingDeck[2].symbol in savedCards,
 							u = u,
+							artU = artU,
 							showSave = false,
 							modifier = Modifier
 								.align(Alignment.TopCenter)
@@ -587,6 +593,7 @@ internal fun DiscoverScreen(
 							onSave = {},
 							saved = remainingDeck[1].symbol in savedCards,
 							u = u,
+							artU = artU,
 							showSave = false,
 							modifier = Modifier
 								.align(Alignment.TopCenter)
@@ -605,11 +612,15 @@ internal fun DiscoverScreen(
 						onSave = { animateAndCommit(frontCard, isSTAK = true) },
 						saved = frontCard.symbol in savedCards,
 						u = u,
+						artU = artU,
+						// The tallest card so far sets the size, so the deck doesn't change size from card to
+						// card. Its text part is measured on its own (the art's height doesn't change it), plus
+						// the 25 gap and 4+4 padding around it.
+						onTextHeight = { h -> cardText = maxOf(cardText, h + (33 * pxPerU).roundToInt()) },
 						modifier = Modifier
 							.align(Alignment.TopCenter)
-							.onSizeChanged { frontHeight = it.height }
 							.offset(y = (54.65 * u).dp)
-							.offset { androidx.compose.ui.unit.IntOffset(swipeOffset.value.roundToInt(), 0) }
+							.offset { androidx.compose.ui.unit.IntOffset((swipeOffset.value / fit).roundToInt(), 0) }
 							.graphicsLayer {
 								rotationZ = (swipeOffset.value / commitPx) * 8f
 							},
@@ -623,10 +634,11 @@ internal fun DiscoverScreen(
 							onSave = {},
 							saved = ghost.symbol in savedCards,
 							u = u,
+							artU = artU,
 							modifier = Modifier
 								.align(Alignment.TopCenter)
 								.offset(y = (54.65 * u).dp)
-								.offset { androidx.compose.ui.unit.IntOffset(flyOffset.value.roundToInt(), 0) }
+								.offset { androidx.compose.ui.unit.IntOffset((flyOffset.value / fit).roundToInt(), 0) }
 								.graphicsLayer { alpha = flyFade.value },
 						)
 					}
@@ -852,6 +864,10 @@ internal fun FrontDeckCard(
 	showSave: Boolean = true,
 	showLearnMore: Boolean = false,
 	onLearnMore: (() -> Unit)? = null,
+	/** The art's height (u): the authored 229, shorter on a short screen (DeckFit). */
+	artU: Float = 229f,
+	/** The height (px) of the card's text part, for Discover's DeckFit. */
+	onTextHeight: ((Int) -> Unit)? = null,
 ) {
 	Box(
 		modifier = modifier
@@ -879,7 +895,7 @@ internal fun FrontDeckCard(
 				}
 			},
 	) {
-		DeckCardBody(card = card, onSave = onSave, u = u, rows = rows, saved = saved, showSave = showSave, showLearnMore = showLearnMore, onLearnMore = onLearnMore)
+		DeckCardBody(card = card, onSave = onSave, u = u, rows = rows, saved = saved, showSave = showSave, showLearnMore = showLearnMore, onLearnMore = onLearnMore, artU = artU, onTextHeight = onTextHeight)
 	}
 }
 
@@ -906,7 +922,7 @@ internal class DeckRowTweaks(
 )
 
 @Composable
-private fun DeckCardBody(card: DeckCard, onSave: (() -> Unit)?, u: Float, rows: DeckRowTweaks = DeckRowTweaks(), saved: Boolean = false, showSave: Boolean = true, showLearnMore: Boolean = false, onLearnMore: (() -> Unit)? = null) {
+private fun DeckCardBody(card: DeckCard, onSave: (() -> Unit)?, u: Float, rows: DeckRowTweaks = DeckRowTweaks(), saved: Boolean = false, showSave: Boolean = true, showLearnMore: Boolean = false, onLearnMore: (() -> Unit)? = null, artU: Float = 229f, onTextHeight: ((Int) -> Unit)? = null) {
 	Column(
 		horizontalAlignment = Alignment.CenterHorizontally,
 		// The authored card template (1:1740, shared by all three designs):
@@ -920,7 +936,7 @@ private fun DeckCardBody(card: DeckCard, onSave: (() -> Unit)?, u: Float, rows: 
 	) {
 		Box(
 			modifier = Modifier
-				.size((340 * u).dp, (229 * u).dp)
+				.size((340 * u).dp, (artU * u).dp)
 				.clip(RoundedCornerShape((18 * u).dp))
 				.background(card.artBg),
 		) {
@@ -929,7 +945,7 @@ private fun DeckCardBody(card: DeckCard, onSave: (() -> Unit)?, u: Float, rows: 
 					painter = painterResource(card.artRes),
 					contentDescription = null,
 					contentScale = ContentScale.Crop,
-					modifier = Modifier.size((340 * u).dp, (229 * u).dp),
+					modifier = Modifier.size((340 * u).dp, (artU * u).dp),
 				)
 			} else {
 				// No pre-generated card (a brand added since tools/card-art last ran):
@@ -939,14 +955,16 @@ private fun DeckCardBody(card: DeckCard, onSave: (() -> Unit)?, u: Float, rows: 
 					painter = painterResource(R.drawable.disc_basket_template),
 					contentDescription = null,
 					contentScale = ContentScale.Crop,
-					modifier = Modifier.size((340 * u).dp, (229 * u).dp),
+					modifier = Modifier.size((340 * u).dp, (artU * u).dp),
 				)
-				card.logoUrl?.let { GlassLogo(url = it, u = u) }
+				// Placed for the full 229 box; a shorter box crops the template from the centre, so the
+				// logo moves up with the ball.
+				card.logoUrl?.let { Box(Modifier.offset(y = (-(229f - artU) / 2f * u).dp)) { GlassLogo(url = it, u = u) } }
 			}
 		}
 		Column(
 			verticalArrangement = Arrangement.spacedBy((19 * u).dp),
-			modifier = Modifier.fillMaxWidth().padding(horizontal = (18 * u).dp).padding(bottom = ((if (showLearnMore) 10 else 16) * u).dp).topInset((rows.overlay * u).dp),
+			modifier = Modifier.onSizeChanged { onTextHeight?.invoke(it.height) }.fillMaxWidth().padding(horizontal = (18 * u).dp).padding(bottom = ((if (showLearnMore) 10 else 16) * u).dp).topInset((rows.overlay * u).dp),
 		) {
 			Column(verticalArrangement = Arrangement.spacedBy((8 * u).dp)) {
 				Text(
@@ -2032,5 +2050,22 @@ private fun QuickLookIconRow(iconRes: Int, label: String, body: String, u: Float
 				color = Disc.Body,
 			)
 		}
+	}
+}
+
+/**
+ * How Discover's deck fits a short screen, in u. The card at its authored size needs top (the
+ * front card's drop below the peeks) + text (everything but its art) + art. When the room is
+ * shorter, the art gives way first, down to minArt, keeping the card at no less than 85% scale;
+ * only then does the whole stack scale down to fit, so its text stays readable. iOS: DeckFit in
+ * DiscoverView.swift.
+ */
+internal object DeckFit {
+	data class Sized(val art: Float, val scale: Float)
+
+	fun solve(room: Float, text: Float, top: Float, art: Float, minArt: Float): Sized {
+		if (room <= 0f || text <= 0f || top + text + art <= room) return Sized(art, 1f)
+		val shortened = minOf(art, maxOf(minOf(minArt, art), room / 0.85f - top - text))
+		return Sized(shortened, minOf(1f, room / (top + text + shortened)))
 	}
 }
