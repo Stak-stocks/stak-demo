@@ -878,7 +878,7 @@ internal fun FrontDeckCard(
 	onLearnMore: (() -> Unit)? = null,
 	/** The art's height (u): the authored 229, shorter on a short screen (DeckFit). */
 	artU: Float = 229f,
-	/** How much larger the smallest labels are drawn when Discover scales the stack down (1 when it isn't). */
+	/** How much larger the smallest labels are drawn when Discover scales the stack down (1 at full size). */
 	labelBoost: Float = 1f,
 	/** The height (px) of the card's text part, for Discover's DeckFit. */
 	onTextHeight: ((Int) -> Unit)? = null,

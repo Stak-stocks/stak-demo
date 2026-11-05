@@ -185,7 +185,8 @@ struct SwipeTutorialView: View {
 					deckNeed = need
 					if need > deckRoom + 1, deckRoom > 0 { compact = true }
 				}
-				// The drag sits inside the scale, so the card follows the finger (as on Android).
+				// The drag sits inside the scale, so the card follows the finger (as on Android; Discover instead keeps
+				// its drag outside and divides the card's offset).
 				.scaleEffect(fit, anchor: .top)
 				.frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .top)
 				.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { room in

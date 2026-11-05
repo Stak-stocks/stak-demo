@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -152,10 +153,12 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 
 			// The room above Continue/Back and the deck + Pass/STAK's own height: on a short screen
 			// they ran into Continue, so they're scaled to fit (1 wherever they fit). The drag sits
-			// inside the scale, so the card follows the finger. iOS: the same in SwipeTutorialView.
+			// inside the scale, so the card follows the finger (Discover instead keeps its drag outside
+			// and divides the card's offset). iOS: the same in SwipeTutorialView.
 			var deckRoom by remember { mutableIntStateOf(0) }
 			var deckNeed by remember { mutableIntStateOf(0) }
-			val fit = if (deckRoom > 0 && deckNeed > 0) minOf(1f, deckRoom.toFloat() / deckNeed) else 1f
+			fun fitNow() = if (deckRoom > 0 && deckNeed > 0) minOf(1f, deckRoom.toFloat() / deckNeed) else 1f
+			val fit = fitNow()
 			Column(
 				horizontalAlignment = Alignment.CenterHorizontally,
 				modifier = Modifier
@@ -173,7 +176,7 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 					}
 					// The scale is read here, at draw time, so the first frame is already scaled.
 					.graphicsLayer {
-						val f = if (deckRoom > 0 && deckNeed > 0) minOf(1f, deckRoom.toFloat() / deckNeed) else 1f
+						val f = fitNow()
 						transformOrigin = TransformOrigin(0.5f, 0f)
 						scaleX = f
 						scaleY = f
@@ -183,6 +186,8 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 				// The drag is measured inside the scale; dividing by it keeps the commit at the same finger
 				// travel as unscaled.
 				val commitPx = with(density) { (110 * u2).dp.toPx() } / fit
+				// Read when a drag ends, so a change of scale doesn't restart the detector mid-drag.
+				val commitNow by rememberUpdatedState(commitPx)
 				Box(
 					modifier = Modifier
 						.size((306 * u).dp, (423.07 * u).dp)
@@ -190,14 +195,16 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 						// or flying card stays WHOLE past the deck bounds, passing
 						// over the hint/CTA zone like a real card deck.
 						.zIndex(1f)
-						.pointerInput(commitPx) {
+						.pointerInput(Unit) {
 							var dragTotal = 0f
 							detectHorizontalDragGestures(
 								onDragStart = { dragTotal = 0f },
+								// A drag the system cancelled never ends: put the card back.
+								onDragCancel = { scope.launch { swipeOffset.animateTo(0f, tween(260, easing = EaseOut)) } },
 								onDragEnd = {
 									val abs = kotlin.math.abs(dragTotal)
 									scope.launch {
-										if (abs > commitPx) {
+										if (abs > commitNow) {
 											advance(isSTAK = dragTotal > 0, dragTotal)
 										} else {
 											swipeOffset.animateTo(0f, tween(260, easing = EaseOut))

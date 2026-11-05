@@ -461,8 +461,8 @@ struct DiscoverView: View {
 		let sized = DeckFit.solve(room: deckRoom / u, text: cardText, top: 54.65, art: 229, minArt: 130)
 		let fit = sized.scale
 		let art = sized.art * u
-		// The card's smallest labels (ticker and change) keep at least 92% of their size however far the stack scales
-		// - drawn larger in place, so the card's measured height doesn't change with them. Not TIP: it would outgrow the
+		// The card's smallest labels (ticker and change) keep at least 92% of their size however far the stack scales -
+		// drawn larger in place, so the card's measured height doesn't change with them. Not TIP: it would outgrow the
 		// tip it introduces.
 		let boost = min(1.2, max(1, 0.92 / fit))
 		ZStack(alignment: .top) {
@@ -667,7 +667,7 @@ private struct FrontDeckCard: View, Equatable {
 	let u: CGFloat
 	/// Nil: the authored 229 (less at larger text). Discover's deck shortens it on a short screen (DeckFit).
 	var artHeight: CGFloat? = nil
-	/// How much larger the smallest labels are drawn when Discover scales the stack down (1 when it isn't).
+	/// How much larger the smallest labels are drawn when Discover scales the stack down (1 at full size).
 	var labelBoost: CGFloat = 1
 	var showLearnMore = false
 	var onLearnMore: (() -> Void)? = nil
