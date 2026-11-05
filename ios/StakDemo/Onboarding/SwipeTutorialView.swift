@@ -75,13 +75,17 @@ struct SwipeTutorialView: View {
 	/// Continue, so they're scaled to fit (1 wherever they fit). Android: the same in SwipeTutorialScreen.
 	@State private var deckRoom: CGFloat = 0
 	@State private var deckNeed: CGFloat = 0
+	/// A screen too short for the deck drops the bottom Back (the header's back circle does the same) to give the deck
+	/// its room before scaling it. Once set it stays, so the room it frees can't bring Back - and the overflow - back.
+	@State private var compact = false
 	private let dragSlop: CGFloat = 10
 
 	var body: some View {
 		let u = figmaUnit
 		let u2 = u * deckScale
-		let commitPx = 110 * u2
 		let fit = deckRoom > 0 && deckNeed > 0 ? min(1, deckRoom / deckNeed) : 1
+		// The drag is measured inside the scale; dividing by it keeps the commit at the same finger travel as unscaled.
+		let commitPx = 110 * u2 / fit
 		Artboard {
 			HStack {
 				AuthBackCircle(action: onBack)
@@ -177,12 +181,17 @@ struct SwipeTutorialView: View {
 					)
 				}
 				.fixedSize(horizontal: false, vertical: true)
-				.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { deckNeed = $0 }
-				// The drag sits inside the scale, so the card follows the finger and the commit distance scales with
-				// the deck (as on Android).
+				.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { need in
+					deckNeed = need
+					if need > deckRoom + 1, deckRoom > 0 { compact = true }
+				}
+				// The drag sits inside the scale, so the card follows the finger (as on Android).
 				.scaleEffect(fit, anchor: .top)
 				.frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .top)
-				.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { deckRoom = $0 }
+				.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { room in
+					deckRoom = room
+					if deckNeed > room + 1, room > 0 { compact = true }
+				}
 				.padding(.top, 10 * u)
 			}
 			.padding(.horizontal, 24 * u)
@@ -191,7 +200,7 @@ struct SwipeTutorialView: View {
 
 			VStack(spacing: 10 * u) {
 				AuthCta(text: "Continue", action: onContinue)
-				AuthSecondaryButton(text: "Back", action: onBack)
+				if !compact { AuthSecondaryButton(text: "Back", action: onBack) }
 			}
 			.padding(.top, 8 * u)
 			.padding(.bottom, 26 * u)

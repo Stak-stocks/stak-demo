@@ -79,6 +79,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
@@ -525,8 +526,9 @@ internal fun DiscoverScreen(
 				val sized = DeckFit.solve(room = deckRoom / pxPerU, text = cardText, top = 54.65f, art = 229f, minArt = 130f)
 				val fit = sized.scale
 				val artU = sized.art
-				// The card's smallest labels (ticker, change, TIP) keep at least 92% of their size however
-				// far the stack scales - drawn larger in place, so the card's measured height doesn't change.
+				// The card's smallest labels (ticker and change) keep at least 92% of their size however far
+				// the stack scales - drawn larger in place, so the card's measured height doesn't change. Not
+				// TIP: it would outgrow the tip it introduces.
 				val boost = minOf(1.2f, maxOf(1f, 0.92f / fit))
 				Box(
 					modifier = Modifier
@@ -876,7 +878,7 @@ internal fun FrontDeckCard(
 	onLearnMore: (() -> Unit)? = null,
 	/** The art's height (u): the authored 229, shorter on a short screen (DeckFit). */
 	artU: Float = 229f,
-	/** How much larger the smallest labels are drawn when Discover scales the stack down (1 otherwise). */
+	/** How much larger the smallest labels are drawn when Discover scales the stack down (1 when it isn't). */
 	labelBoost: Float = 1f,
 	/** The height (px) of the card's text part, for Discover's DeckFit. */
 	onTextHeight: ((Int) -> Unit)? = null,
@@ -989,7 +991,7 @@ private fun DeckCardBody(card: DeckCard, onSave: (() -> Unit)?, u: Float, rows: 
 					text = card.ticker,
 					style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (10 * u).sp, lineHeight = (13 * u).sp, lineHeightStyle = FIGMA_LINE_BOX),
 					color = Disc.Muted,
-					modifier = Modifier.boosted(labelBoost, androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f)),
+					modifier = Modifier.boosted(labelBoost, TransformOrigin(0f, 0.5f)),
 				)
 				Text(
 					text = card.headline,
@@ -1013,7 +1015,7 @@ private fun DeckCardBody(card: DeckCard, onSave: (() -> Unit)?, u: Float, rows: 
 						maxLines = 1,
 						softWrap = false,
 						color = if (card.change.startsWith("▼")) Disc.Red else Disc.Green,
-						modifier = Modifier.padding(bottom = (2 * u).dp).boosted(labelBoost, androidx.compose.ui.graphics.TransformOrigin(0f, 1f)),
+						modifier = Modifier.padding(bottom = (2 * u).dp).boosted(labelBoost, TransformOrigin(0f, 1f)),
 					)
 				}
 			}
@@ -1032,7 +1034,6 @@ private fun DeckCardBody(card: DeckCard, onSave: (() -> Unit)?, u: Float, rows: 
 						text = "TIP",
 						style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = (10 * u).sp, letterSpacing = (0.9 * u).sp),
 						color = Disc.Teal,
-						modifier = Modifier.boosted(labelBoost, androidx.compose.ui.graphics.TransformOrigin(0f, 0.5f)),
 					)
 					Text(
 						text = card.tip,
@@ -2073,6 +2074,10 @@ private fun QuickLookIconRow(iconRes: Int, label: String, body: String, u: Float
 	}
 }
 
+/** Drawn [boost] times larger from [origin], without changing the layout (DeckCardBody's small labels). */
+private fun Modifier.boosted(boost: Float, origin: TransformOrigin): Modifier =
+	if (boost == 1f) this else graphicsLayer(scaleX = boost, scaleY = boost, transformOrigin = origin)
+
 /**
  * How Discover's deck fits a short screen, in u. The card at its authored size needs top (the
  * front card's drop below the peeks) + text (everything but its art) + art. When the room is
@@ -2080,14 +2085,6 @@ private fun QuickLookIconRow(iconRes: Int, label: String, body: String, u: Float
  * scaling the whole stack, so the text shrinks as little as it can (about 0.80 on a 360x640
  * phone with button navigation; 130 keeps the whole glass ball). iOS: DeckFit in DiscoverView.swift.
  */
-/** Drawn [boost] times larger from [origin], without changing the layout (DeckCardBody's small labels). */
-private fun Modifier.boosted(boost: Float, origin: androidx.compose.ui.graphics.TransformOrigin): Modifier =
-	if (boost == 1f) this else graphicsLayer {
-		transformOrigin = origin
-		scaleX = boost
-		scaleY = boost
-	}
-
 internal object DeckFit {
 	data class Sized(val art: Float, val scale: Float)
 

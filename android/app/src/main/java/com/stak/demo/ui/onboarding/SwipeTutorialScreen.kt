@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.lerp
@@ -109,6 +110,11 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 		}
 	}
 
+	// A screen too short for the deck drops the bottom Back (the header's back circle does the
+	// same) to give the deck its room before scaling it. Once set it stays, so the room it frees
+	// can't bring Back - and the overflow - back.
+	var compact by remember { mutableStateOf(false) }
+
 	Artboard(modifier = Modifier.background(StakColors.Bg)) {
 		Row(
 			verticalAlignment = Alignment.CenterVertically,
@@ -156,17 +162,27 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 					.weight(1f)
 					.fillMaxWidth()
 					.padding(top = (10 * u).dp)
-					.onSizeChanged { deckRoom = it.height }
+					.onSizeChanged {
+						deckRoom = it.height
+						if (deckNeed > it.height + 1) compact = true
+					}
 					.wrapContentHeight(Alignment.Top, unbounded = true)
-					.onSizeChanged { deckNeed = it.height }
+					.onSizeChanged {
+						deckNeed = it.height
+						if (deckRoom > 0 && it.height > deckRoom + 1) compact = true
+					}
+					// The scale is read here, at draw time, so the first frame is already scaled.
 					.graphicsLayer {
-						transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
-						scaleX = fit
-						scaleY = fit
+						val f = if (deckRoom > 0 && deckNeed > 0) minOf(1f, deckRoom.toFloat() / deckNeed) else 1f
+						transformOrigin = TransformOrigin(0.5f, 0f)
+						scaleX = f
+						scaleY = f
 					},
 			) {
 				val rows = DeckRowTweaks(overlay = -1.35f, headline = 0.55f, price = 0.95f, tip = 0.1f)
-				val commitPx = with(density) { (110 * u2).dp.toPx() }
+				// The drag is measured inside the scale; dividing by it keeps the commit at the same finger
+				// travel as unscaled.
+				val commitPx = with(density) { (110 * u2).dp.toPx() } / fit
 				Box(
 					modifier = Modifier
 						.size((306 * u).dp, (423.07 * u).dp)
@@ -174,7 +190,7 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 						// or flying card stays WHOLE past the deck bounds, passing
 						// over the hint/CTA zone like a real card deck.
 						.zIndex(1f)
-						.pointerInput(Unit) {
+						.pointerInput(commitPx) {
 							var dragTotal = 0f
 							detectHorizontalDragGestures(
 								onDragStart = { dragTotal = 0f },
@@ -292,7 +308,7 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 			modifier = Modifier.fillMaxWidth().padding(top = (8 * u).dp, bottom = (26 * u).dp),
 		) {
 			AuthCta(text = "Continue", onClick = onContinue)
-			AuthSecondaryButton(text = "Back", onClick = onBack)
+			if (!compact) AuthSecondaryButton(text = "Back", onClick = onBack)
 		}
 	}
 }
