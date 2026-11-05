@@ -71,7 +71,8 @@ struct MainTabBar: View {
 								// Authored label face: Inter Regular 12.
 								.font(StakFont.inter(12 * u))
 								.foregroundStyle(Color.white)
-								// One line, never wrapped - android's maxLines = 1, softWrap = false.
+								// One line, never wrapped - android's maxLines = 1, softWrap = false: "Home" fills its
+								// fixed 34 column, and at an iPad's scaling of this iPhone app it broke onto two lines.
 								.lineLimit(1)
 								.fixedSize()
 						}

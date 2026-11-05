@@ -147,7 +147,9 @@ fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> 
 				onSeeTodaysPick = onSeeTodaysPick,
 				modifier = Modifier
 					.align(Alignment.BottomCenter)
-					.height(this@BoxWithConstraints.maxHeight - statusPad - (585 * u).dp),
+					// Never shorter than the frame's 226 overlay: on a short screen the 585 anchor left it
+					// ~85 tall, with its pill (105 down) off the bottom.
+					.height(maxOf(this@BoxWithConstraints.maxHeight - statusPad - (585 * u).dp, (226 * u).dp)),
 			)
 		}
 	}

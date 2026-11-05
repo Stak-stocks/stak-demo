@@ -15,15 +15,6 @@ var figmaUnit: CGFloat {
 	appWidth / 390
 }
 
-/// The width of the window the app draws in. Not UIScreen.main: on an iPad, this iPhone app runs in an iPhone-sized
-/// window while the screen is the whole iPad's, so sizes measured from the screen came out too big (labels wrapped).
-/// On an iPhone the two are the same.
-var appWidth: CGFloat {
-	let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-	let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
-	return scene?.keyWindow?.bounds.width ?? scene?.coordinateSpace.bounds.width ?? UIScreen.main.bounds.width
-}
-
 /// Frame-exact vertical composition (user ruling 2026-08-30, "just what's
 /// on the Figma design"; mirrors android `Artboard`): every onboarding/auth
 /// frame is a 390x844 artboard whose bottom-anchored CTA block is authored

@@ -174,8 +174,10 @@ struct HomeView: View {
 					// y629 vs banner y670) — anchor to the same content geometry:
 					// banner top = status inset + 626, so the scrim starts 585 below
 					// the inset and runs to the physical bottom of the screen.
+					// Never shorter than the frame's 226 overlay: on a short screen (iPhone SE, or this app on an iPad)
+					// the 585 anchor left it ~85 tall, with its pill (105 down) off the bottom.
 					FirstRunOverlay(onSeeTodaysPick: onSeeTodaysPick)
-						.frame(height: geo.size.height + geo.safeAreaInsets.bottom - 585 * u)
+						.frame(height: max(geo.size.height + geo.safeAreaInsets.bottom - 585 * u, 226 * u))
 						.offset(y: geo.safeAreaInsets.bottom)
 				}
 			}
