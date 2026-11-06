@@ -8,7 +8,9 @@ struct StakDemoApp: App {
 	var body: some Scene {
 		WindowGroup {
 			TextSizeRoot {
-				RootFlowView()
+				PhoneColumn {
+					RootFlowView()
+				}
 			}
 			// The STAK app is dark-only by design; ignore the system light theme.
 			.preferredColorScheme(.dark)

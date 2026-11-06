@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -84,7 +85,16 @@ private fun LegalSheetContent(doc: String, onClose: () -> Unit) {
 			// Over the app: taps stay in the sheet.
 			.pointerInput(Unit) { detectTapGestures { } },
 	) {
-		Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+		// The app's column on a tablet (the dialog is its own window, outside PhoneColumn).
+		val column = LocalAppWidthDp.current
+		Column(
+			modifier = Modifier
+				.align(Alignment.TopCenter)
+				.then(if (column != null) Modifier.width(column.dp) else Modifier)
+				.fillMaxSize()
+				.statusBarsPadding()
+				.navigationBarsPadding(),
+		) {
 			Row(
 				verticalAlignment = Alignment.CenterVertically,
 				modifier = Modifier.fillMaxWidth().padding(horizontal = (20 * u).dp, vertical = (14 * u).dp),

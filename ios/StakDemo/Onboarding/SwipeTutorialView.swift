@@ -71,12 +71,24 @@ struct SwipeTutorialView: View {
 	@State private var flyGen = 0
 	/// Bumped on every commit - the decision haptic.
 	@State private var decisionTick = 0
+	/// The room above Continue/Back and the deck + Pass/STAK's height with the card's art at full size: on a short
+	/// screen (iPhone SE, small Androids) they ran into Continue, so the art is shortened first, as Discover's is, and
+	/// what's still missing is scaled (1 wherever they fit). Android: the same in SwipeTutorialScreen.
+	@State private var deckRoom: CGFloat = 0
+	@State private var deckNeed: CGFloat = 0
+	/// A screen too short for the deck drops the bottom Back (the header's back circle does the same) to give the deck
+	/// its room before scaling it. Once set it stays, so the room it frees can't bring Back - and the overflow - back.
+	@State private var compact = false
 	private let dragSlop: CGFloat = 10
 
 	var body: some View {
 		let u = figmaUnit
 		let u2 = u * deckScale
-		let commitPx = 110 * u2
+		// How much shorter the card's art is drawn: the overflow, up to 99u2 (229 -> 130, the whole glass ball in view).
+		let short = deckRoom > 0 && deckNeed > 0 ? min(99 * u2, max(0, deckNeed - deckRoom)) : 0
+		let fit = deckRoom > 0 && deckNeed > 0 ? min(1, deckRoom / (deckNeed - short)) : 1
+		// The drag is measured inside the scale; dividing by it keeps the commit at the same finger travel as unscaled.
+		let commitPx = 110 * u2 / fit
 		Artboard {
 			HStack {
 				AuthBackCircle(action: onBack)
@@ -103,16 +115,22 @@ struct SwipeTutorialView: View {
 					ZStack(alignment: .topLeading) {
 						// The authored queue slabs (1:344) - static behind the live front card, same as
 						// Discover's own peek cards: they don't animate or crossfade, they're just there
-						// until the front card clears.
-						Image(decorative: "TutorialCardGOOGL")
-							.resizable()
-							.frame(width: 238.75 * u, height: 290.75 * u)
-							.offset(x: 33.5 * u, y: 0)
-						Image(decorative: "TutorialCardAAPL")
-							.resizable()
-							.frame(width: 273.5 * u, height: 309.5 * u)
-							.offset(x: 15.5 * u, y: 21 * u)
-						FrontDeckCard(card: deck[swiped % 3], u: u2)
+						// until the front card clears. Cut off where the front card (~430u2
+						// tall) starts fading out, so one with shortened art doesn't show their bottoms through it;
+						// at full art that's below them both.
+						ZStack(alignment: .topLeading) {
+							Image(decorative: "TutorialCardGOOGL")
+								.resizable()
+								.frame(width: 238.75 * u, height: 290.75 * u)
+								.offset(x: 33.5 * u, y: 0)
+							Image(decorative: "TutorialCardAAPL")
+								.resizable()
+								.frame(width: 273.5 * u, height: 309.5 * u)
+								.offset(x: 15.5 * u, y: 21 * u)
+						}
+						.frame(width: 306 * u, height: 47.5 * u + 0.9 * (430 * u2 - short), alignment: .topLeading)
+						.clipped()
+						FrontDeckCard(card: deck[swiped % 3], u: u2, art: 229 * u2 - short)
 							.rotationEffect(.degrees(reduceMotion ? 0 : Double(swipeOffset / commitPx) * 8))
 							.offset(x: swipeOffset)
 							.frame(maxWidth: .infinity, alignment: .top)
@@ -124,7 +142,7 @@ struct SwipeTutorialView: View {
 						if let ghost = flyingCard {
 							// The swiped-away card flying off above the live deck; input falls
 							// through to the front card.
-							FrontDeckCard(card: ghost, u: u2)
+							FrontDeckCard(card: ghost, u: u2, art: 229 * u2 - short)
 								.offset(x: flyOffset)
 								.opacity(flyFade)
 								.frame(maxWidth: .infinity, alignment: .top)
@@ -133,7 +151,7 @@ struct SwipeTutorialView: View {
 								.accessibilityHidden(true)
 						}
 					}
-					.frame(width: 306 * u, height: 423.07 * u, alignment: .topLeading)
+					.frame(width: 306 * u, height: 423.07 * u - short, alignment: .topLeading)
 					// Unclipped and above its siblings, like Discover: a dragged or flying card
 					// stays WHOLE past the deck bounds, passing over the CTA zone like a real deck.
 					.zIndex(1)
@@ -170,9 +188,23 @@ struct SwipeTutorialView: View {
 						onPass: { advance(isSTAK: false) },
 						onStak: { advance(isSTAK: true) }
 					)
-					Spacer(minLength: 0)
 				}
-				.frame(maxWidth: .infinity)
+				.fixedSize(horizontal: false, vertical: true)
+				.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+					// Measured with this layout's art: back to the full art's height. A point of rounding is left
+					// alone, so it can't go back and forth.
+					let need = height + short
+					if abs(need - deckNeed) > 1 { deckNeed = need }
+					if need > deckRoom + 1, deckRoom > 0 { compact = true }
+				}
+				// The drag sits inside the scale, so the card follows the finger (as on Android; Discover instead keeps
+				// its drag outside and divides the card's offset).
+				.scaleEffect(fit, anchor: .top)
+				.frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity, alignment: .top)
+				.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { room in
+					deckRoom = room
+					if deckNeed > room + 1, room > 0 { compact = true }
+				}
 				.padding(.top, 10 * u)
 			}
 			.padding(.horizontal, 24 * u)
@@ -181,7 +213,7 @@ struct SwipeTutorialView: View {
 
 			VStack(spacing: 10 * u) {
 				AuthCta(text: "Continue", action: onContinue)
-				AuthSecondaryButton(text: "Back", action: onBack)
+				if !compact { AuthSecondaryButton(text: "Back", action: onBack) }
 			}
 			.padding(.top, 8 * u)
 			.padding(.bottom, 26 * u)
@@ -228,9 +260,11 @@ struct SwipeTutorialView: View {
 private struct FrontDeckCard: View {
 	let card: DeckCard
 	let u: CGFloat
+	/// The art's height (points): 229u, shorter on a short screen.
+	let art: CGFloat
 
 	var body: some View {
-		DeckCardBody(card: card, u: u)
+		DeckCardBody(card: card, u: u, art: art)
 			.background {
 				// Concentric 1pt strokes fading out over a 6u reach.
 				let reach = 6 * u
@@ -250,13 +284,18 @@ private struct FrontDeckCard: View {
 private struct DeckCardBody: View {
 	let card: DeckCard
 	let u: CGFloat
+	let art: CGFloat
 
 	var body: some View {
+		// Shortened art is a window on the full picture, kept on the glass ball (Discover's).
+		let artTop = max(0, min(229 * u - art, 100 * u - art / 2))
 		VStack(spacing: 25 * u) {
 			Image(decorative: card.art)
 				.resizable()
 				.scaledToFill()
 				.frame(width: 340 * u, height: 229 * u)
+				.offset(y: -artTop)
+				.frame(width: 340 * u, height: art, alignment: .top)
 				.clipped()
 				.background(card.artBg)
 				.clipShape(RoundedRectangle(cornerRadius: 18 * u))

@@ -66,6 +66,8 @@ final class StakNotifications: ObservableObject {
 	/// Re-reads the saved stocks' moves and today's deck, at most every few minutes.
 	func refresh(force: Bool = false) {
 		guard !StakStore.demoAccount, Session.shared.token != nil else { return }
+		// What another device has read - on its own, shorter clock than the moves.
+		DeviceStateSync.shared.pullReads()
 		guard force || Date().timeIntervalSince(refreshedAt) >= Self.refreshEvery else { return }
 		refreshedAt = Date()
 		let started = generation
@@ -169,12 +171,31 @@ final class StakNotifications: ObservableObject {
 	}
 
 	/// Opening the inbox reads everything - like an activity feed. Nothing new to read, nothing written.
+	/// Added to the marks, never replacing them: marks pulled from another device, for items this one doesn't list
+	/// yet, would otherwise be dropped here and erased from the account's copy by the push.
 	func markAllRead() {
-		let next = Set(items.map(\.id))
+		let next = Self.recent(readIds.union(items.map(\.id)))
 		guard next != readIds else { return }
 		readIds = next
 		StakStore.set(readIds, for: "notif.read")
 		DeviceStateSync.shared.push()
+	}
+
+	/// Read marks are kept this long: a move's or a deck's id carries its day, and none older is listed again.
+	private static let keepReadDays = 14
+
+	/// The marks worth keeping - a dated id (move:2026-11-05:..., deck:2026-11-05) from more than keepReadDays ago
+	/// is dropped, so the marks don't grow forever now that they're only ever added to.
+	static func recent(_ ids: Set<String>, now: Date = Date()) -> Set<String> {
+		let day = DateFormatter()
+		day.locale = Locale(identifier: "en_US_POSIX")
+		day.dateFormat = "yyyy-MM-dd"
+		let cutoff = day.string(from: now.addingTimeInterval(-Double(keepReadDays) * 86_400))
+		return ids.filter { id in
+			let parts = id.split(separator: ":")
+			guard parts.count > 1, parts[1].count == 10, parts[1].allSatisfy({ $0.isNumber || $0 == "-" }) else { return true }
+			return String(parts[1]) >= cutoff
+		}
 	}
 
 	/// The read marks another phone had - pulled by DeviceStateSync. The items themselves aren't rebuilt.

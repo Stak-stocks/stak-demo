@@ -41,7 +41,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.verticalDrag
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -147,7 +152,9 @@ fun HomeScreen(firstRun: Boolean, onSeeTodaysPick: () -> Unit, onProfile: () -> 
 				onSeeTodaysPick = onSeeTodaysPick,
 				modifier = Modifier
 					.align(Alignment.BottomCenter)
-					.height(this@BoxWithConstraints.maxHeight - statusPad - (585 * u).dp),
+					// Never shorter than the frame's 226 overlay: on a short screen the 585 anchor left it
+					// ~85 tall, with its pill (105 down) off the bottom.
+					.height(maxOf(this@BoxWithConstraints.maxHeight - statusPad - (585 * u).dp, (226 * u).dp)),
 			)
 		}
 	}
@@ -242,8 +249,14 @@ private fun TopNav(onProfile: () -> Unit, onBell: () -> Unit = {}, onAskAi: () -
 		}
 		Spacer(modifier = Modifier.height((10 * u).dp))
 		// The bell's dot reflects today's moves and deck: re-read (at most every few
-		// minutes) whenever Home is shown.
-		androidx.compose.runtime.LaunchedEffect(Unit) { com.stak.demo.data.StakNotifications.refresh() }
+		// minutes) whenever Home is shown, and on coming back to the app - a notification
+		// read meanwhile on another device clears the dot here.
+		val homeLifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
+		androidx.compose.runtime.LaunchedEffect(homeLifecycle) {
+			homeLifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+				com.stak.demo.data.StakNotifications.refresh()
+			}
+		}
 		// Time-of-day in the user's own timezone (device clock); re-read
 		// every 30s so an open app rolls over at noon / 5pm.
 		val greeting by androidx.compose.runtime.produceState(initialValue = com.stak.demo.ui.Greeting.now()) {
@@ -402,49 +415,55 @@ private fun BoxScope.NewsDeck(
 		// with a rotation-aware point-in-card test, topmost first.
 		val density = androidx.compose.ui.platform.LocalDensity.current
 		val uPx = with(density) { (1f * u).dp.toPx() }
-		val active = remember { intArrayOf(-1) }
 		Box(
 			modifier = Modifier
 				.matchParentSize()
 				.pointerInput(uPx) {
-					detectVerticalDragGestures(
-						onDragStart = { pos ->
-							active[0] = -1
-							for (i in slots.indices.reversed()) {
-								val slot = slots[i]
-								val cx = size.width / 2f + slot.dx * uPx
-								val cy = size.height / 2f + slot.dy * uPx + drags[i].value
-								val rad = Math.toRadians(-slot.rot.toDouble())
-								val dxp = pos.x - cx
-								val dyp = pos.y - cy
-								val lx = dxp * Math.cos(rad).toFloat() + dyp * Math.sin(rad).toFloat()
-								val ly = -dxp * Math.sin(rad).toFloat() + dyp * Math.cos(rad).toFloat()
-							if (Math.abs(lx) <= 236.86f * uPx / 2f && Math.abs(ly) <= 278.45f * uPx / 2f) {
-									active[0] = i
-									break
+					// Only a drag that starts on a card is the deck's: one elsewhere on the mood card is left
+					// unconsumed, so Home scrolls (a deck-wide drag detector had held the page still).
+					// Into the card's own frame: turned back by its rotation (graphicsLayer rotationZ = rot draws it
+					// turned clockwise by rot), so the test matches the card as drawn.
+					fun pick(pos: Offset): Int {
+						for (i in slots.indices.reversed()) {
+							val slot = slots[i]
+							val cx = size.width / 2f + slot.dx * uPx
+							val cy = size.height / 2f + slot.dy * uPx + drags[i].value
+							val rad = Math.toRadians(slot.rot.toDouble())
+							val dxp = pos.x - cx
+							val dyp = pos.y - cy
+							val lx = dxp * Math.cos(rad).toFloat() + dyp * Math.sin(rad).toFloat()
+							val ly = -dxp * Math.sin(rad).toFloat() + dyp * Math.cos(rad).toFloat()
+							if (Math.abs(lx) <= 236.86f * uPx / 2f && Math.abs(ly) <= 278.45f * uPx / 2f) return i
+						}
+						return -1
+					}
+					fun move(i: Int, dy: Float) {
+						val maxUpPx = slots[i].maxUpU * uPx
+						dragScope.launch { drags[i].snapTo((drags[i].value + dy).coerceIn(-maxUpPx, 0f)) }
+					}
+					fun settle(i: Int) {
+						dragScope.launch {
+							drags[i].animateTo(0f, androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.EaseOut))
+						}
+					}
+					awaitEachGesture {
+						val down = awaitFirstDown(requireUnconsumed = false)
+						val i = pick(down.position)
+						if (i < 0) return@awaitEachGesture
+						// finally: a drag cut off mid-way (the deck leaving, a text-size change) still settles.
+						try {
+							val started = awaitVerticalTouchSlopOrCancellation(down.id) { change, over ->
+								change.consume()
+								move(i, over)
+							}
+							if (started != null) {
+								verticalDrag(started.id) { change ->
+									move(i, change.positionChange().y)
+									change.consume()
 								}
 							}
-						},
-						onDragEnd = {
-							val i = active[0]
-							if (i >= 0) dragScope.launch {
-								drags[i].animateTo(0f, androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.EaseOut))
-							}
-							active[0] = -1
-						},
-						onDragCancel = {
-							val i = active[0]
-							if (i >= 0) dragScope.launch {
-								drags[i].animateTo(0f, androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.EaseOut))
-							}
-							active[0] = -1
-						},
-					) { change, dy ->
-						val i = active[0]
-						if (i >= 0) {
-							change.consume()
-							val maxUpPx = slots[i].maxUpU * uPx
-							dragScope.launch { drags[i].snapTo((drags[i].value + dy).coerceIn(-maxUpPx, 0f)) }
+						} finally {
+							settle(i)
 						}
 					}
 				},

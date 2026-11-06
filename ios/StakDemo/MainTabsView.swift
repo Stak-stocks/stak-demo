@@ -146,7 +146,7 @@ struct MainTabsView: View {
 	@State private var tabStyle = NavStyle.instant
 	@State private var navStyle = NavStyle.forwardPush
 	/// Where covered content parks — see NavStyle.parkedShift.
-	@State private var parkedShift: CGFloat = UIScreen.main.bounds.width
+	@State private var parkedShift: CGFloat = appWidth
 	/// How far the top page has been dragged by the left-edge swipe back (0 when it isn't).
 	@State private var backDrag: CGFloat = 0
 	/// Stays true from the swipe's first move until it has settled, so the page beneath isn't re-parked mid-animation.
@@ -156,7 +156,7 @@ struct MainTabsView: View {
 	@Environment(\.scenePhase) private var scenePhase
 	private var swipingBack: Bool { backDrag > 0 || backSwipeLive }
 
-	private var pageWidth: CGFloat { UIScreen.main.bounds.width }
+	private var pageWidth: CGFloat { appWidth }
 
 	var body: some View {
 		ZStack {

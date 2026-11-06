@@ -1256,6 +1256,8 @@ private fun SaveSuccessOverlay(facts: NewsArticleFeed.StockFacts, onViewInMyStak
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 private fun NewsVideoPlayer(video: NewsMedia.Video, modifier: Modifier = Modifier, paused: Boolean = false, onDone: () -> Unit = {}, onLoaded: () -> Unit = {}) {
+	// figmaUnit, read here for the hero's corners (the view factory below isn't composable).
+	val heroU = com.stak.demo.ui.onboarding.figmaUnit()
 	val embed = video.youTubeEmbedUrl
 	if (embed != null) {
 		androidx.compose.ui.viewinterop.AndroidView(
@@ -1335,7 +1337,7 @@ private fun NewsVideoPlayer(video: NewsMedia.Video, modifier: Modifier = Modifie
 					playWhenReady = true
 				}
 				// Aspect-correct, cropped to the hero (never stretched), r10 corners.
-				VideoSurfaceHost(ctx, player, zoom = true, cornerRadiusPx = 10f * ctx.resources.displayMetrics.widthPixels / 390f).also { it.tag = player }  // 10u in px (figmaUnit x density)
+				VideoSurfaceHost(ctx, player, zoom = true, cornerRadiusPx = 10f * heroU * ctx.resources.displayMetrics.density).also { it.tag = player }  // 10u in px (figmaUnit x density)
 			},
 			// Play/pause toggle: ExoPlayer.pause keeps the position, so
 			// resuming continues where the clip stopped.
@@ -2125,8 +2127,13 @@ private fun FullscreenPlayer(player: HeroPlayer, exo: ExoPlayer) {
 		// Follow the phone (all four ways) while fullscreen is up - like a
 		// video app, the rotate lock does not pin the player.
 		activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+		// Fullscreen is the whole window, even on a tablet held upright (where the app is in its column).
+		com.stak.demo.ui.components.AppColumn.fullBleed = true
 		// Every exit path (glyph, back, PiP glyph, clip end) lands back in portrait.
-		onDispose { activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
+		onDispose {
+			activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+			com.stak.demo.ui.components.AppColumn.fullBleed = false
+		}
 	}
 	val landscape = cfg.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 	LaunchedEffect(player.leavingFullscreen) {
@@ -2200,6 +2207,8 @@ private fun PlayerSheetHost(
 		containerColor = Color(0xFF1B2030),
 		scrimColor = Color(0x80000000),
 		dragHandle = null,
+		// The app's column on a tablet (the sheet is its own window, outside PhoneColumn).
+		sheetMaxWidth = com.stak.demo.ui.components.LocalAppWidthDp.current?.dp ?: androidx.compose.material3.BottomSheetDefaults.SheetMaxWidth,
 	) {
 		Column(
 			modifier = Modifier

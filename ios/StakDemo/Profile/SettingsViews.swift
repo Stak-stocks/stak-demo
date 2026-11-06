@@ -715,6 +715,7 @@ struct RiskStyleSheet: View {
 		.padding(.top, 18 * u)
 		.padding(.bottom, 30 * u)
 		.frame(maxWidth: .infinity, alignment: .leading)
+		.inAppColumn()
 		.background(Auth.inputBg.ignoresSafeArea())
 		.presentationDetents([.medium, .large])
 		.presentationDragIndicator(.hidden)

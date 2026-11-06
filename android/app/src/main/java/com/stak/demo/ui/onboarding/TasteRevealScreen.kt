@@ -208,6 +208,8 @@ internal fun RiskStyleSheet(onDismiss: () -> Unit) {
 		scrimColor = Color(0x80000000),
 		dragHandle = null,
 		shape = RoundedCornerShape(topStart = (16 * u).dp, topEnd = (16 * u).dp),
+		// The app's column on a tablet (the sheet is its own window, outside PhoneColumn).
+		sheetMaxWidth = com.stak.demo.ui.components.LocalAppWidthDp.current?.dp ?: androidx.compose.material3.BottomSheetDefaults.SheetMaxWidth,
 	) {
 		Column(
 			verticalArrangement = Arrangement.spacedBy((8 * u).dp),

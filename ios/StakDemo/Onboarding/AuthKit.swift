@@ -12,7 +12,7 @@ import AuthenticationServices
 /// the swipe deck) multiply by this so their proportions hold on wider
 /// devices instead of shrinking relative to the screen.
 var figmaUnit: CGFloat {
-	UIScreen.main.bounds.width / 390
+	appWidth / 390
 }
 
 /// Frame-exact vertical composition (user ruling 2026-08-30, "just what's
@@ -82,8 +82,14 @@ struct AuthBackCircle: View {
 					.frame(width: 22 * u, height: 22 * u)
 			}
 			.frame(width: 40 * u, height: 40 * u)
+			// Touchable 6u past the circle (52u: 48pt on the smallest phones), laid out at the circle's size by the
+			// padding taken back below. Android needs nothing: Compose widens a touch target under 48dp to 48dp
+			// (ViewConfiguration.minimumTouchTargetSize).
+			.padding(6 * u)
+			.contentShape(Rectangle())
 		}
 		.buttonStyle(.pressDim)
+		.padding(-6 * u)
 		.accessibilityLabel("Back")
 	}
 }

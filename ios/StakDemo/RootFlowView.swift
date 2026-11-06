@@ -172,9 +172,14 @@ struct RootFlowView: View {
 					// Prototype: dissolve, ease out, 350ms. A returning user
 					// (signed in before) goes straight to Home; a first-time
 					// user is taken to create an account (user, 2026-08-23).
-					withAnimation(.easeOut(duration: 0.35)) {
+					withAnimation(.easeOut(duration: 0.35), completionCriteria: .removed) {
 						let locked = Session.shared.signedIn && UserProfile.shared.accountLock
 						phase = Session.shared.signedIn ? (locked ? .locked : .main) : .flow
+					} completion: {
+						// The column's margins once the full-window splash has faded out: fading them in with it
+						// would fade the splash twice there and show a seam at the column's edge. Nothing the next
+						// screen draws is outside the column meanwhile.
+						AppColumn.shared.launchBleed = false
 					}
 				}
 				.transition(.opacity)
@@ -217,7 +222,7 @@ struct RootFlowView: View {
 					ForEach(flowLayers, id: \.self) { s in
 						let isTop = s == stack.last
 						screen(for: s)
-							.offset(x: isTop ? 0 : EdgeSwipe.underlayOffset(flowDrag, width: UIScreen.main.bounds.width))
+							.offset(x: isTop ? 0 : EdgeSwipe.underlayOffset(flowDrag, width: appWidth))
 							.allowsHitTesting(isTop)
 							.accessibilityHidden(!isTop)
 							.edgeSwipeBack(
