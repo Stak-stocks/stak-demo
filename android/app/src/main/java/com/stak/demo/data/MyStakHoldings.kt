@@ -121,6 +121,7 @@ object MyStakHoldings {
 		}
 		// An empty list is an answer too - everything unsaved on another device. Kept local, the next save here would
 		// write the stale list back and the removed stocks would return everywhere.
+		val listChanged = resp.tickers.toSet() != tickers
 		tickers = resp.tickers.toSet()
 		if (resp.tickers.isEmpty()) details = emptyMap()
 		else if (resp.saved.isNotEmpty()) {
@@ -137,6 +138,11 @@ object MyStakHoldings {
 			}
 		}
 		persist()
+		// The inbox's moves and "Save a stock" come from this list: on a new device it was built before the list
+		// arrived, and kept until its next refresh minutes later. iOS: the same.
+		// Its own job: the caller's (My STAK's load) can be cancelled after the list is kept, and the change would
+		// never be seen again.
+		if (listChanged) scope.launch(Dispatchers.Main) { StakNotifications.refresh(force = true) }
 	}
 
 	/** The server's timestamp as epoch seconds - the moment, not just the day. */
@@ -263,15 +269,21 @@ object MyStakHoldings {
 		if (sym !in savedAt) savedAt = savedAt + (sym to java.time.LocalDate.now().toEpochDay())
 		persist()
 		syncToBackend(brandId, priceNow)
+		// The first save retires the inbox's "Save a stock" at once. Not every save: a run of
+		// swipes would re-read every saved stock's price each time.
+		if (tickers.size == 1) scope.launch(Dispatchers.Main) { StakNotifications.refresh(force = true) }
 		return true
 	}
 
 	/** Unsave (Stock Detail from My STAK) - the same bare-symbol normalisation as add. */
 	fun remove(ticker: String) {
+		if (symbolOf(ticker) !in tickers) return
 		tickers = tickers - symbolOf(ticker)
 		savedAt = savedAt - symbolOf(ticker)
 		persist()
 		syncToBackend()
+		// The unsaved stock's move leaves the inbox (and "Save a stock" comes back after the last one).
+		scope.launch(Dispatchers.Main) { StakNotifications.refresh(force = true) }
 	}
 
 	private fun syncToBackend(brandId: String? = null, priceNow: Double? = null) {

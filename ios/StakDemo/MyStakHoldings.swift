@@ -125,9 +125,13 @@ final class MyStakHoldings: ObservableObject {
 		let nextDetails = fresh.isEmpty ? [:] : (saved ?? details)
 		// Only what changed is published (and written): every assignment re-renders each screen watching the saves.
 		guard next != tickers || nextDetails != details else { return }
+		let listChanged = next != tickers
 		tickers = next
 		details = nextDetails
 		persist()
+		// The inbox's moves and "Save a stock" come from this list: on a new device it was built before the list
+		// arrived, and kept until its next refresh minutes later. Android: the same.
+		if listChanged { StakNotifications.shared.refresh(force: true) }
 	}
 
 	// MARK: - Reads
@@ -189,16 +193,21 @@ final class MyStakHoldings: ObservableObject {
 		if savedAt[sym] == nil { savedAt[sym] = MyStakHoldings.today }
 		persist()
 		syncToBackend(brandId: brandId, priceNow: priceNow)
+		// The first save retires the inbox's "Save a stock" at once. Not every save: a run of swipes would re-read
+		// every saved stock's price each time.
+		if tickers.count == 1 { Task { @MainActor in StakNotifications.shared.refresh(force: true) } }
 		return true
 	}
 
 	/// Unsave (Stock Detail from My STAK) - the same bare-symbol normalisation as add.
 	func remove(_ ticker: String) {
 		let sym = bare(ticker)
-		tickers.remove(sym)
+		guard tickers.remove(sym) != nil else { return }
 		savedAt[sym] = nil
 		persist()
 		syncToBackend()
+		// The unsaved stock's move leaves the inbox (and "Save a stock" comes back after the last one).
+		Task { @MainActor in StakNotifications.shared.refresh(force: true) }
 	}
 
 	private func syncToBackend(brandId: String? = nil, priceNow: Double? = nil) {
