@@ -437,6 +437,7 @@ struct DiscoverView: View {
 		// Quick Look - a native sheet: drag down to dismiss. Its body scrolls inside the one detent.
 		.sheet(item: $quickLookCard) { card in
 			QuickLookSheet(card: card, load: { await discoverVM.fetchQuickLook($0) })
+				.inAppColumn()
 				.presentationDetents([.fraction(0.62)])
 				.presentationDragIndicator(.visible)
 				.presentationContentInteraction(.scrolls)
@@ -1789,10 +1790,12 @@ struct DecisionButtons: View {
 		let passBg = Self.lerp(0x1C202E, 0xFFFFFF, passRatio)
 		let passIcon = Self.lerp(0xB0B8CC, 0x1C202E, passRatio)
 		let stakBg = Self.lerp(0x1C202E, 0x4FB3D9, stakRatio)
-		HStack(spacing: 48 * u) {
+		// Each circle is one button with its label, in a column 16u wider than the circle (the centres are where 48u
+		// apart put them): the tutorial's pair, scaled down on short screens, stays fingertip-sized. Android: the same.
+		HStack(spacing: 32 * u) {
 			// Pass — the circle fills white as the swipe goes left.
-			VStack(spacing: 6 * u) {
-				Button(action: onPass) {
+			Button(action: onPass) {
+				VStack(spacing: 6 * u) {
 					ZStack {
 						Circle().fill(passBg)
 						Canvas { ctx, size in
@@ -1806,17 +1809,20 @@ struct DecisionButtons: View {
 						.frame(width: 20 * u, height: 20 * u)
 					}
 					.frame(width: 56 * u, height: 56 * u)
+					Text("Pass")
+						.font(StakFont.geist(12 * u))
+						.foregroundStyle(labelColor)
+						.lineLimit(1)
+						.fixedSize()
 				}
-				.buttonStyle(.pressDim)
-				.accessibilityLabel("Pass")
-				Text("Pass")
-					.font(StakFont.geist(12 * u))
-					.foregroundStyle(labelColor)
-					.accessibilityHidden(true)
+				.frame(width: 72 * u)
+				.contentShape(Rectangle())
 			}
+			.buttonStyle(.pressDim)
+			.accessibilityLabel("Pass")
 			// STAK — the circle fills blue as the swipe goes right.
-			VStack(spacing: 6 * u) {
-				Button(action: onStak) {
+			Button(action: onStak) {
+				VStack(spacing: 6 * u) {
 					ZStack {
 						Circle().fill(stakBg)
 						Image("StakLogoMark")
@@ -1824,14 +1830,17 @@ struct DecisionButtons: View {
 							.frame(width: 28 * u, height: 28 * u)
 					}
 					.frame(width: 56 * u, height: 56 * u)
+					Text("STAK")
+						.font(StakFont.geist(12 * u))
+						.foregroundStyle(labelColor)
+						.lineLimit(1)
+						.fixedSize()
 				}
-				.buttonStyle(.pressDim)
-				.accessibilityLabel("STAK")
-				Text("STAK")
-					.font(StakFont.geist(12 * u))
-					.foregroundStyle(labelColor)
-					.accessibilityHidden(true)
+				.frame(width: 72 * u)
+				.contentShape(Rectangle())
 			}
+			.buttonStyle(.pressDim)
+			.accessibilityLabel("STAK")
 		}
 		.frame(maxWidth: .infinity)
 	}

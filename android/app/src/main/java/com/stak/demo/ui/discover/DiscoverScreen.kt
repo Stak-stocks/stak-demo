@@ -93,6 +93,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -660,9 +661,22 @@ internal fun DiscoverScreen(
 				val btnRatio = (swipeOffset.value / commitPxBtn).coerceIn(-1f, 1f)
 				val passRatio = (-btnRatio).coerceAtLeast(0f)
 				val stakRatio = btnRatio.coerceAtLeast(0f)
-				Row(horizontalArrangement = Arrangement.spacedBy((48 * u).dp), modifier = Modifier.align(Alignment.CenterHorizontally).zIndex(2f)) {
+				// Each circle is one button with its label, in a column 16u wider than the circle (the
+				// centres are where 48u apart put them). iOS: the same in DecisionButtons.
+				Row(horizontalArrangement = Arrangement.spacedBy((32 * u).dp), modifier = Modifier.align(Alignment.CenterHorizontally).zIndex(2f)) {
 					// Pass — circle fills white as swipe goes left
-					Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy((6 * u).dp)) {
+					Column(
+						horizontalAlignment = Alignment.CenterHorizontally,
+						verticalArrangement = Arrangement.spacedBy((6 * u).dp),
+						modifier = Modifier
+							.width((72 * u).dp)
+							.clickable(
+								interactionSource = remember { MutableInteractionSource() },
+								indication = com.stak.demo.ui.theme.PressDim,
+								role = Role.Button,
+								onClick = { animateAndCommit(frontCard, isSTAK = false) },
+							),
+					) {
 						val passBg = lerp(Color(0xFF1C202E), Color.White, passRatio)
 						val passIconColor = lerp(Color(0xFFB0B8CC), Color(0xFF1C202E), passRatio)
 						Box(
@@ -670,12 +684,7 @@ internal fun DiscoverScreen(
 							modifier = Modifier
 								.size((56 * u).dp)
 								.clip(CircleShape)
-								.background(passBg)
-								.clickable(
-									interactionSource = remember { MutableInteractionSource() },
-									indication = com.stak.demo.ui.theme.PressDim,
-									onClick = { animateAndCommit(frontCard, isSTAK = false) },
-								),
+								.background(passBg),
 						) {
 							Canvas(modifier = Modifier.size((20 * u).dp)) {
 								val s = size.minDimension
@@ -689,26 +698,35 @@ internal fun DiscoverScreen(
 							text = "Pass",
 							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp),
 							color = Disc.Muted,
+							maxLines = 1,
+							softWrap = false,
 						)
 					}
 					// STAK — circle fills blue as swipe goes right
-					Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy((6 * u).dp)) {
+					Column(
+						horizontalAlignment = Alignment.CenterHorizontally,
+						verticalArrangement = Arrangement.spacedBy((6 * u).dp),
+						modifier = Modifier
+							.width((72 * u).dp)
+							.clickable(
+								interactionSource = remember { MutableInteractionSource() },
+								indication = com.stak.demo.ui.theme.PressDim,
+								role = Role.Button,
+								onClick = { animateAndCommit(frontCard, isSTAK = true) },
+							),
+					) {
 						val stakBg = lerp(Color(0xFF1C202E), Color(0xFF4FB3D9), stakRatio)
 						Box(
 							contentAlignment = Alignment.Center,
 							modifier = Modifier
 								.size((56 * u).dp)
 								.clip(CircleShape)
-								.background(stakBg)
-								.clickable(
-									interactionSource = remember { MutableInteractionSource() },
-									indication = com.stak.demo.ui.theme.PressDim,
-									onClick = { animateAndCommit(frontCard, isSTAK = true) },
-								),
+								.background(stakBg),
 						) {
 							Image(
 								painter = painterResource(R.drawable.ic_stak_logo_mark),
-								contentDescription = "STAK",
+								// The label below names it.
+								contentDescription = null,
 								modifier = Modifier.size((28 * u).dp),
 							)
 						}
@@ -716,6 +734,8 @@ internal fun DiscoverScreen(
 							text = "STAK",
 							style = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = (12 * u).sp),
 							color = Disc.Muted,
+							maxLines = 1,
+							softWrap = false,
 						)
 					}
 				}

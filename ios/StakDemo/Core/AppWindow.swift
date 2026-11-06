@@ -36,9 +36,33 @@ enum AppWindow {
 
 var appWidth: CGFloat { AppWindow.width }
 
+extension View {
+	/// A sheet's content at the column's width, centred: on an iPad a sheet spans the whole window and can't be
+	/// narrowed, so its own background fills the margins. The whole width on an iPhone.
+	func inAppColumn() -> some View {
+		frame(maxWidth: appWidth).frame(maxWidth: .infinity)
+	}
+}
+
+/// What the column follows beyond the window's shape. Not android's AppColumn.fullBleed (the news video's fullscreen,
+/// which widens the column itself): android's pre-splash view can draw a column, so it has no launch bleed.
+@Observable
+final class AppColumn {
+	static let shared = AppColumn()
+
+	/// The splash at launch, drawn across the whole window as the launch screen is (LaunchScreen.storyboard can't draw
+	/// a column), so the hand-off doesn't jump: the margin panels are hidden meanwhile. Cleared once the splash has
+	/// faded out.
+	var launchBleed = true
+
+	/// The window's width at launch, for the splash.
+	let launchWidth = AppWindow.measure().width
+}
+
 /// The app in its column: the whole window on an iPhone; on an iPad, an iPhone-shaped column centred between two
 /// panels of the page colour (see AppWindow). The panels are solid and take touches: pages parked beside the column
-/// (a tab's shell, a page under a pushed one) would otherwise show in the margins and answer taps there.
+/// (a tab's shell, a page under a pushed one) would otherwise show in the margins and answer taps there. They're
+/// hidden (still taking touches) during the launch splash - AppColumn.launchBleed.
 struct PhoneColumn<Content: View>: View {
 	@ViewBuilder let content: Content
 	@State private var window = AppWindow.measure()
@@ -46,6 +70,7 @@ struct PhoneColumn<Content: View>: View {
 	var body: some View {
 		let column = AppWindow.columnWidth(for: window)
 		let margin = max(0, (window.width - column) / 2)
+		let bleed = AppColumn.shared.launchBleed
 		content
 			.frame(width: margin > 0 ? column : nil)
 			.frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -56,7 +81,7 @@ struct PhoneColumn<Content: View>: View {
 					StakColors.bg.frame(width: margin)
 				}
 				.ignoresSafeArea()
-				.opacity(margin > 0 ? 1 : 0)
+				.opacity(margin > 0 && !bleed ? 1 : 0)
 				.allowsHitTesting(margin > 0)
 			}
 			.background(StakColors.bg.ignoresSafeArea())

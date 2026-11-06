@@ -24,7 +24,9 @@ import kotlin.math.roundToInt
  * milliseconds of the activity's creation, then [SplashScreen] takes over with
  * the same geometry, so the hand-off is invisible and the user only ever sees
  * the 00 Splash. Every number is SplashScreen's: a 390x844 canvas anchored to
- * the top, scaled uniformly to the screen width about its top-centre.
+ * the top, scaled uniformly to the screen width about its top-centre - on a tablet, to the width of
+ * PhoneColumn's column. (The iPhone app's launch screen can't draw a column, so on an iPad its
+ * splash spans the window instead - AppColumn.launchBleed.)
  */
 class PreSplashView(context: Context) : FrameLayout(context) {
 	private val density = resources.displayMetrics.density
@@ -73,8 +75,11 @@ class PreSplashView(context: Context) : FrameLayout(context) {
 
 	override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
 		super.onSizeChanged(w, h, oldw, oldh)
-		// SplashScreen: scale = maxWidth / 390.dp about the canvas's top-centre.
-		val scale = w / px(390.0)
+		// SplashScreen: scale = maxWidth / 390.dp about the canvas's top-centre - on a tablet the
+		// width of PhoneColumn's column, which SplashScreen draws in (the canvas clips its glass
+		// ball at the column's edges, as the column does).
+		val column = com.stak.demo.ui.components.columnWidthDp(w / density, h / density) * density
+		val scale = column / px(390.0)
 		canvas.scaleX = scale
 		canvas.scaleY = scale
 	}

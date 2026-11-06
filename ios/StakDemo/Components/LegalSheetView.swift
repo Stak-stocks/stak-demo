@@ -117,6 +117,7 @@ struct LegalSheetView: View {
 			}
 			.frame(maxHeight: .infinity)
 		}
+		.inAppColumn()
 		.background(StakColors.bg.ignoresSafeArea())
 		.presentationDragIndicator(.visible)
 		.presentationBackground(StakColors.bg)

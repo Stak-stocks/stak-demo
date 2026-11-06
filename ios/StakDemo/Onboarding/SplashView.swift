@@ -15,9 +15,13 @@ import SwiftUI
 struct SplashView: View {
 	let onContinue: () -> Void
 
+	/// At launch on an iPad, the whole window's width rather than the column's, as the launch screen draws it
+	/// (AppColumn.launchBleed). Kept while it fades out, so it doesn't shrink on the way.
+	@State private var bleedWidth: CGFloat? = AppColumn.shared.launchBleed ? AppColumn.shared.launchWidth : nil
+
 	var body: some View {
 		GeometryReader { proxy in
-			let scale = proxy.size.width / 390
+			let scale = (bleedWidth ?? proxy.size.width) / 390
 
 			// The design canvas: fixed 390x844 anchored to the TOP of the
 			// screen, scaled about its top-center so y0 stays at the top.

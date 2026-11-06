@@ -2207,6 +2207,8 @@ private fun PlayerSheetHost(
 		containerColor = Color(0xFF1B2030),
 		scrimColor = Color(0x80000000),
 		dragHandle = null,
+		// The app's column on a tablet (the sheet is its own window, outside PhoneColumn).
+		sheetMaxWidth = com.stak.demo.ui.components.LocalAppWidthDp.current?.dp ?: androidx.compose.material3.BottomSheetDefaults.SheetMaxWidth,
 	) {
 		Column(
 			modifier = Modifier

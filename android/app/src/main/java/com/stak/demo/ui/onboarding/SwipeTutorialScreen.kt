@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,6 +34,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -49,6 +51,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.stak.demo.R
@@ -58,6 +61,7 @@ import com.stak.demo.ui.discover.FrontDeckCard
 import com.stak.demo.ui.theme.Geist
 import com.stak.demo.ui.theme.Sora
 import com.stak.demo.ui.theme.StakColors
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
@@ -151,13 +155,23 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 				)
 			}
 
-			// The room above Continue/Back and the deck + Pass/STAK's own height: on a short screen
-			// they ran into Continue, so they're scaled to fit (1 wherever they fit). The drag sits
+			// The room above Continue/Back and the deck + Pass/STAK's height with the card's art at
+			// full size: on a short screen they ran into Continue, so the art is shortened first, as
+			// Discover's is, and what's still missing is scaled (1 wherever they fit). The drag sits
 			// inside the scale, so the card follows the finger (Discover instead keeps its drag outside
 			// and divides the card's offset). iOS: the same in SwipeTutorialView.
 			var deckRoom by remember { mutableIntStateOf(0) }
 			var deckNeed by remember { mutableIntStateOf(0) }
-			fun fitNow() = if (deckRoom > 0 && deckNeed > 0) minOf(1f, deckRoom.toFloat() / deckNeed) else 1f
+			// The height actually laid out (with this frame's art), which the scale is worked out from.
+			var laidOut by remember { mutableIntStateOf(0) }
+			val unitPx = with(density) { u2.dp.toPx() }
+			// How much shorter the card's art is drawn (u2): the overflow, up to 99 (229 -> 130, the
+			// whole glass ball in view).
+			fun shortNow() = if (deckRoom > 0 && deckNeed > 0) ((deckNeed - deckRoom) / unitPx).coerceIn(0f, 99f) else 0f
+			// From the laid-out height, not from the art the next frame will have: on the first frames
+			// the art is still full height, and a scale of 1 would run the deck into Continue.
+			fun fitNow() = if (deckRoom > 0 && laidOut > 0) minOf(1f, deckRoom.toFloat() / laidOut) else 1f
+			val short = shortNow()
 			val fit = fitNow()
 			Column(
 				horizontalAlignment = Alignment.CenterHorizontally,
@@ -171,8 +185,12 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 					}
 					.wrapContentHeight(Alignment.Top, unbounded = true)
 					.onSizeChanged {
-						deckNeed = it.height
-						if (deckRoom > 0 && it.height > deckRoom + 1) compact = true
+						laidOut = it.height
+						// Measured with this layout's art: back to the full art's height. A pixel of
+						// rounding is left alone, so it can't go back and forth.
+						val need = it.height + (short * unitPx).roundToInt()
+						if (abs(need - deckNeed) > 1) deckNeed = need
+						if (deckRoom > 0 && need > deckRoom + 1) compact = true
 					}
 					// The scale is read here, at draw time, so the first frame is already scaled.
 					.graphicsLayer {
@@ -190,7 +208,7 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 				val commitNow by rememberUpdatedState(commitPx)
 				Box(
 					modifier = Modifier
-						.size((306 * u).dp, (423.07 * u).dp)
+						.size((306 * u).dp, (423.07 * u - short * u2).dp)
 						// UNCLIPPED and above its siblings, like Discover: a dragged
 						// or flying card stays WHOLE past the deck bounds, passing
 						// over the hint/CTA zone like a real card deck.
@@ -202,9 +220,8 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 								// A drag the system cancelled never ends: put the card back.
 								onDragCancel = { scope.launch { swipeOffset.animateTo(0f, tween(260, easing = EaseOut)) } },
 								onDragEnd = {
-									val abs = kotlin.math.abs(dragTotal)
 									scope.launch {
-										if (abs > commitNow) {
+										if (abs(dragTotal) > commitNow) {
 											advance(isSTAK = dragTotal > 0, dragTotal)
 										} else {
 											swipeOffset.animateTo(0f, tween(260, easing = EaseOut))
@@ -220,22 +237,27 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 				) {
 					// The authored queue slabs (1:344) - static behind the live front
 					// card, same as Discover's own peek cards: they don't animate or
-					// crossfade, they're just there until the front card clears.
-					Image(
-						painter = painterResource(R.drawable.tutorial_card_googl),
-						contentDescription = null,
-						modifier = Modifier.offset(x = (33.5 * u).dp, y = 0.dp).size((238.75 * u).dp, (290.75 * u).dp),
-					)
-					Image(
-						painter = painterResource(R.drawable.tutorial_card_aapl),
-						contentDescription = null,
-						modifier = Modifier.offset(x = (15.5 * u).dp, y = (21 * u).dp).size((273.5 * u).dp, (309.5 * u).dp),
-					)
+					// crossfade, they're just there until the front card clears. Cut off where the
+					// front card (~430u2 tall) starts fading out, so one with shortened art doesn't show
+					// their bottoms through it; at full art that's below them both.
+					Box(modifier = Modifier.size((306 * u).dp, (47.5 * u + 0.9f * (430 - short) * u2).dp).clipToBounds()) {
+						Image(
+							painter = painterResource(R.drawable.tutorial_card_googl),
+							contentDescription = null,
+							modifier = Modifier.offset(x = (33.5 * u).dp, y = 0.dp).size((238.75 * u).dp, (290.75 * u).dp),
+						)
+						Image(
+							painter = painterResource(R.drawable.tutorial_card_aapl),
+							contentDescription = null,
+							modifier = Modifier.offset(x = (15.5 * u).dp, y = (21 * u).dp).size((273.5 * u).dp, (309.5 * u).dp),
+						)
+					}
 					FrontDeckCard(
 						card = DECK[swiped % 3],
 						onSave = { advance(isSTAK = true) },
 						u = u2,
 						rows = rows,
+						artU = 229f - short,
 						modifier = Modifier
 							.align(Alignment.TopCenter)
 							.offset(y = (47.5 * u).dp)
@@ -250,6 +272,7 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 							onSave = {},
 							u = u2,
 							rows = rows,
+							artU = 229f - short,
 							modifier = Modifier
 								.align(Alignment.TopCenter)
 								.offset(y = (47.5 * u).dp)
@@ -264,20 +287,29 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 				val ratio = (swipeOffset.value / commitPx).coerceIn(-1f, 1f)
 				val passRatio = (-ratio).coerceAtLeast(0f)
 				val stakRatio = ratio.coerceAtLeast(0f)
-				Row(horizontalArrangement = Arrangement.spacedBy((48 * u2).dp), modifier = Modifier.align(Alignment.CenterHorizontally)) {
-					Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy((6 * u2).dp)) {
+				// Each circle takes the tap with its label, in a column 16u2 wider than it (the centres
+				// are where 48u2 apart put them): the pair stays fingertip-sized when the deck scales
+				// down. iOS: the same in DecisionButtons.
+				Row(horizontalArrangement = Arrangement.spacedBy((32 * u2).dp), modifier = Modifier.align(Alignment.CenterHorizontally)) {
+					Column(
+						horizontalAlignment = Alignment.CenterHorizontally,
+						verticalArrangement = Arrangement.spacedBy((6 * u2).dp),
+						modifier = Modifier
+							.width((72 * u2).dp)
+							.clickable(
+								interactionSource = remember { MutableInteractionSource() },
+								indication = com.stak.demo.ui.theme.PressDim,
+								role = Role.Button,
+								onClick = { advance(isSTAK = false) },
+							),
+					) {
 						val passBg = lerp(Color(0xFF1C202E), Color.White, passRatio)
 						val passIconColor = lerp(Color(0xFFB0B8CC), Color(0xFF1C202E), passRatio)
 						Box(
 							contentAlignment = Alignment.Center,
 							modifier = Modifier
 								.size((56 * u2).dp)
-								.background(passBg, CircleShape)
-								.clickable(
-									interactionSource = remember { MutableInteractionSource() },
-									indication = com.stak.demo.ui.theme.PressDim,
-									onClick = { advance(isSTAK = false) },
-								),
+								.background(passBg, CircleShape),
 						) {
 							Canvas(modifier = Modifier.size((20 * u2).dp)) {
 								val s = size.minDimension
@@ -287,24 +319,31 @@ fun SwipeTutorialScreen(onBack: () -> Unit, onContinue: () -> Unit) {
 								drawLine(passIconColor, Offset(s - pad, pad), Offset(pad, s - pad), strokeWidth = sw, cap = StrokeCap.Round)
 							}
 						}
-						Text(text = "Pass", style = TextStyle(fontFamily = Geist, fontSize = (12 * u2).sp), color = Auth.SubtitleGray)
+						Text(text = "Pass", style = TextStyle(fontFamily = Geist, fontSize = (12 * u2).sp), color = Auth.SubtitleGray, maxLines = 1, softWrap = false)
 					}
-					Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy((6 * u2).dp)) {
+					Column(
+						horizontalAlignment = Alignment.CenterHorizontally,
+						verticalArrangement = Arrangement.spacedBy((6 * u2).dp),
+						modifier = Modifier
+							.width((72 * u2).dp)
+							.clickable(
+								interactionSource = remember { MutableInteractionSource() },
+								indication = com.stak.demo.ui.theme.PressDim,
+								role = Role.Button,
+								onClick = { advance(isSTAK = true) },
+							),
+					) {
 						val stakBg = lerp(Color(0xFF1C202E), Color(0xFF4FB3D9), stakRatio)
 						Box(
 							contentAlignment = Alignment.Center,
 							modifier = Modifier
 								.size((56 * u2).dp)
-								.background(stakBg, CircleShape)
-								.clickable(
-									interactionSource = remember { MutableInteractionSource() },
-									indication = com.stak.demo.ui.theme.PressDim,
-									onClick = { advance(isSTAK = true) },
-								),
+								.background(stakBg, CircleShape),
 						) {
-							Image(painterResource(R.drawable.ic_stak_logo_mark), "STAK", modifier = Modifier.size((28 * u2).dp))
+							// The label below names it.
+							Image(painterResource(R.drawable.ic_stak_logo_mark), null, modifier = Modifier.size((28 * u2).dp))
 						}
-						Text(text = "STAK", style = TextStyle(fontFamily = Geist, fontSize = (12 * u2).sp), color = Auth.SubtitleGray)
+						Text(text = "STAK", style = TextStyle(fontFamily = Geist, fontSize = (12 * u2).sp), color = Auth.SubtitleGray, maxLines = 1, softWrap = false)
 					}
 				}
 			}
