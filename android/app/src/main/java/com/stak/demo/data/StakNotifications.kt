@@ -63,6 +63,8 @@ object StakNotifications {
 
 	/** Bumped by every load (a sign-in, sign-out or account switch): a read started for one account never lands in the next one's inbox. */
 	@Volatile private var generation = 0
+	/** Bumped by every refresh that runs: only the newest writes the inbox, so one started from an older saved list (sign-in's, before the list arrived) can't land after it. */
+	@Volatile private var refreshSeq = 0
 
 	/** Restores the inbox for the current account, then refreshes it from live data. */
 	fun load() {
@@ -87,6 +89,7 @@ object StakNotifications {
 		if (!force && now - refreshedAt < REFRESH_MS) return
 		refreshedAt = now
 		val started = generation
+		val seq = ++refreshSeq
 		scope.launch {
 			val held = MyStakHoldings.tickers.toList()
 			val moves = if (UserProfile.priceAlerts && held.isNotEmpty()) {
@@ -113,7 +116,7 @@ object StakNotifications {
 					(it.limit - used).coerceAtLeast(0)
 				}
 			} else null
-			if (Session.demoAccount || generation != started) return@launch
+			if (Session.demoAccount || generation != started || seq != refreshSeq) return@launch
 			items = accountItems(moves, cardsLeft)
 		}
 	}

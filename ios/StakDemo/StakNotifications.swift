@@ -40,6 +40,9 @@ final class StakNotifications: ObservableObject {
 	/// Bumped by every `load` (a sign-in, sign-out or account switch): a read started for one account never lands in
 	/// the next one's inbox.
 	private var generation = 0
+	/// Bumped by every refresh that runs: only the newest writes the inbox, so one started from an older saved list
+	/// (sign-in's, before the list arrived) can't land after it.
+	private var refreshSeq = 0
 	private let repo = StockRepository.shared
 
 	private init() {}
@@ -71,6 +74,8 @@ final class StakNotifications: ObservableObject {
 		guard force || Date().timeIntervalSince(refreshedAt) >= Self.refreshEvery else { return }
 		refreshedAt = Date()
 		let started = generation
+		refreshSeq += 1
+		let seq = refreshSeq
 		Task {
 			let profile = UserProfile.shared
 			let held = MyStakHoldings.shared.tickers.sorted()
@@ -99,7 +104,7 @@ final class StakNotifications: ObservableObject {
 				let used = swipes.date == StakClock.deckDayKey() ? swipes.count : 0
 				cardsLeft = max(0, swipes.limit - used)
 			}
-			guard generation == started, !StakStore.demoAccount else { return }
+			guard generation == started, seq == refreshSeq, !StakStore.demoAccount else { return }
 			let next = accountItems(moves: moves, cardsLeft: cardsLeft)
 			if next != items { items = next }
 		}
