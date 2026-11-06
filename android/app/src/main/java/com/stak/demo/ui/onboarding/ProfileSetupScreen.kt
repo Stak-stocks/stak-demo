@@ -7,6 +7,8 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -154,6 +156,8 @@ fun ProfileSetupScreen(
 			modifier = Modifier
 				.weight(1f)
 				.fillMaxWidth()
+				// Scrolls when the keyboard leaves too little room for the fields (Artboard).
+				.verticalScroll(rememberScrollState())
 				.padding(horizontal = (24 * u).dp)
 				.padding(top = (14 * u).dp),
 		) {

@@ -118,8 +118,8 @@ dependencies {
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.8.9")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
 
     // Supabase
     implementation("io.github.jan-tennert.supabase:auth-kt:3.1.4")

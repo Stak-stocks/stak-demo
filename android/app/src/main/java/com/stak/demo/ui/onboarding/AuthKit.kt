@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -46,6 +48,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 
@@ -93,14 +96,18 @@ internal fun figmaUnit(): Float {
  * used to stretch that column to the screen, pushing the CTA ~22 frame
  * px below its authored spot; this pins the column to the authored 800u
  * below the real status bar and leaves the surplus (the gesture zone)
- * under it. Screens shorter than the artboard fall back to filling.
+ * under it. Screens shorter than the artboard fall back to filling. It
+ * also ends above the keyboard, so a screen with fields scrolls them.
  */
 @Composable
 internal fun Artboard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
 	val u = figmaUnit()
-	BoxWithConstraints(modifier = modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-		val h = if ((800 * u).dp < maxHeight) (800 * u).dp else maxHeight
-		Column(modifier = Modifier.fillMaxWidth().height(h), content = content)
+	// Above the keyboard too: edge to edge, the window doesn't shrink for it, so on a short phone it covered the lower
+	// fields and the button under them. The screens with fields scroll them in the room that's left. The 800u cap is a
+	// modifier, not a measured branch, so the keyboard's animation costs a layout per frame rather than a recomposition.
+	com.stak.demo.ui.components.PadsForKeyboard()
+	Box(modifier = modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
+		Column(modifier = Modifier.fillMaxWidth().heightIn(max = (800 * u).dp).fillMaxHeight(), content = content)
 	}
 }
 

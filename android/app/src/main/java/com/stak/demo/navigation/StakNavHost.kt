@@ -119,8 +119,7 @@ fun StakRoot(navController: NavHostController = rememberNavController()) {
 	// - the task-switcher snapshot shows the splash backdrop - and unlocking
 	// pops back to it. Picture-in-picture never stops the activity, so a
 	// floating clip keeps playing.
-	@Suppress("DEPRECATION")
-	val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+	val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 	androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
 		val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
 			if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP &&

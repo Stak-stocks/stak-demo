@@ -1,6 +1,8 @@
 package com.stak.demo.ui.onboarding
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -90,7 +92,13 @@ fun ForgotPasswordScreen(viewModel: AuthViewModel = hiltViewModel(), onBack: () 
 			}
 			Column(
 				verticalArrangement = Arrangement.spacedBy((14 * u).dp),
-				modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = (24 * u).dp).padding(top = (14 * u).dp),
+				modifier = Modifier
+					.weight(1f)
+					.fillMaxWidth()
+					// Scrolls when the keyboard leaves too little room for the fields (Artboard).
+					.verticalScroll(rememberScrollState())
+					.padding(horizontal = (24 * u).dp)
+					.padding(top = (14 * u).dp),
 			) {
 				Column(verticalArrangement = Arrangement.spacedBy((12 * u).dp)) {
 					Text(
