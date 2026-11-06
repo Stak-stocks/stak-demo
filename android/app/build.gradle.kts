@@ -40,7 +40,10 @@ android {
     defaultConfig {
         applicationId = "com.stak.demo"
         minSdk = 26
-        targetSdk = 35
+        // Google Play requires 36 for every update since 2026-08-31. Its large-screen orientation change is opted
+        // out of in the manifest until the large-screen layout exists (37, expected to be required from 2027-08,
+        // has no opt-out).
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 

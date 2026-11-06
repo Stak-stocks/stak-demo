@@ -83,6 +83,10 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 				}
 			}
 		} else {
+			// Recreated (restored after the process was cleared, or a theme / font-size change): the new window
+			// comes from the same translucent theme, so it's made opaque here too - left translucent, the launcher
+			// behind was never stopped and picture-in-picture treated the app as see-through.
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) setTranslucent(false)
 			compose()
 		}
 	}
