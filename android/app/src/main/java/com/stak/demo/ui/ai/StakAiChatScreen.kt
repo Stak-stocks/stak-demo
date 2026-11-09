@@ -51,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -127,7 +128,12 @@ fun StakAiChatScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, vm: StakAiVi
 	}
 	// Keep the newest line in view as the conversation grows, while the dots show, and when the keyboard opens.
 	var follow by remember { mutableStateOf(true) }
-	val keyboardOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+	// Open or shut, not the height: read through derivedStateOf, the screen redraws when it opens or closes rather than
+	// on every frame of the keyboard's animation.
+	com.stak.demo.ui.components.PadsForKeyboard()
+	val ime = WindowInsets.ime
+	val imeDensity = LocalDensity.current
+	val keyboardOpen by remember(ime, imeDensity) { derivedStateOf { ime.getBottom(imeDensity) > 0 } }
 	// Asking glides to the question; anything else (words arriving, the finished answer's thumbs and follow-ups, the
 	// keyboard opening, a past chat loading) keeps the bottom in view - for someone already there. Where a scroll the
 	// person makes comes to rest (within 80dp of the end or not) decides whether they're there.

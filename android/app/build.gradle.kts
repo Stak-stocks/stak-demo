@@ -40,7 +40,10 @@ android {
     defaultConfig {
         applicationId = "com.stak.demo"
         minSdk = 26
-        targetSdk = 35
+        // Google Play requires 36 for every update since 2026-08-31. Its large-screen orientation change is opted
+        // out of in the manifest until the large-screen layout exists (37, expected to be required from 2027-08,
+        // has no opt-out).
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -115,8 +118,8 @@ dependencies {
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.8.9")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
 
     // Supabase
     implementation("io.github.jan-tennert.supabase:auth-kt:3.1.4")

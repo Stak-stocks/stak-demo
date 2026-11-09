@@ -56,6 +56,9 @@ struct ProfileSetupView: View {
 			.padding(.bottom, 4 * u)
 			OnboardingKicker(text: editing ? "PROFILE" : "STEP · LAST ONE")
 
+			// Scrolls when the keyboard leaves too little room (an iPhone SE): the name field and the button stayed
+			// under it. Android: the same.
+			ScrollView {
 			VStack(alignment: .leading, spacing: 18 * u) {
 				VStack(alignment: .leading, spacing: 12 * u) {
 					Text("Make it yours")
@@ -133,12 +136,13 @@ struct ProfileSetupView: View {
 						.font(StakFont.geist(11 * u))
 						.foregroundStyle(Auth.faintText)
 				}
-
-				Spacer(minLength: 0)
 			}
 			.frame(maxWidth: .infinity, alignment: .leading)
 			.padding(.horizontal, 24 * u)
 			.padding(.top, 14 * u)
+			}
+			.scrollDismissesKeyboard(.interactively)
+			.frame(maxHeight: .infinity, alignment: .top)
 
 			VStack(spacing: 0) {
 				AuthCta(

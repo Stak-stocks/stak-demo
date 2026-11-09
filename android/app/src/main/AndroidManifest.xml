@@ -15,7 +15,20 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:enableOnBackInvokedCallback="false"
         android:theme="@style/Theme.STAK">
+        <!-- Android 16 (target 36) ignores the portrait lock on tablets and unfolded foldables (smallest width 600dp+),
+             so STAK would turn sideways there and stretch the phone layout across the screen (PhoneColumn only
+             columns an upright window). This keeps it upright, in its column, until the large-screen layout exists -
+             and keeps the fullscreen news video's requestedOrientation calls working there (NewsDetailScreen).
+             Targeting 37 (expected to be required for Play updates from 2027-08) removes this opt-out.
+             enableOnBackInvokedCallback="false" above keeps back as it was at target 35 too: 36 turns predictive back on,
+             which would drive the page transitions (StakNavHost) with the back swipe - its own change, once tested.
+             BackHandler works either way. -->
+
+        <property
+            android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
+            android:value="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
