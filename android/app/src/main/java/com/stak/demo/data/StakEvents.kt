@@ -23,6 +23,10 @@ object StakEvents {
 	const val TASTE_GRAPH_OPEN = "taste_graph_open"
 	/** params: entry (StakAiEntry), platform. */
 	const val STAK_AI_OPEN = "stak_ai_open"
+	/** A news story's page opened (ticker when it's a company's). The beta report's News opens. */
+	const val NEWS_ARTICLE_OPEN = "news_article_open"
+	/** Moved to a tab - params: tab (home, news, discover, mystak, simulate). The beta report's News and Simulate use. */
+	const val TAB_VIEW = "tab_view"
 
 	private var repository: StockRepository? = null
 	private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

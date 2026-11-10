@@ -923,6 +923,15 @@ private fun MainShell(
 		tabPushStyle = style
 		tab = target
 	}
+	// Which tabs get used (the beta report's News and Simulate); a move, not the tab the app opens on - and not a
+	// return to the shell from a page above it, which composes this again. iOS: the same.
+	var loggedTab by rememberSaveable { mutableStateOf(tab) }
+	LaunchedEffect(tab) {
+		if (tab != loggedTab) {
+			loggedTab = tab
+			com.stak.demo.data.StakEvents.log(com.stak.demo.data.StakEvents.TAB_VIEW, params = mapOf("tab" to tab.name.lowercase()))
+		}
+	}
 	// Product audit (2026-09-05): system back on a non-Home tab goes Home first
 	// (Instagram's convention); only Home's back leaves the app.
 	androidx.activity.compose.BackHandler(enabled = tab != MainTab.Home) { switchTab(MainTab.Home) }

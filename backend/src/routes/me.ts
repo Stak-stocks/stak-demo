@@ -48,12 +48,25 @@ function validTaste(t: unknown): t is AndroidTaste {
 		&& o.picks.every((x) => typeof x === "string" && x.length <= 60);
 }
 
+/**
+ * Which app a request came from, by its User-Agent: the iPhone app's URLSession sends "... CFNetwork/... Darwin/...",
+ * the Android app's OkHttp "okhttp/...", and anything else is a browser. No app change needed, so builds already out
+ * are counted too.
+ */
+export function platformOf(userAgent: string | undefined): "ios" | "android" | "web" {
+	const ua = userAgent ?? "";
+	if (/CFNetwork|Darwin\//i.test(ua)) return "ios";
+	if (/^okhttp\//i.test(ua)) return "android";
+	return "web";
+}
+
 // GET /api/me — get user profile (requires auth)
 meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
 		const uid = req.user!.uid;
 
-		// Track login session for today — fire-and-forget, one row per user per day
+		// Track login session for today — fire-and-forget, one row per user per day, with the app it came from (the
+		// day's last; the beta report reads each person's latest)
 		const excludedEmails = (process.env.ANALYTICS_EXCLUDED_EMAILS ?? "")
 			.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
 		const userEmail = (req.user!.email ?? "").toLowerCase();
@@ -61,10 +74,16 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			const today = getEasternDateKey();
 			ensureUserRow(uid, req.user!.email)
 				.then(() => pgQuery(
-					`insert into sessions (uid, date) values ($1, $2) on conflict (uid, date) do nothing`,
-					[uid, today],
-				))
-				.catch(() => {});
+					`insert into sessions (uid, date, platform) values ($1, $2, $3)
+					 on conflict (uid, date) do update set platform = excluded.platform
+					 where sessions.platform is distinct from excluded.platform`,
+					[uid, today, platformOf(req.headers["user-agent"])],
+				).catch((e: { code?: string }) => {
+					// Before migration 20261110000000 adds the column: the day is still recorded, without the app.
+					if (e?.code !== "42703") throw e;
+					return pgQuery(`insert into sessions (uid, date) values ($1, $2) on conflict (uid, date) do nothing`, [uid, today]);
+				}))
+				.catch((e) => console.warn("[me] session not recorded:", (e as Error)?.message));
 		}
 
 		const result = await pgQuery<{

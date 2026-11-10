@@ -1,12 +1,20 @@
 import { Router, Request, Response } from "express";
+import { timingSafeEqual } from "node:crypto";
 import { getEasternDateKey } from "@stak/shared";
 import { pgQuery } from "../lib/postgres.js";
 
 export const analyticsRouter = Router();
 
+/** The header against the secret in constant time, so the time a wrong guess takes says nothing about how close it was. */
+function secretMatches(given: unknown, expected: string): boolean {
+	if (typeof given !== "string") return false;
+	const a = Buffer.from(given), b = Buffer.from(expected);
+	return a.length === b.length && timingSafeEqual(a, b);
+}
+
 function checkAdminSecret(req: Request, res: Response): boolean {
 	const secret = req.headers["x-admin-secret"];
-	if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
+	if (!process.env.ADMIN_SECRET || !secretMatches(secret, process.env.ADMIN_SECRET)) {
 		res.status(403).json({ error: "Forbidden" });
 		return false;
 	}
@@ -349,6 +357,146 @@ analyticsRouter.get("/events", async (req: Request, res: Response) => {
 	} catch (error) {
 		console.error("Error fetching event analytics:", error);
 		res.status(500).json({ error: "Failed to fetch event analytics" });
+	}
+});
+
+/** One beta tester's row: STAK's side of the master sheet (TestFlight's side comes from App Store Connect). */
+interface BetaRow {
+	email: string | null;
+	display_name: string | null;
+	created_at: string;
+	onboarding_completed: boolean;
+	platform: string | null;
+	swipes: number;
+	companies_swiped: number;
+	right_swipes: number;
+	staks: number;
+	saved_now: number;
+	quick_looks: number;
+	company_opens: number;
+	saved_company_opens: number;
+	news_opens: number;
+	news_tab_views: number;
+	simulate_tab_views: number;
+	sim_trades: number;
+	simulate_used: boolean;
+	active_days: number;
+	last_active: string | null;
+	day3: boolean | null;
+	day7: boolean | null;
+}
+
+/**
+ * Activated (the beta's definition): an account that finished onboarding, swiped at least 10 companies (different
+ * ones - the deck shows a passed company again), STAKed at least 3, and opened at least one Quick Look or saved company.
+ */
+export function isActivated(r: Pick<BetaRow, "onboarding_completed" | "companies_swiped" | "staks" | "quick_looks" | "saved_company_opens">): boolean {
+	return r.onboarding_completed && r.companies_swiped >= 10 && r.staks >= 3 && (r.quick_looks >= 1 || r.saved_company_opens >= 1);
+}
+
+const BETA_COLUMNS: (keyof BetaRow | "activated")[] = [
+	"email", "display_name", "platform", "created_at", "onboarding_completed", "activated", "swipes", "companies_swiped",
+	"right_swipes", "staks", "saved_now", "quick_looks", "company_opens", "saved_company_opens", "news_opens", "news_tab_views",
+	"simulate_tab_views", "sim_trades", "simulate_used", "active_days", "last_active", "day3", "day7",
+];
+
+/**
+ * A CSV cell: quoted when it holds a comma, quote or line break. Text starting like a formula (= + - @, tab, return -
+ * "+tag@x.com" is a valid email) gets a leading apostrophe, so Sheets and Excel show it rather than run it.
+ */
+export function csvCell(v: unknown): string {
+	let s = v == null ? "" : String(v);
+	if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+	return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// POST /api/admin/analytics/beta { emails: ["a@x.com", ...], since: "2026-11-01", format: "csv" } — one row per beta tester for
+// the master sheet: account created, onboarding, swipes, STAKs (companies ever saved, from a swipe or any Save button),
+// Quick Looks, company opens, News, Simulate, last active, whether they came back on Day 3 / Day 7 (active on the
+// signup day + 3 / + 7 in Eastern time, blank until that day is over), and activated (isActivated). A day counts as
+// active when the app recorded a visit (GET /api/me), a swipe, a save, a trade or an event: the visit alone misses an
+// app resumed from the background. display_name helps pair an account whose email isn't the tester's (Apple's private
+// relay). `emails` limits it to those accounts - team accounts included when named (with no visits: those aren't
+// recorded for them); without it, every account since `since` minus the excluded ones. News article opens and News /
+// Simulate tab views count from the app builds that log them (2026-11-10; the web logs neither); platform from the
+// 2026-11-10 backend. A POST, so the
+// testers' emails travel in the body rather than the URL, which request logs keep.
+analyticsRouter.post("/beta", async (req: Request, res: Response) => {
+	if (!checkAdminSecret(req, res)) return;
+	res.set("Cache-Control", "no-store");
+	const body = (req.body ?? {}) as { emails?: unknown; since?: unknown; format?: unknown };
+	const emails = Array.isArray(body.emails)
+		? body.emails.filter((e): e is string => typeof e === "string").map((e) => e.trim().toLowerCase()).filter(Boolean).slice(0, 2000)
+		: [];
+	const since = typeof body.since === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.since) ? body.since : null;
+	try {
+		const excluded = emails.length ? [] : [...(await getExcludedUids())];
+		const result = await pgQuery<BetaRow>(
+			`with u as (
+			   select uid, email, display_name, created_at, onboarding_completed,
+			     (created_at at time zone 'America/New_York')::date as signup_day
+			   from users
+			   where (cardinality($1::text[]) = 0 or lower(email) = any($1::text[]))
+			     and ($2::date is null or created_at >= ($2::date::timestamp at time zone 'America/New_York'))
+			     and not (uid = any($3::text[]))
+			 ),
+			 today as (select (now() at time zone 'America/New_York')::date as d)
+			 select u.email, u.display_name, u.created_at, u.onboarding_completed,
+			   (select platform from sessions x where x.uid = u.uid and platform is not null order by date desc limit 1) as platform,
+			   (select count(*) from swipes s where s.uid = u.uid)::int as swipes,
+			   (select count(distinct s.brand_id) from swipes s where s.uid = u.uid)::int as companies_swiped,
+			   (select count(*) from swipes s where s.uid = u.uid and s.direction = 'right')::int as right_swipes,
+			   (select count(*) from (
+			     select s.brand_id from swipes s where s.uid = u.uid and s.direction = 'right'
+			     union select l.brand_id from stak_save_log l where l.uid = u.uid and l.action = 'save'
+			   ) k)::int as staks,
+			   (select count(*) from stak_brands b where b.uid = u.uid)::int as saved_now,
+			   (select count(*) from events e where e.uid = u.uid and e.type = 'learn_more')::int as quick_looks,
+			   (select count(*) from events e where e.uid = u.uid and e.type = 'stock_detail_open')::int as company_opens,
+			   (select count(*) from events e where e.uid = u.uid and e.type = 'stock_detail_open' and (e.params->>'saved' = 'true' or e.params->>'source' = 'mystak'))::int as saved_company_opens,
+			   (select count(*) from events e where e.uid = u.uid and e.type = 'news_article_open')::int as news_opens,
+			   (select count(*) from events e where e.uid = u.uid and e.type = 'tab_view' and e.params->>'tab' = 'news' and e.params->>'brand_id' is null)::int as news_tab_views,
+			   (select count(*) from events e where e.uid = u.uid and e.type = 'tab_view' and e.params->>'tab' = 'simulate')::int as simulate_tab_views,
+			   (select count(*) from sandbox_trades t where t.uid = u.uid)::int as sim_trades,
+			   (exists (select 1 from sandbox_portfolio p where p.uid = u.uid)
+			     or exists (select 1 from sandbox_trades t where t.uid = u.uid)
+			     or exists (select 1 from events e where e.uid = u.uid and e.type = 'tab_view' and e.params->>'tab' = 'simulate')) as simulate_used,
+			   coalesce(cardinality(a.days), 0) as active_days,
+			   (select max(d) from unnest(a.days) d) as last_active,
+			   case when (select d from today) <= u.signup_day + 3 then null
+			     else coalesce(to_char(u.signup_day + 3, 'YYYY-MM-DD') = any(a.days), false) end as day3,
+			   case when (select d from today) <= u.signup_day + 7 then null
+			     else coalesce(to_char(u.signup_day + 7, 'YYYY-MM-DD') = any(a.days), false) end as day7
+			 from u
+			 left join lateral (
+			   select array_agg(distinct d) as days from (
+			     select x.date as d from sessions x where x.uid = u.uid
+			     union select to_char(s.occurred_at at time zone 'America/New_York', 'YYYY-MM-DD') from swipes s where s.uid = u.uid
+			     union select to_char(e.occurred_at at time zone 'America/New_York', 'YYYY-MM-DD') from events e where e.uid = u.uid
+			     union select to_char(l.occurred_at at time zone 'America/New_York', 'YYYY-MM-DD') from stak_save_log l where l.uid = u.uid
+			     union select to_char(t.executed_at at time zone 'America/New_York', 'YYYY-MM-DD') from sandbox_trades t where t.uid = u.uid
+			   ) t
+			 ) a on true
+			 order by u.created_at`,
+			[emails, since, excluded],
+		);
+		const rows = result.rows.map((r) => ({ ...r, created_at: toIsoString(r.created_at), activated: isActivated(r) }));
+		if (body.format === "csv") {
+			res.set("Content-Disposition", 'attachment; filename="stak-beta.csv"');
+			const lines = [BETA_COLUMNS.join(","), ...rows.map((r) => BETA_COLUMNS.map((c) => csvCell(r[c])).join(","))];
+			res.type("text/csv").send(lines.join("\n"));
+			return;
+		}
+		res.json({
+			people: rows.length,
+			activated: rows.filter((r) => r.activated).length,
+			// Emails asked for that have no STAK account (yet, or under a different email - e.g. Apple's private relay).
+			missing: emails.filter((e) => !rows.some((r) => r.email?.toLowerCase() === e)),
+			rows,
+		});
+	} catch (e) {
+		console.error("[analytics] beta error:", e);
+		res.status(500).json({ error: "Failed to load the beta report" });
 	}
 });
 

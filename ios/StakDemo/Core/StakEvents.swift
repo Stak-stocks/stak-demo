@@ -17,6 +17,10 @@ enum StakEvents {
     static let tasteGraphOpen      = "taste_graph_open"
     /// params: entry (StakAiEntry), platform
     static let stakAiOpen          = "stak_ai_open"
+    /// A news story's page opened (ticker when it's a company's). The beta report's News opens.
+    static let newsArticleOpen     = "news_article_open"
+    /// Moved to a tab - params: tab (home, news, discover, mystak, simulate). The beta report's News and Simulate use.
+    static let tabView             = "tab_view"
 
     /// Log an engagement event. `ticker` and `params` are both optional.
     @MainActor
