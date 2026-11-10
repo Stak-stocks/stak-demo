@@ -195,6 +195,10 @@ struct MainTabsView: View {
 		}
 		.background(StakColors.bg.ignoresSafeArea())
 		.onChange(of: backDrag) { _, drag in if drag > 0 { backSwipeLive = true } }
+		// Which tabs get used (the beta report's News and Simulate); a move, not the tab the app opens on. Android: the same.
+		.onChange(of: tab) { _, now in
+			StakEvents.log(StakEvents.tabView, params: ["tab": now.rawValue.lowercased().replacingOccurrences(of: " ", with: "")])
+		}
 		// The day's brief and market news: loaded at launch (Home's mood card reads them as well as the News tab), then
 		// kept current while the app is open - checked every minute and on returning to the app (NewsViewModel
 		// .refreshIfStale decides what is actually due).
@@ -551,6 +555,8 @@ struct MainTabsView: View {
 				"source": fromMyStak ? "mystak" : "discover",
 				"saved": MyStakHoldings.shared.tickers.contains(symbol.uppercased()) ? "true" : "false",
 			])
+		case .liveNewsDetail(let dto):
+			StakEvents.log(StakEvents.newsArticleOpen, ticker: dto.ticker.isEmpty ? nil : dto.ticker)
 		default: break
 		}
 	}

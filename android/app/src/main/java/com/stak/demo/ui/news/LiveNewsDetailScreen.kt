@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -124,6 +125,14 @@ fun LiveNewsDetailScreen(
 ) {
     val u = figmaUnit()
     val article = LiveNewsHolder.current ?: run { onBack(); return }
+    // Once per page: coming back to it from a page above composes it again (iOS logs on the push).
+    var logged by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (!logged) {
+            logged = true
+            com.stak.demo.data.StakEvents.log(com.stak.demo.data.StakEvents.NEWS_ARTICLE_OPEN, ticker = article.ticker.ifBlank { null })
+        }
+    }
     val quote by viewModel.quote.collectAsStateWithLifecycle()
     val metrics by viewModel.metrics.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
