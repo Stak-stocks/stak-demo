@@ -1362,6 +1362,7 @@ function Footer({ onSubscribe, onScrollTo }: { onSubscribe: (email: string) => v
 			<li><button type="button" onClick={() => onScrollTo("howItWorks")} style={item}>How it works</button></li>
 			<li><button type="button" onClick={() => onScrollTo("features")} style={item}>Features</button></li>
 			<li><button type="button" onClick={() => onScrollTo("faq")} style={item}>FAQ</button></li>
+			<li><a href="/support" style={{ ...item, textDecoration: "none" }}>Help &amp; support</a></li>
 			<li><LegalFooterLinks style={{ fontFamily: SR, fontWeight: 300, fontSize: 16, lineHeight: "25px", color: "#fff" }} /></li>
 		</FooterColumn>
 	);

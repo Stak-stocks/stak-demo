@@ -74,8 +74,9 @@ export const JOIN_WAITLIST = { to: "/welcome", search: { join: "1" } } as const;
  * Flip WEB_LOCKED to open the web again.
  */
 export const WEB_LOCKED = true;
-/** Pages anyone may read, without the app around them; the apps' Settings link to them too. */
-export const LEGAL_PATHS: readonly string[] = ["/terms", "/privacy"];
+/** Pages anyone may read, without the app around them. /support is the App Store's Support URL, and the apps' Help &
+ * support opens it ("More help"); the apps show Terms and Privacy in their own sheet. */
+export const LEGAL_PATHS: readonly string[] = ["/terms", "/privacy", "/support"];
 export const WEB_PUBLIC_PATHS: readonly string[] = ["/welcome", ...LEGAL_PATHS];
 const TEAM_ACCESS_KEY = "stak.teamAccess";
 export const TEAM_CODE_SHA256 = "3d547cdeb1698872595f6ed3e8e3d91bca004185360748573e7779fb3782ae66";

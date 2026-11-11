@@ -26,7 +26,7 @@ import { isHiddenAppleEmail } from "@/lib/supabase";
 import { AppleNewOrExisting } from "@/components/auth/AppleNewOrExisting";
 import { useFirstRunPending } from "@/lib/firstRun";
 import { EligibilityGate } from "@/components/onboarding/EligibilityGate";
-import { pageTitle } from "@/lib/pageTitle";
+import { pageTitle, syncPageMeta } from "@/lib/pageTitle";
 
 /** Set once the "web is paused" note has shown in this tab, so it isn't repeated on every page load. */
 const WEB_PAUSED_SHOWN_KEY = "stak.webPausedShown";
@@ -60,10 +60,14 @@ function Root() {
 	const isOnboardingRoute = location.pathname === "/onboarding" || location.pathname.startsWith("/onboarding/");
 	const needsAuthForOnboardingStep = isOnboardingRoute;
 	// The Terms and Privacy pages open for anyone, signed in or not - the gate below links to them.
-	const isLegalPage = LEGAL_PATHS.includes(location.pathname);
+	// The lock (isLockedPath) ignores a trailing slash and case; so does this, or /support/ would get the app shell.
+	const isLegalPage = LEGAL_PATHS.includes(location.pathname.replace(/\/+$/, "").toLowerCase() || "/");
 	const isAuthPage = ["/welcome", "/login", "/signup", "/forgot-password"].includes(location.pathname) || isOnboardingRoute || isLegalPage;
 	// Every page names itself in the browser tab (WCAG 2.4.2).
-	useEffect(() => { document.title = pageTitle(location.pathname); }, [location.pathname]);
+	useEffect(() => {
+		document.title = pageTitle(location.pathname);
+		syncPageMeta(location.pathname);
+	}, [location.pathname]);
 	// Web lock (earlyAccess.ts): says what a team link just did, once there's a screen to say it on; and tells someone
 	// who used the web app before the lock why they only find the landing page (once a tab).
 	useEffect(() => {

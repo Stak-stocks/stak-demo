@@ -3,18 +3,14 @@ import { useState } from "react";
 import { SettingsCard, SettingsLinkRow, SettingsScaffold } from "@/components/profile/ProfileKit";
 import { DISC, cu } from "@/components/discover/discoverTheme";
 import { PRESS, f, focusRing } from "@/components/phone/phone";
+import { REPORT_SUBJECT, SUPPORT_EMAIL, SUPPORT_SUBJECT, SUPPORT_URL, supportEmailBody, supportQuestion, type SupportQuestion } from "@stak/shared";
 
 export const Route = createFileRoute("/profile_/help-support")({
 	component: HelpSupportPage,
 });
 
-const FAQS = [
-	{ q: "Is this real money?", a: "No. In Simulate you practice with pretend money, starting with what you’d really invest. Nothing is bought or sold for real." },
-	{ q: "Where do the prices come from?", a: "Real prices from the US stock market. They update on their own while the market is open (9:30am to 4pm ET, weekdays). When it's closed, you see the last closing price." },
-	{ q: "Is my data private?", a: "Your saved stocks, taste answers and paper portfolio are stored with your STAK account, so they follow you to a new device. STAK never sells your data." },
-];
-
-const SUPPORT_EMAIL = "support@thestak.org";
+// The three the apps show too; the rest are on the public support page ("More help").
+const FAQS = ["real-money", "prices", "data-private"].map(supportQuestion).filter((x): x is SupportQuestion => !!x);
 const APP_VERSION = "web";
 const enc = encodeURIComponent;
 
@@ -37,6 +33,11 @@ function FaqRow({ q, a }: { q: string; a: string }) {
 	);
 }
 
+/** The browser at the foot of a support email, as the apps add the phone - so a reply needn't ask. */
+function deviceLine(): string {
+	return `STAK web, ${navigator.userAgent}`;
+}
+
 /** Android's Help & support: one card - three questions, then support links and the version. */
 function HelpSupportPage() {
 	const open = (href: string) => { window.location.href = href; };
@@ -44,8 +45,9 @@ function HelpSupportPage() {
 		<SettingsScaffold title="Help & support">
 			<SettingsCard>
 				{FAQS.map((item) => <FaqRow key={item.q} q={item.q} a={item.a} />)}
-				<SettingsLinkRow label="Email support" onClick={() => open(`mailto:${SUPPORT_EMAIL}?subject=${enc("STAK support")}`)} />
-				<SettingsLinkRow label="Report a problem" onClick={() => open(`mailto:${SUPPORT_EMAIL}?subject=${enc("STAK problem report")}&body=${enc(`What happened:\n\nWhere in the app:\n\nApp version ${APP_VERSION}`)}`)} />
+				<SettingsLinkRow label="More help" onClick={() => window.open(SUPPORT_URL, "_blank", "noopener,noreferrer")} />
+				<SettingsLinkRow label="Email support" onClick={() => open(`mailto:${SUPPORT_EMAIL}?subject=${enc(SUPPORT_SUBJECT)}&body=${enc(supportEmailBody("support", deviceLine()))}`)} />
+				<SettingsLinkRow label="Report a problem" onClick={() => open(`mailto:${SUPPORT_EMAIL}?subject=${enc(REPORT_SUBJECT)}&body=${enc(supportEmailBody("report", deviceLine()))}`)} />
 				<SettingsLinkRow label="Terms of service" onClick={() => window.open("https://thestak.org/terms", "_blank", "noopener,noreferrer")} />
 				<SettingsLinkRow label="Privacy policy" onClick={() => window.open("https://thestak.org/privacy", "_blank", "noopener,noreferrer")} />
 				<SettingsLinkRow label="Version" value={APP_VERSION} chevron={false} />

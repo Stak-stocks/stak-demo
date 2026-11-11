@@ -67,6 +67,8 @@ export { PRICE_THRESHOLDS, DEFAULT_PRICE_THRESHOLD, isPriceThreshold } from "./n
 export { TERMS_VERSION, PRIVACY_VERSION, TERMS_URL, PRIVACY_URL, ELIGIBILITY_ENFORCED_FROM } from "./eligibility";
 export { TERMS_OF_SERVICE, PRIVACY_POLICY } from "./legalText";
 export type { LegalDoc, LegalSection, LegalBlock } from "./legalText";
+export { SUPPORT_EMAIL, SUPPORT_REPLY_TIME, SUPPORT_URL, SUPPORT_SUBJECT, REPORT_SUBJECT, SUPPORT_TOPICS, SUPPORT_SECURITY_NOTE, DEVICE_LABEL, supportQuestion, supportEmailBody } from "./supportFaq";
+export type { SupportTopic, SupportQuestion } from "./supportFaq";
 export type { PriceThreshold } from "./notificationConfig";
 
 export { STAK_AI_WINDOW_LIMIT, STAK_AI_WINDOW_HOURS, STAK_AI_VIA } from "./stakAi";

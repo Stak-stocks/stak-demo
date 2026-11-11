@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as SupportRouteImport } from './routes/support'
 import { Route as StakAiRouteImport } from './routes/stak-ai'
 import { Route as SimulateRouteImport } from './routes/simulate'
 import { Route as SignupRouteImport } from './routes/signup'
@@ -60,6 +61,11 @@ const WelcomeRoute = WelcomeRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StakAiRoute = StakAiRouteImport.update({
@@ -278,6 +284,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/simulate': typeof SimulateRoute
   '/stak-ai': typeof StakAiRoute
+  '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/feed/article': typeof FeedArticleRoute
@@ -322,6 +329,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/simulate': typeof SimulateRoute
   '/stak-ai': typeof StakAiRoute
+  '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/feed/article': typeof FeedArticleRoute
@@ -367,6 +375,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/simulate': typeof SimulateRoute
   '/stak-ai': typeof StakAiRoute
+  '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/feed_/article': typeof FeedArticleRoute
@@ -413,6 +422,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/simulate'
     | '/stak-ai'
+    | '/support'
     | '/terms'
     | '/welcome'
     | '/feed/article'
@@ -457,6 +467,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/simulate'
     | '/stak-ai'
+    | '/support'
     | '/terms'
     | '/welcome'
     | '/feed/article'
@@ -501,6 +512,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/simulate'
     | '/stak-ai'
+    | '/support'
     | '/terms'
     | '/welcome'
     | '/feed_/article'
@@ -546,6 +558,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   SimulateRoute: typeof SimulateRoute
   StakAiRoute: typeof StakAiRoute
+  SupportRoute: typeof SupportRoute
   TermsRoute: typeof TermsRoute
   WelcomeRoute: typeof WelcomeRoute
   FeedArticleRoute: typeof FeedArticleRoute
@@ -590,6 +603,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/stak-ai': {
@@ -890,6 +910,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   SimulateRoute: SimulateRoute,
   StakAiRoute: StakAiRoute,
+  SupportRoute: SupportRoute,
   TermsRoute: TermsRoute,
   WelcomeRoute: WelcomeRoute,
   FeedArticleRoute: FeedArticleRoute,
