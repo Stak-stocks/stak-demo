@@ -29,6 +29,8 @@ import { Route as AppStocksSymbolRouteImport } from './routes/_app.stocks.$symbo
 import { Route as AppSimulatePortfolioRouteImport } from './routes/_app.simulate.portfolio'
 import { Route as AppSimulateLeaderboardRouteImport } from './routes/_app.simulate.leaderboard'
 import { Route as AppProfileTasteRiskRouteImport } from './routes/_app.profile_.taste-risk'
+import { Route as AppProfileNotificationsRouteImport } from './routes/_app.profile_.notifications'
+import { Route as AppProfileHelpRouteImport } from './routes/_app.profile_.help'
 import { Route as AppProfileEditRouteImport } from './routes/_app.profile_.edit'
 import { Route as AppNewsIdRouteImport } from './routes/_app.news_.$id'
 import { Route as AppMyStakCollectionRouteImport } from './routes/_app.my-stak.$collection'
@@ -134,6 +136,16 @@ const AppProfileTasteRiskRoute = AppProfileTasteRiskRouteImport.update({
   path: '/profile/taste-risk',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProfileNotificationsRoute = AppProfileNotificationsRouteImport.update({
+  id: '/profile_/notifications',
+  path: '/profile/notifications',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProfileHelpRoute = AppProfileHelpRouteImport.update({
+  id: '/profile_/help',
+  path: '/profile/help',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppProfileEditRoute = AppProfileEditRouteImport.update({
   id: '/profile_/edit',
   path: '/profile/edit',
@@ -178,6 +190,8 @@ export interface FileRoutesByFullPath {
   '/my-stak/$collection': typeof AppMyStakCollectionRoute
   '/news/$id': typeof AppNewsIdRoute
   '/profile/edit': typeof AppProfileEditRoute
+  '/profile/help': typeof AppProfileHelpRoute
+  '/profile/notifications': typeof AppProfileNotificationsRoute
   '/profile/taste-risk': typeof AppProfileTasteRiskRoute
   '/simulate/leaderboard': typeof AppSimulateLeaderboardRoute
   '/simulate/portfolio': typeof AppSimulatePortfolioRoute
@@ -204,6 +218,8 @@ export interface FileRoutesByTo {
   '/my-stak/$collection': typeof AppMyStakCollectionRoute
   '/news/$id': typeof AppNewsIdRoute
   '/profile/edit': typeof AppProfileEditRoute
+  '/profile/help': typeof AppProfileHelpRoute
+  '/profile/notifications': typeof AppProfileNotificationsRoute
   '/profile/taste-risk': typeof AppProfileTasteRiskRoute
   '/simulate/leaderboard': typeof AppSimulateLeaderboardRoute
   '/simulate/portfolio': typeof AppSimulatePortfolioRoute
@@ -232,6 +248,8 @@ export interface FileRoutesById {
   '/_app/my-stak/$collection': typeof AppMyStakCollectionRoute
   '/_app/news_/$id': typeof AppNewsIdRoute
   '/_app/profile_/edit': typeof AppProfileEditRoute
+  '/_app/profile_/help': typeof AppProfileHelpRoute
+  '/_app/profile_/notifications': typeof AppProfileNotificationsRoute
   '/_app/profile_/taste-risk': typeof AppProfileTasteRiskRoute
   '/_app/simulate/leaderboard': typeof AppSimulateLeaderboardRoute
   '/_app/simulate/portfolio': typeof AppSimulatePortfolioRoute
@@ -260,6 +278,8 @@ export interface FileRouteTypes {
     | '/my-stak/$collection'
     | '/news/$id'
     | '/profile/edit'
+    | '/profile/help'
+    | '/profile/notifications'
     | '/profile/taste-risk'
     | '/simulate/leaderboard'
     | '/simulate/portfolio'
@@ -286,6 +306,8 @@ export interface FileRouteTypes {
     | '/my-stak/$collection'
     | '/news/$id'
     | '/profile/edit'
+    | '/profile/help'
+    | '/profile/notifications'
     | '/profile/taste-risk'
     | '/simulate/leaderboard'
     | '/simulate/portfolio'
@@ -313,6 +335,8 @@ export interface FileRouteTypes {
     | '/_app/my-stak/$collection'
     | '/_app/news_/$id'
     | '/_app/profile_/edit'
+    | '/_app/profile_/help'
+    | '/_app/profile_/notifications'
     | '/_app/profile_/taste-risk'
     | '/_app/simulate/leaderboard'
     | '/_app/simulate/portfolio'
@@ -477,6 +501,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProfileTasteRiskRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/profile_/notifications': {
+      id: '/_app/profile_/notifications'
+      path: '/profile/notifications'
+      fullPath: '/profile/notifications'
+      preLoaderRoute: typeof AppProfileNotificationsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/profile_/help': {
+      id: '/_app/profile_/help'
+      path: '/profile/help'
+      fullPath: '/profile/help'
+      preLoaderRoute: typeof AppProfileHelpRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/profile_/edit': {
       id: '/_app/profile_/edit'
       path: '/profile/edit'
@@ -524,6 +562,8 @@ interface AppRouteChildren {
   AppMyStakCollectionRoute: typeof AppMyStakCollectionRoute
   AppNewsIdRoute: typeof AppNewsIdRoute
   AppProfileEditRoute: typeof AppProfileEditRoute
+  AppProfileHelpRoute: typeof AppProfileHelpRoute
+  AppProfileNotificationsRoute: typeof AppProfileNotificationsRoute
   AppProfileTasteRiskRoute: typeof AppProfileTasteRiskRoute
   AppSimulateLeaderboardRoute: typeof AppSimulateLeaderboardRoute
   AppSimulatePortfolioRoute: typeof AppSimulatePortfolioRoute
@@ -542,6 +582,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppMyStakCollectionRoute: AppMyStakCollectionRoute,
   AppNewsIdRoute: AppNewsIdRoute,
   AppProfileEditRoute: AppProfileEditRoute,
+  AppProfileHelpRoute: AppProfileHelpRoute,
+  AppProfileNotificationsRoute: AppProfileNotificationsRoute,
   AppProfileTasteRiskRoute: AppProfileTasteRiskRoute,
   AppSimulateLeaderboardRoute: AppSimulateLeaderboardRoute,
   AppSimulatePortfolioRoute: AppSimulatePortfolioRoute,

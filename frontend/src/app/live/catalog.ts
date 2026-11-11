@@ -120,10 +120,41 @@ export const allTickers = (): string[] => (catalog ? [...catalog.byTicker.keys()
 /** The points an action earns in the taste graph (the shared table; its own defaults until the catalog lands). */
 export const actionPoints = (action: "save" | "pass"): number => catalog?.actionPoints[action] ?? (action === "save" ? 3 : -1);
 
-export const companyName = (ticker: string): string => brandByTicker(ticker)?.name ?? normalizeTicker(ticker);
-export const companyInitial = (ticker: string): string => companyName(ticker).charAt(0).toUpperCase();
-/** "NVDA · NVIDIA" — the ticker line on deck cards, detail pages and rails. */
-export const tickerLine = (ticker: string): string => `${normalizeTicker(ticker)} · ${companyName(ticker)}`;
+/**
+ * The companies whose catalog entry carries a brand's or the ticker's name where every page should print the
+ * company's (coordinator ruling N30.8f, follow-up F3; the hunt's C-10):
+ * - GOOGL (and GOOG, its other share class): the catalog says "Google", its best-known brand; the company is Alphabet,
+ *   as Figma prints it wherever it names it (the deck card 2:3151 "GOOGL · Alphabet Inc", the collection card 2:4830
+ *   "Alphabet") and as both phones do (android ui/mystak/Collections.kt:54, ios MyStak/Collections.swift:67);
+ * - AMD: the catalog repeats the ticker, so the pick page and the stock page read "AMD · AMD"; the company is Advanced
+ *   Micro Devices (android ui/discover/StockDetailScreen.kt:1245 "AMD · Advanced Micro Devices" and :1282, ios
+ *   Discover/StockDetailView.swift:1101 and :1138).
+ * A name that does not fit where it is printed keeps that place's own rule for long text (a collection card's one line
+ * with an ellipsis; the phones shorten it by hand there: "Adv Micro", Collections.kt:55).
+ */
+const COMPANY_NAME: Readonly<Record<string, string>> = { GOOGL: "Alphabet", GOOG: "Alphabet", AMD: "Advanced Micro Devices" };
+
+/** ONE display name per company, for every page past the showcase (the frames' own strings stay the frames'). */
+export function companyName(ticker: string): string {
+	const T = normalizeTicker(ticker);
+	return COMPANY_NAME[T] ?? brandByTicker(T)?.name ?? T;
+}
+/**
+ * The letter a coin wears when it has no logo: the TICKER's first letter, as the frames draw it where the ticker and
+ * the name differ (Figma 2:4830: GOOGL wears "G" above "Alphabet"; 2:634: HOOD wears "H" beside "Robinhood Markets").
+ * Until 2026-11-09 it was the company name's letter, so the coin contradicted the ticker printed beside it: O wore "R"
+ * (Realty Income), LLY "E" (Eli Lilly), NOW "S", KO "C", XOM "E" (the hunt's VIS-06; coordinator ruling N30.8r).
+ */
+export const companyInitial = (ticker: string): string => normalizeTicker(ticker).charAt(0);
+/**
+ * "NVDA · NVIDIA": the ticker line on deck cards, detail pages and rails. A company whose name IS its ticker (IBM, UPS,
+ * SAP, KKR; a ticker the catalog does not know) prints it once: "IBM", never "IBM · IBM" (C-10).
+ */
+export function tickerLine(ticker: string): string {
+	const T = normalizeTicker(ticker);
+	const name = companyName(T);
+	return name && name !== T ? `${T} · ${name}` : T;
+}
 
 export const financialsOf = (ticker: string) => brandByTicker(ticker)?.financials;
 export function betaOf(ticker: string): number | null {

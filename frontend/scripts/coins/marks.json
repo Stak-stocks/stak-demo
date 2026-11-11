@@ -1,0 +1,1820 @@
+{
+ "AAL": {
+  "source": "simple-icons@16.35.0",
+  "id": "americanairlines",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "American Airlines"
+ },
+ "ABBV": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/c/cc/AbbVie_logo.svg",
+  "id": "ABBV",
+  "license": "see source",
+  "company": "AbbVie"
+ },
+ "ABNB": {
+  "source": "simple-icons@16.35.0",
+  "id": "airbnb",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Airbnb"
+ },
+ "ACHR": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/2/25/Archer_Aviation.svg",
+  "id": "ACHR",
+  "license": "see source",
+  "company": "Archer Aviation"
+ },
+ "ACMR": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/2/28/ACM_Research.svg",
+  "id": "ACMR",
+  "license": "see source",
+  "company": "ACM Research"
+ },
+ "ACN": {
+  "source": "simple-icons@16.35.0",
+  "id": "accenture",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Accenture"
+ },
+ "ADBE": {
+  "source": "https://www.adobe.com/content/dam/cc/icons/Adobe_Corporate_Horizontal_Red_HEX.svg",
+  "id": "ADBE",
+  "license": "see source",
+  "company": "Adobe"
+ },
+ "ADI": {
+  "source": "https://wiki.analog.com/lib/tpl/analog2014/assets/images/adi-logo.svg",
+  "id": "ADI",
+  "license": "see source",
+  "company": "Analog Devices"
+ },
+ "ADP": {
+  "source": "simple-icons@16.35.0",
+  "id": "adp",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "ADP"
+ },
+ "AEP": {
+  "source": "https://www.aep.com/logos/aep-logo-red-gray.svg",
+  "id": "AEP",
+  "license": "see source",
+  "company": "American Electric Power"
+ },
+ "AFRM": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/f/ff/Affirm_logo.svg",
+  "id": "AFRM",
+  "license": "see source",
+  "company": "Affirm"
+ },
+ "AIG": {
+  "source": "https://www.aig.com/content/dam/global/site-level-elements/logo/aig-logo1.svg (AIG's own logo SVG in aig.com's site assets, the whole file: the box and the AIG letters; taken from the Internet Archive's copy of 2022-01-29)",
+  "id": "AIG",
+  "license": "see source",
+  "company": "AIG"
+ },
+ "AJG": {
+  "source": "https://upload.wikimedia.org/wikipedia/en/3/37/Arthur_J._Gallagher_%26_Co._logo.svg",
+  "id": "AJG",
+  "license": "see source",
+  "company": "Arthur J. Gallagher"
+ },
+ "ALB": {
+  "source": "https://upload.wikimedia.org/wikipedia/en/5/57/Albemarle_Corporation_Full-Color_Logo_with_Registered_Trademark.svg",
+  "id": "ALB",
+  "license": "see source",
+  "company": "Albemarle Corporation"
+ },
+ "ALL": {
+  "source": "https://www.allstate.com/ (inline brand-bar logo SVG: the hands in the oval)",
+  "id": "ALL",
+  "license": "see source",
+  "company": "Allstate"
+ },
+ "ALLY": {
+  "source": "https://www.ally.com/ (inline header SVG, 'Ally Logo')",
+  "id": "ALLY",
+  "license": "see source",
+  "company": "Ally Financial"
+ },
+ "AMAT": {
+  "source": "https://www.appliedmaterials.com/content/dam/applied-materials/image/favicon/favicon.svg",
+  "id": "AMAT",
+  "license": "see source",
+  "company": "Applied Materials"
+ },
+ "AMC": {
+  "source": "https://d1io3yog0oux5.cloudfront.net/_60e2e3fc636ec8d3e29e66a1fec50310/amctheatres/files/theme/images/favicons/safari-pinned-tab.svg",
+  "id": "AMC",
+  "license": "see source",
+  "company": "AMC Entertainment Holdings"
+ },
+ "AMD": {
+  "source": "simple-icons@16.35.0",
+  "id": "amd",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "AMD"
+ },
+ "AMGN": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/a/ab/Amgen.svg",
+  "id": "AMGN",
+  "license": "see source",
+  "company": "Amgen"
+ },
+ "AMP": {
+  "source": "https://s3-symbol-logo.tradingview.com/ameriprise-financial.svg",
+  "id": "AMP",
+  "license": "see source",
+  "company": "Ameriprise Financial"
+ },
+ "AMT": {
+  "source": "https://www.americantower.com/sites/default/modules/custom/application_leasing_process/Icons/americantower-logo.svg (American Tower's own logo SVG: the A-tower symbol, its polyline and polygon; taken from the Internet Archive's copy of 2025-06-18, as americantower.com answers 403 to scripted fetches)",
+  "id": "AMT",
+  "license": "see source",
+  "company": "American Tower"
+ },
+ "AON": {
+  "source": "https://www.aon.com/lib/icons/symbol-defs.svg#aon-logo",
+  "id": "AON",
+  "license": "see source",
+  "company": "Aon"
+ },
+ "APD": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/2/20/Logo_Air_Products.svg",
+  "id": "APD",
+  "license": "see source",
+  "company": "Air Products and Chemicals"
+ },
+ "APO": {
+  "source": "https://www.apollo.com/ (inline header logo SVG; apollo.com's own icon is this A: /etc.clientlibs/apolloaem/clientlibs/clientlib-site/resources/icons/apollo.png)",
+  "id": "APO",
+  "license": "see source",
+  "company": "Apollo Global"
+ },
+ "APP": {
+  "source": "https://www.applovin.com/ (inline header SVG, 'AppLovin home'; same mark as https://www.applovin.com/icon.svg)",
+  "id": "APP",
+  "license": "see source",
+  "company": "AppLovin Corp"
+ },
+ "ARM": {
+  "source": "simple-icons@16.35.0",
+  "id": "arm",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "ARM Holdings"
+ },
+ "ASML": {
+  "source": "https://www.asml.com/images/icons/asml-logo.svg",
+  "id": "ASML",
+  "license": "see source",
+  "company": "ASML"
+ },
+ "ASTS": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/2/24/AST_SpaceMobile_logo.svg",
+  "id": "ASTS",
+  "license": "see source",
+  "company": "AST SpaceMobile"
+ },
+ "AVGO": {
+  "source": "simple-icons@16.35.0",
+  "id": "broadcom",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Broadcom"
+ },
+ "AXP": {
+  "source": "simple-icons@16.35.0",
+  "id": "americanexpress",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "American Express"
+ },
+ "AZO": {
+  "source": "simple-icons@16.35.0",
+  "id": "autozone",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "AutoZone"
+ },
+ "BA": {
+  "source": "simple-icons@16.35.0",
+  "id": "boeing",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Boeing"
+ },
+ "BABA": {
+  "source": "simple-icons@16.35.0",
+  "id": "alibabadotcom",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Alibaba"
+ },
+ "BAC": {
+  "source": "simple-icons@16.35.0",
+  "id": "bankofamerica",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Bank of America"
+ },
+ "BIDU": {
+  "source": "simple-icons@16.35.0",
+  "id": "baidu",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Baidu"
+ },
+ "BIIB": {
+  "source": "https://www.biogen.com/content/dam/corporate/international/global/en-US/global/logos/biogen-logo-colour-2025.svg",
+  "id": "BIIB",
+  "license": "see source",
+  "company": "Biogen"
+ },
+ "BILL": {
+  "source": "https://cdn.prod.website-files.com/63e3da3df35cd62f54751985/649488c838360d22ac08b864_bill-logo.svg",
+  "id": "BILL",
+  "license": "see source",
+  "company": "Bill.com"
+ },
+ "BK": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/6/6e/BNY_logo_2024.svg",
+  "id": "BK",
+  "license": "see source",
+  "company": "BNY Mellon"
+ },
+ "BKR": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/6/69/Baker_Hughes_logo.svg",
+  "id": "BKR",
+  "license": "see source",
+  "company": "Baker Hughes"
+ },
+ "BLK": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/8/85/BlackRock_wordmark.svg",
+  "id": "BLK",
+  "license": "see source",
+  "company": "BlackRock"
+ },
+ "BLMN": {
+  "source": "https://www.bloominbrands.com/resourcepackages/bloominbrands/assets/dist/images/bbi-logo.svg",
+  "id": "BLMN",
+  "license": "see source",
+  "company": "Bloomin' Brands"
+ },
+ "BMBL": {
+  "source": "https://bumble.com/bumble-brand-assets/favicon/safari-pinned-tab.svg",
+  "id": "BMBL",
+  "license": "see source",
+  "company": "Bumble Inc"
+ },
+ "BMY": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/c/c6/Bristol-Myers_Squibb_logo_%282020%29.svg",
+  "id": "BMY",
+  "license": "see source",
+  "company": "Bristol-Myers Squibb"
+ },
+ "BROS": {
+  "source": "https://www.dutchbros.com/_nuxt/footer_logo.BHNikE1L.svg",
+  "id": "BROS",
+  "license": "see source",
+  "company": "Dutch Bros Inc"
+ },
+ "BSX": {
+  "source": "https://www.bostonscientific.com/content/dam/logo-bsc.svg",
+  "id": "BSX",
+  "license": "see source",
+  "company": "Boston Scientific"
+ },
+ "BURL": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/5/54/Burlington_Stores_logo.svg",
+  "id": "BURL",
+  "license": "see source",
+  "company": "Burlington Coat Factory"
+ },
+ "BX": {
+  "source": "https://www.blackstone.com/ (inline header logo SVG, .site-header__logo)",
+  "id": "BX",
+  "license": "see source",
+  "company": "Blackstone"
+ },
+ "BYND": {
+  "source": "https://s3-symbol-logo.tradingview.com/beyond-meat.svg",
+  "id": "BYND",
+  "license": "see source",
+  "company": "Beyond Meat Inc"
+ },
+ "C": {
+  "source": "https://www.citigroup.com/global (header logo <img>, an SVG data URI)",
+  "id": "C",
+  "license": "see source",
+  "company": "Citigroup"
+ },
+ "CAKE": {
+  "source": "https://upload.wikimedia.org/wikipedia/en/d/d4/The_Cheesecake_Factory_%28logo%2C_stacked%29.svg",
+  "id": "CAKE",
+  "license": "see source",
+  "company": "The Cheesecake Factory"
+ },
+ "CART": {
+  "source": "simple-icons@16.35.0",
+  "id": "instacart",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Instacart (Maplebear)"
+ },
+ "CAT": {
+  "source": "simple-icons@16.35.0",
+  "id": "caterpillar",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Caterpillar"
+ },
+ "CB": {
+  "source": "https://www.chubb.com/content/dam/chubbredesignnext/chubb-logo-white.svg",
+  "id": "CB",
+  "license": "see source",
+  "company": "Chubb"
+ },
+ "CBOE": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/8/8a/Cboe_Global_Markets_Logo.svg",
+  "id": "CBOE",
+  "license": "see source",
+  "company": "Cboe Global Markets"
+ },
+ "CDNS": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/4/48/Cadence-Logo.svg",
+  "id": "CDNS",
+  "license": "see source",
+  "company": "Cadence Design Systems"
+ },
+ "CELH": {
+  "source": "https://www.celsius.com/wp-content/themes/celsius/assets/images/favicons/safari-pinned-tab.svg",
+  "id": "CELH",
+  "license": "see source",
+  "company": "Celsius Holdings"
+ },
+ "CFG": {
+  "source": "https://www.citizensbank.com/assets/CB_resources/images/cbds-logos/logo-citizens__horz-green.svg",
+  "id": "CFG",
+  "license": "see source",
+  "company": "Citizens Financial"
+ },
+ "CHWY": {
+  "source": "https://s23.q4cdn.com/610444331/files/design/logo.svg",
+  "id": "CHWY",
+  "license": "see source",
+  "company": "Chewy Inc"
+ },
+ "CI": {
+  "source": "https://www.thecignagroup.com/static/svgs/logos/tcg-sm-logo.svg",
+  "id": "CI",
+  "license": "see source",
+  "company": "Cigna"
+ },
+ "CL": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/8/86/Colgate-Palmolive_%282025%29.svg",
+  "id": "CL",
+  "license": "see source",
+  "company": "Colgate-Palmolive"
+ },
+ "CLSK": {
+  "source": "https://www.cleanspark.com/assets/v3/img/icon/safari-pinned-tab.svg",
+  "id": "CLSK",
+  "license": "see source",
+  "company": "CleanSpark"
+ },
+ "CME": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/f/f0/CME_Group_Logo.svg",
+  "id": "CME",
+  "license": "see source",
+  "company": "CME Group"
+ },
+ "CMG": {
+  "source": "https://www.chipotle.com/content/experience-fragments/chipotle/us/en/xf-header/master/_jcr_content/root/container_712714414/image_411084835.coreimg.svg/1689182077517/cmg-medallion-logo.svg",
+  "id": "CMG",
+  "license": "see source",
+  "company": "Chipotle Mexican Grill"
+ },
+ "COF": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/9/98/Capital_One_logo.svg",
+  "id": "COF",
+  "license": "see source",
+  "company": "Capital One"
+ },
+ "COIN": {
+  "source": "simple-icons@16.35.0",
+  "id": "coinbase",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Coinbase"
+ },
+ "COST": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/5/59/Costco_Wholesale_logo_2010-10-26.svg",
+  "id": "COST",
+  "license": "see source",
+  "company": "Costco"
+ },
+ "COTY": {
+  "source": "https://www.coty.com/ (inline header logotype SVG)",
+  "id": "COTY",
+  "license": "see source",
+  "company": "Coty"
+ },
+ "CRM": {
+  "source": "font-awesome-free@7.2.0",
+  "id": "Salesforce",
+  "license": "CC BY 4.0 (Font Awesome Free); the mark is its owner's trademark",
+  "company": "Salesforce"
+ },
+ "CRWD": {
+  "source": "https://assets.crowdstrike.com/is/content/crowdstrikeinc/CS_Logo_Falcon",
+  "id": "CRWD",
+  "license": "see source",
+  "company": "CrowdStrike"
+ },
+ "CSX": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/f/fe/CSX_transp_logo.svg",
+  "id": "CSX",
+  "license": "see source",
+  "company": "CSX Corporation"
+ },
+ "CVNA": {
+  "source": "https://assets.fastly.carvana.io/partner-header-logos-assets/combo-desktop-carvana.svg",
+  "id": "CVNA",
+  "license": "see source",
+  "company": "Carvana Co"
+ },
+ "CVS": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/d/df/CVS_Health_Logo.svg",
+  "id": "CVS",
+  "license": "see source",
+  "company": "CVS Health"
+ },
+ "CVX": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/8/86/Chevron_Logo.svg",
+  "id": "CVX",
+  "license": "see source",
+  "company": "Chevron"
+ },
+ "CZR": {
+  "source": "https://upload.wikimedia.org/wikipedia/en/f/f6/Caesars_Entertainment_logo_2020.svg",
+  "id": "CZR",
+  "license": "see source",
+  "company": "Caesars Entertainment"
+ },
+ "D": {
+  "source": "https://cdn-dominionenergy-prd-001.azureedge.net/-/media/project/dominionenergy/header/mobile-level2-logo.svg",
+  "id": "D",
+  "license": "see source",
+  "company": "Dominion Energy"
+ },
+ "DAL": {
+  "source": "simple-icons@16.35.0",
+  "id": "delta",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Delta Air Lines"
+ },
+ "DASH": {
+  "source": "simple-icons@16.35.0",
+  "id": "doordash",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "DoorDash"
+ },
+ "DDOG": {
+  "source": "simple-icons@16.35.0",
+  "id": "datadog",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Datadog"
+ },
+ "DE": {
+  "source": "simple-icons@16.35.0",
+  "id": "johndeere",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Deere & Company"
+ },
+ "DELL": {
+  "source": "simple-icons@16.35.0",
+  "id": "dell",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Dell Technologies"
+ },
+ "DENN": {
+  "source": "https://s29.q4cdn.com/169433746/files/design/svg/Logo.svg",
+  "id": "DENN",
+  "license": "see source",
+  "company": "Denny's Corp"
+ },
+ "DG": {
+  "source": "https://www.dollargeneral.com/etc.clientlibs/dollargeneral/clientlibs/clientlib-site/resources/Icons/Wallet-icon/dg-sub-brand-logo-1.svg (its DG letters)",
+  "id": "DG",
+  "license": "see source",
+  "company": "Dollar General"
+ },
+ "DIS": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/4/47/The_Walt_Disney_Company_2024.svg",
+  "id": "DIS",
+  "license": "see source",
+  "company": "Disney"
+ },
+ "DKNG": {
+  "source": "https://upload.wikimedia.org/wikipedia/en/a/a0/DraftKings_logo.svg",
+  "id": "DKNG",
+  "license": "see source",
+  "company": "DraftKings"
+ },
+ "DLR": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/archive/f/f2/20261016054415%21Digital_Realty_TM_Brandmark_RGB_Black.svg (the file's 2023-04-27 revision, sha1 345b5916b74980fb4b7705488cf2adeec6c5de10; the 2026-10-16 revision only crops the canvas)",
+  "id": "DLR",
+  "license": "see source",
+  "company": "Digital Realty"
+ },
+ "DLTR": {
+  "source": "https://corporate.dollartree.com/_assets/_4ab612a6cb576e251bab703ebce8196b/dollartreeinfo/files/theme/images/logo.svg",
+  "id": "DLTR",
+  "license": "see source",
+  "company": "Dollar Tree"
+ },
+ "DOCU": {
+  "source": "https://www.docusign.com/assets/images/docusign-logo.svg",
+  "id": "DOCU",
+  "license": "see source",
+  "company": "DocuSign"
+ },
+ "DPZ": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/6/64/Domino%27s_2025.svg",
+  "id": "DPZ",
+  "license": "see source",
+  "company": "Domino's Pizza"
+ },
+ "DUK": {
+  "source": "https://www.duke-energy.com/-/media/images/common/logoduke.svg",
+  "id": "DUK",
+  "license": "see source",
+  "company": "Duke Energy"
+ },
+ "DUOL": {
+  "source": "simple-icons@16.35.0",
+  "id": "duolingo",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Duolingo Inc"
+ },
+ "DVN": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/6/67/Devon-Energy-Logo.svg",
+  "id": "DVN",
+  "license": "see source",
+  "company": "Devon Energy"
+ },
+ "EA": {
+  "source": "simple-icons@16.35.0",
+  "id": "ea",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Electronic Arts"
+ },
+ "EAT": {
+  "source": "https://investors.brinker.com/sites/g/files/knoqqb21471/themes/site/nir_pid1963/client/images/brinker_logo_mark.svg (Brinker's own symbol SVG on its investor site: the diamond, the fan and the two outer stars, with the rays and the inner star open as brinker.com's one-colour logo draws it; taken from the Internet Archive's copy of 2025-12-16)",
+  "id": "EAT",
+  "license": "see source",
+  "company": "Brinker International (Chili's)"
+ },
+ "EBAY": {
+  "source": "simple-icons@16.35.0",
+  "id": "ebay",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "eBay Inc"
+ },
+ "EFX": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/2/24/Equifax.svg",
+  "id": "EFX",
+  "license": "see source",
+  "company": "Equifax"
+ },
+ "ELF": {
+  "source": "https://cdn.shopify.com/oxygen-v2/52705/112854/231813/4889681/assets/logo-yTU_Uur5.svg",
+  "id": "ELF",
+  "license": "see source",
+  "company": "e.l.f. Beauty"
+ },
+ "EMR": {
+  "source": "https://www.emerson.com/is/content/emerson/emr-svg-transparent-logo",
+  "id": "EMR",
+  "license": "see source",
+  "company": "Emerson Electric"
+ },
+ "ENPH": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/2/2d/Enphase_logo.svg",
+  "id": "ENPH",
+  "license": "see source",
+  "company": "Enphase"
+ },
+ "EOG": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/c/c7/EOG_Resources_logo.svg",
+  "id": "EOG",
+  "license": "see source",
+  "company": "EOG Resources"
+ },
+ "EQIX": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/f/f7/Equinix_logo.svg",
+  "id": "EQIX",
+  "license": "see source",
+  "company": "Equinix"
+ },
+ "ETN": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/2/2b/Eaton_Corporation_logo.svg",
+  "id": "ETN",
+  "license": "see source",
+  "company": "Eaton Corporation"
+ },
+ "ETSY": {
+  "source": "simple-icons@16.35.0",
+  "id": "etsy",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Etsy"
+ },
+ "EXC": {
+  "source": "https://upload.wikimedia.org/wikipedia/en/e/e3/Exelon_Logo.svg",
+  "id": "EXC",
+  "license": "see source",
+  "company": "Exelon"
+ },
+ "F": {
+  "source": "simple-icons@16.35.0",
+  "id": "ford",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Ford Motor"
+ },
+ "FCX": {
+  "source": "https://www.fcx.com/themes/fcx/images/footer-logo.svg",
+  "id": "FCX",
+  "license": "see source",
+  "company": "Freeport-McMoRan"
+ },
+ "FDS": {
+  "source": "https://images.ctfassets.net/kd28algmhxt8/5qWi06DAuGWfvnsyXf6yR8/402bf1af0640c694215c5e3424a98afa/factset-logo_white.svg",
+  "id": "FDS",
+  "license": "see source",
+  "company": "FactSet Research"
+ },
+ "FDX": {
+  "source": "simple-icons@16.35.0",
+  "id": "fedex",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "FedEx"
+ },
+ "FIS": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/8/83/FIS_logo.svg",
+  "id": "FIS",
+  "license": "see source",
+  "company": "FIS"
+ },
+ "FISV": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/0/00/Fiserv_Logo.svg",
+  "id": "FISV",
+  "license": "see source",
+  "company": "Fiserv"
+ },
+ "FSLR": {
+  "source": "https://upload.wikimedia.org/wikipedia/en/b/bb/First_Solar_logo.svg",
+  "id": "FSLR",
+  "license": "see source",
+  "company": "First Solar"
+ },
+ "FTNT": {
+  "source": "simple-icons@16.35.0",
+  "id": "fortinet",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Fortinet"
+ },
+ "GE": {
+  "source": "simple-icons@16.35.0",
+  "id": "generalelectric",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "GE Aerospace"
+ },
+ "GILD": {
+  "source": "https://gilead.stylelabs.cloud/api/public/content/89749f3b535e4eebb8ae07c8e9607b17?v=bf06f14e",
+  "id": "GILD",
+  "license": "see source",
+  "company": "Gilead Sciences"
+ },
+ "GIS": {
+  "source": "https://www.generalmills.com/ (header inline svg #Layer_1)",
+  "id": "GIS",
+  "license": "see source",
+  "company": "General Mills"
+ },
+ "GM": {
+  "source": "simple-icons@16.35.0",
+  "id": "generalmotors",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "General Motors"
+ },
+ "GME": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/3/38/GameStop_Logo.svg",
+  "id": "GME",
+  "license": "see source",
+  "company": "GameStop Corp"
+ },
+ "GPN": {
+  "source": "https://d1io3yog0oux5.cloudfront.net/_2af5e3957dd97efe0ce1c8105360b2ce/globalpayments/files/theme/images/favicons/safari-pinned-tab.svg",
+  "id": "GPN",
+  "license": "see source",
+  "company": "Global Payments"
+ },
+ "GS": {
+  "source": "simple-icons@16.35.0",
+  "id": "goldmansachs",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Goldman Sachs"
+ },
+ "GSAT": {
+  "source": "https://www.globalstar.com/en-us/ (inline header logo SVG; the emblem also at /getmedia/47d0333c-e181-4c27-8af4-eab1ecd5f330/globalstaremblemlogo.png)",
+  "id": "GSAT",
+  "license": "see source",
+  "company": "Globalstar"
+ },
+ "HD": {
+  "source": "https://corporate.homedepot.com/themes/custom/bootstrap_thd/images/logo-site-header-homedepot.svg",
+  "id": "HD",
+  "license": "see source",
+  "company": "Home Depot"
+ },
+ "HES": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/5/58/Hess_Corporation_Logo.svg",
+  "id": "HES",
+  "license": "see source",
+  "company": "Hess Corporation"
+ },
+ "HIG": {
+  "source": "https://assets.thehartford.com/image/upload/q_auto/logo.svg",
+  "id": "HIG",
+  "license": "see source",
+  "company": "Hartford Financial"
+ },
+ "HIMS": {
+  "source": "https://www.hims.com/ (inline header SVG, 'Home')",
+  "id": "HIMS",
+  "license": "see source",
+  "company": "Hims & Hers Health"
+ },
+ "HLT": {
+  "source": "simple-icons@16.35.0",
+  "id": "hilton",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Hilton Worldwide"
+ },
+ "HOLX": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/archive/2/27/20260620121529%21Hologic_logo.svg (the file's 2022-06-22 revision, sha1 ec7e16974ae1511cefac393589cfcf8b56e37a15)",
+  "id": "HOLX",
+  "license": "see source",
+  "company": "Hologic"
+ },
+ "HON": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/2/2a/Honeywell_logo.svg",
+  "id": "HON",
+  "license": "see source",
+  "company": "Honeywell"
+ },
+ "HOOD": {
+  "source": "simple-icons@16.35.0",
+  "id": "robinhood",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Robinhood"
+ },
+ "HPQ": {
+  "source": "simple-icons@16.35.0",
+  "id": "hp",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "HP Inc"
+ },
+ "HSY": {
+  "source": "https://www.thehersheycompany.com/content/dam/hershey-corporate/images/icons/the-hershey-company-logo.svg",
+  "id": "HSY",
+  "license": "see source",
+  "company": "Hershey Company"
+ },
+ "HUBS": {
+  "source": "simple-icons@16.35.0",
+  "id": "hubspot",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "HubSpot"
+ },
+ "HUM": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/0/0d/Humana_logo.svg",
+  "id": "HUM",
+  "license": "see source",
+  "company": "Humana"
+ },
+ "IBM": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/5/51/IBM_logo.svg",
+  "id": "IBM",
+  "license": "see source",
+  "company": "IBM"
+ },
+ "ICE": {
+  "source": "https://www.ice.com/index (header inline svg 'ICE Logo')",
+  "id": "ICE",
+  "license": "see source",
+  "company": "Intercontinental Exchange"
+ },
+ "INTC": {
+  "source": "simple-icons@16.35.0",
+  "id": "intel",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Intel"
+ },
+ "INTU": {
+  "source": "simple-icons@16.35.0",
+  "id": "intuit",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Intuit"
+ },
+ "IONQ": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/d/d4/IonQ_corp_logo.svg",
+  "id": "IONQ",
+  "license": "see source",
+  "company": "IonQ"
+ },
+ "IR": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/a/a4/Ingersoll_Rand_logo.svg",
+  "id": "IR",
+  "license": "see source",
+  "company": "Ingersoll Rand"
+ },
+ "ISRG": {
+  "source": "https://isrg.intuitive.com/sites/g/files/knoqqb87176/themes/site/nir_pid2927/dist/media/svg--media/sprite-sheet-folder/icons-symbol.svg#icon_custom-i (title 'Intuitive-logo')",
+  "id": "ISRG",
+  "license": "see source",
+  "company": "Intuitive Surgical"
+ },
+ "ITW": {
+  "source": "https://www.itw.com/images/ITW-logo---dk-gray.svg",
+  "id": "ITW",
+  "license": "see source",
+  "company": "Illinois Tool Works"
+ },
+ "IVZ": {
+  "source": "https://www.invesco.com/etc.clientlibs/invesco/clientlib-global/clientlib/resources/images/logo-new.svg",
+  "id": "IVZ",
+  "license": "see source",
+  "company": "Invesco"
+ },
+ "JACK": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/4/42/Jack_in_the_Box_2022_logo.svg",
+  "id": "JACK",
+  "license": "see source",
+  "company": "Jack in the Box Inc"
+ },
+ "JOBY": {
+  "source": "https://www.jobyaviation.com/ (inline header SVG, 'Go to homepage')",
+  "id": "JOBY",
+  "license": "see source",
+  "company": "Joby Aviation"
+ },
+ "JPM": {
+  "source": "simple-icons@16.35.0",
+  "id": "chase",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "JPMorgan Chase"
+ },
+ "KDP": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/3/35/Keurig_Dr_Pepper.svg",
+  "id": "KDP",
+  "license": "see source",
+  "company": "Keurig Dr Pepper"
+ },
+ "KEY": {
+  "source": "https://upload.wikimedia.org/wikipedia/en/7/78/KeyBank_logo.svg",
+  "id": "KEY",
+  "license": "see source",
+  "company": "KeyCorp"
+ },
+ "KKR": {
+  "source": "https://www.kkr.com/content/experience-fragments/kkr/sites/global/en/structural-fragments/header/master/_jcr_content/root/header/image.coreimg.svg/1793366753078/kkr-50th-dark-background.svg",
+  "id": "KKR",
+  "license": "see source",
+  "company": "KKR"
+ },
+ "KMB": {
+  "source": "https://www.kimberly-clark.com/-/media/feature/kcc/corporate/header/kimberlyclark.svg?rev=-1",
+  "id": "KMB",
+  "license": "see source",
+  "company": "Kimberly-Clark"
+ },
+ "KMI": {
+  "source": "https://upload.wikimedia.org/wikipedia/en/2/2f/Kinder_Morgan_logo.svg",
+  "id": "KMI",
+  "license": "see source",
+  "company": "Kinder Morgan"
+ },
+ "KO": {
+  "source": "simple-icons@16.35.0",
+  "id": "cocacola",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Coca-Cola"
+ },
+ "KR": {
+  "source": "https://s202.q4cdn.com/463742399/files/design/Kroger_FC_blue.svg",
+  "id": "KR",
+  "license": "see source",
+  "company": "Kroger"
+ },
+ "LHX": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/2/23/L3Harris_Technologies_logo.svg",
+  "id": "LHX",
+  "license": "see source",
+  "company": "L3Harris Technologies"
+ },
+ "LLY": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/2/2b/Eli_Lilly_and_Company.svg",
+  "id": "LLY",
+  "license": "see source",
+  "company": "Eli Lilly"
+ },
+ "LMT": {
+  "source": "https://www.lockheedmartin.com/content/dam/lockheed-martin/general/lm-logo.svg",
+  "id": "LMT",
+  "license": "see source",
+  "company": "Lockheed Martin"
+ },
+ "LOW": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/2/2c/Lowes_Companies_Logo.svg",
+  "id": "LOW",
+  "license": "see source",
+  "company": "Lowe's"
+ },
+ "LRCX": {
+  "source": "https://www.lamresearch.com/etc.clientlibs/lamresearch/clientlibs/clientlib-site/resources/images/sprite.svg#icon-logo",
+  "id": "LRCX",
+  "license": "see source",
+  "company": "Lam Research"
+ },
+ "LRLCY": {
+  "source": "https://www.loreal.com/en/ (header inline svg 'L'Oreal Groupe')",
+  "id": "LRLCY",
+  "license": "see source",
+  "company": "L'Oréal"
+ },
+ "LULU": {
+  "source": "https://s3-symbol-logo.tradingview.com/lululemon-athletica.svg",
+  "id": "LULU",
+  "license": "see source",
+  "company": "Lululemon"
+ },
+ "LUNR": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/e/e3/Intuitive_Machines_dark-on-light.svg",
+  "id": "LUNR",
+  "license": "see source",
+  "company": "Intuitive Machines"
+ },
+ "LUV": {
+  "source": "simple-icons@16.35.0",
+  "id": "southwestairlines",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Southwest Airlines"
+ },
+ "LYFT": {
+  "source": "simple-icons@16.35.0",
+  "id": "lyft",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Lyft"
+ },
+ "LYV": {
+  "source": "https://d1io3yog0oux5.cloudfront.net/_b6d0250e568da665406e5883b11fcb79/livenationentertainment/files/theme/images/logo-white.svg",
+  "id": "LYV",
+  "license": "see source",
+  "company": "Live Nation Entertainment"
+ },
+ "MA": {
+  "source": "simple-icons@16.35.0",
+  "id": "mastercard",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Mastercard"
+ },
+ "MAR": {
+  "source": "simple-icons@16.35.0",
+  "id": "marriott",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Marriott International"
+ },
+ "MARA": {
+  "source": "https://www.mara.com/ (navigation inline svg)",
+  "id": "MARA",
+  "license": "see source",
+  "company": "MARA Holdings"
+ },
+ "MCD": {
+  "source": "simple-icons@16.35.0",
+  "id": "mcdonalds",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "McDonald's"
+ },
+ "MCHP": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/c/ca/Microchip-Logo.svg",
+  "id": "MCHP",
+  "license": "see source",
+  "company": "Microchip Technology"
+ },
+ "MCO": {
+  "source": "https://www.moodys.com/web/en/us/v3/images/header/v3-header-logo.svg",
+  "id": "MCO",
+  "license": "see source",
+  "company": "Moody's"
+ },
+ "MDB": {
+  "source": "simple-icons@16.35.0",
+  "id": "mongodb",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "MongoDB"
+ },
+ "MDLZ": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/3/3b/Mondelez_International.svg",
+  "id": "MDLZ",
+  "license": "see source",
+  "company": "Mondelez International"
+ },
+ "MDT": {
+  "source": "https://www.medtronic.com/etc.clientlibs/medtronic/clientlibs/clientlib-site/resources/fonts/icomoon/icomoon.ttf (glyph U+E965 = the header logo, class icon-medtronic-logo)",
+  "id": "MDT",
+  "license": "see source",
+  "company": "Medtronic"
+ },
+ "MELI": {
+  "source": "https://upload.wikimedia.org/wikipedia/en/f/fa/Mercado_Libre_logo_%28Spanish_version%29.svg",
+  "id": "MELI",
+  "license": "see source",
+  "company": "MercadoLibre"
+ },
+ "MET": {
+  "source": "https://www.metlife.com/content/dam/metlifecom/global/icons-header/MetLife_white.svg",
+  "id": "MET",
+  "license": "see source",
+  "company": "MetLife"
+ },
+ "META": {
+  "source": "simple-icons@16.35.0",
+  "id": "meta",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Meta"
+ },
+ "MGM": {
+  "source": "https://investors.mgmresorts.com/images/mgm-resorts-intl-logo.svg",
+  "id": "MGM",
+  "license": "see source",
+  "company": "MGM Resorts International"
+ },
+ "MLCO": {
+  "source": "https://s3-symbol-logo.tradingview.com/melco.svg",
+  "id": "MLCO",
+  "license": "see source",
+  "company": "Melco Resorts"
+ },
+ "MMC": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/a/a6/MarshMcLennan_h_rgb_c.svg",
+  "id": "MMC",
+  "license": "see source",
+  "company": "Marsh McLennan"
+ },
+ "MMM": {
+  "source": "simple-icons@16.35.0",
+  "id": "3m",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "3M"
+ },
+ "MNST": {
+  "source": "https://s3-symbol-logo.tradingview.com/monster-beverage.svg",
+  "id": "MNST",
+  "license": "see source",
+  "company": "Monster Beverage"
+ },
+ "MPWR": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/2/28/Monolithic_Power_Systems_Logo.svg",
+  "id": "MPWR",
+  "license": "see source",
+  "company": "Monolithic Power Systems"
+ },
+ "MRK": {
+  "source": "simple-icons@16.35.0",
+  "id": "merck",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Merck"
+ },
+ "MRNA": {
+  "source": "https://www.modernatx.com/assets/favicons/safari-pinned-tab.svg",
+  "id": "MRNA",
+  "license": "see source",
+  "company": "Moderna"
+ },
+ "MRVL": {
+  "source": "https://www.marvell.com/etc.clientlibs/marvell-com/clientlibs/clientlib-refresh/resources/images/marvell-logo.svg",
+  "id": "MRVL",
+  "license": "see source",
+  "company": "Marvell"
+ },
+ "MSCI": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/e/e1/MSCI_logo_2019.svg",
+  "id": "MSCI",
+  "license": "see source",
+  "company": "MSCI"
+ },
+ "MSFT": {
+  "source": "font-awesome-free@7.2.0",
+  "id": "Microsoft",
+  "license": "CC BY 4.0 (Font Awesome Free); the mark is its owner's trademark",
+  "company": "Microsoft"
+ },
+ "MSTR": {
+  "source": "https://images.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltb585439c8353e389/67905f9d58fb6d4dd481146e/strategy_logo_black.svg",
+  "id": "MSTR",
+  "license": "see source",
+  "company": "Strategy (MicroStrategy)"
+ },
+ "MTCH": {
+  "source": "https://mtch.com/wp-content/uploads/2026/08/logo-footer.svg",
+  "id": "MTCH",
+  "license": "see source",
+  "company": "Match Group"
+ },
+ "MU": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/1/16/Micron_Technology_logo_2024.svg",
+  "id": "MU",
+  "license": "see source",
+  "company": "Micron"
+ },
+ "NCNO": {
+  "source": "https://investor.ncino.com/ (the nCino logo SVG inlined in the page footer, fetched 2026-11-06)",
+  "id": "NCNO",
+  "license": "see source",
+  "company": "nCino"
+ },
+ "NDAQ": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/8/87/NASDAQ_Logo.svg",
+  "id": "NDAQ",
+  "license": "see source",
+  "company": "Nasdaq"
+ },
+ "NEE": {
+  "source": "https://s3-symbol-logo.tradingview.com/nextera-energy.svg",
+  "id": "NEE",
+  "license": "see source",
+  "company": "NextEra Energy"
+ },
+ "NEM": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/2/25/Newmont_Corporation_-_Logo.svg (the file's only revision, 2023-02-26, sha1 a1d14f5e3d076939522e5ea9976fa28a9b9773e2: a Commons user's drawing of Newmont's logo that matches the logo newmont.com shows today, IoU 0.985; the mark is its symbol, the N with the gold triangle)",
+  "id": "NEM",
+  "license": "see source",
+  "company": "Newmont Corporation"
+ },
+ "NET": {
+  "source": "simple-icons@16.35.0",
+  "id": "cloudflare",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Cloudflare"
+ },
+ "NFLX": {
+  "source": "simple-icons@16.35.0",
+  "id": "netflix",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Netflix"
+ },
+ "NIO": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/c/ca/NIO_logo.svg",
+  "id": "NIO",
+  "license": "see source",
+  "company": "NIO Inc"
+ },
+ "NKE": {
+  "source": "simple-icons@16.35.0",
+  "id": "nike",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Nike"
+ },
+ "NOC": {
+  "source": "https://www.northropgrumman.com/ (inline svg 'Northrop Grumman Corporation Logo')",
+  "id": "NOC",
+  "license": "see source",
+  "company": "Northrop Grumman"
+ },
+ "NOW": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/5/57/ServiceNow_logo.svg",
+  "id": "NOW",
+  "license": "see source",
+  "company": "ServiceNow"
+ },
+ "NTRS": {
+  "source": "https://upload.wikimedia.org/wikipedia/en/e/e0/Northern_Trust_Corp._logo.svg",
+  "id": "NTRS",
+  "license": "see source",
+  "company": "Northern Trust"
+ },
+ "NU": {
+  "source": "simple-icons@16.35.0",
+  "id": "nubank",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Nu Holdings"
+ },
+ "NVO": {
+  "source": "https://www.novonordisk.com/etc.clientlibs/nncorp/clientlibs/clientlib-site/resources/fonts/icomoon.ttf?flv01o (glyph U+E956, the site's current logo, CSS .icon-logo-blue-v2)",
+  "id": "NVO",
+  "license": "see source",
+  "company": "Novo Nordisk"
+ },
+ "NXPI": {
+  "source": "simple-icons@16.35.0",
+  "id": "nxp",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "NXP Semiconductors"
+ },
+ "O": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/9/9b/Realty_Income_logo.svg",
+  "id": "O",
+  "license": "see source",
+  "company": "Realty Income"
+ },
+ "OKTA": {
+  "source": "simple-icons@16.35.0",
+  "id": "okta",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Okta"
+ },
+ "OMF": {
+  "source": "https://cdn.paw.onemainfinancial.com/assets/images/logos/onemain-vertical.svg",
+  "id": "OMF",
+  "license": "see source",
+  "company": "OneMain Financial"
+ },
+ "ON": {
+  "source": "https://www.onsemi.com/images/logo/onsemi_logo_full_color.svg",
+  "id": "ON",
+  "license": "see source",
+  "company": "ON Semiconductor"
+ },
+ "ORCL": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/5/50/Oracle_logo.svg",
+  "id": "ORCL",
+  "license": "see source",
+  "company": "Oracle"
+ },
+ "OXY": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/3/37/Occidental-Petroleum-Logo.svg",
+  "id": "OXY",
+  "license": "see source",
+  "company": "Occidental Petroleum"
+ },
+ "PANW": {
+  "source": "simple-icons@16.35.0",
+  "id": "paloaltonetworks",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Palo Alto Networks"
+ },
+ "PATH": {
+  "source": "simple-icons@16.35.0",
+  "id": "uipath",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "UiPath"
+ },
+ "PAYX": {
+  "source": "simple-icons@16.35.0",
+  "id": "paychex",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Paychex"
+ },
+ "PENN": {
+  "source": "https://www.pennentertainment.com/ (inline header SVG, 'PENN Entertainment logo')",
+  "id": "PENN",
+  "license": "see source",
+  "company": "PENN Entertainment"
+ },
+ "PEP": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/8/82/PepsiCo_%282025%2C_wordmark%29.svg",
+  "id": "PEP",
+  "license": "see source",
+  "company": "PepsiCo"
+ },
+ "PFE": {
+  "source": "https://s206.q4cdn.com/795948973/files/design/logo-blue.svg",
+  "id": "PFE",
+  "license": "see source",
+  "company": "Pfizer"
+ },
+ "PFG": {
+  "source": "https://www.principal.com/profiles/contrib/houston/modules/pfg_pds_core_integration/assets/nonbundled/components/6.19.0/esm/logo.D43G9_WF.js (pds-logo component, 'logoPSymbol' path)",
+  "id": "PFG",
+  "license": "see source",
+  "company": "Principal Financial"
+ },
+ "PG": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/8/85/Procter_%26_Gamble_logo.svg",
+  "id": "PG",
+  "license": "see source",
+  "company": "Procter & Gamble"
+ },
+ "PINS": {
+  "source": "simple-icons@16.35.0",
+  "id": "pinterest",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Pinterest"
+ },
+ "PLD": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/5/5c/Prologis_Logo_Current.svg",
+  "id": "PLD",
+  "license": "see source",
+  "company": "Prologis"
+ },
+ "PLTR": {
+  "source": "simple-icons@16.35.0",
+  "id": "palantir",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Palantir"
+ },
+ "PLUG": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/a/a0/Plug_Power_Logo.svg",
+  "id": "PLUG",
+  "license": "see source",
+  "company": "Plug Power"
+ },
+ "PNC": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/1/1b/PNClogo.svg",
+  "id": "PNC",
+  "license": "see source",
+  "company": "PNC Financial"
+ },
+ "PRU": {
+  "source": "https://upload.wikimedia.org/wikipedia/en/7/7e/Prudential_Financial.svg",
+  "id": "PRU",
+  "license": "see source",
+  "company": "Prudential"
+ },
+ "PSX": {
+  "source": "https://www.phillips66.com/wp-content/themes/phillips66-refresh/dist/images/brand-phillips-66.svg",
+  "id": "PSX",
+  "license": "see source",
+  "company": "Phillips 66"
+ },
+ "PTON": {
+  "source": "simple-icons@16.35.0",
+  "id": "peloton",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Peloton"
+ },
+ "PYPL": {
+  "source": "simple-icons@16.35.0",
+  "id": "paypal",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "PayPal"
+ },
+ "PZZA": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/9/92/Papa_Johns_logo.svg",
+  "id": "PZZA",
+  "license": "see source",
+  "company": "Papa John's International"
+ },
+ "QCOM": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/f/fc/Qualcomm-Logo.svg",
+  "id": "QCOM",
+  "license": "see source",
+  "company": "Qualcomm"
+ },
+ "QQQ": {
+  "source": "https://www.invesco.com/content/dam/invesco/qqq-etf/en/logo/QQQ.svg (the 'QQQ' letters of the fund's own Invesco QQQ logo file; the Invesco mountain alone would be Invesco's coin, the same as IVZ)",
+  "id": "QQQ",
+  "license": "see source",
+  "company": "QQQ ETF"
+ },
+ "RBLX": {
+  "source": "simple-icons@16.35.0",
+  "id": "roblox",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Roblox"
+ },
+ "RCL": {
+  "source": "https://www.royalcaribbeangroup.com/images/logo2.svg",
+  "id": "RCL",
+  "license": "see source",
+  "company": "Royal Caribbean"
+ },
+ "RDDT": {
+  "source": "simple-icons@16.35.0",
+  "id": "reddit",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Reddit"
+ },
+ "REGN": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/4/48/Regeneron_logo.svg",
+  "id": "REGN",
+  "license": "see source",
+  "company": "Regeneron"
+ },
+ "RF": {
+  "source": "https://s3-symbol-logo.tradingview.com/regions-financial.svg",
+  "id": "RF",
+  "license": "see source",
+  "company": "Regions Financial"
+ },
+ "RIVN": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Rivian_logo_and_wordmark.svg",
+  "id": "RIVN",
+  "license": "see source",
+  "company": "Rivian"
+ },
+ "RKLB": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/c/cc/Rocket_Lab_logo.svg",
+  "id": "RKLB",
+  "license": "see source",
+  "company": "Rocket Lab USA"
+ },
+ "RMD": {
+  "source": "https://www.resmed.com/en-us/ (the page's SVG sprite, <symbol id=\"logo_resmed\">)",
+  "id": "RMD",
+  "license": "see source",
+  "company": "ResMed"
+ },
+ "ROKU": {
+  "source": "simple-icons@16.35.0",
+  "id": "roku",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Roku"
+ },
+ "RTX": {
+  "source": "https://prd-sc102-cdn.rtx.com/-/media/themes/raytheon-technologies/rtx-shared/rtx-theme/images/rtx_logo.svg?rev=57e660dbd2ee4ef6895a84799210c5bf&rid=a5829bdc17c74537842441a8a1b055f2",
+  "id": "RTX",
+  "license": "see source",
+  "company": "RTX Corporation"
+ },
+ "S": {
+  "source": "https://www.sentinelone.com/next-assets/webui/logos/logo-sentinelone-dark.svg",
+  "id": "S",
+  "license": "see source",
+  "company": "SentinelOne"
+ },
+ "SAP": {
+  "source": "simple-icons@16.35.0",
+  "id": "sap",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "SAP"
+ },
+ "SBUX": {
+  "source": "simple-icons@16.35.0",
+  "id": "starbucks",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Starbucks"
+ },
+ "SCHW": {
+  "source": "https://www.schwab.com/ (header logo: inline svg#logo_default, its displayed group)",
+  "id": "SCHW",
+  "license": "see source",
+  "company": "Charles Schwab"
+ },
+ "SE": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/5/56/Sea_Group_logo.svg",
+  "id": "SE",
+  "license": "see source",
+  "company": "Sea Limited"
+ },
+ "SHAK": {
+  "source": "https://shakeshack.com/ (inline header SVG, 'site-logo')",
+  "id": "SHAK",
+  "license": "see source",
+  "company": "Shake Shack Inc"
+ },
+ "SLB": {
+  "source": "https://www.slb.com/-/media/images/logo/slb_logo_white_tm.svg",
+  "id": "SLB",
+  "license": "see source",
+  "company": "SLB"
+ },
+ "SMCI": {
+  "source": "simple-icons@16.35.0",
+  "id": "supermicro",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Super Micro Computer"
+ },
+ "SNAP": {
+  "source": "simple-icons@16.35.0",
+  "id": "snapchat",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Snap"
+ },
+ "SNOW": {
+  "source": "simple-icons@16.35.0",
+  "id": "snowflake",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Snowflake"
+ },
+ "SNPS": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/6/6c/Synopsys_Logo.svg",
+  "id": "SNPS",
+  "license": "see source",
+  "company": "Synopsys"
+ },
+ "SO": {
+  "source": "https://www.southerncompany.com/content/dam/southerncompany/logos/southern_company_logo_dark_text_horizontal.svg",
+  "id": "SO",
+  "license": "see source",
+  "company": "Southern Company"
+ },
+ "SOFI": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/1/16/SoFi_logo.svg",
+  "id": "SOFI",
+  "license": "see source",
+  "company": "SoFi"
+ },
+ "SONY": {
+  "source": "simple-icons@16.35.0",
+  "id": "sony",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Sony Group Corp"
+ },
+ "SPCE": {
+  "source": "https://images.ctfassets.net/8nw3pbyxv03r/5PrljbIcQa9Bx55vwOebYu/e9f58a3c712d1334b3dccd6226c7c8e6/Shape.svg",
+  "id": "SPCE",
+  "license": "see source",
+  "company": "Virgin Galactic"
+ },
+ "SPG": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/3/30/Simon_Property_Group_Logo_2014.svg",
+  "id": "SPG",
+  "license": "see source",
+  "company": "Simon Property Group"
+ },
+ "SPGI": {
+  "source": "https://s29.q4cdn.com/690959130/files/images/irw/sp-logo.svg (investor.spglobal.com's .logo)",
+  "id": "SPGI",
+  "license": "see source",
+  "company": "S&P Global"
+ },
+ "SPOT": {
+  "source": "simple-icons@16.35.0",
+  "id": "spotify",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Spotify"
+ },
+ "SQ": {
+  "source": "https://block.xyz/ (inline #blockLogo SVG, aria-label 'Block Logo'; the nav logo draws the same 3 x 3 grid)",
+  "id": "SQ",
+  "license": "see source",
+  "company": "Block"
+ },
+ "SSNC": {
+  "source": "https://www.ssctech.com/hubfs/website/logos/brand-logo-blue.svg",
+  "id": "SSNC",
+  "license": "see source",
+  "company": "SS&C Technologies"
+ },
+ "STT": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/6/65/State-street-logo-final.svg",
+  "id": "STT",
+  "license": "see source",
+  "company": "State Street"
+ },
+ "STZ": {
+  "source": "https://www.cbrands.com/cdn/shop/files/Group.svg?v=1732537289",
+  "id": "STZ",
+  "license": "see source",
+  "company": "Constellation Brands"
+ },
+ "SWKS": {
+  "source": "https://www.skyworksinc.com/-/media/SkyWorks/Images/Logo/Skyworks-Vector-Logo.svg",
+  "id": "SWKS",
+  "license": "see source",
+  "company": "Skyworks Solutions"
+ },
+ "SYF": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/2/22/Synchrony_Financial_logo.svg",
+  "id": "SYF",
+  "license": "see source",
+  "company": "Synchrony Financial"
+ },
+ "SYK": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/7/79/Stryker_logo.svg",
+  "id": "SYK",
+  "license": "see source",
+  "company": "Stryker"
+ },
+ "T": {
+  "source": "simple-icons@16.35.0",
+  "id": "atandt",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "AT&T"
+ },
+ "TEAM": {
+  "source": "simple-icons@16.35.0",
+  "id": "atlassian",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Atlassian"
+ },
+ "TFC": {
+  "source": "https://static.truist.com/content/dam/global-images/truist-logo-purple.svg",
+  "id": "TFC",
+  "license": "see source",
+  "company": "Truist Financial"
+ },
+ "TGT": {
+  "source": "simple-icons@16.35.0",
+  "id": "target",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Target"
+ },
+ "TJX": {
+  "source": "https://www.tjx.com/ResourcePackages/Bootstrap5/assets/dist/images/tjx-logo-mobile.svg",
+  "id": "TJX",
+  "license": "see source",
+  "company": "TJX Companies"
+ },
+ "TM": {
+  "source": "simple-icons@16.35.0",
+  "id": "toyota",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Toyota Motor Corp"
+ },
+ "TMUS": {
+  "source": "simple-icons@16.35.0",
+  "id": "deutschetelekom",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "T-Mobile"
+ },
+ "TOST": {
+  "source": "https://d2a0efs422ycyj.cloudfront.net/main/1793401567181/public/svg/img-toast-logo.svg",
+  "id": "TOST",
+  "license": "see source",
+  "company": "Toast"
+ },
+ "TROW": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/6/6b/T._Rowe_Price_wordmark.svg",
+  "id": "TROW",
+  "license": "see source",
+  "company": "T. Rowe Price"
+ },
+ "TRV": {
+  "source": "https://www.travelers.com/ClientResources/tds-icons/assets/icons/logos/symbol-sprites.svg#trv-logo-umbrella-black",
+  "id": "TRV",
+  "license": "see source",
+  "company": "Travelers"
+ },
+ "TSCO": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/8/86/TractorSupplyCompanylogo.svg",
+  "id": "TSCO",
+  "license": "see source",
+  "company": "Tractor Supply"
+ },
+ "TSLA": {
+  "source": "simple-icons@16.35.0",
+  "id": "tesla",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Tesla"
+ },
+ "TSM": {
+  "source": "https://upload.wikimedia.org/wikipedia/en/6/63/Tsmc.svg",
+  "id": "TSM",
+  "license": "see source",
+  "company": "TSMC"
+ },
+ "TTD": {
+  "source": "https://www.thetradedesk.com/ (header inline svg)",
+  "id": "TTD",
+  "license": "see source",
+  "company": "The Trade Desk"
+ },
+ "TTWO": {
+  "source": "simple-icons@16.35.0",
+  "id": "taketwointeractivesoftware",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Take-Two Interactive"
+ },
+ "TWLO": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/7/7e/Twilio-logo-red.svg",
+  "id": "TWLO",
+  "license": "see source",
+  "company": "Twilio"
+ },
+ "TXN": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/b/ba/TexasInstruments-Logo.svg",
+  "id": "TXN",
+  "license": "see source",
+  "company": "Texas Instruments"
+ },
+ "U": {
+  "source": "simple-icons@16.35.0",
+  "id": "unity",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Unity Software"
+ },
+ "UAL": {
+  "source": "simple-icons@16.35.0",
+  "id": "unitedairlines",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "United Airlines"
+ },
+ "UBER": {
+  "source": "simple-icons@16.35.0",
+  "id": "uber",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Uber"
+ },
+ "ULTA": {
+  "source": "https://www.ulta.com/ (header inline svg 'Go to Ulta Beauty homepage')",
+  "id": "ULTA",
+  "license": "see source",
+  "company": "Ulta Beauty"
+ },
+ "UNP": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/d/de/Union_pacific_railroad_logo.svg",
+  "id": "UNP",
+  "license": "see source",
+  "company": "Union Pacific"
+ },
+ "UPS": {
+  "source": "simple-icons@16.35.0",
+  "id": "ups",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "UPS"
+ },
+ "UPST": {
+  "source": "https://www.upstart.com/ (the page's SVG sprite, <symbol id=\"UPSTART_NAV_LOGO\">)",
+  "id": "UPST",
+  "license": "see source",
+  "company": "Upstart"
+ },
+ "USB": {
+  "source": "https://www.usbank.com/etc.clientlibs/ecm-global/clientlibs/clientlib-resources/resources/images/svg/logo-personal.svg",
+  "id": "USB",
+  "license": "see source",
+  "company": "U.S. Bancorp"
+ },
+ "V": {
+  "source": "simple-icons@16.35.0",
+  "id": "visa",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Visa"
+ },
+ "VEEV": {
+  "source": "https://www.veeva.com/wp-content/themes/veeva2015/assets/veeva-2024/veeva-logo-white.svg",
+  "id": "VEEV",
+  "license": "see source",
+  "company": "Veeva Systems"
+ },
+ "VLO": {
+  "source": "https://upload.wikimedia.org/wikipedia/en/3/3b/Valero_Energy_logo.svg",
+  "id": "VLO",
+  "license": "see source",
+  "company": "Valero Energy"
+ },
+ "VRTX": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/1/1c/Vertex_logo.svg",
+  "id": "VRTX",
+  "license": "see source",
+  "company": "Vertex Pharmaceuticals"
+ },
+ "VZ": {
+  "source": "simple-icons@16.35.0",
+  "id": "verizon",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Verizon"
+ },
+ "WBD": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/6/64/Warner_Bros._Discovery.svg",
+  "id": "WBD",
+  "license": "see source",
+  "company": "Warner Bros. Discovery"
+ },
+ "WDAY": {
+  "source": "https://www.workday.com/content/dam/web/zz/images/logos/workday/workday-logo.svg",
+  "id": "WDAY",
+  "license": "see source",
+  "company": "Workday"
+ },
+ "WEX": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/7/79/WEX_logo.svg",
+  "id": "WEX",
+  "license": "see source",
+  "company": "WEX"
+ },
+ "WFC": {
+  "source": "simple-icons@16.35.0",
+  "id": "wellsfargo",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Wells Fargo"
+ },
+ "WMT": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/6/60/Walmart_spark_%282025%29.svg",
+  "id": "WMT",
+  "license": "see source",
+  "company": "Walmart"
+ },
+ "WYNN": {
+  "source": "https://investors.wynnresorts.com/sites/g/files/knoqqb93881/themes/site/client_site_202/dist/images/wynn-logo.svg",
+  "id": "WYNN",
+  "license": "see source",
+  "company": "Wynn Resorts"
+ },
+ "XOM": {
+  "source": "https://corporate.exxonmobil.com/-/media/global/icons/footer/sites/logo-exxonmobil-main.svg",
+  "id": "XOM",
+  "license": "see source",
+  "company": "Exxon Mobil"
+ },
+ "YUM": {
+  "source": "https://upload.wikimedia.org/wikipedia/commons/5/59/Yum%21_Brands_logo.svg",
+  "id": "YUM",
+  "license": "see source",
+  "company": "Yum! Brands"
+ },
+ "ZM": {
+  "source": "simple-icons@16.35.0",
+  "id": "zoom",
+  "license": "CC0-1.0 (Simple Icons data); the mark is its owner's trademark",
+  "company": "Zoom"
+ },
+ "ZS": {
+  "source": "https://www.zscaler.com/ (inline header logo SVG, #header-zscaler-logo)",
+  "id": "ZS",
+  "license": "see source",
+  "company": "Zscaler"
+ }
+}

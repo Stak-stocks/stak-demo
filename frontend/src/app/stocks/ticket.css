@@ -1,0 +1,140 @@
+/*
+ * The practice-buy ticket (PracticeBuySheet: every <dialog> whose panel holds [data-stak-ticket]).
+ *
+ * Figma draws text with grayscale anti-aliasing. A modal <dialog> sits in the top layer, where Chrome keeps drawing
+ * text with coloured sub-pixel (LCD) edges even inside the 0.999-opacity group src/styles.css gives every text leaf
+ * (measured on the EXAMPLE ticket 2:6486: colour fringe 115-174 on the title, body and chips, Figma's render 0-52).
+ * A text leaf on its own compositing layer is drawn grayscale, as the Simulate sheets do (src/app/simulate/sheets.css).
+ */
+.stak-dialog:has([data-stak-ticket]) :where(p, span, a, button, label):where(:not(:has(*))) {
+	will-change: opacity;
+}
+
+/*
+ * The amount chips below 1024 (PracticeBuySheet `chip`): Figma's five 81.6 x 32 chips, 8 apart, need a 440 row; the
+ * compact panel's inner width is min(440, window - 72). The chips never shrink (SPEC R5 as routed on 2026-10-25:
+ * "wrap or scroll inside the panel at Figma's chip size"), and no chip is left alone on a line (review round 3):
+ * - 440 (windows of 512 and up): the row of five, as Figma draws it;
+ * - 260.8 to 440 (windows of 333 - 511: 360, 390, 430): three over two, the row as wide as three chips and their two gaps (261 with a hair for
+ *   the chips' fractional widths), so the lines read $10 $25 $50 / $100 Custom, never four over a lone "Custom";
+ * - under 260.8 (320: 248): two per line would strand "Custom" on a third line, so the row stays one line and scrolls
+ *   sideways inside the panel (R5's own rule for amount chips: overflow-x, scrollbar hidden, never the page). Its
+ *   scrollport reaches 4px above, below and left of the chips (negative margins, so nothing moves: the first chip stays
+ *   on the content's left edge with room for its ring) and ends on the content's right edge, where the third chip is
+ *   cut at rest and shows there is more; 4px of padding and scroll padding inside it keep a focused chip's 2px ring at
+ *   2px offset whole and bring a focused chip fully into view.
+ * The chip column (data-stak-chips) is a named size container below 1024 only: from 1024 up no container of that name
+ * exists, these queries never match, and the approved row is untouched.
+ */
+@media (width < 1024px) {
+	[data-stak-chips] {
+		container: stak-chips / inline-size;
+	}
+}
+@container stak-chips (width < 440px) {
+	/* the wrapped pair of lines is one block centred on the panel, each line centred in it ($10 $25 $50 over $100
+	   Custom), as the Simulate sheets' chips (simulate/sheets.css .sim-sheet-amounts, review round 3, 2026-11-06) */
+	[data-stak-chip-row] {
+		max-width: 261px;
+		margin-inline: auto;
+		justify-content: center;
+		justify-content: safe center;
+	}
+}
+@container stak-chips (width < 260.8px) {
+	[data-stak-chip-row] {
+		width: calc(100% + 4px);
+		max-width: none;
+		margin: -4px 0 -4px -4px;
+		padding: 4px;
+		flex-wrap: nowrap;
+		justify-content: flex-start;
+		overflow: auto hidden;
+		overscroll-behavior-x: contain;
+		scroll-padding-inline: 4px;
+		scrollbar-width: none;
+	}
+	[data-stak-chip-row]::-webkit-scrollbar {
+		display: none;
+	}
+}
+
+/*
+ * The stock EXAMPLE layout (`?variant=example`, stock detail 2:6311) opens its sheets as
+ * the EXAMPLE modal draws them (2:6486 "Buy ticket (centered modal)"):
+ * - the scrim ("Scrim" 2:6626, #02050e at 66 %) covers the content area only, from the sidebar's edge (216 open, 72
+ *   closed) to the window's right edge; the sidebar stays clear;
+ * - the 480-wide sheet ("Sheet" 2:6627) is centred on that area (x 588 at 1440 = 216 + (1224 - 480) / 2) and sits on
+ *   the whole pixel Figma puts it on, y = round-up((frame height - sheet height) / 2): 340 for the 449 sheet in the 1128
+ *   frame. The dialog is a size container, so the offset is measured against its own height, and the panel's layout
+ *   top stays on a whole pixel (the shared Sheet's `top: 50%` with a -50% translate laid the 449 panel out on a half
+ *   pixel first, and every text inside drew a row below Figma's).
+ * The sheets that replace the ticket (Order filled, the failed buy) keep its place and its scrim, as Figma keeps every
+ * confirm -> result panel in place (2:1311 y 297 -> 2:1589 y 298): the rule reaches every dialog inside the example
+ * page ([data-stak-example]) and the example ticket wherever it opens.
+ */
+.stak-figma {
+	--stak-example-nav: 216px;
+}
+.stak-figma:has(> aside[data-nav="closed"]) {
+	--stak-example-nav: 72px;
+}
+[data-stak-example] .stak-dialog,
+.stak-dialog:has([data-stak-ticket="example"]) {
+	container-type: size;
+	/*
+	 * The scrim is measured from the canvas's left edge, not the window's: past 2560 a capped ultrawide canvas is centred
+	 * (CORE-API section 1: --stak-canvas-x layout px of page background on its left, 0 everywhere else, so nothing changes
+	 * up to 2560), and the page margin left of the canvas is dimmed too, the rail stays clear, the dimming starts at the
+	 * rail's edge: the same geometry Sheet.tsx gives a scrimInset. The dialog inherits the canvas zoom, so layout px hold.
+	 */
+	background:
+		linear-gradient(rgba(2, 5, 14, 0.66), rgba(2, 5, 14, 0.66)) 0 0 / var(--stak-canvas-x, 0px) 100% no-repeat,
+		linear-gradient(
+			to right,
+			transparent calc(var(--stak-canvas-x, 0px) + var(--stak-example-nav)),
+			rgba(2, 5, 14, 0.66) calc(var(--stak-canvas-x, 0px) + var(--stak-example-nav))
+		);
+}
+[data-stak-example] .stak-dialog > div,
+.stak-dialog:has([data-stak-ticket="example"]) > div {
+	top: 0 !important;
+	left: calc(50% + var(--stak-example-nav) / 2) !important;
+	translate: -50% round(up, calc(50cqh - 50%), 1px);
+}
+/*
+ * Below 1024 the shared compact sheet rule (src/styles.css) sizes and centres every panel on the window. The EXAMPLE
+ * modal keeps its own place: centred on the content area, right of the rail the scrim leaves clear (the tablet's closed
+ * rail, 72; nothing on a phone, where --stak-example-nav is 0 and this is the window's centre too). Specificity beats
+ * the shared rule's (0,3,1), as that rule beats this file's 1024+ placement above.
+ */
+@media (width < 1024px) {
+	[data-stak-example] .stak-dialog[data-sheet] > div[data-sheet-panel],
+	.stak-dialog[data-sheet]:has([data-stak-ticket="example"]) > div[data-sheet-panel] {
+		translate: round(up, calc(50cqw + var(--stak-example-nav) / 2 - 50%), 1px) round(up, calc(50cqh - 50%), 1px) !important;
+	}
+}
+/* the example page's own sheets draw grayscale text too (the same top-layer fix as above) */
+[data-stak-example] .stak-dialog :where(p, span, a, button, label):where(:not(:has(*))) {
+	will-change: opacity;
+}
+/*
+ * Every control of the EXAMPLE frames is a plain frame: no component variant, no hover or pressed state, no "change to"
+ * reaction (0 reactions on 2:6311 / 2:6486, read 2026-10-18). The shared .stak-press response that some shared
+ * controls still carry (the stat tiles of "Numbers that matter", 2:6352 / 2:6356 / 2:6360, from StatGrid) is switched
+ * off on these pages, the way discover.css does it on the product deck; the cursor, the disabled look and the canvas's
+ * keyboard focus ring stay.
+ */
+[data-stak-example] .stak-press:hover {
+	filter: none;
+}
+[data-stak-example] .stak-press:active {
+	transform: none;
+}
+/*
+ * The failed buy's sheet (a Simulate Modal, which fades its dialog in on its own) replaces the example ticket inside
+ * Confirm's 350 ms Smart Animate (1:2309 / 1:3801), as the Order filled sheet does: it skips the dialog's 0.3 s fade-in.
+ */
+[data-stak-example] dialog.stak-sheet-in:has([data-sim-sheet]) {
+	animation: none;
+}

@@ -1,0 +1,166 @@
+/*
+ * The Simulate sheets (sheets.tsx: every <dialog> whose panel holds [data-sim-sheet]).
+ *
+ * Figma draws text with grayscale anti-aliasing. On the page, styles.css gets Chrome there with opacity 0.999 on each
+ * text leaf, but a modal <dialog> sits in the top layer, where Chrome keeps drawing that text with coloured sub-pixel
+ * (LCD) edges, heavier than Figma's (measured on 2:1311: colour fringe 198 vs Figma's 24). A text leaf on its own
+ * compositing layer is drawn grayscale, which brings the sheets back to Figma's 24. The sheet's title is its heading
+ * (an h2 since 2026-10-31, drawn as the paragraph it was), so it is a text leaf here too.
+ */
+.stak-dialog:has([data-sim-sheet]) :where(p, h2, span, a, button, label):where(:not(:has(*))) {
+	will-change: opacity;
+}
+
+/*
+ * Where a sheet sits. Figma puts each sheet on the whole pixel at or just below the middle of its frame:
+ * y = round-up((frame height - sheet height) / 2), e.g. 2:1311 (464 in 1057) at 297, 2:1589 (461 in 1057) at 298,
+ * 2:1458 (464 in 1092) at 314, 2:1730 (449 in 1092) at 322, 2:1863 (356 in 1057) at 351, 2:1116 (442 in 1092) at 325.
+ * The shared Sheet centres its panel with `top: 50%` and a -50% translate, which lands half a pixel off whenever the
+ * window or the sheet has an odd height, and the text then draws soft. Here the panel starts at the top of the dialog
+ * and moves down by that rounded amount, measured against the dialog's own height (a size container), so every sheet
+ * sits on Figma's pixel in its frame and on a whole pixel in any window.
+ */
+.stak-dialog:has([data-sim-snap]) {
+	container-type: size;
+}
+.stak-dialog:has([data-sim-snap]) > div {
+	top: 0 !important;
+	translate: -50% round(up, calc(50cqh - 50%), 1px);
+}
+
+/*
+ * The one sheet that keeps its half pixel (the alternate frame's Buy sheet 2:1079 at y 298.5, snap off): Chrome rounds
+ * the canon label's baseline in the panel's space and again after the half-pixel centring, so "Confirm practice buy"
+ * 2:1113 drew 1.03 px low. Now that the canon labels sit on Figma's own rounded baseline (FIGMA_BASELINE in
+ * src/app/ui/Button.tsx), a 0.2 px lift inside that panel puts both its labels on Figma's rows (Confirm 2:1113 +0.015 px)
+ * and keeps the panel's half-pixel edges, which match Figma's render.
+ */
+.stak-dialog:has([data-sim-sheet]):not(:has([data-sim-snap])) [data-canon-label] {
+	translate: 0 -0.2px;
+}
+
+/*
+ * Past 2560 (the big regime: the 2560 x 1440 layout zoomed up, CORE-API section 1) two placements that are right at
+ * 1024-2560 would not scale evenly, so they are re-solved there only (html[data-stak-size="big"] exists only past 2560):
+ * - the shares line ("You get 0.2048 shares of NVDA" 2:1449 et al.) aligns its 12px words to the 15px figure by their
+ *   baselines; Chrome solves that baseline with the zoomed fonts' metrics rounded in DEVICE pixels, which put the words
+ *   1.5 device px off 2560 x 1.5. At 2560 the words' boxes sit 3px under the figure's (Sora 15/19 ascent 15 against
+ *   Geist 12/16 ascent 12, no leading on either), so past 2560 that 3px is laid out explicitly and scales with the zoom;
+ *   the text rule then lands each glyph on its device pixel.
+ * - the alternate frame's Buy sheet (2:1079, the one sheet kept on its half pixel, below) is laid out half a pixel low
+ *   and centred back by a -50% translate of its 461 height. At 1024-2560 Chrome rounds each text's baseline twice
+ *   there (in the panel's own space, then after the half-pixel translate), which draws every text on floor(B) + 1 for
+ *   a baseline B where a whole-pixel sheet draws round(B): up to a pixel low (measured at 2560 against the snapped
+ *   2:1311 sheet: the body texts 1 px lower, the title, whose baseline fraction is over a half, on the same row).
+ *   Scaled up, that half-pixel layout rounded on other device rows (2.1 device px off 2560 x zoom). Past 2560 the panel
+ *   is placed like the snapped sheets, on the 2560 layout's own row (490 at 1440 tall), and its texts are laid out
+ *   half a layout pixel lower, the middle of what the double rounding adds at 2560 (0 to 1): each glyph then lands
+ *   within (zoom + 1) / 2 device px of its 2560 ink x the zoom, the bound of every plain text past 2560 (CORE-API
+ *   section 1). The panel's own box and every non-text box keep the 2560 layout x the zoom; the texts' boxes move
+ *   0.5 layout px by design and are judged on their ink (SPEC G2: a text re-solved per zoom so its glyphs land right).
+ *   Three texts whose 2560 rows the double rounding leaves where a whole-pixel sheet draws them are not moved (measured
+ *   on the whole-pixel panel: already on 2560 x the zoom, half a pixel lower would put them 1.5-2 device px off at
+ *   zoom 3): the title "Buy PLTR?", the shares line's figure, and the two button labels (the [data-canon-label] rows:
+ *   Confirm practice buy, Back), which keep the 0.2 lift they have at 1024-2560 (the rule above; Back measured +1.05 /
+ *   +1.14 / +2.17 device px at zoom 1.5 / 2 / 3 without the lift, +3.17 at zoom 3 with half a pixel more).
+ *   Measured on the final build (sets\simulate-final-g2, ink_all.py): every text of the six Simulate labels within
+ *   (zoom + 1) / 2, worst 1.36 device px at zoom 3; every other box within 0.05 px of 2560 x the zoom.
+ */
+html[data-stak-size="big"] .sim-big-line {
+	align-items: flex-start;
+}
+html[data-stak-size="big"] .sim-big-line > :not(:nth-child(2)) {
+	margin-top: 3px;
+}
+html[data-stak-size="big"] .stak-dialog:has([data-sim-sheet]):not(:has([data-sim-snap])) {
+	container-type: size;
+}
+html[data-stak-size="big"] .stak-dialog:has([data-sim-sheet]):not(:has([data-sim-snap])) > div {
+	top: 0 !important;
+	translate: -50% round(up, calc(50cqh - 50% + 0.5px), 1px);
+}
+html[data-stak-size="big"]
+	.stak-dialog:has([data-sim-sheet]):not(:has([data-sim-snap]))
+	[data-sheet-panel]
+	:where(p, span):where(:not(:has(*), :empty, [data-canon-label], [data-canon-label] *, .sim-sheet-title, .sim-big-line > :nth-child(2))) {
+	translate: 0 0.5px;
+}
+
+/*
+ * Below 1024 the panel is min(480, window - 32) wide and scrolls inside itself when taller than the window (the core's
+ * Sheet rule, styles.css); what its rows do in the narrower panel is set here (SPEC R1 / R5 / R7). The panel is the size
+ * container the rows read: its content box is Figma's 440 from 512 wide windows up, 318 at 390, 248 at 320.
+ */
+@media (width < 1024px) {
+	.stak-dialog:has([data-sim-sheet]) [data-sheet-panel] {
+		container: sim-sheet / inline-size;
+	}
+	/* the titles wrap where the panel is narrower than their one line ("Add NVDA to your portfolio?" at 320) */
+	.sim-sheet-title {
+		width: auto !important;
+		max-width: 100%;
+		white-space: normal;
+		overflow-wrap: break-word;
+	}
+	/* the "Cash available" and shares lines keep Figma's run and wrap between their words only when the panel cannot
+	   hold it ("Returned $124.00 to your cash (+$24.00)" at 320) */
+	.sim-sheet-line {
+		max-width: 100%;
+		flex-wrap: wrap;
+		white-space: normal;
+		overflow: visible;
+	}
+	/* the company row ("stock" 2:1425 et al.) stays Figma's row, the move at its right; a company name longer than the
+	   row has room for wraps under itself instead of being cut */
+	.sim-sheet-stock > :nth-child(2) {
+		white-space: normal;
+		overflow-wrap: break-word;
+	}
+	/* "Quick amounts" / "Sell portions" (2:1438 / 2:1546: five 81.6 x 32 chips, 8 apart): every chip keeps Figma's
+	   81.6 (never squeezed) */
+	.sim-sheet-amounts > * {
+		flex: 0 0 81.6px;
+	}
+}
+/* narrower than Figma's 440 row: the five chips wrap three over two, 8 apart both ways (360, 390, 430 windows: every
+   amount in view, Custom included), the same arrangement as the stock and deck tickets' chips (PracticeBuySheet). Figma's
+   row spans the panel's content edge to edge, so the wrapped pair of lines stays one block centred on the panel, each
+   line centred in it ($10 $25 $50 over $100 Custom), on the axis of the full-width rows above and of the centred shares
+   line and full-width buttons below (review round 3; the chips keep Figma's 81.6, R1). The description, re-wrapping in
+   the narrower panel, never ends on a lone word (at Figma's 440 it keeps Figma's lines, "...in either / direction."
+   included) */
+@container sim-sheet (width < 440px) {
+	.sim-sheet-amounts {
+		flex-wrap: wrap;
+		max-width: 261px;
+		margin-inline: auto;
+		justify-content: center;
+		justify-content: safe center;
+	}
+	.sim-sheet-desc {
+		text-wrap: pretty;
+	}
+}
+/* narrower than three chips (320 windows: 248 inside): one line that scrolls sideways inside the panel (R5's rule for
+   amount chips), the app's one chip scroller (the stock and deck tickets', ticket.css [data-stak-chip-row]): its
+   scrollport reaches 4px above, below and left of the chips (negative margins, so the first chip stays on the content's
+   left edge with room for its ring) and ends on the content's right edge, where the third chip shows cut at rest, so
+   there is visibly more; a chip that takes keyboard focus scrolls fully into view with its ring (sheets.tsx
+   `revealChip`; the 4px padding and scroll padding keep the 2px ring at 2px offset inside the scroller) */
+@container sim-sheet (width < 260.8px) {
+	.sim-sheet-amounts {
+		flex-wrap: nowrap;
+		justify-content: flex-start;
+		max-width: none;
+		width: calc(100% + 4px);
+		margin: -4px 0 -4px -4px;
+		padding: 4px;
+		overflow: auto hidden;
+		overscroll-behavior-x: contain;
+		scroll-padding-inline: 4px;
+		scrollbar-width: none;
+	}
+	.sim-sheet-amounts::-webkit-scrollbar {
+		display: none;
+	}
+}

@@ -11,6 +11,7 @@ import {
 	onAuthStateChanged,
 	signInWithPopup,
 	getAdditionalUserInfo,
+	OAuthProvider,
 	signInWithEmailAndPassword,
 	createUserWithEmailAndPassword,
 	sendEmailVerification,
@@ -28,6 +29,7 @@ interface AuthContextType {
 	onboardingCompleted: boolean;
 	refreshClaims: () => Promise<void>;
 	signInWithGoogle: () => Promise<{ isNew: boolean; uid: string }>;
+	signInWithApple: () => Promise<{ isNew: boolean; uid: string }>;
 	signInWithEmail: (email: string, password: string) => Promise<void>;
 	signUpWithEmail: (email: string, password: string) => Promise<void>;
 	sendVerificationEmail: () => Promise<void>;
@@ -112,6 +114,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		return { isNew, uid: result.user.uid };
 	}
 
+	async function signInWithApple(): Promise<{ isNew: boolean; uid: string }> {
+		const provider = new OAuthProvider("apple.com");
+		provider.addScope("email");
+		provider.addScope("name");
+		const result = await signInWithPopup(auth, provider);
+		const isNew = getAdditionalUserInfo(result)?.isNewUser ?? false;
+		logEvent(isNew ? "sign_up" : "login", { method: "apple" });
+		return { isNew, uid: result.user.uid };
+	}
+
 	async function signInWithEmail(email: string, password: string) {
 		await signInWithEmailAndPassword(auth, email, password);
 		logEvent("login", { method: "email" });
@@ -157,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	return (
 		<AuthContext.Provider
-			value={{ user, loading, onboardingCompleted, refreshClaims, signInWithGoogle, signInWithEmail, signUpWithEmail, sendVerificationEmail, resetPassword, verifyResetCode, confirmReset, logout }}
+			value={{ user, loading, onboardingCompleted, refreshClaims, signInWithGoogle, signInWithApple, signInWithEmail, signUpWithEmail, sendVerificationEmail, resetPassword, verifyResetCode, confirmReset, logout }}
 		>
 			{children}
 		</AuthContext.Provider>

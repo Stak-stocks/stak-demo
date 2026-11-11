@@ -1,0 +1,28 @@
+/*
+ * Rows that stand for a company open that company's page (coordinator decision D1, 2026-11-07): Simulate home's Saved
+ * staks rows (the tile, the symbol and name, the price and move; the Buy pill stays its own control). The row keeps its
+ * DOM and its pixels: its name column is the link (an <a> in the <div>'s place, same classes), and the link's invisible
+ * ::after stretches over the whole company block, up to `--sim-row-link-end` from the row's right edge (the pill and its
+ * gap), so a click anywhere on the block opens the page. The row is the ::after's containing block (`relative`). Nothing
+ * here paints at rest (measured identical at 1440 x 1024, 2026-11-07).
+ * The ::after sits above the block's texts (`z-index`): the shared text-baseline rule (styles.css) positions every plain
+ * text, and the price and move come after the link in the row, so without it they painted over the stretched area and
+ * a click on the figures opened nothing (fix round 1, 2026-11-08; the tile, before the link, was never affected).
+ *
+ * Keyboard focus draws the canvas's ring (2px #69b3ca, 2px out) around the whole block instead of the name column alone;
+ * the row lets 4px of it show past its clip while the link has focus (SimulateHome.tsx).
+ */
+.sim-row-link::after {
+	content: "";
+	position: absolute;
+	inset-block: 0;
+	inset-inline: 0 var(--sim-row-link-end, 0px);
+	z-index: 1;
+}
+.stak-canvas .sim-row-link:focus-visible {
+	outline: none;
+}
+.stak-canvas .sim-row-link:focus-visible::after {
+	outline: 2px solid #69b3ca;
+	outline-offset: 2px;
+}

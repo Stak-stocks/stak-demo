@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 36" fill="#000000">
+  <!-- NCNO: nCino. One-colour coin mark from https://investor.ncino.com/ (the nCino logo SVG inlined in the page footer, fetched 2026-11-06). nCino's symbol, the four bars, from the logo SVG on nCino's own investor site; the ncino wordmark and (R) are left out. The bars are separate, so they stay four bars in one colour. -->
+  <path d="M44.7983 0.696777H36.1807V35.5694H44.7983V0.696777Z"/>
+  <path d="M32.9057 15.0259H24.2881V35.5691H32.9057V15.0259Z"/>
+  <path d="M21.0116 9.84619H12.394V35.5688H21.0116V9.84619Z"/>
+  <path d="M9.11759 18.6499H0.5V35.5678H9.11759V18.6499Z"/>
+</svg>

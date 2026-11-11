@@ -1,14 +1,14 @@
 import { useMemo } from "react";
-import { collectionOf } from "@/app/live/catalog";
 import { useDeck } from "@/app/live/deck";
 import { usePortfolio } from "@/app/live/portfolio";
 import { useLive } from "@/app/live/store";
 import { useTaste } from "@/app/live/taste";
-import { affectedCollections } from "@/app/data/home";
 
-const isAffected = (ticker: string) => affectedCollections.has(collectionOf(ticker));
-
-/** Everything Home and the profile hub derive from the account: the paper portfolio, the rank, taste, today's deck. */
+/**
+ * Everything Home and the profile hub derive from the account: the paper portfolio, taste, today's deck. No rank here:
+ * the one rank every screen shows is live/rank.ts useStanding (D4), which the hub reads itself; and no share of the
+ * saves in the market-mood industries: Home words its "Why this matters" line in src/app/home/copy.ts.
+ */
 export function useProfileStats() {
 	const live = useLive();
 	const portfolio = usePortfolio();
@@ -16,7 +16,6 @@ export function useProfileStats() {
 	const deck = useDeck({ quotes: false }); // progress only: Home and the hub never show card prices
 	return useMemo(() => {
 		const saves = live.saves.length;
-		const affectedSaves = live.saves.filter((s) => isAffected(s.ticker)).length;
 		const remaining = Math.max(0, deck.total - deck.decided.size);
 		return {
 			live,
@@ -25,9 +24,6 @@ export function useProfileStats() {
 			deck,
 			/** cash + holdings at today's quotes */
 			value: portfolio.value,
-			rank: portfolio.rank,
-			/** share of the saves in the industries today's market-mood stories touch, rounded to 5 (Home: "houses 80% of stocks from affected industries") */
-			techShare: saves > 0 ? Math.max(5, Math.round((affectedSaves / saves) * 20) * 5) : 0,
 			/** cards of today's deck not yet decided */
 			remaining,
 			/** a person with nothing saved, nothing held and nothing decided today is on their first run */

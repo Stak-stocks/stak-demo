@@ -64,7 +64,8 @@ export const simulateHome = {
 } as const;
 
 export const portfolio = {
-	crumb: "Simulate  /  Portfolio",
+	/** "Simulate  /  Portfolio" (2:751): every segment above the page links to it (ui.tsx BackHeader) */
+	crumbs: [{ label: "Simulate", to: "/simulate" }, { label: "Portfolio" }],
 	title: "Your portfolio",
 	subtitle: "12 picks · +$240.00 all time",
 	chips: ["Top gainers", "Newest", "Worst"],
@@ -89,7 +90,8 @@ export const portfolio = {
 
 export const pickDetail = {
 	symbol: "NVDA",
-	crumb: "Simulate  /  Portfolio  /  NVDA",
+	/** "Simulate  /  Portfolio  /  NVDA" (2:859), the pick's own symbol last */
+	crumbs: (symbol: string) => [{ label: "Simulate", to: "/simulate" }, { label: "Portfolio", to: "/simulate/portfolio" }, { label: symbol }] as const,
 	eyebrow: "PICKED MAY 8 · $100 STAKE",
 	subtitle: "NVDA · NVIDIA Corp",
 	price: "$122.10",
@@ -129,7 +131,8 @@ export const pickDetail = {
 } as const;
 
 export const leaderboard = {
-	crumb: "Simulate  /  Leaderboard",
+	/** "Simulate  /  Leaderboard" (2:927) */
+	crumbs: [{ label: "Simulate", to: "/simulate" }, { label: "Leaderboard" }],
 	title: "Leaderboard",
 	subtitle: "Ranked by return · Trailing 7 days",
 	chips: ["This week", "All time"],
@@ -179,6 +182,8 @@ export const sheets = {
 	},
 	sellSuccess: {
 		title: "Position closed",
+		/** a sale that leaves shares held did not close the position: the receipt takes the buy receipt's title (2:1706) */
+		titlePartial: "Order filled",
 		description: (shares: string) => `Sold ${shares} shares from your $100 stake.`,
 		proceeds: "Proceeds",
 		returned: "Returned",

@@ -1,0 +1,31 @@
+/*
+ * Light text on a dark ground, drawn with the stroke weight Figma draws (Home 2:414 / 2:532 and the page header).
+ *
+ * Chrome's glyph rasteriser (Skia) picks its contrast / gamma table from the TEXT COLOUR's luminance. Even drawn
+ * grayscale (every leaf text in the app sits in a filter: opacity(.999) group for that, styles.css; this rule's own
+ * filter takes its place on a light text and is a group too), a light text on a dark ground paints 1.1-1.6x
+ * the ink Figma paints with the same font file, size and weight (measured 2026-10-11 against Figma's render of 2:414,
+ * ink mass = sum |lum - ground|: Sora Regular 14.4 1.36x, Geist Light 12.34 1.58x, Geist Medium 11.82 1.37x and 12
+ * 1.38x, Sora SemiBold 22 1.17x, Geist Regular 13 1.10x), while dark text on a light ground paints 0.95-0.98x, which is
+ * Figma's weight. Drawn as its own inverse (a dark colour) and inverted back by a colour filter, a light text is
+ * rasterised with the dark-text table: the same texts then measure 0.94-0.98x, like the dark ones. The filter touches
+ * only the element's own pixels (its ground is painted by the parent), so nothing else changes. `--ink` is the colour
+ * Figma gives the text; a browser without relative colour syntax keeps the plain text colour the element declares.
+ */
+@supports (color: rgb(from red calc(255 - r) g b)) {
+	.stak-ink {
+		color: rgb(from var(--ink, #ffffff) calc(255 - r) calc(255 - g) calc(255 - b));
+		filter: invert(1);
+	}
+	/* the selection highlight pre-inverted: the usual blue with white text once the filter has run */
+	.stak-ink::selection {
+		background: #c87d00;
+		color: #000000;
+	}
+}
+@media (forced-colors: active) {
+	.stak-ink {
+		filter: none;
+		color: CanvasText;
+	}
+}

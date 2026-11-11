@@ -1,33 +1,44 @@
 import { CompanyLogo } from "@/app/ui/CompanyLogo";
 import { D } from "./assets";
 
+/** The art frame "Frame 1618869052" of the front card (2:3044), in its own units. */
+export const ART_W = 212.2201;
+export const ART_H = 287.0456;
+/** "Group 1000002783" / "6 nvidia 1" (2:3059 / 2:3060): a 147.493 square at (31.8331, 18.3196) in the art frame. */
+const COIN = 147.493;
+
+type Props = {
+	ticker: string;
+	/** the slot's art frame size over the front card's (1, 0.9 for 2:3005, 0.845455 for 2:2964) */
+	scale: number;
+	/** the art frame's position in the image frame (Figma centres it: x = (image w - art w) / 2; a CSS length for a fluid frame) */
+	left: number | string;
+	top: number;
+	/** the coin's centre in front-card art units (the right card's Google coin sits 0.5 / -1.36 off the others) */
+	coin: [number, number];
+};
+
 /**
- * The deck illustration (Figma group 2:3044) for a catalog company: the authored open box and
- * light beam at their frame positions, and a glass coin with the company's logo where the
- * frames' three companies carry a hand-made coin. Geometry as the loading frame draws it:
- * art frame 212.22 × 287.046 at top 35.8, centred in the 360.774 × 242.992 image frame.
+ * The deck card illustration as Figma layers it, every piece Figma's own file: the open box (2:3045, Figma's 2x PNG
+ * export of the layer on a transparent ground, see `D.deckBoxRaster`), the light beam (2:3058, SVG export) and the
+ * company's glass coin. The side cards are the same layers at 0.9 / 0.845455 (Figma scaled them uniformly, blur
+ * radius included: its own exports of the side cards' box, beam and bookmark layers equal these files scaled), so the
+ * art frame is drawn in front-card units and scaled. The coin is the raw image of 6 nvidia 1 / 7 apple 1 / 3 google 1
+ * / 5 amazon 1 / 4 shopify 1 for those five companies and, since the user's request of 2026-10-30 (it replaces the
+ * 2026-10-19 "box and beam alone" rule), the same glass coin with the company's own mark for every other company
+ * (CompanyLogo), in the same 147.493 square at the same centre in all three slots.
  */
-export function GlassCoin({ ticker, opacity = 1 }: { ticker: string; opacity?: number }) {
+export function GlassCoin({ ticker, scale, left, top, coin }: Props) {
 	return (
-		<div className="absolute left-1/2 top-[35.8px] h-[287.046px] w-[212.22px] -translate-x-1/2" style={{ opacity }} aria-hidden="true">
-			<img alt="" src={D.deckBox} className="absolute left-[-26.51px] top-[78.6px] block h-[248.508px] w-[272.152px] max-w-none" />
-			<img alt="" src={D.deckBeam} className="absolute left-[37.15px] top-[-5.31px] block h-[153.393px] w-[142.687px] max-w-none" />
-			<div
-				className="absolute left-[31.83px] top-[18.32px] flex size-[147.493px] items-center justify-center overflow-clip rounded-[36px]"
-				style={{
-					background: "linear-gradient(148deg, #eef8fc 0%, #cbe8f3 30%, #97cce0 64%, #5fa8c6 100%)",
-					boxShadow:
-						"inset 0 0 0 1.5px rgba(255,255,255,0.62), inset 10px 12px 20px rgba(255,255,255,0.5), inset -12px -16px 28px rgba(36,98,136,0.4), 0 16px 28px rgba(8,13,26,0.45)",
-				}}
-			>
-				<div
-					className="pointer-events-none absolute inset-0 rounded-[36px]"
-					style={{ background: "radial-gradient(ellipse at 28% 20%, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0) 50%)" }}
-				/>
-				<div className="relative flex size-[84px] items-center justify-center" style={{ filter: "drop-shadow(0 6px 10px rgba(10,40,70,0.35))" }}>
-					<CompanyLogo ticker={ticker} size={84} rounded={18} />
-				</div>
-			</div>
+		<div
+			className="pointer-events-none absolute origin-top-left"
+			style={{ left, top, width: ART_W, height: ART_H, transform: scale === 1 ? undefined : `scale(${scale})` }}
+			aria-hidden="true"
+		>
+			{/* 545 x 258 px at 2x: 272.5 x 129, from the box's render-bounds corner (-26.5142, 78.5953) */}
+			<img alt="" src={D.deckBoxRaster} draggable={false} className="absolute block h-[129px] w-[272.5px] max-w-none" style={{ left: -26.5142, top: 78.5953 }} />
+			<img alt="" src={D.deckBeam} draggable={false} className="absolute block h-[153.3936px] w-[142.687px] max-w-none" style={{ left: 37.1463, top: -5.3057 }} />
+			<CompanyLogo ticker={ticker} size={COIN} className="absolute" style={{ left: coin[0] - COIN / 2, top: coin[1] - COIN / 2 }} />
 		</div>
 	);
 }

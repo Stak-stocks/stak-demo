@@ -1,0 +1,59 @@
+/* The auth flow's screen changes, from the Figma prototype (phone page 0:1, read 2026-10-18; the desktop frames carry no
+   reactions): Splash 1:883 -> Sign up after 1.2 s, and the Sign up <-> Sign in links (1:834 / 1:882): DISSOLVE 0.35 s
+   EASE_OUT; the forward steps (Google, Apple, Create account, Sign in -> onboarding / Home): PUSH direction LEFT 0.3 s
+   EASE_OUT (the destination enters from the right and pushes the origin out to the left); Back (1:826 / 1:853): PUSH
+   direction RIGHT 0.3 s EASE_OUT. Only a navigation that names one of these view-transition types plays them
+   (src/app/auth/motion.ts); every other route change keeps the app's own transitions in styles.css. Every name here
+   carries `stak-auth-` so nothing in styles.css (its `stak-dissolve` is 300 ms) is overridden once this file loads.
+   Reduced motion keeps styles.css's `animation: none`. */
+@keyframes stak-auth-out-left {
+	to {
+		transform: translateX(-100%);
+	}
+}
+@keyframes stak-auth-in-from-right {
+	from {
+		transform: translateX(100%);
+	}
+}
+@keyframes stak-auth-out-right {
+	to {
+		transform: translateX(100%);
+	}
+}
+@keyframes stak-auth-in-from-left {
+	from {
+		transform: translateX(-100%);
+	}
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	/* DISSOLVE: the destination fades in over the origin */
+	html:active-view-transition-type(stak-auth-dissolve)::view-transition-old(root),
+	html:active-view-transition-type(stak-auth-dissolve)::view-transition-new(root) {
+		animation-duration: 350ms;
+		animation-timing-function: ease-out;
+	}
+	/* PUSH: the destination pushes the origin out, both move together; LEFT = forward, RIGHT = back */
+	html:active-view-transition-type(stak-auth-push-forward)::view-transition-old(root),
+	html:active-view-transition-type(stak-auth-push-forward)::view-transition-new(root),
+	html:active-view-transition-type(stak-auth-push-back)::view-transition-old(root),
+	html:active-view-transition-type(stak-auth-push-back)::view-transition-new(root) {
+		animation-duration: 300ms;
+		animation-timing-function: ease-out;
+		animation-fill-mode: both;
+		mix-blend-mode: normal;
+	}
+	html:active-view-transition-type(stak-auth-push-forward)::view-transition-old(root) {
+		animation-name: stak-auth-out-left;
+	}
+	html:active-view-transition-type(stak-auth-push-forward)::view-transition-new(root) {
+		animation-name: stak-auth-in-from-right;
+	}
+	html:active-view-transition-type(stak-auth-push-back)::view-transition-old(root) {
+		animation-name: stak-auth-out-right;
+	}
+	html:active-view-transition-type(stak-auth-push-back)::view-transition-new(root) {
+		animation-name: stak-auth-in-from-left;
+	}
+}

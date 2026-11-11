@@ -1,0 +1,236 @@
+Discover deck glass coins (public/coins/), made by frontend/scripts/coins/build_coins.py.
+coin*.webp: Figma's own glass coin (STAK design file), logo removed. Lettermarks: the Sora typeface (SIL OFL 1.1).
+Company marks are trademarks of their owners, shown to identify the companies. Each mark is the company's own
+current logo in one colour, from the file or icon package named below; the same table is
+frontend/scripts/coins/marks.json. Sources of the vector marks, by where they were taken from:
+
+simple-icons@16.35.0: Simple Icons, https://simpleicons.org (CC0-1.0 data; third-party redraws of the official marks, from the earlier track)
+  AAL (American Airlines: americanairlines), ABNB (Airbnb: airbnb), ACN (Accenture: accenture), ADP (ADP: adp), AMD (AMD: amd), ARM (ARM Holdings: arm), AVGO (Broadcom: broadcom), AXP (American Express: americanexpress), AZO (AutoZone: autozone), BA (Boeing: boeing), BABA (Alibaba: alibabadotcom), BAC (Bank of America: bankofamerica), BIDU (Baidu: baidu), CART (Instacart (Maplebear): instacart), CAT (Caterpillar: caterpillar), COIN (Coinbase: coinbase), DAL (Delta Air Lines: delta), DASH (DoorDash: doordash), DDOG (Datadog: datadog), DE (Deere & Company: johndeere), DELL (Dell Technologies: dell), DUOL (Duolingo Inc: duolingo), EA (Electronic Arts: ea), EBAY (eBay Inc: ebay), ETSY (Etsy: etsy), F (Ford Motor: ford), FDX (FedEx: fedex), FTNT (Fortinet: fortinet), GE (GE Aerospace: generalelectric), GM (General Motors: generalmotors), GS (Goldman Sachs: goldmansachs), HLT (Hilton Worldwide: hilton), HOOD (Robinhood: robinhood), HPQ (HP Inc: hp), HUBS (HubSpot: hubspot), INTC (Intel: intel), INTU (Intuit: intuit), JPM (JPMorgan Chase: chase), KO (Coca-Cola: cocacola), LUV (Southwest Airlines: southwestairlines), LYFT (Lyft: lyft), MA (Mastercard: mastercard), MAR (Marriott International: marriott), MCD (McDonald's: mcdonalds), MDB (MongoDB: mongodb), META (Meta: meta), MMM (3M: 3m), MRK (Merck: merck), NET (Cloudflare: cloudflare), NFLX (Netflix: netflix), NKE (Nike: nike), NU (Nu Holdings: nubank), NXPI (NXP Semiconductors: nxp), OKTA (Okta: okta), PANW (Palo Alto Networks: paloaltonetworks), PATH (UiPath: uipath), PAYX (Paychex: paychex), PINS (Pinterest: pinterest), PLTR (Palantir: palantir), PTON (Peloton: peloton), PYPL (PayPal: paypal), RBLX (Roblox: roblox), RDDT (Reddit: reddit), ROKU (Roku: roku), SAP (SAP: sap), SBUX (Starbucks: starbucks), SMCI (Super Micro Computer: supermicro), SNAP (Snap: snapchat), SNOW (Snowflake: snowflake), SONY (Sony Group Corp: sony), SPOT (Spotify: spotify), T (AT&T: atandt), TEAM (Atlassian: atlassian), TGT (Target: target), TM (Toyota Motor Corp: toyota), TMUS (T-Mobile: deutschetelekom), TSLA (Tesla: tesla), TTWO (Take-Two Interactive: taketwointeractivesoftware), U (Unity Software: unity), UAL (United Airlines: unitedairlines), UBER (Uber: uber), UPS (UPS: ups), V (Visa: visa), VZ (Verizon: verizon), WFC (Wells Fargo: wellsfargo), ZM (Zoom: zoom)
+
+font-awesome-free@7.2.0: Font Awesome Free by @fontawesome, https://fontawesome.com (icons CC BY 4.0, https://fontawesome.com/license/free)
+  CRM (Salesforce: Salesforce), MSFT (Microsoft: Microsoft)
+
+Wikimedia Commons: the company's own logo file (upload.wikimedia.org/wikipedia/commons) (86):
+  ABBV (AbbVie): https://upload.wikimedia.org/wikipedia/commons/c/cc/AbbVie_logo.svg
+  ACHR (Archer Aviation): https://upload.wikimedia.org/wikipedia/commons/2/25/Archer_Aviation.svg
+  ACMR (ACM Research): https://upload.wikimedia.org/wikipedia/commons/2/28/ACM_Research.svg
+  AFRM (Affirm): https://upload.wikimedia.org/wikipedia/commons/f/ff/Affirm_logo.svg
+  AMGN (Amgen): https://upload.wikimedia.org/wikipedia/commons/a/ab/Amgen.svg
+  APD (Air Products and Chemicals): https://upload.wikimedia.org/wikipedia/commons/2/20/Logo_Air_Products.svg
+  ASTS (AST SpaceMobile): https://upload.wikimedia.org/wikipedia/commons/2/24/AST_SpaceMobile_logo.svg
+  BK (BNY Mellon): https://upload.wikimedia.org/wikipedia/commons/6/6e/BNY_logo_2024.svg
+  BKR (Baker Hughes): https://upload.wikimedia.org/wikipedia/commons/6/69/Baker_Hughes_logo.svg
+  BLK (BlackRock): https://upload.wikimedia.org/wikipedia/commons/8/85/BlackRock_wordmark.svg
+  BMY (Bristol-Myers Squibb): https://upload.wikimedia.org/wikipedia/commons/c/c6/Bristol-Myers_Squibb_logo_%282020%29.svg
+  BURL (Burlington Coat Factory): https://upload.wikimedia.org/wikipedia/commons/5/54/Burlington_Stores_logo.svg
+  CBOE (Cboe Global Markets): https://upload.wikimedia.org/wikipedia/commons/8/8a/Cboe_Global_Markets_Logo.svg
+  CDNS (Cadence Design Systems): https://upload.wikimedia.org/wikipedia/commons/4/48/Cadence-Logo.svg
+  CL (Colgate-Palmolive): https://upload.wikimedia.org/wikipedia/commons/8/86/Colgate-Palmolive_%282025%29.svg
+  CME (CME Group): https://upload.wikimedia.org/wikipedia/commons/f/f0/CME_Group_Logo.svg
+  COF (Capital One): https://upload.wikimedia.org/wikipedia/commons/9/98/Capital_One_logo.svg
+  COST (Costco): https://upload.wikimedia.org/wikipedia/commons/5/59/Costco_Wholesale_logo_2010-10-26.svg
+  CSX (CSX Corporation): https://upload.wikimedia.org/wikipedia/commons/f/fe/CSX_transp_logo.svg
+  CVS (CVS Health): https://upload.wikimedia.org/wikipedia/commons/d/df/CVS_Health_Logo.svg
+  CVX (Chevron): https://upload.wikimedia.org/wikipedia/commons/8/86/Chevron_Logo.svg
+  DIS (Disney): https://upload.wikimedia.org/wikipedia/commons/4/47/The_Walt_Disney_Company_2024.svg
+  DLR (Digital Realty): https://upload.wikimedia.org/wikipedia/commons/archive/f/f2/20261016054415%21Digital_Realty_TM_Brandmark_RGB_Black.svg (the file's 2023-04-27 revision, sha1 345b5916b74980fb4b7705488cf2adeec6c5de10; the 2026-10-16 revision only crops the canvas)
+  DPZ (Domino's Pizza): https://upload.wikimedia.org/wikipedia/commons/6/64/Domino%27s_2025.svg
+  DVN (Devon Energy): https://upload.wikimedia.org/wikipedia/commons/6/67/Devon-Energy-Logo.svg
+  EFX (Equifax): https://upload.wikimedia.org/wikipedia/commons/2/24/Equifax.svg
+  ENPH (Enphase): https://upload.wikimedia.org/wikipedia/commons/2/2d/Enphase_logo.svg
+  EOG (EOG Resources): https://upload.wikimedia.org/wikipedia/commons/c/c7/EOG_Resources_logo.svg
+  EQIX (Equinix): https://upload.wikimedia.org/wikipedia/commons/f/f7/Equinix_logo.svg
+  ETN (Eaton Corporation): https://upload.wikimedia.org/wikipedia/commons/2/2b/Eaton_Corporation_logo.svg
+  FIS (FIS): https://upload.wikimedia.org/wikipedia/commons/8/83/FIS_logo.svg
+  FISV (Fiserv): https://upload.wikimedia.org/wikipedia/commons/0/00/Fiserv_Logo.svg
+  GME (GameStop Corp): https://upload.wikimedia.org/wikipedia/commons/3/38/GameStop_Logo.svg
+  HES (Hess Corporation): https://upload.wikimedia.org/wikipedia/commons/5/58/Hess_Corporation_Logo.svg
+  HOLX (Hologic): https://upload.wikimedia.org/wikipedia/commons/archive/2/27/20260620121529%21Hologic_logo.svg (the file's 2022-06-22 revision, sha1 ec7e16974ae1511cefac393589cfcf8b56e37a15)
+  HON (Honeywell): https://upload.wikimedia.org/wikipedia/commons/2/2a/Honeywell_logo.svg
+  HUM (Humana): https://upload.wikimedia.org/wikipedia/commons/0/0d/Humana_logo.svg
+  IBM (IBM): https://upload.wikimedia.org/wikipedia/commons/5/51/IBM_logo.svg
+  IONQ (IonQ): https://upload.wikimedia.org/wikipedia/commons/d/d4/IonQ_corp_logo.svg
+  IR (Ingersoll Rand): https://upload.wikimedia.org/wikipedia/commons/a/a4/Ingersoll_Rand_logo.svg
+  JACK (Jack in the Box Inc): https://upload.wikimedia.org/wikipedia/commons/4/42/Jack_in_the_Box_2022_logo.svg
+  KDP (Keurig Dr Pepper): https://upload.wikimedia.org/wikipedia/commons/3/35/Keurig_Dr_Pepper.svg
+  LHX (L3Harris Technologies): https://upload.wikimedia.org/wikipedia/commons/2/23/L3Harris_Technologies_logo.svg
+  LLY (Eli Lilly): https://upload.wikimedia.org/wikipedia/commons/2/2b/Eli_Lilly_and_Company.svg
+  LOW (Lowe's): https://upload.wikimedia.org/wikipedia/commons/2/2c/Lowes_Companies_Logo.svg
+  LUNR (Intuitive Machines): https://upload.wikimedia.org/wikipedia/commons/e/e3/Intuitive_Machines_dark-on-light.svg
+  MCHP (Microchip Technology): https://upload.wikimedia.org/wikipedia/commons/c/ca/Microchip-Logo.svg
+  MDLZ (Mondelez International): https://upload.wikimedia.org/wikipedia/commons/3/3b/Mondelez_International.svg
+  MMC (Marsh McLennan): https://upload.wikimedia.org/wikipedia/commons/a/a6/MarshMcLennan_h_rgb_c.svg
+  MPWR (Monolithic Power Systems): https://upload.wikimedia.org/wikipedia/commons/2/28/Monolithic_Power_Systems_Logo.svg
+  MSCI (MSCI): https://upload.wikimedia.org/wikipedia/commons/e/e1/MSCI_logo_2019.svg
+  MU (Micron): https://upload.wikimedia.org/wikipedia/commons/1/16/Micron_Technology_logo_2024.svg
+  NDAQ (Nasdaq): https://upload.wikimedia.org/wikipedia/commons/8/87/NASDAQ_Logo.svg
+  NEM (Newmont Corporation): https://upload.wikimedia.org/wikipedia/commons/2/25/Newmont_Corporation_-_Logo.svg (the file's only revision, 2023-02-26, sha1 a1d14f5e3d076939522e5ea9976fa28a9b9773e2: a Commons user's drawing of Newmont's logo that matches the logo newmont.com shows today, IoU 0.985; the mark is its symbol, the N with the gold triangle)
+  NIO (NIO Inc): https://upload.wikimedia.org/wikipedia/commons/c/ca/NIO_logo.svg
+  NOW (ServiceNow): https://upload.wikimedia.org/wikipedia/commons/5/57/ServiceNow_logo.svg
+  O (Realty Income): https://upload.wikimedia.org/wikipedia/commons/9/9b/Realty_Income_logo.svg
+  ORCL (Oracle): https://upload.wikimedia.org/wikipedia/commons/5/50/Oracle_logo.svg
+  OXY (Occidental Petroleum): https://upload.wikimedia.org/wikipedia/commons/3/37/Occidental-Petroleum-Logo.svg
+  PEP (PepsiCo): https://upload.wikimedia.org/wikipedia/commons/8/82/PepsiCo_%282025%2C_wordmark%29.svg
+  PG (Procter & Gamble): https://upload.wikimedia.org/wikipedia/commons/8/85/Procter_%26_Gamble_logo.svg
+  PLD (Prologis): https://upload.wikimedia.org/wikipedia/commons/5/5c/Prologis_Logo_Current.svg
+  PLUG (Plug Power): https://upload.wikimedia.org/wikipedia/commons/a/a0/Plug_Power_Logo.svg
+  PNC (PNC Financial): https://upload.wikimedia.org/wikipedia/commons/1/1b/PNClogo.svg
+  PZZA (Papa John's International): https://upload.wikimedia.org/wikipedia/commons/9/92/Papa_Johns_logo.svg
+  QCOM (Qualcomm): https://upload.wikimedia.org/wikipedia/commons/f/fc/Qualcomm-Logo.svg
+  REGN (Regeneron): https://upload.wikimedia.org/wikipedia/commons/4/48/Regeneron_logo.svg
+  RIVN (Rivian): https://upload.wikimedia.org/wikipedia/commons/3/3f/Rivian_logo_and_wordmark.svg
+  RKLB (Rocket Lab USA): https://upload.wikimedia.org/wikipedia/commons/c/cc/Rocket_Lab_logo.svg
+  SE (Sea Limited): https://upload.wikimedia.org/wikipedia/commons/5/56/Sea_Group_logo.svg
+  SNPS (Synopsys): https://upload.wikimedia.org/wikipedia/commons/6/6c/Synopsys_Logo.svg
+  SOFI (SoFi): https://upload.wikimedia.org/wikipedia/commons/1/16/SoFi_logo.svg
+  SPG (Simon Property Group): https://upload.wikimedia.org/wikipedia/commons/3/30/Simon_Property_Group_Logo_2014.svg
+  STT (State Street): https://upload.wikimedia.org/wikipedia/commons/6/65/State-street-logo-final.svg
+  SYF (Synchrony Financial): https://upload.wikimedia.org/wikipedia/commons/2/22/Synchrony_Financial_logo.svg
+  SYK (Stryker): https://upload.wikimedia.org/wikipedia/commons/7/79/Stryker_logo.svg
+  TROW (T. Rowe Price): https://upload.wikimedia.org/wikipedia/commons/6/6b/T._Rowe_Price_wordmark.svg
+  TSCO (Tractor Supply): https://upload.wikimedia.org/wikipedia/commons/8/86/TractorSupplyCompanylogo.svg
+  TWLO (Twilio): https://upload.wikimedia.org/wikipedia/commons/7/7e/Twilio-logo-red.svg
+  TXN (Texas Instruments): https://upload.wikimedia.org/wikipedia/commons/b/ba/TexasInstruments-Logo.svg
+  UNP (Union Pacific): https://upload.wikimedia.org/wikipedia/commons/d/de/Union_pacific_railroad_logo.svg
+  VRTX (Vertex Pharmaceuticals): https://upload.wikimedia.org/wikipedia/commons/1/1c/Vertex_logo.svg
+  WBD (Warner Bros. Discovery): https://upload.wikimedia.org/wikipedia/commons/6/64/Warner_Bros._Discovery.svg
+  WEX (WEX): https://upload.wikimedia.org/wikipedia/commons/7/79/WEX_logo.svg
+  WMT (Walmart): https://upload.wikimedia.org/wikipedia/commons/6/60/Walmart_spark_%282025%29.svg
+  YUM (Yum! Brands): https://upload.wikimedia.org/wikipedia/commons/5/59/Yum%21_Brands_logo.svg
+
+English Wikipedia: the official logo as uploaded to en.wikipedia.org (a non-free logo file there, not on Commons) (14):
+  AJG (Arthur J. Gallagher): https://upload.wikimedia.org/wikipedia/en/3/37/Arthur_J._Gallagher_%26_Co._logo.svg
+  ALB (Albemarle Corporation): https://upload.wikimedia.org/wikipedia/en/5/57/Albemarle_Corporation_Full-Color_Logo_with_Registered_Trademark.svg
+  CAKE (The Cheesecake Factory): https://upload.wikimedia.org/wikipedia/en/d/d4/The_Cheesecake_Factory_%28logo%2C_stacked%29.svg
+  CZR (Caesars Entertainment): https://upload.wikimedia.org/wikipedia/en/f/f6/Caesars_Entertainment_logo_2020.svg
+  DKNG (DraftKings): https://upload.wikimedia.org/wikipedia/en/a/a0/DraftKings_logo.svg
+  EXC (Exelon): https://upload.wikimedia.org/wikipedia/en/e/e3/Exelon_Logo.svg
+  FSLR (First Solar): https://upload.wikimedia.org/wikipedia/en/b/bb/First_Solar_logo.svg
+  KEY (KeyCorp): https://upload.wikimedia.org/wikipedia/en/7/78/KeyBank_logo.svg
+  KMI (Kinder Morgan): https://upload.wikimedia.org/wikipedia/en/2/2f/Kinder_Morgan_logo.svg
+  MELI (MercadoLibre): https://upload.wikimedia.org/wikipedia/en/f/fa/Mercado_Libre_logo_%28Spanish_version%29.svg
+  NTRS (Northern Trust): https://upload.wikimedia.org/wikipedia/en/e/e0/Northern_Trust_Corp._logo.svg
+  PRU (Prudential): https://upload.wikimedia.org/wikipedia/en/7/7e/Prudential_Financial.svg
+  TSM (TSMC): https://upload.wikimedia.org/wikipedia/en/6/63/Tsmc.svg
+  VLO (Valero Energy): https://upload.wikimedia.org/wikipedia/en/3/3b/Valero_Energy_logo.svg
+
+TradingView symbol logos (s3-symbol-logo.tradingview.com, the service the app already uses), each checked against the company's own current mark (7):
+  AMP (Ameriprise Financial): https://s3-symbol-logo.tradingview.com/ameriprise-financial.svg
+  BYND (Beyond Meat Inc): https://s3-symbol-logo.tradingview.com/beyond-meat.svg
+  LULU (Lululemon): https://s3-symbol-logo.tradingview.com/lululemon-athletica.svg
+  MLCO (Melco Resorts): https://s3-symbol-logo.tradingview.com/melco.svg
+  MNST (Monster Beverage): https://s3-symbol-logo.tradingview.com/monster-beverage.svg
+  NEE (NextEra Energy): https://s3-symbol-logo.tradingview.com/nextera-energy.svg
+  RF (Regions Financial): https://s3-symbol-logo.tradingview.com/regions-financial.svg
+
+The company's own website icon font: the glyph the site draws its logo with (the official shapes, taken from the font) (2):
+  MDT (Medtronic): https://www.medtronic.com/etc.clientlibs/medtronic/clientlibs/clientlib-site/resources/fonts/icomoon/icomoon.ttf (glyph U+E965 = the header logo, class icon-medtronic-logo)
+  NVO (Novo Nordisk): https://www.novonordisk.com/etc.clientlibs/nncorp/clientlibs/clientlib-site/resources/fonts/icomoon.ttf?flv01o (glyph U+E956, the site's current logo, CSS .icon-logo-blue-v2)
+
+The company's own website, press file or CDN (a note after the URL says which part of that file the mark is) (106):
+  ADBE (Adobe): https://www.adobe.com/content/dam/cc/icons/Adobe_Corporate_Horizontal_Red_HEX.svg
+  ADI (Analog Devices): https://wiki.analog.com/lib/tpl/analog2014/assets/images/adi-logo.svg
+  AEP (American Electric Power): https://www.aep.com/logos/aep-logo-red-gray.svg
+  AIG (AIG): https://www.aig.com/content/dam/global/site-level-elements/logo/aig-logo1.svg (AIG's own logo SVG in aig.com's site assets, the whole file: the box and the AIG letters; taken from the Internet Archive's copy of 2022-01-29)
+  ALL (Allstate): https://www.allstate.com/ (inline brand-bar logo SVG: the hands in the oval)
+  ALLY (Ally Financial): https://www.ally.com/ (inline header SVG, 'Ally Logo')
+  AMAT (Applied Materials): https://www.appliedmaterials.com/content/dam/applied-materials/image/favicon/favicon.svg
+  AMC (AMC Entertainment Holdings): https://d1io3yog0oux5.cloudfront.net/_60e2e3fc636ec8d3e29e66a1fec50310/amctheatres/files/theme/images/favicons/safari-pinned-tab.svg
+  AMT (American Tower): https://www.americantower.com/sites/default/modules/custom/application_leasing_process/Icons/americantower-logo.svg (American Tower's own logo SVG: the A-tower symbol, its polyline and polygon; taken from the Internet Archive's copy of 2025-06-18, as americantower.com answers 403 to scripted fetches)
+  AON (Aon): https://www.aon.com/lib/icons/symbol-defs.svg#aon-logo
+  APO (Apollo Global): https://www.apollo.com/ (inline header logo SVG; apollo.com's own icon is this A: /etc.clientlibs/apolloaem/clientlibs/clientlib-site/resources/icons/apollo.png)
+  APP (AppLovin Corp): https://www.applovin.com/ (inline header SVG, 'AppLovin home'; same mark as https://www.applovin.com/icon.svg)
+  ASML (ASML): https://www.asml.com/images/icons/asml-logo.svg
+  BIIB (Biogen): https://www.biogen.com/content/dam/corporate/international/global/en-US/global/logos/biogen-logo-colour-2025.svg
+  BILL (Bill.com): https://cdn.prod.website-files.com/63e3da3df35cd62f54751985/649488c838360d22ac08b864_bill-logo.svg
+  BLMN (Bloomin' Brands): https://www.bloominbrands.com/resourcepackages/bloominbrands/assets/dist/images/bbi-logo.svg
+  BMBL (Bumble Inc): https://bumble.com/bumble-brand-assets/favicon/safari-pinned-tab.svg
+  BROS (Dutch Bros Inc): https://www.dutchbros.com/_nuxt/footer_logo.BHNikE1L.svg
+  BSX (Boston Scientific): https://www.bostonscientific.com/content/dam/logo-bsc.svg
+  BX (Blackstone): https://www.blackstone.com/ (inline header logo SVG, .site-header__logo)
+  C (Citigroup): https://www.citigroup.com/global (header logo <img>, an SVG data URI)
+  CB (Chubb): https://www.chubb.com/content/dam/chubbredesignnext/chubb-logo-white.svg
+  CELH (Celsius Holdings): https://www.celsius.com/wp-content/themes/celsius/assets/images/favicons/safari-pinned-tab.svg
+  CFG (Citizens Financial): https://www.citizensbank.com/assets/CB_resources/images/cbds-logos/logo-citizens__horz-green.svg
+  CHWY (Chewy Inc): https://s23.q4cdn.com/610444331/files/design/logo.svg
+  CI (Cigna): https://www.thecignagroup.com/static/svgs/logos/tcg-sm-logo.svg
+  CLSK (CleanSpark): https://www.cleanspark.com/assets/v3/img/icon/safari-pinned-tab.svg
+  CMG (Chipotle Mexican Grill): https://www.chipotle.com/content/experience-fragments/chipotle/us/en/xf-header/master/_jcr_content/root/container_712714414/image_411084835.coreimg.svg/1689182077517/cmg-medallion-logo.svg
+  COTY (Coty): https://www.coty.com/ (inline header logotype SVG)
+  CRWD (CrowdStrike): https://assets.crowdstrike.com/is/content/crowdstrikeinc/CS_Logo_Falcon
+  CVNA (Carvana Co): https://assets.fastly.carvana.io/partner-header-logos-assets/combo-desktop-carvana.svg
+  D (Dominion Energy): https://cdn-dominionenergy-prd-001.azureedge.net/-/media/project/dominionenergy/header/mobile-level2-logo.svg
+  DENN (Denny's Corp): https://s29.q4cdn.com/169433746/files/design/svg/Logo.svg
+  DG (Dollar General): https://www.dollargeneral.com/etc.clientlibs/dollargeneral/clientlibs/clientlib-site/resources/Icons/Wallet-icon/dg-sub-brand-logo-1.svg (its DG letters)
+  DLTR (Dollar Tree): https://corporate.dollartree.com/_assets/_4ab612a6cb576e251bab703ebce8196b/dollartreeinfo/files/theme/images/logo.svg
+  DOCU (DocuSign): https://www.docusign.com/assets/images/docusign-logo.svg
+  DUK (Duke Energy): https://www.duke-energy.com/-/media/images/common/logoduke.svg
+  EAT (Brinker International (Chili's)): https://investors.brinker.com/sites/g/files/knoqqb21471/themes/site/nir_pid1963/client/images/brinker_logo_mark.svg (Brinker's own symbol SVG on its investor site: the diamond, the fan and the two outer stars, with the rays and the inner star open as brinker.com's one-colour logo draws it; taken from the Internet Archive's copy of 2025-12-16)
+  ELF (e.l.f. Beauty): https://cdn.shopify.com/oxygen-v2/52705/112854/231813/4889681/assets/logo-yTU_Uur5.svg
+  EMR (Emerson Electric): https://www.emerson.com/is/content/emerson/emr-svg-transparent-logo
+  FCX (Freeport-McMoRan): https://www.fcx.com/themes/fcx/images/footer-logo.svg
+  FDS (FactSet Research): https://images.ctfassets.net/kd28algmhxt8/5qWi06DAuGWfvnsyXf6yR8/402bf1af0640c694215c5e3424a98afa/factset-logo_white.svg
+  GILD (Gilead Sciences): https://gilead.stylelabs.cloud/api/public/content/89749f3b535e4eebb8ae07c8e9607b17?v=bf06f14e
+  GIS (General Mills): https://www.generalmills.com/ (header inline svg #Layer_1)
+  GPN (Global Payments): https://d1io3yog0oux5.cloudfront.net/_2af5e3957dd97efe0ce1c8105360b2ce/globalpayments/files/theme/images/favicons/safari-pinned-tab.svg
+  GSAT (Globalstar): https://www.globalstar.com/en-us/ (inline header logo SVG; the emblem also at /getmedia/47d0333c-e181-4c27-8af4-eab1ecd5f330/globalstaremblemlogo.png)
+  HD (Home Depot): https://corporate.homedepot.com/themes/custom/bootstrap_thd/images/logo-site-header-homedepot.svg
+  HIG (Hartford Financial): https://assets.thehartford.com/image/upload/q_auto/logo.svg
+  HIMS (Hims & Hers Health): https://www.hims.com/ (inline header SVG, 'Home')
+  HSY (Hershey Company): https://www.thehersheycompany.com/content/dam/hershey-corporate/images/icons/the-hershey-company-logo.svg
+  ICE (Intercontinental Exchange): https://www.ice.com/index (header inline svg 'ICE Logo')
+  ISRG (Intuitive Surgical): https://isrg.intuitive.com/sites/g/files/knoqqb87176/themes/site/nir_pid2927/dist/media/svg--media/sprite-sheet-folder/icons-symbol.svg#icon_custom-i (title 'Intuitive-logo')
+  ITW (Illinois Tool Works): https://www.itw.com/images/ITW-logo---dk-gray.svg
+  IVZ (Invesco): https://www.invesco.com/etc.clientlibs/invesco/clientlib-global/clientlib/resources/images/logo-new.svg
+  JOBY (Joby Aviation): https://www.jobyaviation.com/ (inline header SVG, 'Go to homepage')
+  KKR (KKR): https://www.kkr.com/content/experience-fragments/kkr/sites/global/en/structural-fragments/header/master/_jcr_content/root/header/image.coreimg.svg/1793366753078/kkr-50th-dark-background.svg
+  KMB (Kimberly-Clark): https://www.kimberly-clark.com/-/media/feature/kcc/corporate/header/kimberlyclark.svg?rev=-1
+  KR (Kroger): https://s202.q4cdn.com/463742399/files/design/Kroger_FC_blue.svg
+  LMT (Lockheed Martin): https://www.lockheedmartin.com/content/dam/lockheed-martin/general/lm-logo.svg
+  LRCX (Lam Research): https://www.lamresearch.com/etc.clientlibs/lamresearch/clientlibs/clientlib-site/resources/images/sprite.svg#icon-logo
+  LRLCY (L'Oréal): https://www.loreal.com/en/ (header inline svg 'L'Oreal Groupe')
+  LYV (Live Nation Entertainment): https://d1io3yog0oux5.cloudfront.net/_b6d0250e568da665406e5883b11fcb79/livenationentertainment/files/theme/images/logo-white.svg
+  MARA (MARA Holdings): https://www.mara.com/ (navigation inline svg)
+  MCO (Moody's): https://www.moodys.com/web/en/us/v3/images/header/v3-header-logo.svg
+  MET (MetLife): https://www.metlife.com/content/dam/metlifecom/global/icons-header/MetLife_white.svg
+  MGM (MGM Resorts International): https://investors.mgmresorts.com/images/mgm-resorts-intl-logo.svg
+  MRNA (Moderna): https://www.modernatx.com/assets/favicons/safari-pinned-tab.svg
+  MRVL (Marvell): https://www.marvell.com/etc.clientlibs/marvell-com/clientlibs/clientlib-refresh/resources/images/marvell-logo.svg
+  MSTR (Strategy (MicroStrategy)): https://images.contentstack.io/v3/assets/bltf8d808d9b8cebd37/bltb585439c8353e389/67905f9d58fb6d4dd481146e/strategy_logo_black.svg
+  MTCH (Match Group): https://mtch.com/wp-content/uploads/2026/08/logo-footer.svg
+  NCNO (nCino): https://investor.ncino.com/ (the nCino logo SVG inlined in the page footer, fetched 2026-11-06)
+  NOC (Northrop Grumman): https://www.northropgrumman.com/ (inline svg 'Northrop Grumman Corporation Logo')
+  OMF (OneMain Financial): https://cdn.paw.onemainfinancial.com/assets/images/logos/onemain-vertical.svg
+  ON (ON Semiconductor): https://www.onsemi.com/images/logo/onsemi_logo_full_color.svg
+  PENN (PENN Entertainment): https://www.pennentertainment.com/ (inline header SVG, 'PENN Entertainment logo')
+  PFE (Pfizer): https://s206.q4cdn.com/795948973/files/design/logo-blue.svg
+  PFG (Principal Financial): https://www.principal.com/profiles/contrib/houston/modules/pfg_pds_core_integration/assets/nonbundled/components/6.19.0/esm/logo.D43G9_WF.js (pds-logo component, 'logoPSymbol' path)
+  PSX (Phillips 66): https://www.phillips66.com/wp-content/themes/phillips66-refresh/dist/images/brand-phillips-66.svg
+  QQQ (QQQ ETF): https://www.invesco.com/content/dam/invesco/qqq-etf/en/logo/QQQ.svg (the 'QQQ' letters of the fund's own Invesco QQQ logo file; the Invesco mountain alone would be Invesco's coin, the same as IVZ)
+  RCL (Royal Caribbean): https://www.royalcaribbeangroup.com/images/logo2.svg
+  RMD (ResMed): https://www.resmed.com/en-us/ (the page's SVG sprite, <symbol id="logo_resmed">)
+  RTX (RTX Corporation): https://prd-sc102-cdn.rtx.com/-/media/themes/raytheon-technologies/rtx-shared/rtx-theme/images/rtx_logo.svg?rev=57e660dbd2ee4ef6895a84799210c5bf&rid=a5829bdc17c74537842441a8a1b055f2
+  S (SentinelOne): https://www.sentinelone.com/next-assets/webui/logos/logo-sentinelone-dark.svg
+  SCHW (Charles Schwab): https://www.schwab.com/ (header logo: inline svg#logo_default, its displayed group)
+  SHAK (Shake Shack Inc): https://shakeshack.com/ (inline header SVG, 'site-logo')
+  SLB (SLB): https://www.slb.com/-/media/images/logo/slb_logo_white_tm.svg
+  SO (Southern Company): https://www.southerncompany.com/content/dam/southerncompany/logos/southern_company_logo_dark_text_horizontal.svg
+  SPCE (Virgin Galactic): https://images.ctfassets.net/8nw3pbyxv03r/5PrljbIcQa9Bx55vwOebYu/e9f58a3c712d1334b3dccd6226c7c8e6/Shape.svg
+  SPGI (S&P Global): https://s29.q4cdn.com/690959130/files/images/irw/sp-logo.svg (investor.spglobal.com's .logo)
+  SQ (Block): https://block.xyz/ (inline #blockLogo SVG, aria-label 'Block Logo'; the nav logo draws the same 3 x 3 grid)
+  SSNC (SS&C Technologies): https://www.ssctech.com/hubfs/website/logos/brand-logo-blue.svg
+  STZ (Constellation Brands): https://www.cbrands.com/cdn/shop/files/Group.svg?v=1732537289
+  SWKS (Skyworks Solutions): https://www.skyworksinc.com/-/media/SkyWorks/Images/Logo/Skyworks-Vector-Logo.svg
+  TFC (Truist Financial): https://static.truist.com/content/dam/global-images/truist-logo-purple.svg
+  TJX (TJX Companies): https://www.tjx.com/ResourcePackages/Bootstrap5/assets/dist/images/tjx-logo-mobile.svg
+  TOST (Toast): https://d2a0efs422ycyj.cloudfront.net/main/1793401567181/public/svg/img-toast-logo.svg
+  TRV (Travelers): https://www.travelers.com/ClientResources/tds-icons/assets/icons/logos/symbol-sprites.svg#trv-logo-umbrella-black
+  TTD (The Trade Desk): https://www.thetradedesk.com/ (header inline svg)
+  ULTA (Ulta Beauty): https://www.ulta.com/ (header inline svg 'Go to Ulta Beauty homepage')
+  UPST (Upstart): https://www.upstart.com/ (the page's SVG sprite, <symbol id="UPSTART_NAV_LOGO">)
+  USB (U.S. Bancorp): https://www.usbank.com/etc.clientlibs/ecm-global/clientlibs/clientlib-resources/resources/images/svg/logo-personal.svg
+  VEEV (Veeva Systems): https://www.veeva.com/wp-content/themes/veeva2015/assets/veeva-2024/veeva-logo-white.svg
+  WDAY (Workday): https://www.workday.com/content/dam/web/zz/images/logos/workday/workday-logo.svg
+  WYNN (Wynn Resorts): https://investors.wynnresorts.com/sites/g/files/knoqqb93881/themes/site/client_site_202/dist/images/wynn-logo.svg
+  XOM (Exxon Mobil): https://corporate.exxonmobil.com/-/media/global/icons/footer/sites/logo-exxonmobil-main.svg
+  ZS (Zscaler): https://www.zscaler.com/ (inline header logo SVG, #header-zscaler-logo)

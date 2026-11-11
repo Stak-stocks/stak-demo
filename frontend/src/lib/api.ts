@@ -3,6 +3,17 @@ import { getTodayKey } from "./utils";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
+export class ApiError extends Error {
+	constructor(
+		public readonly status: number,
+		statusText: string,
+		public readonly code?: string,
+	) {
+		super("API error: " + status + " " + statusText);
+		this.name = "ApiError";
+	}
+}
+
 async function getAuthToken(): Promise<string | null> {
 	const user = auth.currentUser;
 	if (!user) return null;
@@ -30,15 +41,16 @@ async function apiRequest<T>(
 	});
 
 	if (!response.ok) {
-		throw new Error(`API error: ${response.status} ${response.statusText}`);
+		const body = await response.json().catch(() => null);
+		throw new ApiError(response.status, response.statusText, typeof body?.code === "string" ? body.code : undefined);
 	}
 
 	return response.json();
 }
 
 // User profile
-export function getProfile() {
-	return apiRequest<{ uid: string; email: string; displayName: string; phone?: string; preferences: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean }>("/api/me");
+export function getProfile(options: Pick<RequestInit, "signal"> = {}) {
+	return apiRequest<{ uid: string; email: string; displayName: string; phone?: string; preferences: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean }>("/api/me", options);
 }
 
 export function updateProfile(data: { displayName?: string; phone?: string; preferences?: Record<string, unknown> & { interests?: string[] }; onboardingCompleted?: boolean }) {
@@ -157,10 +169,6 @@ export function searchNews(query: string) {
 	return apiRequest<{ articles: import("@stak/shared").NewsArticle[] }>(
 		`/api/news/search?q=${encodeURIComponent(query)}`,
 	);
-}
-
-export function getIntelCards() {
-	return apiRequest<{ cards: import("@/data/intelCards").IntelCard[] | null }>("/api/intel-cards");
 }
 
 export function getIntelState() {

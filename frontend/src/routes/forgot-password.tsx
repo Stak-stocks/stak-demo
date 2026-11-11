@@ -25,6 +25,7 @@ function ForgotPasswordPage() {
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
+		if (sending) return;
 		if (!isEmail(email)) {
 			setError("Enter the email you signed up with");
 			return;
@@ -32,8 +33,9 @@ function ForgotPasswordPage() {
 		setSending(true);
 		try {
 			await resetPassword(email.trim());
+			// Recovery has no authored transition: show its existing confirmation instantly.
 			toast.success("Reset email sent!");
-			navigate({ to: "/check-email", search: { email: email.trim() } });
+			navigate({ to: "/check-email", search: { email: email.trim() }, viewTransition: false });
 		} catch (err: unknown) {
 			setError(authErrorMessage(err, "Could not send the reset email. Try again."));
 		} finally {
@@ -42,7 +44,7 @@ function ForgotPasswordPage() {
 	}
 
 	return (
-		<AuthLayout formTop={372} backTo="/login">
+		<AuthLayout formTop={372} backTo="/login" backTransition={false}>
 			<form onSubmit={handleSubmit} noValidate className="flex w-full flex-col items-start gap-[30px]">
 				<div className="flex w-full flex-col items-start">
 					<AuthHeading title="Forgot your password?" subtitle="Enter the email you signed up with and we’ll send a reset link." />
@@ -62,12 +64,13 @@ function ForgotPasswordPage() {
 					/>
 					<FieldError>{error}</FieldError>
 				</div>
+				{/* 2:1274: the canon draws "Send reset link" in Figma's 99-wide text box (CANON_LABELS) */}
 				<PrimaryButton type="submit" disabled={sending} aria-busy={sending}>
 					{sending ? "Sending…" : "Send reset link"}
 				</PrimaryButton>
 			</form>
 			<div className="flex flex-col items-center justify-center">
-				<FootRow text="Remembered it?" linkLabel="Sign in" to="/login" />
+				<FootRow text="Remembered it?" textWidth={91} linkLabel="Sign in" linkWidth={39} to="/login" viewTransition={false} />
 			</div>
 		</AuthLayout>
 	);

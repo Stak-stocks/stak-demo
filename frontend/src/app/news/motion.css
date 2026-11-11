@@ -1,0 +1,51 @@
+/*
+ * News motion, from the prototype's wiring of these screens (the phone page carries it; the desktop News frames have
+ * no reactions of their own):
+ * - "View in My STAK" after a save (phone "News detail · Save success" 1:1599 -> My STAK Overview 1:3501): PUSH to
+ *   the left, 300 ms, ease-out (Figma's EASE_OUT, cubic-bezier(0, 0, 0.58, 1)): the destination slides in from the
+ *   right while the article slides out to the left.
+ * It runs as a typed view transition (the router's `viewTransition.types`, src/app/news/motion.ts), so these rules only
+ * apply while it runs; reduced motion keeps the app's `animation: none` (styles.css).
+ */
+@media (prefers-reduced-motion: no-preference) {
+	html:active-view-transition-type(stak-news-push)::view-transition-old(root) {
+		animation: 300ms cubic-bezier(0, 0, 0.58, 1) both stak-news-push-out;
+		mix-blend-mode: normal;
+	}
+	html:active-view-transition-type(stak-news-push)::view-transition-new(root) {
+		animation: 300ms cubic-bezier(0, 0, 0.58, 1) both stak-news-push-in;
+		mix-blend-mode: normal;
+	}
+}
+
+/*
+ * The article hero's play mark while its clip is on the way (from the press to the first frame; the review of
+ * 2026-11-09 found the wait's only sign, the mark at 60%, too weak over light posters): the mark, Figma's own Polygon 1,
+ * breathes between dim and full, a little under a second each way. It is the route's own dimmed mark that moves: under
+ * reduced motion nothing here applies and the mark holds its 60%.
+ */
+@media (prefers-reduced-motion: no-preference) {
+	.stak-news-waiting {
+		animation: 900ms cubic-bezier(0.42, 0, 0.58, 1) infinite alternate stak-news-waiting;
+	}
+}
+
+@keyframes stak-news-waiting {
+	from {
+		opacity: 0.3;
+	}
+	to {
+		opacity: 0.96;
+	}
+}
+
+@keyframes stak-news-push-out {
+	to {
+		transform: translateX(-100%);
+	}
+}
+@keyframes stak-news-push-in {
+	from {
+		transform: translateX(100%);
+	}
+}

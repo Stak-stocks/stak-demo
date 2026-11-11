@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
-import { AppShell } from "@/app/AppShell";
+import { AppShell, loadingFrameFor } from "@/app/AppShell";
 import { DeckSkeleton } from "@/app/discover/DeckSkeleton";
 import { HomeSkeleton } from "@/app/home/HomeSkeleton";
 import { type CatalogFailure, catalogFailure, useCatalog } from "@/app/live/catalog";
@@ -21,7 +21,8 @@ export const Route = createFileRoute("/_app")({
 function AppLayout() {
 	const live = useLive();
 	const catalog = useCatalog();
-	const { pathname } = useLocation();
+	const { pathname, search } = useLocation();
+	const example = (pathname.startsWith("/stocks/") || /^\/discover\/?$/.test(pathname)) && (search as Record<string, unknown>).variant === "example";
 	const navigate = useNavigate();
 	const wasSignedIn = useRef(false);
 
@@ -36,7 +37,7 @@ function AppLayout() {
 
 	const ready = live.ready && catalog === "ready";
 	return (
-		<AppShell>
+		<AppShell loading={!ready && catalog !== "failed"}>
 			{ready ? (
 				<Outlet />
 			) : catalog === "failed" ? (
@@ -46,18 +47,23 @@ function AppLayout() {
 					<p role="status" className="sr-only">
 						Loading the company catalog
 					</p>
-					<RouteSkeleton pathname={pathname} />
+					<RouteSkeleton pathname={pathname} example={example} />
 				</>
 			)}
 		</AppShell>
 	);
 }
 
-/** The authored loading frames (Home 2:8317 group, deck, stock detail); other routes stay blank for the moment auth takes. */
-function RouteSkeleton({ pathname }: { pathname: string }) {
-	if (pathname.startsWith("/discover")) return <DeckSkeleton />;
-	if (pathname.startsWith("/stocks/")) return <StockDetailSkeleton />;
-	if (pathname.startsWith("/home")) return <HomeSkeleton />;
+/**
+ * The authored loading frames (10 States: Home 2:1991, Deck 2:2305, Stock detail 2:2113), skeleton rail included
+ * (AppShell); other routes (End of deck 2:3422 and the EXAMPLE layouts, the deck and the stock pages, which have no
+ * loading frame) stay blank for the moment auth takes.
+ */
+function RouteSkeleton({ pathname, example }: { pathname: string; example: boolean }) {
+	const frame = loadingFrameFor(pathname, example);
+	if (frame === "discover") return <DeckSkeleton />;
+	if (frame === "stock") return <StockDetailSkeleton />;
+	if (frame === "home") return <HomeSkeleton />;
 	return null;
 }
 
@@ -67,7 +73,8 @@ function RouteSkeleton({ pathname }: { pathname: string }) {
  */
 function CatalogFailed({ reason }: { reason: CatalogFailure | null }) {
 	return (
-		<div role="alert" className="flex w-[360px] flex-col items-start gap-[16px] pt-[8px]">
+		// below 1024 the 360 block is the column's width, at most 360 (SPEC R3): a phone column is 288-358 wide
+		<div role="alert" className="flex w-[360px] flex-col items-start gap-[16px] pt-[8px] max-lg:w-full max-lg:max-w-[360px]">
 			<p className="font-sora text-[18px] font-semibold leading-[23px] text-white">
 				{reason === "timeout" ? "The company catalog is taking too long to load" : "Could not load the company catalog"}
 			</p>

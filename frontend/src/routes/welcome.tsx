@@ -9,11 +9,6 @@ export const Route = createFileRoute("/welcome")({
 /* ─── ASSETS (downloaded from Figma to /public/images/landing-v2/) ──── */
 const A = {
 	// Hero
-	box3d: "/images/landing-v2/hero-box-3d.png",
-	gif: "/images/landing-v2/hero-gif.gif",
-	gifAlpha: "/images/landing-v2/hero-gif-alpha.png",
-	boxBeamComposite: "/images/landing-v2/hero-beam-composite-2xb.png",
-	boxFlareComposite: "/images/landing-v2/hero-flare-composite-2xb.png",
 	boxV3: "/images/landing-v2/hero-box-v3-dt-2x.png",
 	boxV3p: "/images/landing-v2/hero-box-v3-p390-2x.png",
 	hiwD1: "/images/landing-v2/hiw-d-1-2x.png",
@@ -37,22 +32,6 @@ const A = {
 	featDeckP: "/images/landing-v2/feat-p-c-2x.png",
 	featSimP: "/images/landing-v2/feat-p-d-2x.png",
 	featIntelP: "/images/landing-v2/feat-p-a-2x.png",
-	boxFlap1: "/images/landing-v2/hero-box-flap-1.svg",
-	boxFlap2: "/images/landing-v2/hero-box-flap-2.svg",
-	boxFlap3: "/images/landing-v2/hero-box-flap-3.svg",
-	boxFlap4: "/images/landing-v2/hero-box-flap-4.svg",
-	boxFlap5: "/images/landing-v2/hero-box-flap-5.svg",
-	boxGlow: "/images/landing-v2/hero-box-glow.svg",
-	inner111: "/images/landing-v2/hero-inner-111.svg",
-	innerVec7: "/images/landing-v2/hero-inner-vec7.svg",
-	inner113: "/images/landing-v2/hero-inner-113.svg",
-	inner114: "/images/landing-v2/hero-inner-114.svg",
-	brandAmazon: "/images/landing-v2/hero-brand-amazon.png",
-	brandNvidia: "/images/landing-v2/hero-brand-nvidia.png",
-	brandTwitch: "/images/landing-v2/hero-brand-twitch.png",
-	brandShopify: "/images/landing-v2/hero-brand-shopify.png",
-	brandGoogle: "/images/landing-v2/hero-brand-google.png",
-	brandApple: "/images/landing-v2/hero-brand-apple.png",
 	ellipse108: "/images/landing-v2/hero-ellipse-108.svg",
 	ellipse109: "/images/landing-v2/hero-ellipse-109.svg",
 	pillDot: "/images/landing-v2/hero-pill-dot.svg",
@@ -63,10 +42,6 @@ const A = {
 	// Social proof
 	proofAmplitude: "/images/landing-v2/proof-amplitude.svg",
 	proofSpotify: "/images/landing-v2/proof-spotify.svg",
-	proofBlockWallet1: "/images/landing-v2/proof-blockwallet-1.svg",
-	proofBlockWallet2: "/images/landing-v2/proof-blockwallet-2.svg",
-	proofBrex1: "/images/landing-v2/proof-brex-1.svg",
-	proofBrex2: "/images/landing-v2/proof-brex-2.svg",
 	proofBwIcon: "/images/landing-v2/proof-bw-icon.svg",
 	proofBwWord: "/images/landing-v2/proof-bw-word.svg",
 	proofBrexMain: "/images/landing-v2/proof-brex-main.svg",
@@ -87,12 +62,6 @@ const A = {
 	navClose: "/images/landing-v2/nav-close.svg",
 	// Problem
 	problemApp: "/images/landing-v2/problem-app-composite.png",
-	problemEllipse: "/images/landing-v2/problem-ellipse.svg",
-	// How It Works
-	hiwEllipse1: "/images/landing-v2/hiw-ellipse-1.svg",
-	hiwEllipse2: "/images/landing-v2/hiw-ellipse-2.svg",
-	// Features (phone mockup parts)
-	featVec: "/images/landing-v2/feat-iphone-vec.svg",
 	// Early Momentum
 	emAvatar: "/images/landing-v2/em-avatar.jpg",
 	emStatArrow: "/images/landing-v2/em-stat-arrow.svg",
@@ -101,7 +70,6 @@ const A = {
 	faqMinus: "/images/landing-v2/faq-minus.svg",
 	faqDivider: "/images/landing-v2/faq-divider.svg",
 	// Final CTA marquee
-	ctaMask: "/images/landing-v2/cta-mask.svg",
 	ctaTile1: "/images/landing-v2/cta-tile-1.jpg",
 	ctaTile2: "/images/landing-v2/cta-tile-2.jpg",
 	ctaTile3: "/images/landing-v2/cta-tile-3.jpg",
@@ -112,13 +80,11 @@ const A = {
 	ctaTile8: "/images/landing-v2/cta-tile-8.jpg",
 	ctaTile9: "/images/landing-v2/cta-tile-9.jpg",
 	// Footer
-	footerWatermark: "/images/landing-v2/footer-stak-watermark.png",
 	footerLogoIcon: "/images/landing-v2/footer-logo-icon.svg",
 	footerLogoWord: "/images/landing-v2/footer-logo-wordmark.svg",
 	footerPlay: "/images/landing-v2/footer-playstore.svg",
 	footerPlayText: "/images/landing-v2/footer-playstore-text.svg",
 	footerApple: "/images/landing-v2/footer-apple.svg",
-	footerDivider: "/images/landing-v2/footer-divider.svg",
 };
 
 /* ─── FONTS ─────────────────────────────────────────────────────────── */
@@ -475,16 +441,6 @@ function Hero({ onLogin, onSignup, onScrollTo }: { onLogin: () => void; onSignup
 				</div>
 			</div>
 		</section>
-	);
-}
-
-function ProofLogo({ width, height, label, multi }: { width: number; height: number; label: string; multi: string[] }) {
-	return (
-		<div style={{ width, height, position: "relative", overflow: "hidden" }} aria-label={label}>
-			{multi.map((src, i) => (
-				<img key={i} src={src} alt={i === 0 ? label : ""} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />
-			))}
-		</div>
 	);
 }
 
@@ -985,7 +941,7 @@ function Faq({ onEmail }: { onEmail: () => void }) {
    tile has a specific size and offset per Figma — we don't use object-fit
    (which would center+crop) because each cell shows a deliberate slice
    of the source image. Masked tiles use a mask-image shape from
-   cta-mask.svg on top of the image. */
+   cta-mq-mask.svg (A.ctaMqMask) on top of the image. */
 const TILE_W = 347;
 const TILE_H = 186;
 const TILE_BG = "#172037";
@@ -1782,19 +1738,82 @@ function FooterUsefulLinks({ onScrollTo }: { onScrollTo: (k: keyof typeof SEC) =
 const MOBILE_WIDTH = 810;
 const MOBILE390_WIDTH = 390;
 
-function MobileNavBar({ width = 650, left = 80.367, padX = 16.4, onScrollTo, onSignup }: { width?: number; left?: number; padX?: number; onScrollTo?: (k: keyof typeof SEC) => void; onSignup?: () => void } = {}) {
-	/* The taskbar component sets of 00 References (mobile 2:8111, tablet 2:8167). Closed =
-	   logo + hamburger only (Frames 220/222 have no nav CTA). The hamburger turns the bar into
-	   the authored menu panel in place — phone 330×292 (fixed), tablet 650×293.35 (hug): logo
-	   + close X, the four links (Sora 16, 20 apart) and the "Get started" button, which is the
-	   only place onSignup is used. The Figma's fourth link reads "Blog"; it stays "FAQ" here
-	   (standing override: there is no blog page). */
-	const phone = width < 400;
+/* ─── TASKBAR: 00 References "mobile taskbar" 2:8111 and "Tablet taskbar" 2:8167 ─────────────── */
+/* Figma's own SVG exports of the taskbar's vector layers (get_design_context, 2026-10-18). The four "White Logo 1"
+   frames export the same mark, and the two hamburgers and the two X's are byte-identical, so one file serves each;
+   the tablet's wordmark is its own export (64.6451 wide, the phone's 64.6452). */
+const TB_ASSET = {
+	logoMark: "/figma/ref-taskbar/white-logo-1-group__2-8117.svg",
+	wordPhone: "/figma/ref-taskbar/white-logo-1-group__2-8127.svg",
+	wordTablet: "/figma/ref-taskbar/white-logo-1-group__2-8218.svg",
+	menu: "/figma/ref-taskbar/frame-217__2-8132.svg",
+	close: "/figma/ref-taskbar/frame-242__2-8155.svg",
+};
+/* The sets' four reactions (hamburger 2:8132 / 2:8223 -> open, X 2:8155 / 2:8189 -> closed) are all ON_CLICK ·
+   CHANGE_TO · SMART_ANIMATE · EASE_OUT · 0.3 s; Figma's EASE_OUT is cubic-bezier(0, 0, 0.58, 1). Smart Animate moves
+   and resizes the layers both variants share (same name under the same parent) and dissolves the rest, so every
+   layer of both variants stays mounted here and transitions between its two states. prefers-reduced-motion drops
+   the transitions (LandingPage's <style>). */
+const TB_EASE = "cubic-bezier(0, 0, 0.58, 1)";
+const tbMove = (...props: string[]) => props.map((p) => `${p} 300ms ${TB_EASE}`).join(", ");
+/** A layer only one variant has: it dissolves; hidden, it leaves the tab order and the accessibility tree. */
+const tbFade = (on: boolean): CSSProperties => ({ opacity: on ? 1 : 0, visibility: on ? "visible" : "hidden", transition: tbMove("opacity", "visibility") });
+/* "Get started" (Frame 45, 2:8165 / 2:8200): #2c9dbc under a linear gradient rgba(169,219,234,.82) -> #3c98b4 from
+   8.889% to 44.444% of its height, r 5.781, five drop shadows (82,170,199), and a 0.3613 OUTSIDE stroke whose gradient
+   runs rgba(101,158,173,.63) -> rgba(22,54,63,.43) from h/30 above the top edge to the bottom edge (an SVG ring: a CSS
+   border snaps to a whole pixel and a box-shadow cannot take a gradient). The shadows are the drop-shadow chain Figma's
+   own code export writes (each blur radius / 2): measured against Figma's render, Chrome's box-shadow draws this glow
+   about a third weaker, the chain within one level. Figma blends a gradient's stops in straight alpha and CSS in
+   premultiplied alpha, so the fill is Figma's stack flattened (stops at every eighth of the gradient, each one
+   0.82..1 of the stop colour over #2c9dbc, within 0.08 of a level) and the stroke's stops are interpolated likewise. */
+const TB_CTA_FILL =
+	"linear-gradient(180deg, rgb(146.76, 208.03, 225.85) 8.8889%, rgb(138.07, 202.35, 221.19) 13.3333%, rgb(128.76, 196.29, 216.22) 17.7778%, rgb(118.84, 189.86, 210.94) 22.2222%, rgb(108.3, 183.04, 205.36) 26.6667%, rgb(97.15, 175.85, 199.48) 31.1111%, rgb(85.38, 168.28, 193.29) 35.5556%, rgb(73, 160.33, 186.8) 40%, rgb(60, 152, 180) 44.4444%)";
+const TB_CTA_GLOW =
+	"drop-shadow(0px 77.3215px 10.8395px rgba(82,170,199,0)) drop-shadow(0px 49.8616px 9.7555px rgba(82,170,199,0.01)) drop-shadow(0px 28.1826px 8.3103px rgba(82,170,199,0.05)) drop-shadow(0px 12.2847px 6.1424px rgba(82,170,199,0.09)) drop-shadow(0px 2.8905px 3.2518px rgba(82,170,199,0.1))";
+/* Frame 1's four text boxes (Sora Regular 16, AUTO line height: 20px boxes 20 apart): Home 49, Features 70, How It Works
+   119 (the Figma text ends in three no-break spaces); the fourth, "Blog" in the Figma, stays "FAQ" (standing override:
+   there is no blog page) at its own width. */
+const TB_LINKS: [string, keyof typeof SEC, number | undefined][] = [
+	["Home", "hero", 49],
+	["Features", "features", 70],
+	["How It Works", "howItWorks", 119],
+	["FAQ", "faq", undefined],
+];
+/* The sets define no hover, pressed or focus variant for any layer: the controls answer with the cursor alone (no tap
+   flash either), and keyboard focus keeps the browser's focus ring. */
+const tbButton: CSSProperties = { ...btnReset, WebkitTapHighlightColor: "transparent", cursor: "pointer" };
+type TaskbarBox = { x: number; y: number; w: number; h: number };
+/* Where the reaction layer sits in the panel: the hamburger (Frame 217) when closed, the X (Frame 242) when open. */
+const TB_TOGGLE: Record<"phone" | "tablet", { closed: TaskbarBox; open: TaskbarBox }> = {
+	phone: { closed: { x: 10 + 278.2585, y: 12 + 3.8559, w: 31.9219, h: 14.1875 }, open: { x: 9.9098 + 287.2585, y: 12, w: 22.2688, h: 22.2656 } },
+	tablet: { closed: { x: 16.4098 + 585.2585, y: 12 + 3.8559, w: 31.9219, h: 14.1875 }, open: { x: 10 + 11.2363 + 585.2585, y: 12 + 12, w: 22.2688, h: 22.2656 } },
+};
+
+/* "White Logo 1" (2:8114 / 2:8137 / 2:8205 / 2:8171): a 90.2585 × 21.8993 frame that clips, the mark (Group 2:8117) at
+   (-0.0152, -0.0045) and the wordmark (Group 2:8127 / 2:8218) at (25.602, 4.7672). Every taskbar image is given its
+   export's own width and height: Chrome truncates the natural size of an SVG whose size is fractional (64.6452 -> 64.547). */
+function TaskbarLogo({ word, style }: { word: string; style?: CSSProperties }) {
+	return (
+		<div role="img" aria-label="STAK" style={{ position: "absolute", width: 90.2585, height: 21.8993, overflow: "hidden", ...style }}>
+			<img src={TB_ASSET.logoMark} alt="" style={{ position: "absolute", left: -0.0152, top: -0.0045, width: 21.8993, height: 21.8988, display: "block", maxWidth: "none" }} />
+			<img src={word} alt="" style={{ position: "absolute", left: 25.602, top: 4.7672, width: word === TB_ASSET.wordTablet ? 64.6451 : 64.6452, height: 12.3912, display: "block", maxWidth: "none" }} />
+		</div>
+	);
+}
+
+function MobileNavBar({ layout, left, onScrollTo, onSignup }: { layout: "phone" | "tablet"; left: number; onScrollTo?: (k: keyof typeof SEC) => void; onSignup?: () => void }) {
+	/* The landing page's top bar and its menu, as the taskbar component sets of 00 References draw them: phone
+	   "Frame 215" 2:8112 (330.18 × 45.9) <-> "Frame 240" 2:8135 (330 × 292); tablet 2:8203 (650 × 45.9) <-> 2:8168
+	   (650 × 293.35; the set names both "Property 1=Default", the reactions' destination ids tell them apart). Neither
+	   variant clips, so the button's glow spills below the open panel as in the Figma. The links scroll to their
+	   sections and "Get started" opens sign-up, the page's own wiring (the sets give those layers no reaction).
+	   `?menu=1` opens the panel on load. */
 	const menuOpenOnLoad = usePreviewParam("menu", "1");
 	const [menuOpen, setMenuOpen] = useState(menuOpenOnLoad);
 	const menuId = useId();
+	const strokeId = `tb-cta-stroke-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 	const toggleRef = useRef<HTMLButtonElement>(null);
-	/* Closing from inside the panel (Escape, a link) unmounts the focused control, so focus returns to the toggle. */
+	/* Closing from inside the panel (Escape, a link) hides the focused control, so focus returns to the toggle. */
 	const close = () => {
 		setMenuOpen(false);
 		toggleRef.current?.focus({ preventScroll: true });
@@ -1811,72 +1830,102 @@ function MobileNavBar({ width = 650, left = 80.367, padX = 16.4, onScrollTo, onS
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
 	}, [menuOpen]);
-	const logo = (
-		<div style={{ position: "relative", width: 90.259, height: 21.899, overflow: "hidden", flexShrink: 0 }}>
-			<div style={{ position: "absolute", inset: 0, width: "24.26%" }}>
-				<img src={A.logo1} alt="STAK" style={{ width: "100%", height: "100%", display: "block" }} />
-			</div>
-			<div style={{ position: "absolute", left: "28.38%", top: "21.77%", right: 0, bottom: "21.64%" }}>
-				<img src={A.logo2} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
-			</div>
-		</div>
-	);
-	/* One toggle for both states — the hamburger becomes the X in place — so focus and
-	   aria-expanded stay on the same control while the panel opens and closes. */
+	/* One toggle for both states, so focus and aria-expanded stay on one control. It covers the reaction layer of the
+	   state on screen; the hamburger and the X are the Figma layers drawn under it. */
+	const hit = TB_TOGGLE[layout][menuOpen ? "open" : "closed"];
 	const toggle = (
 		<button
 			ref={toggleRef}
 			type="button"
 			aria-label={menuOpen ? "Close menu" : "Menu"}
 			aria-expanded={menuOpen}
-			aria-controls={menuOpen ? menuId : undefined}
+			aria-controls={menuId}
 			onClick={() => setMenuOpen((o) => !o)}
-			style={{ ...btnReset, width: menuOpen ? 22.269 : 31.922, height: menuOpen ? 22.266 : 14.188, flexShrink: 0, cursor: "pointer" }}
-		>
-			<img src={menuOpen ? A.navClose : A.navMenu} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
-		</button>
+			style={{ ...tbButton, position: "absolute", left: hit.x, top: hit.y, width: hit.w, height: hit.h, zIndex: 1 }}
+		/>
 	);
-	/* "Frame 241": the 268-wide links column — four 20px lines 20 apart, then 26 to the button. */
+	/* "Frame 241": Frame 15 (268 wide) holding Frame 1's four links, then 26 below it Frame 16 (268 wide) holding the button. */
 	const links = (
-		<div id={menuId} style={{ width: 268, display: "flex", flexDirection: "column", alignItems: "flex-start", flexShrink: 0 }}>
-			<div style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "flex-start" }}>
-				{([["Home", "hero"], ["Features", "features"], ["How It Works", "howItWorks"], ["FAQ", "faq"]] as [string, keyof typeof SEC][]).map(([label, k]) => (
-					<button key={k} type="button" onClick={() => go(k)} style={{ ...btnReset, fontFamily: SR, fontWeight: 400, fontSize: 16, lineHeight: "20px", color: "#fff", textAlign: "left" }}>
-						{label}
-					</button>
-				))}
+		<div style={{ width: 268, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 26 }}>
+			<div style={{ width: 268, display: "flex", alignItems: "center" }}>
+				<div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 20 }}>
+					{TB_LINKS.map(([label, k, w]) => (
+						<button key={k} type="button" onClick={() => go(k)} style={{ ...tbButton, width: w, height: 20, fontFamily: SR, fontWeight: 400, fontSize: 16, lineHeight: "20px", color: "#fff", textAlign: "left" }}>
+							{label}
+						</button>
+					))}
+				</div>
 			</div>
-			<div style={{ marginTop: 26, width: "100%", display: "flex", alignItems: "center" }}>
+			<div style={{ width: 268, display: "flex", alignItems: "center" }}>
 				<button
 					type="button"
 					onClick={() => {
 						close();
 						if (onSignup) onSignup();
 					}}
-					style={{ ...btnReset, background: CTA_GRADIENT, boxShadow: "inset 0 0 0 0.361px rgba(101,158,173,0.63)", borderRadius: 5.781, height: 32.453, padding: "7.226px 14.453px", boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", filter: CTA_SHADOW, cursor: "pointer" }}
+					style={{ ...tbButton, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", padding: "7.2263px 14.4526px", borderRadius: 5.781, background: TB_CTA_FILL, filter: TB_CTA_GLOW }}
 				>
-					<span style={{ fontFamily: SR, fontWeight: 400, fontSize: 14.453, lineHeight: "18px", color: "#fff", whiteSpace: "nowrap" }}>Get started</span>
+					{/* the 84 × 18 text box of 2:8166 / 2:8201: Sora 14.4526, left-aligned, its baseline 14px down as in the Figma */}
+					<span style={{ display: "block", width: 84, height: 18, fontFamily: SR, fontWeight: 400, fontSize: 14.4526, lineHeight: "18px", color: "#fff", whiteSpace: "nowrap", textAlign: "left" }}>Get started</span>
+					<svg aria-hidden="true" width="114.9053" height="34.4526" style={{ position: "absolute", left: -1, top: -1, overflow: "visible", pointerEvents: "none" }}>
+						<defs>
+							<linearGradient id={strokeId} gradientUnits="userSpaceOnUse" x1="0" y1="-0.0818" x2="0" y2="33.4526">
+								<stop offset="0" stopColor="rgb(100.68, 157.71, 173.35)" stopOpacity="0.63" />
+								<stop offset="0.25" stopColor="rgb(80.92, 131.71, 145.64)" stopOpacity="0.58" />
+								<stop offset="0.5" stopColor="rgb(61.16, 105.71, 117.94)" stopOpacity="0.53" />
+								<stop offset="0.75" stopColor="rgb(41.4, 79.72, 90.23)" stopOpacity="0.48" />
+								<stop offset="1" stopColor="rgb(21.64, 53.72, 62.52)" stopOpacity="0.43" />
+							</linearGradient>
+						</defs>
+						<rect x="0.8193" y="0.8193" width="113.2666" height="32.8139" rx="5.9617" fill="none" stroke={`url(#${strokeId})`} strokeWidth="0.3613" />
+					</svg>
 				</button>
 			</div>
 		</div>
 	);
-	/* The header keeps one tree shape in every state (wrapper > row > logo + toggle), so the
-	   toggle is never remounted: closed = the 21.899 row, phone open = the 22.266 row, tablet
-	   open = the nested 630×45.899 bar (its own 12/10 padding) around a 607.527 row. */
-	const tabletOpen = menuOpen && !phone;
-	return (
-		<div style={{ position: "absolute", left, top: 26, width, zIndex: 20 }}>
-			<div
-				className="landing-taskbar"
-				style={{ width: "100%", height: menuOpen ? (phone ? 292 : 293.352) : 45.899, background: "#1a1d31", borderRadius: 10.752, overflow: menuOpen ? "hidden" : "visible", boxSizing: "border-box", padding: `12px ${menuOpen ? 10 : padX}px`, display: "flex", flexDirection: "column", alignItems: "center", gap: phone ? 38 : 25 }}
-			>
-				<div style={tabletOpen ? { width: "100%", height: 45.899, boxSizing: "border-box", padding: "12px 10px", display: "flex", justifyContent: "center", flexShrink: 0 } : { width: "100%", display: "flex", justifyContent: "center", flexShrink: 0 }}>
-					<div style={{ width: tabletOpen ? 607.527 : "100%", height: menuOpen ? 22.266 : 21.899, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-						{logo}
-						{toggle}
+	if (layout === "phone") {
+		return (
+			<div style={{ position: "absolute", left, top: 26, zIndex: 20 }}>
+				<div className="landing-taskbar" style={{ position: "relative", width: menuOpen ? 330 : 330.1804, height: menuOpen ? 292 : 45.8993, background: "#1a1d31", borderRadius: 10.7519, transition: tbMove("width", "height") }}>
+					{/* Frame 14 (2:8113 -> 2:8136) and its White Logo 1 are in both variants, so they move (gap 188 | 197); the
+					    hamburger and the X are each in one variant only, so they dissolve. */}
+					<div style={{ position: "absolute", left: menuOpen ? 9.9098 : 10, top: 12, width: 310.1804, height: menuOpen ? 22.2656 : 21.8993, transition: tbMove("left", "height") }}>
+						<TaskbarLogo word={TB_ASSET.wordPhone} style={{ left: 0, top: menuOpen ? 0.1832 : 0, transition: tbMove("top") }} />
+						<img src={TB_ASSET.menu} alt="" style={{ position: "absolute", left: 278.2585, top: 3.8559, width: 31.9219, height: 14.1875, display: "block", maxWidth: "none", ...tbFade(!menuOpen) }} />
+						<img src={TB_ASSET.close} alt="" style={{ position: "absolute", left: 287.2585, top: 0, width: 22.2688, height: 22.2656, display: "block", maxWidth: "none", ...tbFade(menuOpen) }} />
+					</div>
+					{toggle}
+					<div id={menuId} style={{ position: "absolute", left: 31, top: 72.2656, ...tbFade(menuOpen) }}>
+						{links}
 					</div>
 				</div>
-				{menuOpen && (phone ? links : <div style={{ width: 604.269, display: "flex", alignItems: "flex-start", flexShrink: 0 }}>{links}</div>)}
+			</div>
+		);
+	}
+	return (
+		<div style={{ position: "absolute", left, top: 26, zIndex: 20 }}>
+			<div className="landing-taskbar" style={{ position: "relative", width: 650, height: menuOpen ? 293.3519 : 45.8993, background: "#1a1d31", borderRadius: 10.7519, transition: tbMove("height") }}>
+				{/* "Tablet taskbar" 2:8169: the open variant's own 630 × 45.899 bar (#1a1d31, r 10.752) with Frame 14 2:8170
+				    (logo + X, gap 495); the closed variant has no such layer, so it dissolves. */}
+				<div style={{ position: "absolute", left: 10, top: 12, width: 630, height: 45.8993, background: "#1a1d31", borderRadius: 10.7519, ...tbFade(menuOpen) }}>
+					<div style={{ position: "absolute", left: 11.2363, top: 12, width: 607.5273, height: 22.2656 }}>
+						<TaskbarLogo word={TB_ASSET.wordTablet} style={{ left: 0, top: 0.1832 }} />
+						<img src={TB_ASSET.close} alt="" style={{ position: "absolute", left: 585.2585, top: 0, width: 22.2688, height: 22.2656, display: "block", maxWidth: "none" }} />
+					</div>
+				</div>
+				{toggle}
+				{/* "Frame 14" is both the closed bar's row (2:8204, logo + hamburger, gap 495) and the open panel's links row
+				    (2:8191: Frame 241 and an empty 22.27 × 22.27 Frame 242 at x 582, gap 314). Smart Animate matches the two by
+				    name, so this one layer travels from (16.41, 12) to (22.87, 82.90) while its children dissolve. */}
+				<div style={{ position: "absolute", left: menuOpen ? 22.8656 : 16.4098, top: menuOpen ? 82.8993 : 12, width: menuOpen ? 604.2688 : 617.1804, height: menuOpen ? 198.4526 : 21.8993, transition: tbMove("left", "top", "width", "height") }}>
+					<div style={{ position: "absolute", inset: 0, ...tbFade(!menuOpen) }}>
+						<TaskbarLogo word={TB_ASSET.wordTablet} style={{ left: 0, top: 0 }} />
+						<img src={TB_ASSET.menu} alt="" style={{ position: "absolute", left: 585.2585, top: 3.8559, width: 31.9219, height: 14.1875, display: "block", maxWidth: "none" }} />
+					</div>
+					<div id={menuId} style={{ position: "absolute", left: 0, top: 0, ...tbFade(menuOpen) }}>
+						{links}
+					</div>
+				</div>
 			</div>
 		</div>
 	);
@@ -1893,7 +1942,7 @@ function MobileHero({ onSignup, onScrollTo }: { onSignup: () => void; onScrollTo
 				<img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-179.01%", left: "-108.2%", width: "316.4%", height: "458.02%", maxWidth: "none" }} />
 			</div>
 
-			<MobileNavBar onScrollTo={onScrollTo} onSignup={onSignup} />
+			<MobileNavBar layout="tablet" left={80.367} onScrollTo={onScrollTo} onSignup={onSignup} />
 
 			<div style={{ position: "absolute", left: "50%", top: 110, transform: "translateX(-50%)", width: 601, display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
@@ -2445,7 +2494,7 @@ function MobileHero390({ onSignup, onScrollTo }: { onSignup: () => void; onScrol
 			<div style={{ position: "absolute", left: 191, top: 441, width: 359, height: 217, overflow: "visible", pointerEvents: "none" }}>
 				<img src={A.ellipse109} alt="" style={{ position: "absolute", top: "-179.01%", left: "-108.2%", width: "316.4%", height: "458.02%", maxWidth: "none" }} />
 			</div>
-			<MobileNavBar width={330.2} left={29.8} padX={10} onScrollTo={onScrollTo} onSignup={onSignup} />
+			<MobileNavBar layout="phone" left={29.8} onScrollTo={onScrollTo} onSignup={onSignup} />
 			<div style={{ position: "absolute", left: 38, top: 110, width: 315, display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
 				<div style={{ background: "rgba(36,43,61,0.79)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6.266, padding: "4.699px 7.832px", borderRadius: 28.196 }}>
 					<div style={{ width: 9.399, height: 9.399, flexShrink: 0 }}><img src={A.pillDot} alt="" style={{ width: "100%", height: "100%" }} /></div>
@@ -2894,7 +2943,11 @@ function LandingPage() {
 
 	useEffect(() => {
 		if (!loading && user) {
-			navigate({ to: onboardingCompleted ? "/" : "/onboarding" });
+			// Onboarding's Welcome step sends its Back here with this history-state mark (routes/onboarding.tsx): a signed-in
+			// person who has not finished onboarding stays on the landing page then, instead of being forwarded straight
+			// back to the step they just left (user ruling 2026-10-18). Every other arrival forwards as before.
+			const fromOnboarding = typeof window !== "undefined" && (window.history.state as { fromOnboarding?: boolean } | null)?.fromOnboarding === true;
+			if (!fromOnboarding) navigate({ to: onboardingCompleted ? "/" : "/onboarding" });
 		}
 	}, [user, loading, navigate, onboardingCompleted]);
 
@@ -2968,12 +3021,9 @@ function LandingPage() {
 				.landing-canvas input::placeholder {
 					color: rgba(255,255,255,0.53);
 				}
-				.landing-taskbar {
-					transition: height 200ms ease;
-				}
 				@media (prefers-reduced-motion: reduce) {
-					.landing-taskbar {
-						transition: none;
+					.landing-taskbar, .landing-taskbar * {
+						transition: none !important;
 					}
 				}
 			`}</style>

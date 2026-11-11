@@ -4,6 +4,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
+
 body {
 	@apply m-0;
 	font-family:
@@ -460,10 +461,36 @@ input::-webkit-credentials-auto-fill-button {
 	opacity: 0.6;
 }
 
-/* route changes dissolve like the prototype's 0.3 s transition */
+/* Unspecified transitions are instant. The prototype's typed flows opt in below or in their feature styles. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-	animation-duration: 220ms;
+	animation-duration: 0s;
+}
+
+/* the prototype's typed route transitions (the Simulate flows): forward push 300 ms, dissolve 300 ms, Smart Animate 350 ms,
+   all ease-out; a navigation opts in with types ["stak-push-left"] / ["stak-dissolve"] / ["stak-smart"] */
+@keyframes stak-push-out-left {
+	from { transform: translateX(0); }
+	to { transform: translateX(-100%); }
+}
+@keyframes stak-push-in-left {
+	from { transform: translateX(100%); }
+	to { transform: translateX(0); }
+}
+html:active-view-transition-type(stak-push-left)::view-transition-old(root) {
+	animation: stak-push-out-left 300ms ease-out both;
+}
+html:active-view-transition-type(stak-push-left)::view-transition-new(root) {
+	animation: stak-push-in-left 300ms ease-out both;
+}
+html:active-view-transition-type(stak-dissolve)::view-transition-old(root),
+html:active-view-transition-type(stak-dissolve)::view-transition-new(root) {
+	animation-duration: 300ms;
+	animation-timing-function: ease-out;
+}
+html:active-view-transition-type(stak-smart)::view-transition-old(root),
+html:active-view-transition-type(stak-smart)::view-transition-new(root) {
+	animation-duration: 350ms;
 	animation-timing-function: ease-out;
 }
 
@@ -478,6 +505,10 @@ input::-webkit-credentials-auto-fill-button {
 	::view-transition-new(root) {
 		animation: none;
 	}
+	html:active-view-transition-type(stak-push-left, stak-dissolve, stak-smart)::view-transition-old(root),
+	html:active-view-transition-type(stak-push-left, stak-dissolve, stak-smart)::view-transition-new(root) {
+		animation: none;
+	}
 }
 
 /* standalone pages: the 1024-tall frame band is centred in taller windows; header chrome subtracts it to stay at the top */
@@ -485,6 +516,224 @@ input::-webkit-credentials-auto-fill-button {
 	--stak-band: max(0px, calc((100vh / var(--stak-zoom, 1) - 1024px) / 2));
 	/* the content column of the frames (1134 at 1440, nav open), as wide as the real window allows */
 	--stak-col: calc(var(--stak-vw, 1440px) - 306px);
+}
+
+/* ── The size system (src/app/FitCanvas.tsx; the API for every page: .claude/tools/responsive-2026-10-24/CORE-API.md).
+   phone < 640 · tablet 640-1023 (zoom 1, the canvas is the window) · laptop 1024-1439 (the 1440 canvas zoomed down) ·
+   desktop 1440-2560 (zoom 1, the fraction rule) · big > 2560 (the 2560 x 1440 layout zoomed up, capped at 2.4 : 1 and
+   centred). Everything at 1024 and wider is exactly what it was; the compact rules live under (width < 1024px). ── */
+:root {
+	/* 1 below 1024 (max-lg:), 0 from 1024 up: col() / colPlus() / colCentre() and the auth toaster switch on it */
+	--stak-compact: 0;
+}
+/* the laptop canvas is the 1440 frame zoomed down; below 1024 the canvas is the window's own width */
+@media (width >= 1024px) {
+	.stak-canvas {
+		min-width: 1440px;
+	}
+}
+/* past 2560 the canvas is at most CAP layout px wide (2.4 x the layout height) and centred on the page background
+   (#0a1020: the dark theme's body is #000, which only ever shows beside a capped canvas) */
+html[data-stak-size="big"] .stak-canvas {
+	max-width: var(--stak-cap, none);
+	margin-inline: auto;
+}
+html[data-stak-size="big"] body {
+	background-color: #0a1020;
+}
+@media (width < 1024px) {
+	:root {
+		--stak-compact: 1;
+	}
+	/* the compact shell: tablet = Figma's 72 closed rail + 24 gutters (x 96, as 2:8435 places the column); on a notched
+	   phone in landscape (index.html sets viewport-fit=cover) the shell keeps inside the safe area (0 everywhere else) */
+	.stak-canvas {
+		--stak-gutter: 24px;
+		--stak-rail: 72px;
+		--stak-col: calc(
+			var(--stak-vw, 100vw) - var(--stak-rail) - 2 * var(--stak-gutter) - env(safe-area-inset-left, 0px) -
+				env(safe-area-inset-right, 0px)
+		);
+	}
+	.stak-figma[data-shell] {
+		padding-left: env(safe-area-inset-left, 0px);
+		padding-right: env(safe-area-inset-right, 0px);
+	}
+}
+@media (width < 640px) {
+	/* phone = a 64 top bar above the content and 16 gutters */
+	.stak-canvas {
+		--stak-gutter: 16px;
+		--stak-rail: 0px;
+	}
+	/* no rail on the page: the EXAMPLE ticket's content-area scrim (ticket.css) starts at the window's edge */
+	.stak-figma[data-shell="phone"] {
+		--stak-example-nav: 0px;
+	}
+	/* the EXAMPLE frames' 64 top bar (ExampleTopBar) sits at the top of the content: the page starts below it, as at 1440 */
+	main:has(> #stak-example-topbar > *) > [data-stak-content] {
+		padding-top: 88px;
+	}
+}
+/* the phone shell's top bar stays at the top of the window (AppShell PhoneTopBar, the ruling of 2026-10-30): an element
+   scrolled into view (keyboard focus, scrollIntoView) lands below the bar instead of under it */
+html:has(.stak-figma[data-shell="phone"]) {
+	scroll-padding-top: calc(64px + env(safe-area-inset-top, 0px));
+}
+/* Every app surface (the shell, the sign-in pages, onboarding, the splash; the landing page has no .stak-figma root), at
+   every size: keyboard focus brings a control that is partly below the window in only until its box meets the window's
+   bottom edge, which left the bottom of its focus ring (2px at a 2px offset, the interaction floor above) outside the
+   window (the reviews of 2026-11-06: /simulate?state=empty at 390x844, the pick page's range tabs at 320x568, onboarding
+   02 / 03 / 05). 6px of the canvas, as the sheets keep (scroll-padding-block below): the canvas zoom scales it with the
+   ring. It draws nothing: nothing changes at rest. */
+html:has(.stak-figma) {
+	scroll-padding-bottom: calc(6px * var(--stak-zoom, 1));
+}
+/* The rail's own scroller (Sidebar RailPin: a window shorter than the rail's 448 lets it scroll inside itself) keeps the
+   same 6px at both ends, as the sheets do: the account row it brings in ends where the window's padded band starts
+   (without it the page under the pinned rail moved 6px when the row took focus, 844x390 / 1024x300, the row staying
+   where it was), and the toggle it brings back in at its top keeps its ring. */
+[data-rail-pin] {
+	scroll-padding-block: 6px;
+}
+/* The phone bar's own control (the menu button) is always in the window, but it sits in the band the top padding keeps
+   clear, so the browser took it for hidden and centred it whenever it took focus (Tab wrapping round from the page's last
+   control, focus()): the page jumped by half the window while the bar stayed put (670 -> 248 on /simulate at 390x844). A
+   scroll margin the window's height below it makes the box the browser brings into view span the padded window, which it
+   reads as in view already: focusing the bar's controls never scrolls the page. */
+.stak-figma[data-shell="phone"] > [data-top-bar] :where(a, button) {
+	scroll-margin-bottom: 100vh;
+}
+/* The same ring room at the top, on the controls themselves (the review of 2026-11-07): Shift+Tab (or a focus()) brings a
+   control in from above only until its box meets the window's top edge, or the phone bar's (its 64px padding above), so
+   the top of its ring was cut or hidden under the bar. A scroll margin draws nothing, scales with the canvas zoom like
+   the ring, and leaves the html's padding as it is (StockDetail and the profile's reveal read it). A field rings its
+   48-px field box (auth, onboarding 08), 15.5px beyond the 17-px input the browser brings in: the input's margins reach
+   that box with the same room both ways (22 at the top; 16 at the bottom, where the window's 6px adds the rest). */
+.stak-figma :where(a, button, [role="button"], summary) {
+	scroll-margin-top: 6px;
+}
+.stak-figma :where(input, textarea, select) {
+	scroll-margin-top: 22px;
+	scroll-margin-bottom: 16px;
+}
+/* The compact menu (AppShell NavDrawer) scrolls inside itself on a window shorter than its 448: the same 6px at both
+   ends, so its account row's ring and Hide's stay whole when Tab / Shift+Tab bring them in (844x390, 568x320). */
+.stak-drawer {
+	scroll-padding-block: 6px;
+}
+
+/* Sheets below 1024 (src/app/ui/Sheet.tsx): min(the frame's width, window - 32) wide, centred on whole pixels (no
+   authored offset), scrolling inside themselves when taller than the window - 32. Beats the page sheets' own placement
+   (sheets.css / ticket.css position the panel with !important for the 1024+ frames). */
+@media (width < 1024px) {
+	.stak-dialog[data-sheet] {
+		container-type: size;
+		--stak-sheet-inset-x: max(16px, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+		--stak-sheet-inset-y: max(16px, env(safe-area-inset-top, 0px), env(safe-area-inset-bottom, 0px));
+	}
+	.stak-dialog[data-sheet] > div[data-sheet-panel] {
+		top: 0 !important;
+		left: 0 !important;
+		width: min(var(--stak-sheet-w, 480px), 100cqw - 2 * var(--stak-sheet-inset-x)) !important;
+		max-height: calc(100cqh - 2 * var(--stak-sheet-inset-y));
+		overflow-x: hidden;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		scroll-padding-block: 6px;
+		translate: round(up, calc(50cqw - 50%), 1px) round(up, calc(50cqh - 50%), 1px) !important;
+	}
+	.stak-dialog[data-sheet] > div[data-sheet-panel] > * {
+		flex-shrink: 0;
+	}
+}
+
+/* A shallow desktop window needs the same scrollable sheet, without changing full-height desktop frames. */
+@media (width >= 1024px) and (height < 600px) {
+	.stak-dialog[data-sheet] {
+		container-type: size;
+	}
+	.stak-dialog[data-sheet] > div[data-sheet-panel] {
+		top: 0 !important;
+		max-height: calc(100cqh - 32px);
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		scroll-padding-block: 6px;
+		translate: -50% round(up, calc(50cqh - 50%), 1px) !important;
+	}
+	.stak-dialog[data-sheet] > div[data-sheet-panel] > * {
+		flex-shrink: 0;
+	}
+}
+
+.stak-dialog [data-sheet-panel]:focus-visible {
+	outline: 2px solid #69b3ca;
+	outline-offset: 2px;
+}
+
+/* The compact menu (AppShell NavDrawer): Figma's open sidebar, 216 wide, over the sheets' scrim, sliding in from the
+   left on the sidebar's own Smart Animate timing (280 ms, cubic-bezier(0, 0, 0.58, 1)); reduced motion: instant.
+   A native modal <dialog> (top layer, the page inert). Where the browser can keep a closed dialog in the top layer
+   (display / overlay allow-discrete) it stays drawn while it slides out, passing clicks through; elsewhere it closes
+   at once (the slide in still runs: @starting-style). */
+.stak-drawer {
+	position: fixed;
+	inset: 0;
+	width: auto;
+	height: auto;
+	max-width: none;
+	max-height: none;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	color: inherit;
+	background-color: rgba(0, 0, 0, 0.66);
+	overflow-x: clip;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	transition: background-color 280ms cubic-bezier(0, 0, 0.58, 1);
+}
+@supports (overlay: auto) {
+	.stak-drawer {
+		transition:
+			background-color 280ms cubic-bezier(0, 0, 0.58, 1),
+			display 280ms allow-discrete,
+			overlay 280ms allow-discrete;
+	}
+}
+.stak-drawer::backdrop {
+	background: transparent;
+}
+.stak-drawer:not([open]) {
+	background-color: transparent;
+	pointer-events: none;
+}
+.stak-drawer-panel {
+	display: flex;
+	/* the sidebar's 216, plus a notched phone's safe-area insets (0 elsewhere) filled with the sidebar's own #080d1a */
+	width: calc(216px + env(safe-area-inset-left, 0px));
+	padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+	background-color: #080d1a;
+	/* the window's height, at least the open sidebar's own (the nav ends at 324, the bottom group is 100 tall) */
+	min-height: max(100%, 448px);
+	transition: translate 280ms cubic-bezier(0, 0, 0.58, 1);
+}
+.stak-drawer:not([open]) .stak-drawer-panel {
+	translate: -100% 0;
+}
+@starting-style {
+	.stak-drawer[open] {
+		background-color: transparent;
+	}
+	.stak-drawer[open] .stak-drawer-panel {
+		translate: -100% 0;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.stak-drawer,
+	.stak-drawer-panel {
+		transition: none;
+	}
 }
 
 /* Figma paints a text's baseline at a fraction of a pixel: top + (L - (A + D) * size) / 2 + A * size (A / D: the
@@ -500,22 +749,39 @@ input::-webkit-credentials-auto-fill-button {
 	:where(.stak-figma) :where(p, h1, h2, h3, h4, h5, h6):where(:not(:has(*))):where(:not(.absolute, .fixed, .sticky, [class*="top-"], [class*="inset-"], [class*="bg-"], [class*="border"], [class*="shadow"], [class*="stak-press"], [class*="translate"], [class*="text-box"], [style*="top"], [style*="background"], [style*="transform"])),
 	:where(.stak-figma) :where(.flex, .inline-flex, .grid) > :where(span, a, button, label):where(:not(:has(*))):where(:not(.absolute, .fixed, .sticky, [class*="top-"], [class*="inset-"], [class*="bg-"], [class*="border"], [class*="shadow"], [class*="stak-press"], [class*="translate"], [class*="text-box"], [style*="top"], [style*="background"], [style*="transform"])) {
 		position: relative;
+		/* Below 1440 the canvas zooms (CSS zoom 0.8889 at 1280x800) and Chrome rounds the zoomed font's ascent and descent
+		   to whole LAYOUT pixels, so the metric terms round in whole layout pixels too (1px / zoom; 1px at 1440 and above,
+		   where this computes exactly what it always did). The two rounding boundaries are guarded: the auto height carries
+		   Chrome's 1/64px layout excess under zoom (round(up) would add a whole step), and the leading term can come out a
+		   few 1e-4px below zero (round(down) would drop one).
+		   Past 2560 (zoom 1.5 / 2 / 3) Chrome rounds the zoomed font's metrics in device pixels too, so the step stays one
+		   device pixel (1px / zoom) at every zoom: the glyphs (what the person sees) land on the device pixel nearest the
+		   2560 layout's baseline times the zoom. The plain text's own box (a relative offset: nothing else moves) may then
+		   sit up to one device pixel from 2560 x zoom; a step of one 2560-layout pixel scaled the boxes instead and left
+		   the glyphs up to 2.5 device pixels off (review 2026-10-24). Up to 2560 this is the approved value. */
+		--stak-dpx: calc(1px / var(--stak-zoom, 1));
 		/* Figma's auto-height text boxes are n x line-height rounded UP to a whole pixel (a 15.43px line is a 16px box,
 		   two make 31), and its auto layout stacks those boxes; explicit heights still win. */
-		height: calc-size(auto, round(up, size, 1px));
+		height: calc-size(auto, round(up, size - 0.05px, 1px));
 		top: calc(
 			var(--stak-fa, 1.005) * 1em + (1lh - (var(--stak-fa, 1.005) + var(--stak-fd, 0.295)) * 1em) / 2 -
-				round(nearest, var(--stak-fa, 1.005) * 1em, 1px) -
-				round(down, (1lh - round(nearest, var(--stak-fa, 1.005) * 1em, 1px) - round(nearest, var(--stak-fd, 0.295) * 1em, 1px)) / 2, 1px)
+				round(nearest, var(--stak-fa, 1.005) * 1em, var(--stak-dpx)) -
+				round(
+					down,
+					(1lh - round(nearest, var(--stak-fa, 1.005) * 1em, var(--stak-dpx)) - round(nearest, var(--stak-fd, 0.295) * 1em, var(--stak-dpx))) / 2 + 0.01px,
+					var(--stak-dpx)
+				)
 		);
 	}
 }
 
-/* Figma's button stroke (79 buttons in 42 frames: every primary, ghost, Sell and Buy button): 0.361px OUTSIDE the box,
-   a vertical gradient rgba(101,158,173,.63) -> rgba(22,54,63,.43) (gradientTransform t = 0.0323 + 0.9677 * y/h), so
+/* Figma's button stroke on the loading frames' button shells (DeckSkeleton 2:2473 / 2:2474, StockDetailSkeleton
+   2:2234 / 2:2235; the live buttons draw the same ring with StrokeRing in src/app/ui/Button.tsx): 0.361px OUTSIDE the
+   box, a vertical gradient rgba(101,158,173,.63) -> rgba(22,54,63,.43) (gradientTransform t = 0.0323 + 0.9677 * y/h), so
    the top edge reads and the bottom edge all but vanishes. A border or outline snaps to a whole pixel and a box-shadow
-   cannot take a gradient, so the ring is an SVG drawn in a box 1px around the button, its rect on the stroke's centre
-   line (1 - 0.18066). `-sm` is the 60x30 Buy pill (r 5.781, its own gradient span). */
+   cannot take a gradient, so the ring is an SVG drawn in a box 1px around the shell, its rect on the stroke's centre
+   line (1 - 0.18066). (2026-10-18: StrokeRing's one-pixel band was measured here too: closer on the whole-pixel stock
+   shell, farther on the deck's fractional-y shells, no net gain, so this ring stays.) */
 @layer components {
 	.stak-stroke {
 		position: relative;
@@ -529,33 +795,59 @@ input::-webkit-credentials-auto-fill-button {
 		background: no-repeat
 			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3ClinearGradient id='s' x1='0' y1='-0.0297' x2='0' y2='0.99655'%3E%3Cstop stop-color='rgb(101,158,173)' stop-opacity='0.63'/%3E%3Cstop offset='1' stop-color='rgb(22,54,63)' stop-opacity='0.43'/%3E%3C/linearGradient%3E%3Crect style='x:0.81934px;y:0.81934px;width:calc(100%25 - 1.63868px);height:calc(100%25 - 1.63868px)' rx='6.18066' fill='none' stroke='url(%23s)' stroke-width='0.36132'/%3E%3C/svg%3E");
 	}
-	.stak-stroke-sm::after {
-		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3ClinearGradient id='s' x1='0' y1='-0.02703' x2='0' y2='0.99405'%3E%3Cstop stop-color='rgb(101,158,173)' stop-opacity='0.63'/%3E%3Cstop offset='1' stop-color='rgb(22,54,63)' stop-opacity='0.43'/%3E%3C/linearGradient%3E%3Crect style='x:0.81934px;y:0.81934px;width:calc(100%25 - 1.63868px);height:calc(100%25 - 1.63868px)' rx='5.96171' fill='none' stroke='url(%23s)' stroke-width='0.36132'/%3E%3C/svg%3E");
-	}
 }
 
 /* The one toast the desktop frames draw (2:3234 "Saved to My STAK"): a #242b3d 48% pill, radius 18, 16 x 11 padding,
-   Geist Medium 12/16 white. Sonner keeps placing and stacking the toasts; this is their whole look. */
+   Geist Medium 12/16 white. Sonner keeps placing and stacking the toasts; this is their whole look.
+   The toaster lives outside the canvas: past 2560 its lengths take the canvas zoom (--stak-zoom-up, 1 up to 2560) so
+   the toasts grow with the app; sonner measures their heights in the same unzoomed px it positions them in. */
 .stak-toast {
 	display: flex;
 	align-items: center;
-	gap: 9px;
+	gap: calc(9px * var(--stak-zoom-up, 1));
 	width: fit-content;
 	left: 0;
 	right: 0;
 	margin-inline: auto;
-	padding: 11px 16px;
-	border-radius: 18px;
+	padding: calc(11px * var(--stak-zoom-up, 1)) calc(16px * var(--stak-zoom-up, 1));
+	border-radius: calc(18px * var(--stak-zoom-up, 1));
 	background: rgba(36, 43, 61, 0.48);
 	color: #fff;
 	font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
-	font-size: 12px;
+	font-size: calc(12px * var(--stak-zoom-up, 1));
 	font-weight: 500;
-	line-height: 16px;
+	line-height: calc(16px * var(--stak-zoom-up, 1));
 }
 .stak-toast [data-icon] {
 	display: flex;
 	flex-shrink: 0;
+	zoom: var(--stak-zoom-up, 1);
+}
+/* sonner's phone rule (<= 600) spans the toaster 100% wide from its 16px left offset, which put the centred pill 16px
+   right of the window's centre, and stretches the toast to the window - 32: the toaster spans the window between its
+   two offsets instead, and the pill keeps 2:3234's own width (its content), centred */
+@media (max-width: 600px) {
+	.stak-toaster[data-sonner-toaster] {
+		width: auto;
+	}
+	.stak-toaster[data-sonner-toaster] .stak-toast {
+		width: fit-content;
+		max-width: 100%;
+	}
+}
+/* phone shell pages (__root.tsx adds .stak-toaster-shell): toasts start where the content does, under the 64 top bar
+   (+ a notch's inset) and its 16 gutter, so they never cover the menu button. That first content row ends in a control:
+   the page header's 35 bell at its right (Home, News, Profile) or a 40 Back at its left (the stock pages, End of deck,
+   Simulate). A long message stretched the pill to the window - 32, over the bell, which it then blocked for its whole
+   life (profile review, 2026-10-31): the pill stays centred and is at most the toaster's width less 2 x 48 (the control
+   and 8 clear on each side), so it never reaches either end; a short toast keeps its own width */
+@media (width < 640px) {
+	.stak-toaster-shell[data-sonner-toaster][data-y-position="top"] {
+		top: calc(80px + env(safe-area-inset-top, 0px));
+	}
+	.stak-toaster-shell[data-sonner-toaster] .stak-toast {
+		max-width: calc(100% - 96px);
+	}
 }
 /* grayscale text like the rest of the app (the toaster renders outside .stak-figma) */
 .stak-toast [data-title] {
@@ -563,11 +855,16 @@ input::-webkit-credentials-auto-fill-button {
 }
 
 /* Figma draws text with grayscale anti-aliasing; Chrome on Windows draws it with coloured sub-pixel (LCD) edges that
-   read heavier. A text element in its own (transparent) opacity group is drawn grayscale, like Figma. `:is()` gives
-   the rule one class of specificity: preflight's `button, input, textarea { opacity: 1 }` sits in this layer too and
-   kept every button label (Practice buy, Learn more, Sign in...) on LCD edges. */
+   read heavier. A text element in its own transparency group is drawn grayscale, like Figma. The group is a FILTER,
+   not `opacity: 0.999`: Chrome folds an opacity group that holds a single text draw into the draw itself whenever it
+   splits the page into compositing layers, and since the rail stays pinned in the window (Sidebar.tsx RailPin, the
+   ruling of 2026-10-30) that brought LCD edges back on the leaderboard, News and the collections (5-20k px against the
+   approved captures); a filter group is never folded, so those pages are 0 px again and every other page is unchanged.
+   A light text's own `filter: invert(1)` (.stak-ink, app/home/ink.css, unlayered) replaces this one and is a group
+   itself. `:is()` gives the rule one class of specificity (preflight's `button, input, textarea { opacity: 1 }` sits in
+   this layer and once beat the opacity version on every button label). */
 @layer base {
 	:is(.stak-figma, .stak-dialog) :where(p, span, h1, h2, h3, h4, h5, h6, a, button, label, input, textarea):where(:not(:has(*))) {
-		opacity: 0.999;
+		filter: opacity(0.999);
 	}
 }

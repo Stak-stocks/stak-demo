@@ -1,0 +1,56 @@
+/*
+ * Onboarding motion, from the Figma prototype. The desktop frames (2:5710 … 2:6271) carry no reactions; the phone page
+ * wires the same eight screens (section 1:179):
+ * - every forward step (Get started, Continue, Continue · n picked, Proceed to home): PUSH LEFT, 300 ms, EASE_OUT;
+ * - every Back: PUSH RIGHT, 300 ms, EASE_OUT;
+ * - 06 Preparing deck -> 07 Taste reveal: AFTER_TIMEOUT 1.8 s, DISSOLVE, 350 ms, EASE_OUT.
+ * Figma's EASE_OUT is cubic-bezier(0, 0, 0.58, 1) (CSS ease-out). Each runs as a typed view transition (motion.ts), so
+ * these rules only apply while one of them plays; every other route change keeps the app's dissolve in styles.css,
+ * and reduced motion keeps that file's `animation: none`. The swipe tutorial's cards have no motion in the file and
+ * swap at once, like the product deck's (Discover 2:2944).
+ */
+@media (prefers-reduced-motion: no-preference) {
+	html:active-view-transition-type(stak-onb-dissolve)::view-transition-old(root),
+	html:active-view-transition-type(stak-onb-dissolve)::view-transition-new(root) {
+		animation-duration: 350ms;
+		animation-timing-function: cubic-bezier(0, 0, 0.58, 1);
+	}
+	/* PUSH: the destination pushes the origin out, the two move together */
+	html:active-view-transition-type(stak-onb-push-forward)::view-transition-old(root) {
+		animation: 300ms cubic-bezier(0, 0, 0.58, 1) both stak-onb-out-left;
+		mix-blend-mode: normal;
+	}
+	html:active-view-transition-type(stak-onb-push-forward)::view-transition-new(root) {
+		animation: 300ms cubic-bezier(0, 0, 0.58, 1) both stak-onb-in-from-right;
+		mix-blend-mode: normal;
+	}
+	html:active-view-transition-type(stak-onb-push-back)::view-transition-old(root) {
+		animation: 300ms cubic-bezier(0, 0, 0.58, 1) both stak-onb-out-right;
+		mix-blend-mode: normal;
+	}
+	html:active-view-transition-type(stak-onb-push-back)::view-transition-new(root) {
+		animation: 300ms cubic-bezier(0, 0, 0.58, 1) both stak-onb-in-from-left;
+		mix-blend-mode: normal;
+	}
+}
+
+@keyframes stak-onb-out-left {
+	to {
+		transform: translateX(-100%);
+	}
+}
+@keyframes stak-onb-in-from-right {
+	from {
+		transform: translateX(100%);
+	}
+}
+@keyframes stak-onb-out-right {
+	to {
+		transform: translateX(100%);
+	}
+}
+@keyframes stak-onb-in-from-left {
+	from {
+		transform: translateX(-100%);
+	}
+}

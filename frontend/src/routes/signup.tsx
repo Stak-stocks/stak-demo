@@ -1,11 +1,13 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { AU } from "@/app/auth/assets";
+import { usePostAuthRedirect } from "@/app/auth/usePostAuthRedirect";
 import {
+	AUTH_INK,
 	AuthHeading,
 	AuthInput,
 	AuthLayout,
+	AuthRedirectError,
 	authErrorMessage,
 	FieldError,
 	FootRow,
@@ -16,7 +18,7 @@ import {
 	SocialButton,
 } from "@/app/auth/ui";
 import { PrimaryButton } from "@/app/ui/Button";
-import { getProfile } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { useAuth } from "../context/AuthContext";
 
 export const Route = createFileRoute("/signup")({
@@ -25,8 +27,8 @@ export const Route = createFileRoute("/signup")({
 
 /** Figma 2:5619 "Desktop · Sign up": visuals from the frame, auth logic from the previous signup page. */
 function SignUpPage() {
-	const { user, loading, signUpWithEmail, sendVerificationEmail, signInWithGoogle, logout } = useAuth();
-	const navigate = useNavigate();
+	const { signUpWithEmail, sendVerificationEmail, signInWithGoogle, signInWithApple } = useAuth();
+	const redirect = usePostAuthRedirect();
 	const [signingUp, setSigningUp] = useState(false);
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
@@ -34,25 +36,9 @@ function SignUpPage() {
 	const [showPassword, setShowPassword] = useState(false);
 	const [errors, setErrors] = useState<{ email?: string; password?: string; confirm?: string; form?: string }>({});
 
-	useEffect(() => {
-		if (!loading && user) {
-			user
-				.getIdToken(true)
-				.then(() => getProfile())
-				.then(() => user.getIdToken(true))
-				.then(() => user.getIdTokenResult())
-				.then((result) => {
-					const done = result.claims.onboardingCompleted === true;
-					navigate({ to: done ? "/home" : "/onboarding" });
-				})
-				.catch(() => {
-					logout().catch(() => {});
-				});
-		}
-	}, [user, loading, navigate, logout]);
-
 	async function handleEmailSignUp(e: React.FormEvent) {
 		e.preventDefault();
+		if (signingUp || redirect.pending) return;
 		const next: typeof errors = {};
 		if (!isEmail(email)) next.email = "Enter a valid email address";
 		const problem = passwordProblem(password);
@@ -64,42 +50,32 @@ function SignUpPage() {
 		setSigningUp(true);
 		try {
 			await signUpWithEmail(email.trim(), password);
-			// The verification email still goes out; the user continues to onboarding without a verify screen.
+			// The shared continuation opens Check your email until this account is verified.
 			await sendVerificationEmail();
-			// Don't navigate here: the effect above handles it once auth state
+			// Don't navigate here: the shared continuation handles it once auth state
 			// updates with the new user (prevents a stale-user race)
 		} catch (error: unknown) {
 			setErrors({ form: authErrorMessage(error, "Sign up failed. Please try again.") });
+		} finally {
 			setSigningUp(false);
 		}
 	}
 
-	async function handleGoogleSignIn() {
+	async function handleSocialSignIn(provider: "google" | "apple") {
+		if (signingUp || redirect.pending) return;
 		setSigningUp(true);
+		setErrors({});
 		try {
-			const { isNew, uid } = await signInWithGoogle();
-			if (isNew) {
-				const lastUid = localStorage.getItem("last-user-uid");
-				const isLinking = !!lastUid && lastUid === uid;
-				if (isLinking) {
-					try {
-						const profile = await getProfile();
-						if (profile.onboardingCompleted) {
-							toast.success("Welcome back!");
-							return;
-						}
-					} catch {
-						/* fall through to new user */
-					}
-				}
-				toast.success("Welcome to STAK!");
-			} else {
-				toast.success("Welcome back!");
-			}
+			// The routing welcomes the person with the destination (usePostAuthRedirect): Home "Welcome back!", an account
+			// this sign-in created "Welcome to STAK!" on Onboarding. The refreshed onboarding claim decides, so an existing
+			// account linking Google is welcomed back only when it finished onboarding, with the API up or down.
+			await redirect.signIn(() => (provider === "apple" ? signInWithApple() : signInWithGoogle()));
 		} catch (error: unknown) {
 			const code = (error as { code?: string }).code ?? "";
 			const cancelled = code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request";
-			if (!cancelled) setErrors({ form: authErrorMessage(error, "Sign in failed. Please try again.") });
+			if (!cancelled) setErrors({ form: provider === "apple" && code === "auth/operation-not-allowed"
+				? "Apple sign-in is not configured for this app yet."
+				: authErrorMessage(error, "Sign in failed. Please try again.") });
 		} finally {
 			setSigningUp(false);
 		}
@@ -110,16 +86,25 @@ function SignUpPage() {
 	};
 
 	return (
-		<AuthLayout formTop={242}>
+		// prototype (phone 1:826): Back -> "Onboarding · 01 Welcome", PUSH RIGHT 0.3 s. On the web that intro needs a
+		// signed-in account (a visitor is sent to Sign in), and the splash would only time out back to this page, so Back
+		// goes to the visitor's welcome: the landing page /welcome, where '/' sends everyone signed out and whose Sign up
+		// opened this page (same PUSH RIGHT 0.3 s)
+		<AuthLayout formTop={242} backTo="/welcome">
 			<form onSubmit={handleEmailSignUp} noValidate className="flex w-full flex-col items-start gap-[30px]">
 				<div className="flex w-full flex-col items-start gap-[14px]">
 					<div className="flex w-full flex-col items-start gap-[51px]">
 						<AuthHeading title="Create your account" subtitle="Enter your details below to continue" />
 						<div className="flex w-full flex-col items-start gap-[14px]">
-							<SocialButton icon={AU.google} onClick={handleGoogleSignIn} disabled={signingUp}>
+							<SocialButton icon={AU.google} labelWidth={142} onClick={() => void handleSocialSignIn("google")} disabled={signingUp || redirect.pending}>
 								Continue with Google
 							</SocialButton>
-							<SocialButton icon={AU.apple} onClick={() => toast.info("Apple sign-in is not available yet")} disabled={signingUp}>
+							<SocialButton
+								icon={AU.apple}
+								labelWidth={133}
+								onClick={() => void handleSocialSignIn("apple")}
+								disabled={signingUp || redirect.pending}
+							>
 								Continue with Apple
 							</SocialButton>
 						</div>
@@ -168,13 +153,26 @@ function SignUpPage() {
 					/>
 					<FieldError>{errors.confirm ?? errors.form}</FieldError>
 				</div>
-				<PrimaryButton type="submit" disabled={signingUp} aria-busy={signingUp}>
+				{/* 2:5654: the canon draws "Create account" in Figma's 101-wide text box (CANON_LABELS) */}
+				<PrimaryButton type="submit" disabled={signingUp || redirect.pending} aria-busy={signingUp || redirect.pending}>
 					{signingUp ? "Creating account…" : "Create account"}
 				</PrimaryButton>
 			</form>
+			<AuthRedirectError error={redirect.error} onRetry={redirect.retry} />
 			<div className="flex flex-col items-center justify-center gap-[14px] whitespace-nowrap">
-				<FootRow text="Already have an account?" linkLabel="Sign in" to="/login" />
-				<p className="font-geist text-[10px] leading-[13px] text-[#819abb]">By continuing you agree to the Terms and Privacy Policy.</p>
+				{/* prototype: "Sign in" -> Sign in, DISSOLVE 0.35 s */}
+				<FootRow text="Already have an account?" textWidth={142} linkLabel="Sign in" linkWidth={39} to="/login" />
+				{/* 2:5660: Figma's 257 box on one line. Below 1024 the box is the line's own width, at most the column's, so a
+				    column narrower than the line (a 280 phone: 248) wraps it at Figma's size into two balanced lines, centred
+				    under the foot row, instead of clipping its ends (a fixed 257 also held the whole footer at 257). */}
+				<p
+					className={cn(
+						"w-[257px] font-geist text-[10px] leading-[13px] text-[#819abb] max-lg:w-auto max-lg:max-w-full max-lg:whitespace-normal max-lg:text-balance max-lg:text-center",
+						AUTH_INK.muted,
+					)}
+				>
+					By continuing you agree to the Terms and Privacy Policy.
+				</p>
 			</div>
 		</AuthLayout>
 	);

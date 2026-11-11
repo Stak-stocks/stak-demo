@@ -1,0 +1,197 @@
+/*
+ * The auth pages (Sign in 2:5664, Sign up 2:5619, Forgot password 2:1257, Check your email 2:1566, Set a new password
+ * 2:1283) and the Splash (2:5601) below 1024 px: phone (< 640) and tablet (640-1023), where the canvas zoom is 1 and the
+ * desktop frames reflow (SPEC R1-R11, CORE-API sections 2-4). Every reflow rule sits in a `width < 1024px` media query;
+ * the two big-screen rules first compute exactly the classes' own values wherever the canvas is not capped (all of
+ * 1024-2560). So from 1024 to 2560 the approved frames render exactly as before (G1). The file is unlayered on purpose:
+ * it beats Tailwind's utilities (the frames' absolute offsets) without !important; only the frames' inline styles
+ * (left, top, width, min-height) need it.
+ */
+
+/* Big screens, capped canvas (an ultrawide past 2.4 : 1, CORE-API section 1): the canvas is centred on the page
+   background, which is the splash's own #0a1020, so nothing shows where the canvas ends; pinned to the canvas corner the
+   glass was cut by a straight line in mid-screen. It bleeds off the WINDOW's top-right corner instead, as the frame
+   draws it, and the page's clip reaches the window's edge (the body clips the rest). --stak-canvas-x is 0 everywhere
+   else (up to 2560 and on every uncapped big screen), where both rules compute what the classes do. */
+[data-splash-layout] {
+	overflow-clip-margin: var(--stak-canvas-x, 0px);
+}
+[data-splash-glass] {
+	right: calc(-793.774px - var(--stak-canvas-x, 0px));
+}
+
+@media (width < 1024px) {
+	/* ── Auth pages ──────────────────────────────────────────────────────────────────────────────────────────────────
+	   The form area becomes the window (or the part of it right of the narrowed brand panel, 951-1023 below). In it:
+	   - The form (Figma's 440 "Form") fills the column, never wider than 440, centred across (R3).
+	   - Vertically it keeps the frame's own constraint: in every frame the form sits at its authored top inside the
+	     1024 band (`--auth-form-top`, the frame's value: Sign in / Sign up 242, Forgot 372, Check your email 411, Set a
+	     new password 341; the content starts 10 below it) and the band is centred in the window. So the form's TOP is
+	     fixed by the window's height alone, never by the form's own height: a validation message or a Firebase error
+	     pushes only what is below it, exactly as at 1440 (R10), and Sign in and Sign up keep their headings on the same
+	     line across their dissolve, as both frames draw them at 252. Where that would bring the form up to Back (a short
+	     window) it follows Back instead, 24 below it (R6: Back's band, 63 + 40 + 24 = 127, plus a notch's inset), and
+	     the page grows. The page ends 32 px below the form, the shell's compact page end.
+	   - Back keeps the frame's 63 from the top (2:5707) and stands over the form column's left edge: on phones that is
+	     the 16 gutter, as before; on tablets the 440 column's own edge, so Back is not left alone at the window's edge
+	     while the form sits centred far to its right. First in the DOM and in the Tab order, as on every frame. It stays
+	     clear of the toasts: on phones a toast sits 16 from the top and its pill is 38-42 tall (it ends at 58 at most);
+	     from 640 to 950 the pill sits 24 from the top, centred, at most 356 wide (178 either side of the middle), and
+	     Back ends 180 left of the middle (the longest auth toast, 266 wide, clears it by 45). From 951 see the panel. */
+	[data-auth-layout] {
+		min-height: 100svh !important;
+	}
+	[data-auth-area] {
+		--auth-gutter: 24px;
+		--auth-pad-l: calc(var(--auth-gutter) + env(safe-area-inset-left, 0px));
+		--auth-pad-r: calc(var(--auth-gutter) + env(safe-area-inset-right, 0px));
+		--auth-back-top: calc(63px + env(safe-area-inset-top, 0px));
+		position: relative;
+		inset: auto !important;
+		display: flex;
+		flex-direction: column;
+		min-height: 100svh;
+		padding: 0 var(--auth-pad-r) calc(32px + env(safe-area-inset-bottom, 0px)) var(--auth-pad-l);
+	}
+	[data-auth-back] {
+		left: calc(var(--auth-pad-l) + max(0px, (100% - var(--auth-pad-l) - var(--auth-pad-r) - 440px) / 2));
+		top: var(--auth-back-top);
+	}
+	[data-auth-band] {
+		position: relative;
+		inset: auto !important;
+		height: auto;
+		margin-top: max(
+			var(--auth-back-top) + 40px + 24px,
+			var(--auth-form-top, 0px) + 10px + (100svh - 1024px) / 2
+		);
+	}
+	[data-auth-form] {
+		position: relative;
+		inset: auto !important;
+		translate: none;
+		width: 100%;
+		max-width: 440px;
+		margin-inline: auto;
+		/* the 460 wrapper's 10 px padding only ever held the clipped column's ring room: the 440 form is the block */
+		padding: 0;
+	}
+	[data-auth-form] > div {
+		width: 100%;
+	}
+	/* "Show" (2:5696, ShowToggle): the word keeps the frame's 29 x 14 look, and below 1024 an invisible area around it
+	   takes the tap (the coordinator's R8 ruling of 2026-10-31: an enlarged touch area is allowed on a control whose
+	   Figma target is under 24 px when it changes no pixel): 48 tall and 57 wide, inside the field's 48-px row, so a
+	   finger a few px off the word toggles instead of focusing the field. Nothing is painted; 1024+ keeps the word. */
+	[data-auth-show] {
+		position: relative;
+	}
+	[data-auth-show]::before {
+		content: "";
+		position: absolute;
+		inset: -17px -16px -17px -12px;
+	}
+
+	/* ── Splash ──────────────────────────────────────────────────────────────────────────────────────────────────────
+	   The "Splash stack" keeps its frame constraint: centred across, its middle 31 px above the window's (547 / 374 in
+	   the 1440 x 1024 frame). The page is at least the window's height and a column: a spacer under the stack takes the
+	   free height first, up to 62 px, and the stack's auto margins share what is left, which lifts it the 31 px. Where
+	   the window is too short for the whole lift (a landscape phone: 568 x 320 has 42 px to spare, not 62) the spacer
+	   only takes what there is, so the timed, non-interactive splash still fits the window and never scrolls; a window
+	   shorter than the stack itself (+ 32 + 32) grows the page instead of cutting the stack. */
+	[data-splash-layout] {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		min-height: 100svh !important;
+		padding: calc(32px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px))
+			calc(32px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px));
+	}
+	[data-splash-layout]::after {
+		content: "";
+		flex: 1 1 0;
+		max-height: 62px;
+	}
+	[data-splash-stack] {
+		position: relative;
+		inset: auto;
+		flex: none;
+		width: min(346px, 100%);
+		margin-block: auto;
+	}
+	/* The title (Sora 38, its 346 box) stays on one line wherever the 346 fits the column; on a narrower phone it wraps
+	   at Figma's size (R1) into two balanced, centred lines. The subtitle keeps its authored line break (232 wide, it
+	   fits every phone). */
+	[data-splash-title] {
+		max-width: 100%;
+		white-space: normal;
+		text-align: center;
+		text-wrap: balance;
+	}
+	/* The glass (2:5602) bleeds off the top-right corner in the frame, clear of the centred stack. At Figma's size it
+	   would fill a phone and sit behind the text, so below 1024 it scales as one unit (R4: brand art), pinned to the same
+	   corner with the same offsets: by the window's shorter side over the frame's 1440. In a portrait window that is
+	   W / 1440, the laptop canvas's own zoom (the art grows on into the 1024 layout without a jump); in a landscape one
+	   the height, so the art stays in the corner, clear of the stack, at every shape (checked at the eight small sizes,
+	   844 x 390, 640 x 360 and 375 x 667). */
+	[data-splash-glass] {
+		--splash-px: calc(100svmin / 1440);
+		right: calc(-793.774 * var(--splash-px));
+		top: calc(-702 * var(--splash-px));
+		width: calc(1770.774 * var(--splash-px));
+		height: calc(1770.774 * var(--splash-px));
+		translate: none;
+	}
+	[data-splash-glass] > div > div {
+		width: calc(1254.379 * var(--splash-px));
+		height: calc(1254.379 * var(--splash-px));
+	}
+}
+
+/* Phones: the 16 px gutter (CORE-API: phone column W - 32) */
+@media (width < 640px) {
+	[data-auth-area] {
+		--auth-gutter: 16px;
+	}
+}
+
+/* Wide tablets (951-1023): the brand panel narrows beside the form (R11) where it still holds its tagline on one line
+   at Figma's size: the panel needs the tagline's 82 inset + its 357 line ("Before you buy it, STAK it.", 2:5668) + the
+   24 gutter = 463, the form area the 440 form + two 24 gutters = 488, so it fits from 951. Narrower windows (portrait
+   tablets) would wrap the slogan into three to six lines at Figma's size or cut it, so there it gives way as on phones.
+   The slack past both minimums is shared equally (1023: panel 499, area 524). Inside the panel every layer keeps its
+   frame constraint, exactly as the 600-wide panel places it: the glass CENTER / CENTER (its offset from the panel's
+   centre: it bleeds off the top-left corner, clipped at the panel's edge as in the frame), the tagline LEFT 82 /
+   CENTER. The area starts at the panel's edge; Back and the form keep the rules above, inside it.
+   The panel runs the page's height, and a page taller than the window (a short window; Sign up's validation lines) is
+   taller on some screens than on others: centred on that height, the glass and the tagline moved between screens and
+   on an empty submit (1000 x 600: tagline 315 on Sign in, 344 on Sign up, 264 on the recovery screens; Sign up's empty
+   submit 344 -> 389). At 1440 every frame is the 1024 band and nothing on the form grows the page, so the art never
+   moves. Here the layers keep their constraints in a window-tall box stuck to the window's top (`data-auth-panel-pin`,
+   like the shell's RailPin): the same place on every screen, through the Sign up <-> Sign in dissolve and the
+   validation, and while the page scrolls; only the form changes. The small viewport height (svh) keeps the art still
+   when a browser's toolbars come and go. */
+@media (951px <= width < 1024px) {
+	[data-auth-layout] {
+		--auth-panel: calc((100% + 463px - 488px) / 2);
+	}
+	[data-auth-panel] {
+		display: block;
+		width: var(--auth-panel) !important;
+	}
+	[data-auth-panel-pin] {
+		position: sticky;
+		inset: 0 auto auto;
+		height: 100svh;
+	}
+	[data-auth-area] {
+		margin-left: var(--auth-panel);
+	}
+	/* the toaster (__root.tsx, the core's) centres on the window below 1024, where Back now stands under its middle: a
+	   42-tall pill (24-66) would cross Back's top edge (63) by 3 px. From 1024 it centres over the form area, right of
+	   the 600 panel; here half this panel (25vw - 6.25px) does the same. Read only by the toaster's translate (added by
+	   the coordinator, 2026-10-31 04:40); unset everywhere else, so nothing else changes. */
+	:root:has([data-auth-panel]) {
+		--auth-toast-shift: calc(25vw - 6.25px);
+	}
+}

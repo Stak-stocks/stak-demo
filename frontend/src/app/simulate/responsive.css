@@ -1,0 +1,162 @@
+/*
+ * The Simulate pages below 1024 (SPEC R2-R9; CORE-API.md). Everything here is scoped to (width < 1024px) or to the
+ * compact-only classes the pages render below 1024 (`useSizeClass`), so 1024 and wider stay exactly as approved.
+ * Simulate home renders its compact column itself (SimulateHome.tsx: the phone frame's section order); the shared
+ * rules below (.sim-responsive / .sim-columns / .sim-fill / .sim-copy / .sim-wrap / .sim-range / .sim-stats) also serve
+ * the Portfolio, Pick detail and Leaderboard pages; the .sim-saved-* and .sim-hit-* rules are Simulate home's own.
+ */
+@media (width < 1024px) {
+	/* the frames' authored min-heights and top nudges (Simulate 965 / 969 and +4, Portfolio 1004 / 1048 and -44, ...)
+	   belong to the 1024-tall frames: below 1024 the page is as tall as its content (CORE-API section 4) */
+	.sim-responsive {
+		min-height: 0 !important;
+		margin-top: 0 !important;
+		max-width: 100%;
+	}
+	.sim-columns {
+		flex-direction: column;
+		align-items: stretch;
+	}
+	.sim-columns > *,
+	.sim-fill {
+		width: 100% !important;
+		min-width: 0;
+		flex: none !important;
+	}
+	.sim-copy {
+		max-width: 100%;
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+	.sim-wrap {
+		height: auto;
+		min-height: 24px;
+		flex-wrap: wrap;
+		gap: 12px;
+		overflow: visible;
+	}
+	.sim-range {
+		justify-content: space-between;
+		gap: 24px;
+		padding-inline: 14px;
+	}
+	/* Simulate · Empty (2:2255): the copy column keeps Figma's 460 as its widest and wraps inside the window's column;
+	   the title (the stage's h2) is the frame's one line wherever 297 fit, else two even lines; the paragraph never ends
+	   on one word */
+	.sim-empty-copy {
+		width: 100%;
+		max-width: 460px;
+	}
+	.sim-empty-copy > :is(h2, p) {
+		max-width: 100%;
+		white-space: normal;
+		text-wrap: pretty;
+	}
+	.sim-empty-copy > h2 {
+		text-wrap: balance;
+	}
+	.sim-stats {
+		flex-wrap: wrap;
+	}
+	.sim-stats > * {
+		flex: 1 1 120px;
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+
+	/*
+	 * Simulate home's Saved staks rows (2:683 ...: the 36 letter tile, the symbol over the company, the price over the
+	 * move, the 60 x 30 Buy pill, 12 apart). R7: the row stays Figma's one line while it fits, in every row of the card
+	 * (measured by SimulateHome's useSavedRowsFit: for the frame's own strings PLTR's row needs 302.2 inside the card,
+	 * windows of 375 and up); where it does not, the card carries `sim-saved-stacked` and EVERY row puts its figures on
+	 * a second line inside the row, under the company, as one pair, left-aligned under the name like the texts above
+	 * them; the tile and the Buy pill stay centred on the row, the pill still last in the row and in the Tab order. One
+	 * rhythm for the whole list at any width; no company name broken beside one-line figures (a live name too long even
+	 * for the stacked column wraps under itself, never cut); nothing squeezed, nothing wrapping inside the figures.
+	 */
+	.sim-saved-stacked > .sim-saved-row {
+		display: grid;
+		grid-template-columns: 36px minmax(0, 1fr) 60px;
+		column-gap: 12px;
+		row-gap: 8px;
+		padding-block: 8px;
+	}
+	.sim-saved-stacked > .sim-saved-row > :first-child {
+		grid-column: 1;
+		grid-row: 1 / 3;
+	}
+	.sim-saved-stacked > .sim-saved-row > :nth-child(2) {
+		grid-column: 2;
+		grid-row: 1;
+	}
+	.sim-saved-stacked > .sim-saved-row > :nth-child(3) {
+		grid-column: 2;
+		grid-row: 2;
+		align-items: flex-start;
+	}
+	.sim-saved-stacked > .sim-saved-row > :last-child {
+		grid-column: 3;
+		grid-row: 1 / 3;
+	}
+
+	/*
+	 * Touch areas (R8 with the coordinator's ruling of 2026-10-31: below 1024 a control whose Figma target is under
+	 * 24 px may get an invisible touch area that changes no pixel; the control keeps Figma's size and look). Simulate
+	 * home's 16-tall text links reach 44: "All saved staks ›" / "Open portfolio ›" (`sim-hit-head`) 14 px above and below,
+	 * inside their card's padding and 2 px clear of the first row under the header; "Leaderboard ›" (`sim-hit-foot`, the
+	 * board's last line) 12 px above (to the "You" row's edge, not over it) and 16 below, inside the card's padding. The
+	 * chart's range tabs 1D / 1W / 1M / 1Y (22 tall, 8 apart; `sim-hit-tab`) reach 44 tall and half their gap each side:
+	 * 11 px above and below, inside the 120-tall chart panel; neighbouring areas meet, never overlap. The tabs stop
+	 * clipping for it (their labels sit well inside them, so nothing else changes).
+	 */
+	.sim-hit-head,
+	.sim-hit-foot,
+	.sim-hit-tab {
+		position: relative;
+	}
+	.sim-hit-tab {
+		overflow: visible;
+	}
+	.sim-hit-head::before,
+	.sim-hit-foot::before,
+	.sim-hit-tab::before {
+		content: "";
+		position: absolute;
+		inset: -14px 0;
+	}
+	.sim-hit-foot::before {
+		inset: -12px 0 -16px;
+	}
+	.sim-hit-tab::before {
+		inset: -11px -4px;
+	}
+}
+
+/* Below phone widths, the Portfolio's sold rows and the Leaderboard rows (the portfolio group's pages) move their figures
+   below the company rather than squeezing its name beside the trade action. (The position rows read their card's own
+   width through a container query in Portfolio.tsx since the portfolio build of 2026-11-01; their blanket rules here were
+   dead and are gone.) */
+@media (width < 640px) {
+	.sim-sold-row {
+		height: auto;
+		min-height: 24px;
+		flex-wrap: wrap;
+		gap: 8px;
+		white-space: normal;
+	}
+	.sim-sold-row > :first-child {
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+	.sim-leader-row {
+		height: auto;
+		min-height: 44px;
+		flex-wrap: wrap;
+		gap: 8px;
+		padding-block: 8px;
+	}
+	.sim-leader-row > :first-child {
+		min-width: 0;
+		white-space: normal;
+	}
+}

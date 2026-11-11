@@ -1,0 +1,12 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="55.8513" height="55.8513" viewBox="0 0 55.8513 55.8513" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="cat-icon">
+<path id="Vector" d="M27.9257 6.98208L50.2662 25.1337V46.078C50.2662 46.6335 50.0456 47.1662 49.6528 47.559C49.26 47.9517 48.7273 48.1724 48.1718 48.1724H7.6796C7.12413 48.1724 6.5914 47.9517 6.19862 47.559C5.80584 47.1662 5.58518 46.6335 5.58518 46.078V25.1337L27.9257 6.98208Z" fill="url(#paint0_linear_0_7)" stroke="white" stroke-opacity="0.82" stroke-width="1.53591"/>
+<path id="Vector_2" d="M33.2316 32.1152H22.6198C21.6944 32.1152 20.9443 32.8653 20.9443 33.7907V46.4969C20.9443 47.4222 21.6944 48.1724 22.6198 48.1724H33.2316C34.1569 48.1724 34.9071 47.4222 34.9071 46.4969V33.7907C34.9071 32.8653 34.1569 32.1152 33.2316 32.1152Z" stroke="white" stroke-opacity="0.55" stroke-width="1.39628"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_0_7" x1="8.37775" y1="5.58579" x2="47.4737" y2="50.2668" gradientUnits="userSpaceOnUse">
+<stop stop-color="white" stop-opacity="0.55"/>
+<stop offset="1" stop-color="#D3DCEA" stop-opacity="0.2"/>
+</linearGradient>
+</defs>
+</svg>

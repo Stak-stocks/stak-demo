@@ -1,11 +1,12 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { AU } from "@/app/auth/assets";
+import { usePostAuthRedirect } from "@/app/auth/usePostAuthRedirect";
 import {
 	AuthHeading,
 	AuthInput,
 	AuthLayout,
+	AuthRedirectError,
 	authErrorMessage,
 	FieldError,
 	FootRow,
@@ -13,9 +14,9 @@ import {
 	OrDivider,
 	ShowToggle,
 	SocialButton,
+	TextLink,
 } from "@/app/auth/ui";
 import { PrimaryButton } from "@/app/ui/Button";
-import { getProfile } from "@/lib/api";
 import { useAuth } from "../context/AuthContext";
 
 export const Route = createFileRoute("/login")({
@@ -24,37 +25,17 @@ export const Route = createFileRoute("/login")({
 
 /** Figma 2:5664 "Desktop · Sign in": visuals from the frame, auth logic from the previous login page. */
 function LoginPage() {
-	const { user, loading, signInWithGoogle, signInWithEmail, logout } = useAuth();
-	const navigate = useNavigate();
+	const { signInWithGoogle, signInWithApple, signInWithEmail } = useAuth();
+	const redirect = usePostAuthRedirect();
 	const [signingIn, setSigningIn] = useState(false);
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
 	const [errors, setErrors] = useState<{ email?: string; password?: string; form?: string }>({});
 
-	useEffect(() => {
-		if (!loading && user) {
-			// Force-refresh the token to detect if the account was deleted server-side
-			// (Firebase keeps the client session alive for up to 1 hour after deletion),
-			// then read fresh claims, which avoids stale React state from the previous onAuthStateChanged call.
-			user
-				.getIdToken(true)
-				.then(() => getProfile().catch(() => {}))
-				.then(() => user.getIdToken(true))
-				.then(() => user.getIdTokenResult())
-				.then((result) => {
-					const done = result.claims.onboardingCompleted === true;
-					navigate({ to: done ? "/home" : "/onboarding" });
-				})
-				.catch(() => {
-					// Token refresh failed: account was deleted or disabled on the server
-					logout().catch(() => {});
-				});
-		}
-	}, [user, loading, navigate, logout]);
-
 	async function handleEmailSignIn(e: React.FormEvent) {
 		e.preventDefault();
+		if (signingIn || redirect.pending) return;
 		const next: typeof errors = {};
 		if (!isEmail(email)) next.email = "Enter the email you signed up with";
 		if (!password) next.password = "Enter your password";
@@ -62,58 +43,53 @@ function LoginPage() {
 		if (next.email || next.password) return;
 		setSigningIn(true);
 		try {
-			await signInWithEmail(email.trim(), password);
-			toast.success("Welcome back!");
+			// no toast here: the routing welcomes the person once it knows where they go, "Welcome back!" only for Home
+			// (usePostAuthRedirect; a new account's first sign-in goes to Onboarding without it)
+			await redirect.signIn(() => signInWithEmail(email.trim(), password));
 		} catch (error: unknown) {
 			setErrors({ form: authErrorMessage(error, "Sign in failed. Please try again.") });
+		} finally {
 			setSigningIn(false);
 		}
 	}
 
-	async function handleGoogleSignIn() {
+	async function handleSocialSignIn(provider: "google" | "apple") {
+		if (signingIn || redirect.pending) return;
 		setSigningIn(true);
+		setErrors({});
 		try {
-			const { isNew, uid } = await signInWithGoogle();
-			if (isNew) {
-				const lastUid = localStorage.getItem("last-user-uid");
-				// If the UID matches a previous session, this is an existing email/password
-				// user linking their Google account: check the profile before overwriting.
-				const isLinking = !!lastUid && lastUid === uid;
-				if (isLinking) {
-					try {
-						const profile = await getProfile();
-						if (profile.onboardingCompleted) {
-							toast.success("Welcome back!");
-							return;
-						}
-					} catch {
-						/* fall through to new user */
-					}
-				}
-				toast.success("Welcome to STAK!");
-			} else {
-				toast.success("Welcome back!");
-			}
+			// The routing welcomes the person with the destination (usePostAuthRedirect): Home "Welcome back!", an account
+			// this sign-in created "Welcome to STAK!" on Onboarding. The refreshed onboarding claim decides, so an existing
+			// account linking Google is welcomed back only when it finished onboarding, with the API up or down.
+			await redirect.signIn(() => (provider === "apple" ? signInWithApple() : signInWithGoogle()));
 		} catch (error: unknown) {
 			const code = (error as { code?: string }).code ?? "";
 			const cancelled = code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request";
-			if (!cancelled) setErrors({ form: authErrorMessage(error, "Sign in failed. Please try again.") });
+			if (!cancelled) setErrors({ form: provider === "apple" && code === "auth/operation-not-allowed"
+				? "Apple sign-in is not configured for this app yet."
+				: authErrorMessage(error, "Sign in failed. Please try again.") });
 		} finally {
 			setSigningIn(false);
 		}
 	}
 
 	return (
+		// prototype (phone 1:836): Back -> Sign up, PUSH RIGHT 0.3 s
 		<AuthLayout formTop={242} backTo="/signup">
 			<form onSubmit={handleEmailSignIn} noValidate className="flex w-full flex-col items-start gap-[30px]">
 				<div className="flex w-full flex-col items-start gap-[14px]">
 					<div className="flex w-full flex-col items-start gap-[51px]">
 						<AuthHeading title="Welcome back" subtitle="Your deck kept learning while you were away." />
 						<div className="flex w-full flex-col items-start gap-[14px]">
-							<SocialButton icon={AU.google} onClick={handleGoogleSignIn} disabled={signingIn}>
+							<SocialButton icon={AU.google} labelWidth={142} onClick={() => void handleSocialSignIn("google")} disabled={signingIn || redirect.pending}>
 								Continue with Google
 							</SocialButton>
-							<SocialButton icon={AU.apple} onClick={() => toast.info("Apple sign-in is not available yet")} disabled={signingIn}>
+							<SocialButton
+								icon={AU.apple}
+								labelWidth={133}
+								onClick={() => void handleSocialSignIn("apple")}
+								disabled={signingIn || redirect.pending}
+							>
 								Continue with Apple
 							</SocialButton>
 						</div>
@@ -148,20 +124,24 @@ function LoginPage() {
 						right={<ShowToggle shown={showPassword} onToggle={() => setShowPassword((v) => !v)} />}
 					/>
 					<FieldError>{errors.password ?? errors.form}</FieldError>
-					<Link
+					<TextLink
 						to="/forgot-password"
 						search={{ email: isEmail(email) ? email.trim() : undefined }}
-						className="stak-press whitespace-nowrap rounded-[4px] font-geist text-[12px] font-medium leading-[16px] text-[#a6e4f7]"
+						viewTransition={false}
+						width={102}
 					>
 						Forgot password?
-					</Link>
+					</TextLink>
 				</div>
-				<PrimaryButton type="submit" disabled={signingIn} aria-busy={signingIn}>
+				{/* 2:5700: the canon draws "Sign in" in Figma's 45-wide text box (CANON_LABELS) */}
+				<PrimaryButton type="submit" disabled={signingIn || redirect.pending} aria-busy={signingIn || redirect.pending}>
 					{signingIn ? "Signing in…" : "Sign in"}
 				</PrimaryButton>
 			</form>
+			<AuthRedirectError error={redirect.error} onRetry={redirect.retry} />
 			<div className="flex flex-col items-center justify-center gap-[14px]">
-				<FootRow text="New to STAK?" linkLabel="Create account" to="/signup" />
+				{/* prototype: "Create account" -> Sign up, DISSOLVE 0.35 s */}
+				<FootRow text="New to STAK?" textWidth={78} linkLabel="Create account" linkWidth={87} to="/signup" />
 			</div>
 		</AuthLayout>
 	);

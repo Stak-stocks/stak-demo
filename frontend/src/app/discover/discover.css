@@ -1,0 +1,110 @@
+/*
+ * The deck's controls as Figma draws them (2:2944 / 2:3089 / 2:3239 / 2:3422 / 2:2305, read again on 2026-10-18 with a
+ * read-only reaction dump: 0 reactions on the five desktop frames; the phone deck's are instant NAVIGATE / SWAP, one
+ * SMART_ANIMATE, one DISSOLVE and one PUSH between whole frames): plain frames with no component variants, no hover,
+ * pressed or focused state and no "change to" reaction. No control of the deck, of the receipt or of the sheets they
+ * open carries the shared .stak-press response any more (the canon PrimaryButton, GhostButton, the ticket's chips and
+ * the Simulate sheets' GhostButton all dropped it), so this file holds no hover / pressed override. Keyboard focus
+ * keeps the canvas's visible outline.
+ *
+ * The failed practice buy's sheet (a Modal of the Simulate screens, which fades its dialog in on its own) arrives in
+ * the deck inside Confirm's 350 ms Smart Animate, like the Order filled sheet: it skips the dialog's 0.3 s fade-in.
+ * The sheets are rendered inside the deck's own tree (a native <dialog> keeps its place in the DOM when it opens), so
+ * .stak-deck reaches them.
+ */
+.stak-deck dialog.stak-sheet-in:has([data-sim-sheet]) {
+	animation: none;
+}
+
+/* ── Below 1024 (SPEC section 3; CORE-API section 2): the three-card stack on the column's width. ──────────────────
+   Figma's cards (2:3042 front 371.3852, 2:3003 left 334.2467 = 0.9 of it, 2:2962 right 313.9893 = 0.845455), their
+   rotations (the left card +5° and the right -5° about their top-left corners) and z-order stay; what changes is how
+   far apart they sit. The group's box 2:2960 is 690.5043 wide: the left card's rotated bottom-left corner at its left
+   edge, the right card's rotated bottom-right corner at its right edge, the front card at 160.8569. On a narrower
+   column the box is the column (--deck-g) and the fan folds in by --deck-s on each side: the left card keeps its
+   place, the front card moves left by --deck-s and the right card by twice that, so both side cards peek less. Once the
+   column cannot hold the front card at Figma's width, the card fills the column (R3: width 100 %, Figma's width the
+   maximum; the side cards keep Figma's proportions to it) and the side cards, tucked behind it, lean one gutter into
+   the margins at their lower corners, the edges their rotation gives them, never past the window (R9). The deck's
+   loading skeleton (DeckSkeleton) lays its three shells out with the same variables. Typography is never scaled (R1). */
+@media (width < 1024px) {
+	.stak-deck-geo {
+		/* the group's box and the three cards' widths */
+		--deck-g: min(690.5043px, var(--stak-col));
+		--deck-f: min(371.3852px, var(--stak-col));
+		--deck-l: calc(var(--deck-f) * 0.9);
+		--deck-r: calc(var(--deck-f) * 0.845455);
+		/* how far each side of the fan folds in */
+		--deck-s: calc((690.5043px - var(--deck-g)) / 2);
+		/* the front card's left: 2:3042's 160.8569 less the fold, never past the box's edges */
+		--deck-xf: max(0px, min(160.8569px - var(--deck-s), var(--deck-g) - var(--deck-f)));
+		/* the left card's left: 2:3003's 35.9365 (its leaning corner at the box's edge), one gutter out once the front
+		   card covers its top (412.3244 x sin 5° = 35.9365: the lean of its left edge) */
+		--deck-xl: calc(35.9365px - max(0px, var(--stak-gutter) - var(--deck-xf)));
+		/* the right card's left: its rotated box (width x cos 5° + 397.7301 x sin 5°) ends at the box's edge, one gutter
+		   out once the front card covers its top */
+		--deck-xr: calc(
+			var(--deck-g) - (var(--deck-r) * 0.99619 + 34.6665px) +
+				max(0px, var(--stak-gutter) - (var(--deck-g) - var(--deck-xf) - var(--deck-f)))
+		);
+		/* the 806.229 column (2:2959) sits in the content column as from 1024 up: centred as an 812 block (colCentre(812),
+		   the deck route's margin), which is 0 until the column is wider than 812 (a tablet of 933 or more) */
+		--deck-col-x: max(0px, (var(--stak-col) - 812px) / 2);
+		/* the box sits centred in the 806.229 column (itself at most the content column wide) */
+		--deck-box-x: calc((min(806.229px, var(--stak-col)) - var(--deck-g)) / 2);
+		/* the toast 2:3234 keeps its place over the front card: 84.61 right of the card's left edge (the toast is placed
+		   against the page, so it carries the column's own margin as well as the box's) */
+		--deck-toast-x: calc(var(--deck-col-x) + var(--deck-box-x) + var(--deck-xf) + 84.61px);
+	}
+}
+
+/* ── End of deck on a tablet (640-1023): the receipt column 2:3424 is constrained CENTER / CENTER, and from 1024 up it is
+   centred in the window (its centre 0.1 below the window's: top (H - 522.2) / 2 + 0.1 = (H - 522) / 2, which is the
+   frame's 251 at 1024 tall). On a tablet it is in flow under the root's own top padding, the same centring: a margin on
+   the receipt would collapse through this padding-less root and carry the root, with the absolutely placed Back and
+   crumb (top -44 of it), 163 px down the page (measured 2026-10-25: Back at y 207 beside the ring). The floor keeps the
+   ring one receipt gap (40) under the crumb (y 115-136) in a short window, where the two would otherwise share rows on
+   a column narrower than 680 (the crumb runs to x 336, the ring starts at W / 2 - 3.6): 88 + 88 = 176; a 768-tall
+   window then holds the whole receipt (ends at 698, the shell's 32 under it) with the last link in view. */
+@media (640px <= width < 1024px) {
+	.stak-deck-end {
+		padding-top: max(88px, calc((100svh - 522px) / 2 - 88px));
+	}
+}
+/* The side cards' copy and Save chips show only where the fold leaves them a readable sliver, as the 1440 fan does
+   ("Two billion devices," / "$229.35" on the left card, the right card's whole Save chip): on a column of 584 or more
+   the fold --deck-s is 53.25 at most, the right card's chip clears the front card's edge (xr + 242.67 cos 5° = xf +
+   371.39 there) and the left card's price row shows whole. Narrower, the strips beside the front card are 72 px or
+   less and the copy would peek as letter fragments ("Tw", "$2," at 480-560) or a cut chip ("ve" at 560): nothing of
+   it is painted (nor measured as text under the front card's), only the cards' leaning edges. The column is W - 32 on
+   a phone and W - 120 on a tablet (CORE-API section 3), so the band is a phone under 616 and a tablet under 704. The
+   cards keep their accessible names; the side chips were already out of the accessibility tree. */
+@media (width < 616px), (640px <= width < 704px) {
+	.stak-deck-geo :is([data-slot="left"], [data-slot="right"]) :is([data-card-copy], button[aria-hidden="true"]) {
+		visibility: hidden;
+	}
+}
+
+/* ── Past 2560 (SPEC G2): the layout must be the 2560 x 1440 one scaled by the zoom. ──────────────────────────────
+   1. The cards' price rows ("$122.10" + "▲ 2.4% today") are aligned on their baselines from 1024 to 2560, and Chrome
+      aligns those with font metrics rounded in device pixels: past 2560 the smaller text lands up to 4 device pixels
+      from 2560 x zoom (measured 2026-10-25: +2.25 / +3.44 / +3.96 at 3840 / 5120x2880 / 7680x4320). Here the row is
+      aligned from the top with the authored offset instead (Geo.changeTop in DeckCard.tsx: the same 9 / 7 / 7 pixels
+      Chrome's alignment gives at zoom 1), which scales exactly. Scoped to the big regime so 1024-2560 keeps its approved
+      pixels (at 1366 the explicit offset would move the text a device row).
+   2. End of deck: the receipt column's positions carry Figma's own .2 (the 79.2 completion ring above 40 gaps), which
+      puts the tiles' digits on a half pixel at 2560 (their baseline at .48: rounded down there, up at 7680x4320: +2
+      device px). Past 2560 the column sits that .2 higher, so every baseline below the ring is a whole 2560 pixel and
+      scales exactly; at 2560 itself nothing moves.
+   (Tried and dropped, 2026-10-25: a one-layout-pixel text step inside the rotated side cards. Measured by glyph rows it
+   moved their texts one device pixel further from 2560 x zoom at 3840 and 7680, so the shared rule's device-pixel
+   step stays in force there; the rotated texts are within the glyph bound with it.) */
+html[data-stak-size="big"] .stak-deck [data-price-row] {
+	align-items: flex-start;
+}
+html[data-stak-size="big"] .stak-deck [data-price-row] > [data-change] {
+	margin-top: var(--deck-change-top, 0px);
+}
+html[data-stak-size="big"] .stak-deck-end [data-receipt] {
+	top: calc(50% - 305.2px);
+}

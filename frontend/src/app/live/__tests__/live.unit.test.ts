@@ -2,6 +2,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { loadCatalog } from "../catalog";
 import { buildDeckOrder, DECK_SIZE, DECK_THEMES, fitHeadline, HEADLINE_MAX } from "../deck";
 import { emptyLocal, sanitize, seedGuest } from "../guest";
+import { isShowcase } from "../showcase";
+import type { Live } from "../store";
 import { demoQuote, hasDemoQuote } from "../quotes";
 
 describe("fitHeadline", () => {
@@ -63,5 +65,22 @@ describe("demoQuote", () => {
 		expect(demoQuote("aapl")).toBe(demoQuote("AAPL"));
 		expect(demoQuote("AAPL")?.price).toBeGreaterThan(0);
 		expect(demoQuote("ZZZZ")).toBeNull();
+	});
+});
+
+describe("isShowcase", () => {
+	const asLive = (s: ReturnType<typeof seedGuest>, extra: Record<string, unknown> = {}) =>
+		({ signedIn: false, ...s, savedTickers: new Set(s.saves.map((x) => x.ticker)), ...extra }) as unknown as Live;
+
+	it("is the untouched seed, and ends for good once touched (D7 refined)", () => {
+		const seed = seedGuest();
+		expect(seed.touched).toBe(false);
+		expect(isShowcase(asLive(seed))).toBe(true);
+		expect(isShowcase(asLive(seed, { touched: true }))).toBe(false);
+		expect(isShowcase(asLive({ ...seed, cash: 8700 }))).toBe(false);
+		expect(isShowcase(asLive(seed, { signedIn: true }))).toBe(false);
+		// a browser that stored the persona before the flag existed keeps the seed's false
+		expect(sanitize(seedGuest(), { ...seed, touched: undefined }).touched).toBe(false);
+		expect(sanitize(seedGuest(), { ...seed, touched: true }).touched).toBe(true);
 	});
 });

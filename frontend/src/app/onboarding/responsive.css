@@ -1,0 +1,429 @@
+/*
+ * 01 Onboarding (steps 01-08, 2:5710 ... 2:6271) and the 00 References EXAMPLE card (2:6664) outside the approved
+ * 1024-2560 range (SPEC.md, CORE-API.md). The file is unlayered on purpose: it beats Tailwind's utilities (the frames'
+ * absolute offsets and Figma widths) without !important; only the frames' inline styles (left, top, width, the
+ * sub-pixel placements) need it.
+ *
+ * From 1024 to 2560 nothing here applies: every rule sits in a `width < 1024px` media query, or under
+ * html[data-stak-size="big"] (past 2560 only).
+ */
+
+/* ── Past 2560 (SPEC G2): the 2560 x 1440 layout scaled by the zoom. ───────────────────────────────────────────────
+   03's card price rows ("$122.10" + "▲ 2.4% today") are aligned on their baselines from 1024 to 2560; Chrome aligns
+   those with font metrics rounded in device pixels, which put the smaller text up to 3 device px off 2560 x zoom
+   (measured: +2.56 / +3.04 / +2.94 at 3840 / 5120x2880 / 7680x4320). Past 2560 the row is aligned from the top with
+   the offset Chrome's own alignment gives at zoom 1 (SwipeCards Geo.text.changeTop, 9 / 7 / 7), which scales exactly;
+   on the turned left card 6.5779, the row 2560 actually draws its glyphs on in the card's own pixel grid (review round
+   1: 7 left them a device pixel low past 2560, +1.75 at 3840). */
+html[data-stak-size="big"] .stak-onboarding [data-onb-price-row] {
+	align-items: flex-start;
+}
+html[data-stak-size="big"] .stak-onboarding [data-onb-price-row] > [data-onb-change] {
+	margin-top: var(--onb-change-top, 0px);
+}
+
+/* ── Below 1024: phone (< 640) and tablet (640-1023), canvas zoom 1. ─────────────────────────────────────────────
+   The 1024 band of the frame becomes the page's column: Figma's pieces at Figma's sizes (R1), the chrome at the top
+   (R11), the step's content in normal flow under it (R6), every Figma width a maximum (R3).
+
+   Vertically each step keeps its frame's constraint. 01 and 04-08 centre their content (CENTER / CENTER in the frames):
+   the content is centred on the window once there is room for it under the chrome, and simply follows the chrome in a
+   shorter window (a spacer under it takes up to the chrome's height first, then the content's auto margins share the
+   rest, as the auth splash does). 02, 03 and the EXAMPLE card pin their content to the top (MIN / MIN: 2:5777 / 2:5780
+   / 2:5890 / 2:5893, the Step card 2:6666 and its pager 2:6682), as the band does from 1024 up (TOP_BAND). */
+@media (width < 1024px) {
+	.stak-onboarding {
+		/* the column's side gutters (CORE-API: tablet 24, phone 16) and the chrome's top row (Figma's 44; a phone 20 higher) */
+		--onb-gutter: 24px;
+		--onb-chrome-y: 44px;
+		/* the window, not the 1024 frame (CORE-API section 4: a standalone page that fits the window does not scroll) */
+		min-height: 100svh !important;
+	}
+	.onboarding-band {
+		/* where the step's content starts: under Back (chrome-y + 52, 40 tall) and Figma's 34 to the heading (170 at 1440) */
+		--onb-top: calc(var(--onb-chrome-y) + 126px);
+		position: relative;
+		inset: auto !important;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		height: auto;
+		min-height: 100svh;
+		padding: calc(var(--onb-top) + env(safe-area-inset-top, 0px)) calc(var(--onb-gutter) + env(safe-area-inset-right, 0px))
+			calc(32px + env(safe-area-inset-bottom, 0px)) calc(var(--onb-gutter) + env(safe-area-inset-left, 0px));
+	}
+	/* The 32 px bottom gutter yields, down to 16, before it makes a fitting step scroll: the band is as tall as the window,
+	   or as tall as its content plus the whole gutter once the content and 16 px no longer fit in the window. In between
+	   (04 / 05 at 1023x768: the content ends at 743 of 768) the content follows the chrome and ends 16-32 px above the
+	   window's bottom instead of the page scrolling by the few px the gutter is short of (review round 1); it never ends
+	   closer than 16 px to that edge, where it read as touching it (review round 2: 04 at 600x960 ended 7 px above it, 02
+	   at 1023x768 7.1 px). `size` is the band's own auto height (chrome, content, gutter); the clamp() is 16 while the
+	   content and 16 px fit in the window and 0 once they do not. A browser without calc-size() keeps the plain auto
+	   height above (the whole gutter, a scroll where it does not fit). */
+	.onboarding-band {
+		height: calc-size(auto, max(100svh, size - clamp(0px, (100svh + 16px - size) * 100000, 16px)));
+	}
+	/* 06 has no chrome: its content is centred in the window */
+	[data-onboarding-step="6"] .onboarding-band {
+		--onb-top: 32px;
+	}
+	/* the EXAMPLE card: under its "STAK" (25 tall at chrome-y) */
+	[data-onboarding-step="5"][data-onboarding-variant="example"] .onboarding-band {
+		--onb-top: calc(var(--onb-chrome-y) + 57px);
+	}
+
+	/* ── The chrome (2:5753 ...; Chrome.tsx). Every piece MIN / MIN in the frames: on Figma's rows, the window's gutter in
+	   place of the frame's 60. The mark + wordmark lockup keeps its own offsets (60.0001 / 90.9721 in its wrapper): the
+	   wrapper moves, never the two images. ── */
+	[data-onboarding-chrome="logo"] {
+		left: calc(var(--onb-gutter) + env(safe-area-inset-left, 0px) - 60px);
+		top: calc(var(--onb-chrome-y) - 44px + env(safe-area-inset-top, 0px)) !important;
+	}
+	[data-onboarding-chrome="label"] {
+		left: auto !important;
+		right: calc(var(--onb-gutter) + env(safe-area-inset-right, 0px));
+		top: calc(var(--onb-chrome-y) + 6px + env(safe-area-inset-top, 0px)) !important;
+	}
+	/* the six segments stay centred on the window, 4 under Back's top, as in the frame (left: the frame's 50% - 183) */
+	[data-onboarding-chrome="progress"] {
+		top: calc(var(--onb-chrome-y) + 56px + env(safe-area-inset-top, 0px)) !important;
+	}
+	/* Back (2:5749 ...): every step's, 01's included */
+	.onboarding-back {
+		left: calc(var(--onb-gutter) + env(safe-area-inset-left, 0px));
+		top: calc(var(--onb-chrome-y) + 52px + env(safe-area-inset-top, 0px)) !important;
+	}
+	.onboarding-example-logo {
+		left: calc(var(--onb-gutter) + env(safe-area-inset-left, 0px));
+		top: calc(var(--onb-chrome-y) + env(safe-area-inset-top, 0px)) !important;
+	}
+
+	/* ── The step's content in flow ── */
+	.onboarding-band > .onboarding-heading,
+	.onboarding-section {
+		position: relative;
+		inset: auto !important;
+		flex: none;
+		width: 100%;
+	}
+	/* each step's column answers container queries on its own width (the brand grid, the matrix, the swipe stack) */
+	.onboarding-section {
+		container: onb-section / inline-size;
+	}
+	/* centred steps: the spacer (up to the chrome's height) and the content's auto margins */
+	.onboarding-band::after {
+		content: "";
+		flex: 1 1 0;
+		max-height: calc(var(--onb-top) - 32px);
+	}
+	.onboarding-band > .onboarding-section {
+		margin-block: auto;
+	}
+	/* 02, 03 and the EXAMPLE card: top-anchored (no spacer, no auto margins); 02 / 03 keep Figma's gap from the heading
+	   (320 - 236 = 84 on 02, 283 - 236 = 47 on 03), the card starts at --onb-top under its "STAK" */
+	:is([data-onboarding-step="2"], [data-onboarding-step="3"], [data-onboarding-step="5"][data-onboarding-variant="example"]) .onboarding-band::after {
+		content: none;
+	}
+	[data-onboarding-step="2"] .onboarding-band > .onboarding-section {
+		margin-block: 84px 0;
+	}
+	[data-onboarding-step="3"] .onboarding-band > .onboarding-section {
+		margin-block: 47px 0;
+	}
+	/* a button that is the column's own child (03's Continue, 07's Lets go!, 08's Proceed to home): Figma's 440 at most,
+	   the column at most */
+	.onboarding-section > button {
+		max-width: min(440px, 100%);
+	}
+
+	/* ── Undo the 1440 frame's sub-pixel placements (subpixel.tsx): they put a box on the fraction Figma draws it at in the
+	   frame; in the reflowed layout no box sits there, and the offsets would only paint edges half a pixel off. ── */
+	.onboarding-band [style*="translate:"]:not([data-frac-fill]) {
+		left: auto !important;
+		top: auto !important;
+		translate: none !important;
+	}
+	.onboarding-band [data-frac-fill] {
+		left: 0 !important;
+		top: 0 !important;
+		translate: none !important;
+	}
+	/* a layer drawn inside its box (OptionMatrix's selected card: the #181f30 fill 0.5 inside the #69b3ca layer, Figma's
+	   0.5 INSIDE stroke 2:6073 / 2:6150) is laid out on the box's whole pixels and carried by its inset as a translate, as
+	   at 1440: a transform is not snapped, so every edge of the stroke is half a pixel wide, left, right, top and bottom
+	   alike (half-strength #69b3ca on each, as the frame draws it). Laid out at the 0.5 inset itself, Chrome snapped both
+	   edges the same way: a full-strength line on the left and top, none on the right and bottom (review round 2). */
+	.onboarding-band [data-frac-fill="inset"] {
+		translate: var(--frac-inset) var(--frac-inset) !important;
+	}
+
+	/* ── 01 Welcome and 06 Preparing deck: the hero (2:5712 / 2:6167) scales as one unit (R4: it holds no text). It takes
+	   the height the window leaves beside the rest of the step as it really is (the chrome, the copy, the action, the gaps
+	   and the 32 px gutter; a fixed estimate of them came up 32 px short where 01's title and line wrap to three lines
+	   each, 360x800 / 375x812, and the gutter went: review round 2), so Get started stays on screen with it: at least half
+	   of Figma's height (246.1, where a short window scrolls instead), at most Figma's 363.896 x 492.2 frame and the
+	   column's width; its width follows from Figma's ratio. For that the step's column fills the band and the hero grows
+	   first (a flex-grow far above the spacer's); the room left once it is at Figma's size centres the content on the
+	   window as on the other centred steps: the spacer (up to the chrome's height) and the auto margins of the column's
+	   first and last pieces work inside the column here.
+	   The export is drawn at the same fractions of the frame (Chrome.tsx: --hero-x / --hero-y). A tablet keeps the frame's
+	   order (hero, then the copy and the action); a phone takes the phone frame's (copy, hero, action: onboarding.tsx). ── */
+	:is([data-onboarding-step="1"], [data-onboarding-step="6"]) .onboarding-band::after {
+		content: none;
+	}
+	:is([data-onboarding-step="1"], [data-onboarding-step="6"]) .onboarding-band > .onboarding-section {
+		flex: 1 0 auto;
+		margin-block: 0;
+	}
+	:is([data-onboarding-step="1"], [data-onboarding-step="6"]) .onboarding-section > :first-child {
+		margin-top: auto;
+	}
+	:is([data-onboarding-step="1"], [data-onboarding-step="6"]) .onboarding-section > :last-child {
+		margin-bottom: auto;
+	}
+	/* the column's spacer, with the column's gap before it taken back (48; a phone's 32 below) */
+	:is([data-onboarding-step="1"], [data-onboarding-step="6"]) .onboarding-section::after {
+		content: "";
+		flex: 1 1 0px;
+		max-height: calc(var(--onb-top) - 32px);
+		margin-top: -48px;
+	}
+	.onboarding-hero {
+		flex: 1000000 1 0px;
+		width: auto;
+		height: auto;
+		min-height: 246.1px;
+		/* 100cqw: the step's column (.onboarding-section, the onb-section container) */
+		max-height: min(492.2px, 100cqw / 0.739325);
+		aspect-ratio: 363.896 / 492.2;
+	}
+	.onboarding-hero > img {
+		left: calc(100% * var(--hero-x, -0.042738)) !important;
+		top: calc(100% * var(--hero-y, -0.051808)) !important;
+		width: 111.5703%;
+		height: 114.1812%;
+	}
+
+	/* ── 02 Brand picks: the 4 x 3 grid of 225 x 76 tiles (2:5781) keeps Figma's four to a row as long as a tile keeps
+	   134 px (the longest pair, PlayStation's badge + 10 + 76, with room each side), then three, then two; the tiles share
+	   the row (R3: Figma's 225 at most, the grid Figma's 960 at most) with Figma's 20 gaps. ── */
+	.onboarding-brands {
+		display: grid;
+		width: 100%;
+		max-width: 960px;
+		height: auto;
+		grid-template-columns: repeat(auto-fit, minmax(max(134px, (100% - 60px) / 4), 1fr));
+		gap: 20px;
+		overflow: visible;
+	}
+	.onboarding-brand {
+		position: relative;
+		inset: auto !important;
+		width: auto;
+	}
+
+	/* ── 03 Swipe tutorial: the stack 2:5895 on the column's width, as the product deck reflows on Discover (discover.css).
+	   On a column of 680.5034 or more it is exactly the frame's; narrower, the fan folds in by --swipe-s on each side: the
+	   left card keeps its place, the front card moves left by --swipe-s, the right card by twice that. Once the column
+	   cannot hold the front card at Figma's 371.3852, it fills the column (R3) and the side cards, which keep Figma's
+	   proportions to it (334.2467 = 0.9, 313.9893 = 0.845455), lean their lower corners one gutter into the margins.
+	   Each side card turns about its centre as in the frame (2:5937 +5°, 2:5896 -5°); its unturned box is placed so that
+	   the turned card's bounding box keeps its edge: left card 17.9681 - 0.0019027 x width from the box's left (412.3244
+	   sin 5° / 2 and (cos 5° - 1) / 2), right card 0.99809735 x width + 17.3322 from its right (397.7301 sin 5° / 2 and
+	   (1 + cos 5°) / 2). At the frame's widths these give 17.3322 and 349.7793, the frame's own boxes. ── */
+	.onboarding-swipe-deck {
+		--swipe-g: min(680.5034px, 100cqw);
+		--swipe-f: min(371.3852px, 100cqw);
+		--swipe-l: calc(var(--swipe-f) * 0.9);
+		--swipe-r: calc(var(--swipe-f) * 0.845455);
+		--swipe-s: calc((680.5034px - var(--swipe-g)) / 2);
+		--swipe-xf: max(0px, min(160.8569px - var(--swipe-s), var(--swipe-g) - var(--swipe-f)));
+		--swipe-lean-l: max(0px, var(--onb-gutter) - var(--swipe-xf));
+		--swipe-lean-r: max(0px, var(--onb-gutter) - (var(--swipe-g) - var(--swipe-xf) - var(--swipe-f)));
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		width: var(--swipe-g);
+		height: auto;
+		min-height: 460.4639px;
+	}
+	/* the front card and its measuring copies share one cell: Figma's 3.7324 from the stack's top, --swipe-xf from its left */
+	:is([data-onboarding-card="front"], [data-onboarding-card="ghost"]) {
+		position: relative;
+		inset: auto !important;
+		grid-area: 1 / 1;
+		width: var(--swipe-f) !important;
+		height: auto !important;
+		margin: 3.7324px 0 0 var(--swipe-xf);
+	}
+	[data-onboarding-card="ghost"] {
+		visibility: hidden;
+		pointer-events: none;
+	}
+	[data-onboarding-card="left"] {
+		left: calc(17.9681px - 0.0019027 * var(--swipe-l) - var(--swipe-lean-l)) !important;
+		top: 16.01855px !important;
+		width: var(--swipe-l) !important;
+		height: 412.3244px !important;
+	}
+	[data-onboarding-card="right"] {
+		left: calc(var(--swipe-g) + var(--swipe-lean-r) - 0.99809735 * var(--swipe-r) - 17.3322px) !important;
+		top: 12.92625px !important;
+		width: var(--swipe-r) !important;
+		height: 397.7301px !important;
+	}
+	/* the card fills its box (the side cards at Figma's fixed height: what they would grow by is behind the front card) */
+	[data-onboarding-card] > [data-onboarding-card-body] {
+		width: 100% !important;
+	}
+	:is([data-onboarding-card="left"], [data-onboarding-card="right"]) > [data-onboarding-card-body] {
+		height: 100%;
+	}
+	/* the image frame keeps Figma's inset from the card's edges; the art stays centred in it */
+	[data-onboarding-card] [data-onboarding-image] {
+		width: calc(100% - 2 * var(--image-inset, 0px)) !important;
+	}
+	[data-onboarding-card] [data-onboarding-art] {
+		left: calc(50% - var(--art-w) / 2) !important;
+	}
+	/* the Save chip keeps its distance from the right edge of its frame (the image frame in front, the card on the sides) */
+	[data-onboarding-card] [data-onboarding-save] {
+		left: calc(100% - var(--chip-from-right)) !important;
+	}
+
+	/* ── 04 Goal and 05 Risk: the 2 x 2 matrix (776 x 300, 378 x 140 cards, 20 gaps) keeps two to a row while a card keeps
+	   the 338 its row needs (24 + 57 disc + 30 + 187 copy + 40), one to a row below; Figma's 378 at most either way. The
+	   cards grow with their copy on the narrowest phones (140 at least). Arrow keys follow the visible rows (OptionMatrix
+	   reads the grid's columns). ── */
+	.onboarding-matrix {
+		display: grid;
+		height: auto;
+		grid-template-columns: minmax(0, 378px);
+		justify-content: center;
+		gap: 20px;
+		overflow: visible;
+	}
+	@container onb-section (width >= 696px) {
+		.onboarding-matrix {
+			grid-template-columns: repeat(2, minmax(0, 378px));
+		}
+	}
+	.onboarding-option {
+		position: relative;
+		inset: auto !important;
+		width: auto;
+		height: auto;
+		min-height: 140px;
+	}
+	/* the copy block keeps one width per card (OptionMatrix: 274, the wide first goal card 278), the card's content box at
+	   most, so every disc sits on the same line inside its card as in the frame (42 / 44 from the card's left at 1440); sized
+	   to its content, the short "Just exploring" / "Hold and watch it closely" copy pulled its disc 39 / 6 px to the right
+	   (review round 1). Narrower than 274 (a phone under 338 wide) the 187 text block shrinks and wraps; the disc never does */
+	.onboarding-option-copy {
+		width: min(var(--onb-copy-w, 274px), 100%);
+		height: auto;
+		min-height: 57px;
+	}
+	.onboarding-option-copy > div:last-child {
+		flex: 0 1 187px;
+		width: auto;
+		min-width: 0;
+	}
+
+	/* ── 06's bar and 07's taste bars: the fills keep the frame's share of their track (260 / 420, n / 592). 06's fill runs
+	   the committed loader's motion here too (R10): the frame's 260 / 420 towards the whole track over the same 2.2 s linear
+	   transition (onboarding.tsx sets data-onboarding-filling a frame after the step shows, as at 1440, where the widths are
+	   the frame's 260 -> 420 px). ── */
+	.onboarding-preparing-fill {
+		width: 61.904762% !important;
+	}
+	.onboarding-preparing-fill[data-onboarding-filling] {
+		width: 100% !important;
+	}
+	.onboarding-taste-fill {
+		width: var(--taste-progress) !important;
+	}
+
+	/* ── The EXAMPLE card (2:6664): 480 wide at most, Figma's 32 padding, centred across the column; top-anchored like the
+	   frame's MIN / MIN Step card 2:6666 and pager 2:6682 (from 1024 up the band keeps it at 257 in any taller window),
+	   at --onb-top under the "STAK"; the pager 23 under it (791 - 768) ── */
+	.onboarding-example-card {
+		position: relative;
+		inset: auto;
+		flex: none;
+		width: 100%;
+		max-width: 480px;
+	}
+	.onboarding-example-card > :is(h1, p) {
+		width: 100%;
+	}
+	/* an option grows with its line on the narrowest phones (Figma's 60 at least) */
+	.onboarding-example-card [role="radio"] {
+		height: auto;
+		min-height: 60px;
+	}
+	.onboarding-example-card [role="radio"] > span {
+		white-space: normal;
+	}
+	/* the text "Back" (2:6681, 29 x 16) keeps its pixels and gets an invisible touch area on touch screens (the R8 ruling of
+	   2026-10-31: allowed below 1024 on a target under 24 px when no pixel changes): 8 up (Continue ends 16 above it, so
+	   the two targets keep 8 clear), 12 down into the card's padding, 16 to each side: 61 x 36 */
+	.onboarding-example-card [data-onboarding-example-back] {
+		position: relative;
+	}
+	.onboarding-example-card [data-onboarding-example-back]::before {
+		content: "";
+		position: absolute;
+		inset: -8px -16px -12px -16px;
+	}
+	.onboarding-example-pager {
+		position: relative;
+		inset: auto;
+		flex: none;
+		margin-top: 23px;
+	}
+}
+
+/* ── Phones (< 640) ─────────────────────────────────────────────────────────────────────────────────────────────── */
+@media (width < 640px) {
+	.stak-onboarding {
+		--onb-gutter: 16px;
+		--onb-chrome-y: 24px;
+	}
+	/* the progress: centred on the window where it fits beside Back, else from Back's right (16 clear) to the gutter; on
+	   Back's middle line, the row it shares with Back here (its segments share the width, Figma's 56 at most) */
+	[data-onboarding-chrome="progress"] {
+		left: max(calc(var(--onb-gutter) + 56px + env(safe-area-inset-left, 0px)), calc(50% - 183px)) !important;
+		right: calc(var(--onb-gutter) + env(safe-area-inset-right, 0px));
+		max-width: 366px;
+		top: calc(var(--onb-chrome-y) + 70px + env(safe-area-inset-top, 0px)) !important;
+	}
+	[data-onboarding-chrome="progress"] > div {
+		width: auto;
+		min-width: 0;
+		flex: 1 1 0;
+	}
+	/* 02 / 03 on a phone: the column's gaps are 32 (onboarding.tsx max-sm:), the heading's too */
+	:is([data-onboarding-step="2"], [data-onboarding-step="3"]) .onboarding-band > .onboarding-section {
+		margin-top: 32px;
+	}
+	/* 01 / 06: the column's spacer takes back a phone column's 32 gap */
+	:is([data-onboarding-step="1"], [data-onboarding-step="6"]) .onboarding-section::after {
+		margin-top: -32px;
+	}
+}
+/* the EXAMPLE card narrower than Figma's 480 (a window under 512): its question and line no longer break where Figma's
+   416 box breaks them, so they are balanced over their lines (no lone word) */
+@media (width < 512px) {
+	.onboarding-example-card > :is(h1, p) {
+		text-wrap: balance;
+	}
+}
+
+/* ── 03 where a side card shows only a sliver beside the front card (a column under 584: a phone under 616, a tablet
+   under 704): its copy and its chip would peek out as letter fragments, so only the card's leaning edges are painted
+   (the product deck's rule on Discover). The side cards were already out of the accessibility tree. ── */
+@media (width < 616px), (640px <= width < 704px) {
+	:is([data-onboarding-card="left"], [data-onboarding-card="right"]) :is([data-onboarding-card-copy], [data-onboarding-save]) {
+		visibility: hidden;
+	}
+}

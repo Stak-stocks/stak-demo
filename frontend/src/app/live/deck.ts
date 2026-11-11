@@ -5,13 +5,14 @@
  * limit the way the mobile app's do.
  */
 import { DAILY_SWIPE_LIMIT } from "@stak/shared/swipeLimit";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { deckCards as authoredCards, deckHeader, type DeckArt, type DeckCardData } from "@/app/discover/data";
 import { useAccount } from "@/context/AccountContext";
 import { getLocalDateKey } from "@/lib/utils";
 import { allTickers, betaOf, brandByTicker, normalizeTicker, primaryCategoryOf, tickerLine, tickersInCategories } from "./catalog";
-import { changeLine, money, sentence } from "./format";
+import { changeLineOrFlat, money, sentence } from "./format";
 import type { DeckProgress } from "./guest";
+import { PRICE_LEAD, type PricesOnScreen, usePricesOnScreen } from "./prices";
 import { hasDemoQuote, useApiHealthState, useQuotes, type Quote } from "./quotes";
 import { type Live, useLive } from "./store";
 
@@ -101,12 +102,17 @@ const TIPS: Record<string, string> = {
 	metals_mining: "Miners follow metal prices, so some quarters just drift.",
 	telecom: "Telecoms pay dividends and move slowly. Rates set their mood.",
 };
-const DEFAULT_TIP = "Prices are real. Small stakes make the swings easier to learn from.";
+/**
+ * The tip of a card whose category has none of its own. It opens with a sentence about the prices, which must be true
+ * for the visitor (C-02, N30.8s): "Prices are real." in the untouched showcase and while the quotes are live, the
+ * demo's sentence otherwise (prices.ts, the one rule Simulate's tip follows too).
+ */
+export const defaultTip = (lead: string = PRICE_LEAD.real) => `${lead} Small stakes make the swings easier to learn from.`;
 
-function tipFor(ticker: string): string {
+function tipFor(ticker: string, lead?: string): string {
 	const beta = betaOf(ticker);
 	if (beta !== null && beta >= 1.6) return "High beta cuts both ways. Keep positions small.";
-	return TIPS[primaryCategoryOf(ticker)] ?? DEFAULT_TIP;
+	return TIPS[primaryCategoryOf(ticker)] ?? defaultTip(lead);
 }
 
 const hash = (s: string) => {
@@ -162,12 +168,16 @@ export function fitHeadline(text: string): string {
 	return `${cut.replace(/[\s,;:.]+$/, "")}…`;
 }
 
-/** Card copy: the frames' authored lines for their three companies, the catalog's voice for the rest. */
-export function cardFor(ticker: string, quote: Quote | null, live?: Pick<Live, "savedTickers" | "positions">): DeckCard {
+/**
+ * Card copy: the frames' authored lines for their three companies, the catalog's voice for the rest. `prices` (optional:
+ * usePricesOnScreen) decides how the default tip speaks of the prices; without it the frame's "Prices are real." stands.
+ * The day's move is zero-neutral (N23c): a quote that prints 0.0% reads "0.0% today", no arrow.
+ */
+export function cardFor(ticker: string, quote: Quote | null, live?: Pick<Live, "savedTickers" | "positions">, prices?: Pick<PricesOnScreen, "lead">): DeckCard {
 	const T = normalizeTicker(ticker);
 	const authored = authoredCards.find((c) => c.symbol === T);
 	const price = quote ? money(quote.price) : (authored?.price ?? "—");
-	const change = quote ? changeLine(quote.changePercent) : (authored?.change ?? "");
+	const change = quote ? changeLineOrFlat(quote.changePercent) : (authored?.change ?? "");
 	const base: DeckCardData = authored
 		? { ...authored, price, change }
 		: {
@@ -176,7 +186,7 @@ export function cardFor(ticker: string, quote: Quote | null, live?: Pick<Live, "
 				headline: fitHeadline(brandByTicker(T)?.personalityDescription || brandByTicker(T)?.bio || T),
 				price,
 				change,
-				tip: tipFor(T),
+				tip: tipFor(T, prices?.lead),
 				art: "logo" as DeckArt,
 			};
 	return { ...base, quote, saved: live?.savedTickers.has(T) ?? false, held: live?.positions.some((p) => p.ticker === T) ?? false };
@@ -192,7 +202,11 @@ export type Deck = {
 	/** the card the pointer is on (0-based) */
 	index: number;
 	current: DeckCard | undefined;
-	/** "n" of "n/12": the card being decided, 1 on a fresh deck (2:2944), one more for every decision (2:3089 reads 2/12 once the card is saved) */
+	/**
+	 * "n" of "n/12": the card in front, index + 1, like the ring's arc and like both phones (coordinator ruling N29a,
+	 * 2026-11-09: android DiscoverScreen.kt:453 / :595, ios DiscoverView.swift:368 / :442). A Save leaves it; Pass moves
+	 * it; Previous brings it back. Only the frame's own preview address reads "2/12" on a saved first card (2:3089).
+	 */
 	counter: number;
 	total: number;
 	decided: Set<string>;
@@ -218,10 +232,28 @@ export function useDeck(opts: { quotes?: boolean } = {}): Deck {
 	// today's stored deck decides the theme (so finishing it does not rotate it away); the rotation only picks the NEXT deck
 	const today = live.deck && live.deck.date === date ? live.deck : null;
 	const theme = DECK_THEMES.find((t) => t.key === today?.theme) ?? DECK_THEMES[live.completedDecks % DECK_THEMES.length]!;
-	// an untouched deck stored before the frames' stack order (AAPL first) is rebuilt; one in progress keeps its cards
-	const pinned = theme.pinned ?? [];
+	// Rebuild an untouched legacy order only when an eligible pinned card should lead it. Saved/passed pins are
+	// excluded by buildDeckOrder, so requiring them here would reject every rebuilt deck and keep persisting forever.
+	const firstPinned = theme.pinned?.find((ticker) => !live.savedTickers.has(ticker) && !live.passed.includes(ticker) && (healthy || hasDemoQuote(ticker)));
 	const untouched = !!today && today.index === 0 && !today.completed && !today.saved.length && !today.passed.length && !today.bought.length;
-	const stored = today && untouched && pinned.length > 0 && today.order[0] !== pinned[0] ? null : today;
+	// A legacy order is one whose pinned cards are out of the theme's pin order (the old AAPL-first deck). A deck built in
+	// pin order stays as it is when its first card is saved or bought elsewhere afterwards (a practice buy saves the
+	// company, D5): that card was rightly in today's deck and keeps its place, with its Saved chip.
+	const pinsInOrder = (order: readonly string[]) => {
+		const seen = order.filter((t) => theme.pinned?.includes(t));
+		return seen.every((t, i) => i === 0 || theme.pinned!.indexOf(seen[i - 1]!) < theme.pinned!.indexOf(t));
+	};
+	// Check legacy migration once on arrival. A save changes eligibility before its deck decision is written;
+	// repeating this check then would rebuild the deck under the card being toggled.
+	const arrival = useRef<{ key: string; legacyOrder: string[] | null } | null>(null);
+	const arrivalKey = `${live.uid ?? "guest"}:${date}:${theme.key}`;
+	if (live.ready && arrival.current?.key !== arrivalKey) {
+		arrival.current = {
+			key: arrivalKey,
+			legacyOrder: today && untouched && firstPinned !== undefined && today.order[0] !== firstPinned && !pinsInOrder(today.order) ? today.order : null,
+		};
+	}
+	const stored = today && arrival.current?.key === arrivalKey && arrival.current.legacyOrder === today.order ? null : today;
 	const progress = stored;
 	const [limitReached, setLimitReached] = useState(false);
 
@@ -240,14 +272,15 @@ export function useDeck(opts: { quotes?: boolean } = {}): Deck {
 	}, [progress, settled, live.ready, live.actions, date, theme.key, order]);
 
 	const quotes = useQuotes(opts.quotes === false ? NO_QUOTES : order);
-	const cards = useMemo(() => order.map((t) => cardFor(t, quotes[t] ?? null, live)), [order, quotes, live]);
+	const prices = usePricesOnScreen();
+	const cards = useMemo(() => order.map((t) => cardFor(t, quotes[t] ?? null, live, prices)), [order, quotes, live, prices]);
 	const index = Math.min(progress?.index ?? 0, order.length);
 	const decided = useMemo(
 		() => new Set<string>([...(progress?.saved ?? []), ...(progress?.passed ?? []), ...(progress?.bought ?? [])]),
 		[progress],
 	);
 	const current = cards[index];
-	const counter = Math.min(DECK_SIZE, Math.max(decided.size, index) + 1);
+	const counter = Math.min(DECK_SIZE, index + 1);
 
 	const patch = useCallback(
 		(fn: (p: DeckProgress) => Partial<DeckProgress>) =>
@@ -294,8 +327,9 @@ export function useDeck(opts: { quotes?: boolean } = {}): Deck {
 		async (ticker: string, price: number | null = null) => {
 			const T = normalizeTicker(ticker);
 			if (!(await meter())) return false;
+			// A failed account write is not a saved decision: leave the card and its counter unchanged so it can be retried.
+			await live.actions.save(T, price);
 			patch((p) => ({ saved: [...new Set([...p.saved, T])], passed: p.passed.filter((x) => x !== T) }));
-			live.actions.save(T, price).catch(() => {});
 			return true;
 		},
 		[meter, patch, live.actions],
@@ -304,8 +338,8 @@ export function useDeck(opts: { quotes?: boolean } = {}): Deck {
 	const unsave = useCallback(
 		async (ticker: string) => {
 			const T = normalizeTicker(ticker);
+			await live.actions.unsave(T);
 			patch((p) => ({ saved: p.saved.filter((x) => x !== T) }));
-			await live.actions.unsave(T).catch(() => {});
 		},
 		[patch, live.actions],
 	);
@@ -321,7 +355,12 @@ export function useDeck(opts: { quotes?: boolean } = {}): Deck {
 		});
 		if (!already) live.actions.completeDeck(); // the effect and toEnd() can both call finish() in one tick
 	}, [patch, progress?.completed, live.actions]);
-	const restart = useCallback(() => live.actions.setDeck(null), [live.actions]);
+	// "Swipe today's deck again" replays the same twelve cards from the first one (prototype 1:2493 -> 1:1741, the deck as it
+	// was); the theme rotates only when a new day builds a new deck
+	const restart = useCallback(
+		() => live.actions.setDeck((prev) => (prev && prev.date === date ? { ...prev, index: 0, saved: [], passed: [], bought: [], completed: false } : null)),
+		[live.actions, date],
+	);
 
 	return {
 		theme,

@@ -27,6 +27,10 @@ type Props = {
  * <dialog>: it sits in the top layer, traps focus, returns it on close, and answers Esc, the
  * back gesture and a click on the scrim (the dialog element itself is the scrim). The panel
  * keeps the frames' geometry: 480 wide, 20px radius, centred with an authored offset.
+ * Below 1024 (styles.css, `[data-sheet-panel]`): min(its width, window - 32) wide, centred on whole pixels with no
+ * offset, scrolling inside itself when it is taller than the window - 32. In the big regime it scales with the canvas
+ * (the dialog is inside the zoomed canvas). The capped ultrawide canvas is centred, so a `scrimInset` (the sidebar the
+ * EXAMPLE modal leaves clear) is measured from the canvas's left edge (--stak-canvas-x), the page margin left of it dimmed.
  *
  * Initial focus goes to the first focusable control (the dialog's default) unless a descendant
  * carries `data-autofocus`, which a confirmation uses to start on its safe action. The sheet is
@@ -76,15 +80,22 @@ export function Sheet({ label, role, labelledBy, describedBy, onClose, scrim = "
 			aria-labelledby={labelledBy}
 			aria-describedby={describedBy}
 			className="stak-dialog stak-sheet-in"
-			style={{ "--stak-scrim": scrimInset ? `linear-gradient(to right, transparent ${scrimInset}px, ${scrim} ${scrimInset}px)` : scrim } as CSSProperties}
+			style={
+				{
+					"--stak-scrim": scrimInset
+						? `linear-gradient(${scrim}, ${scrim}) 0 0 / var(--stak-canvas-x, 0px) 100% no-repeat, linear-gradient(to right, transparent calc(var(--stak-canvas-x, 0px) + ${scrimInset}px), ${scrim} calc(var(--stak-canvas-x, 0px) + ${scrimInset}px))`
+						: scrim,
+				} as CSSProperties
+			}
 			data-sheet
 		>
 			<div
+				data-sheet-panel=""
 				className={cn(
 					"absolute left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-start gap-[14px] overflow-clip rounded-[20px] bg-[#181f30] px-[20px] pt-[10px] pb-[30px]",
 					className,
 				)}
-				style={{ top: `calc(50% + ${offsetY}px)`, left: scrimInset ? `calc(50% + ${scrimInset / 2}px)` : undefined, width }}
+				style={{ top: `calc(50% + ${offsetY}px)`, left: scrimInset ? `calc(50% + ${scrimInset / 2}px)` : undefined, width, "--stak-sheet-w": `${width}px` } as CSSProperties}
 			>
 				<div className="flex w-full items-start justify-center overflow-clip pb-[4px]">
 					<div className="h-[4px] w-[40px] rounded-[2px] bg-[#2a3346]" />

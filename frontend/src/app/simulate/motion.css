@@ -1,0 +1,94 @@
+/*
+ * The Figma prototype's transitions for the Simulate screens and sheets (see motion.ts).
+ * The router already wraps every navigation in a view transition; <html data-stak-motion> picks how that one
+ * navigation animates:
+ *   instant  - no animation: the sheets open and close in one frame (phone wiring: Buy / Sell / Back are Instant)
+ *   dissolve - 300 ms ease-out cross-fade (desktop 2:1728 "Keep exploring", 2:1827 "View portfolio")
+ *   push     - 300 ms ease-out push to the left: the page leaves left, the next one enters from the right
+ *              (desktop 2:1726 "View in My STAK", 2:1825 "Back to Simulate": PUSH, direction LEFT)
+ *   smart    - 350 ms ease-out smart animate between two states of a sheet (phone 1:4872 "Confirm practice buy",
+ *              1:5238 "Confirm sell"): the layers the two states share keep their identity and move / resize,
+ *              the rest cross-fades, the way Figma matches layers by name.
+ */
+
+/* the sheets of this group appear in one frame: the Instant open of the prototype */
+.stak-dialog:has([data-sim-sheet="instant"]) {
+	animation: none;
+}
+
+/*
+ * No control of these screens answers the pointer with a look of its own: Figma draws no hover or pressed variant and
+ * no "change to" reaction for any of them (the standing ruling, SPEC section 5), so nothing brightens, dims, shrinks or
+ * eases between states; the cursor, the disabled look and the keyboard focus ring stay. The Simulate controls carry no
+ * press class any more, except two text-only links of Simulate home ("All saved staks ›" / "Open portfolio ›" and
+ * "Leaderboard ›"): there the shared `stak-press` class is what keeps a text link out of the shared text-baseline rule
+ * (styles.css), where the approved pixels have it, so the class stays and only its response is switched off, here (the
+ * way the stock EXAMPLE page does it, ticket.css); their pixels at rest are unchanged. The Simulate sheets are rendered
+ * inside the page's tree, so this reaches them too.
+ */
+.sim-responsive .stak-press {
+	transition: none;
+}
+.sim-responsive .stak-press:hover {
+	filter: none;
+}
+.sim-responsive .stak-press:active {
+	transform: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	html[data-stak-motion="instant"]::view-transition-group(*),
+	html[data-stak-motion="instant"]::view-transition-old(*),
+	html[data-stak-motion="instant"]::view-transition-new(*) {
+		animation: none;
+	}
+
+	html[data-stak-motion="dissolve"]::view-transition-old(root),
+	html[data-stak-motion="dissolve"]::view-transition-new(root) {
+		animation-duration: 300ms;
+		animation-timing-function: ease-out;
+	}
+
+	html[data-stak-motion="push"]::view-transition-old(root) {
+		animation: stak-push-out 300ms ease-out both;
+	}
+	html[data-stak-motion="push"]::view-transition-new(root) {
+		animation: stak-push-in 300ms ease-out both;
+	}
+
+	/* smart animate: the shared layers of the two sheet states (Figma matches them by layer name) */
+	html[data-stak-motion="smart"] .stak-dialog > div:has([data-morph]) {
+		view-transition-name: stak-sheet;
+	}
+	html[data-stak-motion="smart"] [data-morph="stock"] {
+		view-transition-name: stak-sheet-stock;
+	}
+	html[data-stak-motion="smart"] [data-morph="ticket"] {
+		view-transition-name: stak-sheet-ticket;
+	}
+	html[data-stak-motion="smart"] [data-morph="actions"] {
+		view-transition-name: stak-sheet-actions;
+	}
+	html[data-stak-motion="smart"]::view-transition-group(*),
+	html[data-stak-motion="smart"]::view-transition-old(*),
+	html[data-stak-motion="smart"]::view-transition-new(*) {
+		animation-duration: 350ms;
+		animation-timing-function: ease-out;
+	}
+	/* the sheet's frame resizes between its two states; its contents stay top-aligned inside it */
+	html[data-stak-motion="smart"]::view-transition-group(stak-sheet) {
+		overflow: clip;
+		border-radius: 20px;
+	}
+}
+
+@keyframes stak-push-out {
+	to {
+		transform: translateX(-100%);
+	}
+}
+@keyframes stak-push-in {
+	from {
+		transform: translateX(100%);
+	}
+}

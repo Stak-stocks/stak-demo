@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="100px" height="54px" viewBox="0 0 100 54" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- AIG: AIG. One-colour coin mark: AIG's own logo file in aig.com's site assets, https://www.aig.com/content/dam/global/site-level-elements/logo/aig-logo1.svg (a Sketch export, 'AIG_r_tag_v_rgb'; file sha1 cf9ec52dcc28b1b2551da4883a5e36901b42afe9), byte for byte from its Internet Archive copy of 2022-01-29: https://web.archive.org/web/20220129000601id_/https://www.aig.com/content/dam/global/site-level-elements/logo/aig-logo1.svg. Used as it is: the box and the AIG letters, one colour, no (R) in the file. The SVG itself is no longer on aig.com (its URL answers 404, checked 2026-11-06), but the site still shows the same logo as PNGs: its header and footer draw /content/dam/aig/america-canada/us/images/icon/icon_aig-logo-white.png, and its two privacy opt-out dialogs draw aig-logo.png from this SVG's own asset folder. AIG's Illustrator export on claims.aig.com (2024) draws the same shapes (IoU 0.987). It replaces the Commons user's trace (File:AIG_new_logo.svg), which it matches at IoU 0.994. -->
+    <!-- Generator: Sketch 47.1 (45422) - http://www.bohemiancoding.com/sketch -->
+    <title>AIG_r_tag_v_rgb</title>
+    <desc>Created with Sketch.</desc>
+    <defs></defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="1" transform="translate(-590.000000, -40.000000)" fill="#00A4E4">
+            <g id="HERO-IMAGE">
+                <g id="CONTENT" transform="translate(271.000000, 40.000000)">
+                    <g id="AIG_r_tag_v_rgb" transform="translate(319.000000, 0.000000)">
+                        <g id="Layer_1">
+                            <g id="Group">
+                                <g transform="translate(10.470478, 10.970923)" id="Shape">
+                                    <path d="M15.2569819,9.1258129 L19.7443296,19.3985859 L10.5701966,19.3985859 L15.2569819,9.1258129 L15.2569819,9.1258129 Z M14.4592312,0.847753111 L0.398875345,31.0676581 L5.33495773,31.0676581 L8.72539816,23.7370871 L21.6888469,23.7370871 L24.8798496,31.0676581 L29.8657914,31.0676581 L16.3040297,0.847753111 L14.4592312,0.847753111 L14.4592312,0.847753111 Z"></path>
+                                    <polygon points="39.0897838 31.0676581 34.5525767 31.0676581 34.5525767 0.847753111 39.0897838 0.847753111 39.0897838 29.2225484"></polygon>
+                                    <path d="M63.0223044,15.3094238 L75.5370184,15.3094238 L75.5370184,16.3067804 C75.5370184,18.6007006 75.2877213,20.5954138 74.7392677,22.3407879 C74.2406735,23.9365584 73.343204,25.4824611 72.0967185,26.8787604 C69.3045911,30.0204337 65.714713,31.6162042 61.3769437,31.6162042 C57.1388931,31.6162042 53.549015,30.0703015 50.5075905,27.0283639 C47.5160254,23.9365584 45.9703835,20.2962068 45.9703835,16.0075734 C45.9703835,11.6192044 47.5160254,7.87911715 50.5574499,4.83717951 C53.6487339,1.74537405 57.3383308,0.24933915 61.775819,0.24933915 C64.1192116,0.24933915 66.3628855,0.748017451 68.4071216,1.69550622 C70.3516389,2.64299499 72.2961562,4.23876555 74.1908141,6.38308224 L70.9499519,9.47488771 C68.456981,6.18361092 65.4654159,4.53797253 61.8755378,4.53797253 C58.6845351,4.53797253 55.9921265,5.63506479 53.8481715,7.82924932 C51.7042165,9.97356601 50.6073093,12.7162967 50.6073093,15.9577056 C50.6073093,19.3487181 51.8039354,22.0914487 54.2470469,24.2856332 C56.4907207,26.3302143 58.9338322,27.3275709 61.5763813,27.3275709 C63.8200551,27.3275709 65.8144319,26.5795534 67.6093709,25.0835185 C69.40431,23.5376158 70.4014983,21.7423739 70.600936,19.5980572 L63.0721639,19.5980572 L63.0721639,15.3094238 L63.0223044,15.3094238 Z"></path>
+                                </g>
+                                <path d="M4.1383317,4.13902989 L95.4309262,4.13902989 L95.4309262,49.6683587 L4.1383317,49.6683587 L4.1383317,4.13902989 L4.1383317,4.13902989 Z M0,53.8572564 L99.5692579,53.8572564 L99.5692579,0 L0,0 L0,53.8572564 L0,53.8572564 Z" id="Shape"></path>
+                            </g>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

@@ -1,0 +1,119 @@
+/*
+ * Stock detail motion, from the prototype's wiring of these screens (the phone page carries it; the desktop frames
+ * have no reactions of their own):
+ * - Save (and, by symmetry, Unsave): SMART_ANIMATE 350 ms, ease-out (1:2659 / 1:2840). The cards are the layers
+ *   Smart Animate matches by name: each glides to its new place and size (the "Save intro" card grows 60 -> 64, the
+ *   cards under it move down 4px; a saved My STAK entry flows its header down 44px) while its content cross-fades,
+ *   top-aligned and unscaled (the UA default for a view transition's image pair);
+ * - the ticket's Back, and the Order filled sheet's "Keep exploring": DISSOLVE 300 ms, ease-out (1:3803, 1:4247;
+ *   desktop 2:1728 has the same dissolve);
+ * - Confirm practice buy -> Order filled: SMART_ANIMATE 350 ms, ease-out (1:3801). The two 480-wide panels are 464
+ *   and 461 tall at the same centre, so the morph reads as a cross-fade of the panel's content;
+ * - "View in My STAK": PUSH to the left, 300 ms, ease-out (1:4245; desktop 2:1726).
+ * Each one runs as a typed view transition (`runTransition`, or the router's `viewTransition.types`), so these rules
+ * only ever apply while one of them is running. Figma's Ease out is cubic-bezier(0, 0, 0.58, 1).
+ */
+@media (prefers-reduced-motion: no-preference) {
+	html:active-view-transition-type(stak-stock-dissolve)::view-transition-old(root),
+	html:active-view-transition-type(stak-stock-dissolve)::view-transition-new(root) {
+		animation-duration: 300ms;
+		animation-timing-function: cubic-bezier(0, 0, 0.58, 1);
+	}
+	html:active-view-transition-type(stak-stock-smart)::view-transition-old(root),
+	html:active-view-transition-type(stak-stock-smart)::view-transition-new(root) {
+		animation-duration: 350ms;
+		animation-timing-function: cubic-bezier(0, 0, 0.58, 1);
+	}
+	html:active-view-transition-type(stak-stock-push)::view-transition-old(root) {
+		animation: 300ms cubic-bezier(0, 0, 0.58, 1) both stak-stock-push-out;
+		mix-blend-mode: normal;
+	}
+	html:active-view-transition-type(stak-stock-push)::view-transition-new(root) {
+		animation: 300ms cubic-bezier(0, 0, 0.58, 1) both stak-stock-push-in;
+		mix-blend-mode: normal;
+	}
+
+	/* Save / Unsave: every card is its own layer for the length of the morph */
+	html:active-view-transition-type(stak-stock-save) .stak-vt-back {
+		view-transition-name: stak-stock-back;
+	}
+	html:active-view-transition-type(stak-stock-save) .stak-vt-chart {
+		view-transition-name: stak-stock-chart;
+	}
+	html:active-view-transition-type(stak-stock-save) .stak-vt-intro {
+		view-transition-name: stak-stock-intro;
+	}
+	html:active-view-transition-type(stak-stock-save) .stak-vt-risk {
+		view-transition-name: stak-stock-risk;
+	}
+	html:active-view-transition-type(stak-stock-save) .stak-vt-numbers {
+		view-transition-name: stak-stock-numbers;
+	}
+	html:active-view-transition-type(stak-stock-save) .stak-vt-news {
+		view-transition-name: stak-stock-news;
+	}
+	html:active-view-transition-type(stak-stock-save) .stak-vt-cta {
+		view-transition-name: stak-stock-cta;
+	}
+	html:active-view-transition-type(stak-stock-save) .stak-vt-analyst {
+		view-transition-name: stak-stock-analyst;
+	}
+	html:active-view-transition-type(stak-stock-save) .stak-vt-compare {
+		view-transition-name: stak-stock-compare;
+	}
+	html:active-view-transition-type(stak-stock-save)::view-transition-group(*),
+	html:active-view-transition-type(stak-stock-save)::view-transition-old(*),
+	html:active-view-transition-type(stak-stock-save)::view-transition-new(*) {
+		animation-duration: 350ms;
+		animation-timing-function: cubic-bezier(0, 0, 0.58, 1);
+	}
+
+	/*
+	 * The phone top bar (AppShell PhoneTopBar, header[data-top-bar]: sticky, z 30, pinned in the window since the ruling of
+	 * 2026-10-30) stays on top and unchanged through the morph. The cards above are lifted into the view-transition layer,
+	 * which paints over the whole page, so a card scrolled under the bar (the Risk fit card at 390 x 844) drew over the menu
+	 * button and the logo for the 350 ms. While this transition runs the bar is a layer of its own too: its group stacks
+	 * above the cards' groups and shows the bar as it is (no glide, no cross-fade). The bar exists only below 640, so at
+	 * every other size the morph is exactly what it was, and no other transition names the bar.
+	 */
+	html:active-view-transition-type(stak-stock-save) header[data-top-bar] {
+		view-transition-name: stak-stock-topbar;
+	}
+	html:active-view-transition-type(stak-stock-save)::view-transition-group(stak-stock-topbar) {
+		z-index: 1;
+		animation: none;
+	}
+	html:active-view-transition-type(stak-stock-save)::view-transition-old(stak-stock-topbar) {
+		animation: none;
+		opacity: 0;
+	}
+	html:active-view-transition-type(stak-stock-save)::view-transition-new(stak-stock-topbar) {
+		animation: none;
+	}
+}
+
+/*
+ * A press during the Save morph is not lost (the independent review r2b, low 4), nor during any other motion above (the
+ * dissolve, the Confirm morph, the push to My STAK: coordinator ruling N36.3d): that is done in transitions.ts
+ * (`pressCutsMorph`, and `watchPush` for the router's push), not here. `::view-transition { pointer-events: none }` does not let a press through while the
+ * root takes part in the transition: measured in Chrome, with that rule applied, the only element under the pointer at
+ * Back's centre during the morph was still <html> (discover-stock/fix3/probes/vt-hit.js): a captured element, and the
+ * whole page is the captured root, does not answer hit-testing until the transition ends.
+ */
+
+@keyframes stak-stock-push-out {
+	to {
+		transform: translateX(-100%);
+	}
+}
+@keyframes stak-stock-push-in {
+	from {
+		transform: translateX(100%);
+	}
+}
+
+/* A sheet whose arrival the wiring makes instant (Practice buy -> ticket, 1:4009 / 1:4190) or that arrives inside the
+   350 ms transition above skips the shared 0.3 s fade-in of its dialog. */
+dialog.stak-sheet-in:has(> .stak-stock-sheet-still) {
+	animation: none;
+}
