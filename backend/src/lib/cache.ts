@@ -21,6 +21,10 @@ if (process.env.REDIS_URL) {
 		// and every per-day cache became per-instance without saying so.
 		retryStrategy: (times) => Math.min(times * 200, 5000),
 		connectTimeout: 5000,
+		// A command Redis doesn't answer within a second is treated as a miss (a set: written to memory instead), rather
+		// than holding the request until Cloud Run's 300s cut-off (batch quotes did, 2026-11-11). For a send-once mark
+		// (cacheSetIfAbsent) that means this instance's memory decides, as on any Redis error.
+		commandTimeout: 1000,
 		lazyConnect: true,
 	});
 
@@ -122,6 +126,34 @@ export async function cacheSetIfAbsent(key: string, data: unknown, ttlMs: number
 	if (entry && entry.expiresAt > Date.now()) return false;
 	memSet(key, data, Date.now() + ttlMs);
 	return true;
+}
+
+/**
+ * Adds one to a counter and returns the new count; the counter lasts `ttlMs` from its first count. Shared across
+ * instances through Redis (this instance's memory when Redis can't be reached) - the Finnhub per-minute budget.
+ */
+export async function cacheIncr(key: string, ttlMs: number): Promise<number> {
+	if (redis) {
+		try {
+			// One round trip, and the expiry is set with the counter: an INCR whose separate PEXPIRE failed would never
+			// expire. SET ... NX starts the window only once, so it doesn't slide (works on any Redis, unlike PEXPIRE NX).
+			const res = await redis.multi().set(PREFIX + key, "0", "PX", Math.ceil(ttlMs), "NX").incr(PREFIX + key).exec();
+			const n = res?.[1]?.[1];
+			if (typeof n === "number") return n;
+		} catch {
+			// Redis error — fall through to memory
+		}
+	}
+	return memIncr(key, ttlMs);
+}
+
+/** cacheIncr on this instance's memory only - for when Redis is too slow to wait for. */
+export function memIncr(key: string, ttlMs: number): number {
+	const entry = mem.get(key);
+	const live = entry && entry.expiresAt > Date.now();
+	const n = (live ? (entry.data as number) : 0) + 1;
+	memSet(key, n, live ? entry.expiresAt : Date.now() + ttlMs);
+	return n;
 }
 
 export async function cacheDelete(key: string): Promise<void> {

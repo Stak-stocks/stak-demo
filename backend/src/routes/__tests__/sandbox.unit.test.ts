@@ -71,7 +71,7 @@ describe("sandboxRouter", () => {
 
 	it("uses a cached quote instead of calling Finnhub, and caches a fresh one", async () => {
 		mockPrice(80);
-		cacheGetMock.mockResolvedValueOnce({ c: 42 });
+		cacheGetMock.mockResolvedValueOnce({ q: { c: 42 }, at: Date.now() });
 		const cachedClient = makeClient([{}, { rows: [{ sandbox_cash: 1000 }] }, { rows: [] }, {}, {}, {}, {}]);
 		pgPoolConnectMock.mockResolvedValueOnce(cachedClient);
 		const app = await buildApp();
@@ -84,7 +84,7 @@ describe("sandboxRouter", () => {
 		pgPoolConnectMock.mockResolvedValueOnce(missClient);
 		const miss = await request(app).post("/buy").send({ ticker: "AAPL", amount: 80 });
 		expect(miss.body.price).toBe(80);
-		expect(cacheSetMock).toHaveBeenCalledWith("quote:fb:AAPL", { c: 80 }, 15_000);
+		expect(cacheSetMock).toHaveBeenCalledWith("quote:v2:AAPL", { q: { c: 80 }, at: expect.any(Number) }, 3 * 24 * 60 * 60 * 1000);
 	});
 
 	// ── GET /portfolio ───────────────────────────────────────────────────────────

@@ -438,7 +438,7 @@ final class StockDetailViewModel: ObservableObject {
 						parts.peers = p; parts.peerTickers = tickers; parts.peerStocks = stocks
 					case .stock(let s):
 						parts.stock = s
-						if s?.quote?.price != nil { priceAt = Date() }
+						if let q = s?.quote, q.price != nil { priceAt = q.fetchedAt }
 						quotePending = false
 						let pct = s?.quote?.changePercent ?? 0
 						group.addTask { .move(try? await repo.getDailyMove(symbol, pct: pct)) }
@@ -481,11 +481,11 @@ final class StockDetailViewModel: ObservableObject {
 			updated.change = formatChange(pct)
 			updated.newsClose = newsCloseLine(pct)
 			liveDetail = updated
-			priceAt = Date()
+			priceAt = quote.fetchedAt
 			// In memory every time; to the phone at most once a minute.
 			let persist = Date().timeIntervalSince(persistedAt) > 60
 			if persist { persistedAt = Date() }
-			StockDetailCache.put(symbol, updated, persist: persist)
+			StockDetailCache.put(symbol, updated, persist: persist, priceAt: quote.fetchedAt)
 
 			// The "why it moved" text explains one direction, and a quiet day or a big move: if the stock has turned
 			// since, or a quiet day has become a big move, ask for the new one.

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { beatsPeers, lessonFor, parsePct, rangeChangeText, sinceSavedFor } from "../stockPage";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { beatsPeers, lessonFor, parsePct, pricesAsOf, rangeChangeText, sinceSavedFor } from "../stockPage";
 
 describe("rangeChangeText", () => {
 	it("names the period, and rewrites 1D's suffix outside market hours", () => {
@@ -44,5 +44,25 @@ describe("lessonFor", () => {
 		expect(lessonFor("NVDA").title).toBe("Why chip stocks swing so hard");
 		expect(lessonFor("JPM").title).toBe("How interest rates move bank profits");
 		expect(lessonFor("ZZZZ").title).toBe("What actually moves a stock price");
+	});
+});
+
+describe("pricesAsOf", () => {
+	afterEach(() => { vi.useRealTimers(); });
+
+	it("says when the price was fetched, and that it's delayed when that's over 2 minutes ago while open", () => {
+		vi.useFakeTimers();
+		const now = new Date("2026-09-23T15:00:00Z"); // Wed 11:00 ET
+		vi.setSystemTime(now);
+		expect(pricesAsOf(now.getTime() - 30_000)).toMatch(/^As of /);
+		expect(pricesAsOf(now.getTime() - 5 * 60_000)).toMatch(/^Delayed · as of /);
+		// An older server sends no time: now.
+		expect(pricesAsOf(undefined)).toMatch(/^As of /);
+	});
+
+	it("names the close outside market hours, however old", () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-09-26T15:00:00Z")); // Saturday
+		expect(pricesAsOf(Date.now() - 3 * 86_400_000)).toBe("At Friday's close");
 	});
 });

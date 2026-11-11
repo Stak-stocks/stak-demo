@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { QUOTE_KEEP_MS, quoteKey } from "../lib/quoteStore.js";
 import { authMiddleware, type AuthenticatedRequest } from "../authMiddleware.js";
 import { pgQuery, pgPool } from "../lib/postgres.js";
 import { cacheGet, cacheSet } from "../lib/cache.js";
@@ -18,15 +19,18 @@ const STARTING_BALANCES: readonly number[] = [...SANDBOX_STARTING_BALANCES, 100_
 const MIN_SHARES = SANDBOX_MIN_SHARES;
 
 /**
- * Live price for a fill. Shares stock.ts's `quote:fb:{symbol}` cache entry (15s while the
- * market is open, a minute otherwise) so a burst of trades or the scheduled /fill-orders run
- * doesn't spend a Finnhub call per request on a symbol the price feeds already fetched - and
- * a fill never lands on a number older than the price the user was just looking at.
+ * Live price for a fill. Shares stock.ts's kept quote (`quote:v2:{symbol}`, getQuote) when it was fetched within the
+ * last 15s while the market is open (a minute otherwise), so a burst of trades or the scheduled /fill-orders run
+ * doesn't spend a Finnhub call per request on a symbol the price feeds already fetched - and a fill never lands on a
+ * number older than the price the user was just looking at. getQuote's few-minutes-old answers aren't good enough for
+ * a fill, so this keeps its own fetch.
  */
 async function getLivePrice(symbol: string): Promise<number | null> {
-	const cacheKey = `quote:fb:${symbol}`;
-	const cached = await cacheGet<{ c?: number }>(cacheKey).catch(() => null);
-	if (cached && typeof cached.c === "number" && cached.c > 0) return cached.c;
+	const cacheKey = quoteKey(symbol);
+	const freshMs = marketSessionBucket() === "open" ? 15_000 : 60_000;
+	const cached = await cacheGet<{ q?: { c?: number }; at?: number }>(cacheKey).catch(() => null);
+	const c = cached?.q?.c;
+	if (typeof c === "number" && c > 0 && typeof cached?.at === "number" && Date.now() - cached.at < freshMs) return c;
 
 	const keys = getFinnhubKeys();
 	for (const key of keys) {
@@ -38,7 +42,8 @@ async function getLivePrice(symbol: string): Promise<number | null> {
 			if (!res.ok) continue;
 			const data = await res.json() as { c?: number };
 			if (typeof data.c === "number" && data.c > 0) {
-				await cacheSet(cacheKey, data, marketSessionBucket() === "open" ? 15_000 : 60_000).catch(() => {});
+				// Kept as getQuote keeps it (3 days, with when), so the price feeds can use it too.
+				await cacheSet(cacheKey, { q: data, at: Date.now() }, QUOTE_KEEP_MS).catch(() => {});
 				return data.c;
 			}
 		} catch { continue; }

@@ -371,7 +371,7 @@ class StockDetailViewModel @Inject constructor(
                 launch {
                     _quotePending.value = true
                     stockData = runCatching { repository.getStock(symbol) }.getOrNull()
-                    if (stockData?.quote?.price != null) _priceAt.value = System.currentTimeMillis()
+                    stockData?.quote?.takeIf { it.price != null }?.let { _priceAt.value = it.fetchedAt }
                     _quotePending.value = false
                     publish()
                     val pct = stockData?.quote?.changePercent ?: 0.0
@@ -427,12 +427,12 @@ class StockDetailViewModel @Inject constructor(
                 newsClose = newsCloseLine(pct),
             ) ?: return@launch
             _liveDetail.value = updated
-            _priceAt.value = System.currentTimeMillis()
+            _priceAt.value = quote.fetchedAt
             // In memory every time; to the phone at most once a minute.
             val now = System.currentTimeMillis()
             val persist = now - persistedAt > 60_000
             if (persist) persistedAt = now
-            StockDetailCache.putDetail(symbol, updated, persist)
+            StockDetailCache.putDetail(symbol, updated, persist, priceAt = quote.fetchedAt)
 
             // The "why it moved" text explains one direction, and a quiet day or a big move.
             // If the stock has turned since, or a quiet day has become a big move, it no

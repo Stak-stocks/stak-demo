@@ -45,6 +45,8 @@ struct StockDetailView: View {
 	@ObservedObject private var brandNames = BrandNames.shared
 	@Environment(\.scenePhase) private var scenePhase
 	@State private var saved: Bool
+	/// Moves on with the 15s refresh, so the caption turns "Delayed" on its own when refreshes stop landing. Android: the same.
+	@State private var captionClock = Date()
 	@State private var showSuccess = false
 	@State private var showBuy = false
 	/// Hoisted from AnalystCard - drives the 1:2579 tab bar and the fold back to 16:1012 when the buy receipt's Done fires.
@@ -216,6 +218,7 @@ struct StockDetailView: View {
 			while true {
 				do { try await Task.sleep(nanoseconds: livePriceInterval) } catch { return }
 				vm.refreshQuote(symbol, range: range)
+				captionClock = Date()
 			}
 		}
 		.onDisappear { vm.stop() }
@@ -298,7 +301,7 @@ struct StockDetailView: View {
 			if demo { return nil }
 			if vm.quotePending && live != nil { return "Updating\u{2026}" }
 			guard let at = vm.priceAt else { return nil }
-			let text = StakClock.pricesAsOf(at)
+			let text = StakClock.pricesAsOf(at, now: max(captionClock, Date()))
 			return text.prefix(1).uppercased() + text.dropFirst()
 		}()
 		let caption = demo ? (live?.name.map { "\(symbol) · \($0)" } ?? f.title) : (asOf ?? "")
@@ -320,7 +323,8 @@ struct StockDetailView: View {
 		.padding(.top, 10 * u)
 		.padding(.bottom, 6 * u)
 		.accessibilityElement(children: .ignore)
-		.accessibilityLabel([caption, price == "—" ? "Price loading" : price, spokenMove(change)].filter { !$0.isEmpty }.joined(separator: ", "))
+		// "Delayed · as of" read with a pause, not "middle dot".
+		.accessibilityLabel([caption.replacingOccurrences(of: " \u{00B7} ", with: ", "), price == "—" ? "Price loading" : price, spokenMove(change)].filter { !$0.isEmpty }.joined(separator: ", "))
 	}
 
 	@ViewBuilder
