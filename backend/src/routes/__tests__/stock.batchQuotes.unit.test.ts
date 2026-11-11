@@ -81,7 +81,8 @@ describe("batch quotes and getQuote", () => {
 		vi.setSystemTime(Date.now() + 60_000);
 		fetchMock.mockImplementation(() => new Promise(() => {}));
 		expect((await getQuote("NKE", 6000))?.c).toBe(38.17);
-		expect(fetchMock).toHaveBeenCalledTimes(2);
+		// The refresh behind it starts once the shared per-minute budget has said yes.
+		await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 	});
 
 	it("while open, waits for Finnhub once a price is past 90s, and stands in with today's for an outage", async () => {
@@ -138,5 +139,35 @@ describe("batch quotes and getQuote", () => {
 		expect(await getQuote("ZZZZ")).toBeNull();
 		fetchMock.mockImplementation(async () => { throw new TypeError("fetch failed"); });
 		expect(await getQuote("ZZZZ")).toBeNull();
+	});
+});
+
+describe("Finnhub per-minute budget", () => {
+	const originalFetch = global.fetch;
+	afterEach(() => { global.fetch = originalFetch; });
+
+	it("stops calling a key once its minute's calls are spent, and says when a price is from", async () => {
+		vi.resetModules();
+		process.env.FINNHUB_API_KEY = "k1";
+		delete process.env.FINNHUB_API_KEY_2;
+		delete process.env.FINNHUB_API_KEY_3;
+		delete process.env.REDIS_URL;
+		const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ c: 10, d: 0, dp: 0, t: Math.floor(Date.now() / 1000) }) }));
+		global.fetch = fetchMock as unknown as typeof fetch;
+		// A second into a minute, so the real clock can't roll into the next one mid-test.
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime((Math.floor(Date.now() / 60_000) + 1) * 60_000 + 1000);
+		const { cacheIncr } = await import("../../lib/cache.js");
+		const minute = Math.floor(Date.now() / 60_000);
+		for (let i = 0; i < 45; i++) await cacheIncr(`finnhub:calls:0:${minute}`, 61_000);
+		const { getQuote } = await import("../stock.js");
+		expect(await getQuote("NEWCO", 1000)).toBeNull();
+		expect(fetchMock).not.toHaveBeenCalled();
+		// Next minute (past the few seconds' random wait), the key is back - and the quote carries when it was fetched.
+		vi.setSystemTime((minute + 1) * 60_000 + 6000);
+		const q = await getQuote("OTHERCO", 1000);
+		expect(q?.c).toBe(10);
+		expect(q?.asOf).toBe(Date.now());
+		vi.useRealTimers();
 	});
 });

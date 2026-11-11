@@ -10,7 +10,7 @@ import { useUpdates } from "@/hooks/useUpdates";
 import { STAK_CAPACITY } from "@/lib/constants";
 import { allPreMarket } from "@/lib/chartSeries";
 import { getLastCloseRef } from "@/lib/utils";
-import { pricesAsOf, rangeChangeText, sinceSavedFor } from "@/lib/stockPage";
+import { fetchedAtOf, pricesAsOf, rangeChangeText, sinceSavedFor } from "@/lib/stockPage";
 import { usd } from "@/lib/simFormat";
 import { BuyFlow } from "@/components/simulate/BuyFlow";
 import { ChartNote, RangeChart, RangeChips, STOCK_RANGES, SheetCheck, SheetCta, SheetScaffold, SheetSecondary } from "@/components/simulate/simKit";
@@ -191,7 +191,7 @@ function StockDetailPage() {
 					canSave={!!brand}
 					fullNotice={fullNotice}
 					price={price}
-					asOf={stock.isFetching && quote ? "Updating…" : price ? pricesAsOf() : ""}
+					asOf={stock.isFetching && !stock.isFetchedAfterMount && quote ? "Updating…" : price ? pricesAsOf(fetchedAtOf(quote, stock.dataUpdatedAt)) : ""}
 					shownPct={shownPct}
 					range={range}
 					onRange={setRange}
@@ -238,7 +238,7 @@ function StockDetailPage() {
 			</div>
 
 			<div style={{ display: "flex", flexDirection: "column", gap: cu(4), padding: `${cu(10)} ${cu(20)} ${cu(6)}` }}>
-				<p className="truncate" style={{ font: f(400, 11), color: DISC.muted, minHeight: cu(14) }}>{stock.isFetching && quote ? "Updating…" : price ? pricesAsOf() : ""}</p>
+				<p className="truncate" style={{ font: f(400, 11), color: DISC.muted, minHeight: cu(14) }}>{stock.isFetching && !stock.isFetchedAfterMount && quote ? "Updating…" : price ? pricesAsOf(fetchedAtOf(quote, stock.dataUpdatedAt)) : ""}</p>
 				<p style={{ font: f(600, 26, undefined, "heading"), color: "#F2F6FC" }}>{price != null ? usd(price) : "—"}</p>
 				{shownPct != null && <p style={{ font: f(500, 12), color: changeColor }}>{rangeChangeText(shownPct, range)}</p>}
 			</div>

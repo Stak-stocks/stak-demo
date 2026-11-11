@@ -223,7 +223,7 @@ server. Key facts:
   (Cloud-Scheduler-only, guarded by `x-warm-secret`).
 - **Concurrency rules:** every handler that touches both tables locks `playground_state` FIRST; `/buy` and
   `/fill-orders` read the position `FOR UPDATE`; `/reset`/`/setup` also clear `sandbox_trades` and cancel orders.
-- Live prices: `getLivePrice` shares the kept quote (`quote:v2:{symbol}`, `{ q, at }`, 3 days) with `stock.ts`'s `getQuote`, but only fills on one under 15s old while open (60s closed). Every other price goes through `getQuote` (2026-11-11 rewrite after batch-quotes hung on a slow Finnhub).
+- Live prices: `getLivePrice` shares the kept quote (`quote:v2:{symbol}`, `{ q, at }`, 3 days) with `stock.ts`'s `getQuote`, but only fills on one under 15s old while open (60s closed). Every other price goes through `getQuote` (2026-11-11 rewrite after batch-quotes hung on a slow Finnhub). Finnhub calls in `stock.ts` take from a shared per-key, per-minute budget in Redis (45 of Finnhub's 60, `finnhub:calls:<keyIndex>:<minute>`; a slow Redis falls back to this instance's own count at half that). Not yet counted: `finnhubService.finnhubFetch` (news, STAK AI), recommendations, the daily brief, IPOs, Simulate fills. Quotes carry `asOf` (fetched, ms) and `ageMs`; the stock page caption on iOS, Android and web reads "Delayed · as of …" when the price is over 2 minutes old while the market's open, counted from `ageMs` so a phone's wrong clock can't fake it.
 - `shared/src/sandboxConfig.ts`: `SANDBOX_STARTING_BALANCES`, `SANDBOX_STRATEGIES`, `SANDBOX_MAX_OPEN_ORDERS=20`,
   `SANDBOX_NAME_MAX_LENGTH=40` (exported from `shared/src/index.ts`). `shared/src/stakCategories.ts`
   (`categoryName`, `categoryGroupId`, `CATEGORY_NAMES`) is also new/uncommitted.

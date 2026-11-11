@@ -15,16 +15,21 @@ object StakClock {
 
 	private val clockTime = DateTimeFormatter.ofPattern("h:mm a", Locale.US)
 
+	/** How old a price may be while the market's open before it reads "delayed". */
+	const val DELAYED_AFTER_MS = 120_000L
+
 	/**
 	 * What a price fetched at [fetchedAtMs] stands for. While the market is open it is
 	 * that moment's price: "as of 2:31 PM" in the phone's time. Once the session has
 	 * closed, a price fetched at 8:39 PM is still the 4:00 PM close, so it says which
 	 * close it is - worded like the News signal ("at today's close", "at Friday's close").
 	 */
-	fun pricesAsOf(fetchedAtMs: Long): String {
+	fun pricesAsOf(fetchedAtMs: Long, nowMs: Long = System.currentTimeMillis()): String {
 		val ref = lastCloseRef()
 		return if (ref == "today") {
-			"as of " + java.time.Instant.ofEpochMilli(fetchedAtMs).atZone(java.time.ZoneId.systemDefault()).format(clockTime)
+			val time = "as of " + java.time.Instant.ofEpochMilli(fetchedAtMs).atZone(java.time.ZoneId.systemDefault()).format(clockTime)
+			// While the market's open a price over 2 minutes old (the server couldn't reach the feed) says so. iOS: the same.
+			if (nowMs - fetchedAtMs > DELAYED_AFTER_MS) "delayed \u00B7 $time" else time
 		} else {
 			ref
 		}

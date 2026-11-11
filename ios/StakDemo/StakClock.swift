@@ -38,10 +38,16 @@ enum StakClock {
 	/// What a price fetched at `fetchedAt` stands for. While the market is open it is that moment's price: "as of
 	/// 2:31 PM" in the phone's time. Once the session has closed, a price fetched at 8:39 PM is still the 4:00 PM
 	/// close, so it says which close it is - worded like the News signal ("at today's close", "at Friday's close").
-	static func pricesAsOf(_ fetchedAt: Date) -> String {
+	static func pricesAsOf(_ fetchedAt: Date, now: Date = Date()) -> String {
 		let ref = lastCloseRef()
-		return ref == "today" ? "as of " + formatter("h:mm a").string(from: fetchedAt) : ref
+		guard ref == "today" else { return ref }
+		let time = "as of " + formatter("h:mm a").string(from: fetchedAt)
+		// While the market's open a price over 2 minutes old (the server couldn't reach the feed) says so. Android: the same.
+		return now.timeIntervalSince(fetchedAt) > delayedAfter ? "delayed \u{00B7} " + time : time
 	}
+
+	/// How old a price may be while the market's open before it reads "delayed".
+	static let delayedAfter: TimeInterval = 120
 
 	/// Today's date in US Eastern time ("2026-09-16") - the market's own day, for dating saved prices.
 	static func marketDay() -> String { formatter("yyyy-MM-dd", zone: eastern).string(from: Date()) }

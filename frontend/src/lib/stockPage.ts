@@ -12,10 +12,27 @@ export function rangeChangeText(pct: number, range: ChartRange, now = new Date()
 	return `${arrow} ${Math.abs(pct).toFixed(1)}% ${suffix}`;
 }
 
-/** "As of 2:31 PM" while the market is open; otherwise which close the price is from. */
-export function pricesAsOf(now = new Date()): string {
+/**
+ * When a price was fetched, on this device's clock: received now less the age the server gave - not the server's own
+ * time, which a device running a minute fast would read as a delayed price. Null when the server doesn't say.
+ */
+export function fetchedAtOf(quote: { ageMs?: number | null } | null | undefined, receivedAt: number): number | null {
+	return quote?.ageMs != null ? receivedAt - Math.max(0, quote.ageMs) : null;
+}
+
+/** How old a price may be while the market's open before it reads "Delayed". */
+export const DELAYED_AFTER_MS = 2 * 60 * 1000;
+
+/** The price's caption. `fetchedAt` is when it was fetched on this device's clock (ms; see fetchedAtOf); without one, now. */
+export function pricesAsOf(fetchedAt?: number | null, now = new Date()): string {
 	switch (getLastCloseRef()) {
-		case "today": return `As of ${now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+		case "today": {
+			const at = fetchedAt ? new Date(fetchedAt) : now;
+			const clock = at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+			const time = `as of ${clock}`;
+			// While the market's open a price over 2 minutes old (the server couldn't reach the feed) says so, as the apps do.
+			return now.getTime() - at.getTime() > DELAYED_AFTER_MS ? `Delayed \u00B7 ${time}` : `As of ${clock}`;
+		}
 		case "close": return "At today's close";
 		case "yesterday": return "At yesterday's close";
 		default: return "At Friday's close";

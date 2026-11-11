@@ -22,6 +22,10 @@ struct StockDetailResponse: Decodable {
 struct StockQuote: Decodable {
     var price: Double?; var change: Double?; var changePercent: Double?
     var marketState: String?; var high: Double?; var low: Double?; var prevClose: Double?
+    /// When the server fetched the price (ms since 1970), and how long before it answered that was (ms); nil from a
+    /// server before 2026-11-11.
+    var asOf: Double?
+    var ageMs: Double?
 }
 struct StockMetrics: Decodable {
     var peRatio: Double?; var revenueGrowth: String?; var profitMargin: String?
@@ -508,7 +512,7 @@ extension StockDetailResponse {
 }
 
 extension StockQuote {
-    private enum CodingKeys: String, CodingKey { case price, change, changePercent, marketState, high, low, prevClose }
+    private enum CodingKeys: String, CodingKey { case price, change, changePercent, marketState, high, low, prevClose, asOf, ageMs }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         price = c.value(.price, or: nil)
@@ -518,7 +522,13 @@ extension StockQuote {
         high = c.value(.high, or: nil)
         low = c.value(.low, or: nil)
         prevClose = c.value(.prevClose, or: nil)
+        asOf = c.value(.asOf, or: nil)
+        ageMs = c.value(.ageMs, or: nil)
     }
+
+    /// When the price was fetched, on this phone's clock: now less the age the server gave - not the server's own
+    /// time, which a phone running a minute fast would read as a delayed price. Now when the server doesn't say.
+    var fetchedAt: Date { Date().addingTimeInterval(-max(0, ageMs ?? 0) / 1000) }
 }
 
 extension StockMetrics {

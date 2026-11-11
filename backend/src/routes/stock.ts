@@ -34,7 +34,7 @@ async function warmRiskWatch(ticker: string, companyName: string): Promise<void>
 	});
 }
 import { getEdgarEarningsEps } from "../services/edgarService.js";
-import { cacheDelete, cacheGet, cacheSet, cacheSetIfAbsent } from "../lib/cache.js";
+import { cacheDelete, cacheGet, cacheIncr, cacheSet, cacheSetIfAbsent, memIncr } from "../lib/cache.js";
 import { pgQuery } from "../lib/postgres.js";
 import { sendPush, type WebKeys } from "../services/pushService.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
@@ -85,15 +85,38 @@ async function withQuoteSlot<T>(startBy: number, fn: () => Promise<T | null>): P
 let finnhubTurn = 0;
 const finnhubCooling = new Map<string, number>();
 const FINNHUB_COOL_MS = 60_000;
+/**
+ * Calls per key per minute, counted across every instance (Redis). Finnhub's free plan allows 60; the rest is left
+ * for the code that calls Finnhub on its own and doesn't count here (news and STAK AI via finnhubService,
+ * recommendations, the daily brief, IPOs, Simulate fills).
+ */
+const FINNHUB_PER_KEY_PER_MINUTE = 45;
 
-function finnhubKeyOrder(): string[] {
-	const keys = getFinnhubKeys();
+/** The keys in this call's order, each with its index (the shared counter's name - never the key itself). */
+function finnhubKeyOrder(): { key: string; index: number }[] {
+	const keys = getFinnhubKeys().map((key, index) => ({ key, index }));
 	if (keys.length === 0) return keys;
 	const start = finnhubTurn++ % keys.length;
 	const turned = [...keys.slice(start), ...keys.slice(0, start)];
 	const now = Date.now();
 	// None ready: no call at all. Each would only be refused again, and a quote has its kept copy to fall back on.
-	return turned.filter((k) => (finnhubCooling.get(k) ?? 0) <= now);
+	return turned.filter((k) => (finnhubCooling.get(k.key) ?? 0) <= now);
+}
+
+/**
+ * Takes one of a key's calls for this minute from the shared budget; false (and the key sits out the rest of the
+ * minute here) when it's spent - by this instance or another.
+ */
+async function takeFinnhubCall(k: { key: string; index: number }): Promise<boolean> {
+	const minute = Math.floor(Date.now() / 60_000);
+	const counter = `finnhub:calls:${k.index}:${minute}`;
+	const shared = await withDeadline(cacheIncr(counter, 61_000), 500, null);
+	// Redis too slow to wait for: this instance's own count, at half the budget - others may be spending it too.
+	const allowed = shared != null ? shared <= FINNHUB_PER_KEY_PER_MINUTE : memIncr(counter, 61_000) <= FINNHUB_PER_KEY_PER_MINUTE / 2;
+	if (allowed) return true;
+	// Back a few seconds into the next minute, at random, so every instance doesn't rush the key at :00 together.
+	finnhubCooling.set(k.key, (minute + 1) * 60_000 + Math.floor(Math.random() * 5000));
+	return false;
 }
 
 /**
@@ -107,7 +130,9 @@ async function finnhubGet(path: string, timeoutMs = 8000): Promise<unknown | nul
 	if (existing) return existing;
 
 	const promise = (async () => {
-		for (const key of finnhubKeyOrder()) {
+		for (const k of finnhubKeyOrder()) {
+			if (!(await takeFinnhubCall(k))) continue;
+			const key = k.key;
 			try {
 				const res = await fetch(`${FINNHUB_BASE}${path}&token=${key}`, { signal: AbortSignal.timeout(timeoutMs) });
 				if (res.status === 403 || res.status === 429) {
@@ -518,7 +543,8 @@ async function fetchYahooExtended(symbol: string): Promise<YahooExtended | null>
 // each symbol's last Finnhub quote is kept for days with when it came, so a price a few minutes old is served at
 // once while a fresh one is fetched behind it, and a slow or unreachable Finnhub costs a wait of QUOTE_WAIT_MS at most.
 
-/** A kept quote: Finnhub's own ({ c, d, dp, t, ... }) and when it was fetched. */
+/** A kept quote: Finnhub's own ({ c, d, dp, t, ... }) and when it was fetched. getQuote hands it back with that time
+ * added as `asOf` (ms), so a response can say how old a price is. */
 interface StoredQuote {
 	q: Record<string, number>;
 	at: number;
@@ -585,24 +611,26 @@ export async function getQuote(
 	const open = marketSessionBucket() === "open";
 	if (stored && !open) {
 		if (age >= QUOTE_FRESH_CLOSED_MS) refreshBehind(symbol);
-		return stored.q;
+		return { ...stored.q, asOf: stored.at };
 	}
-	if (stored && age < Math.min(QUOTE_FRESH_OPEN_MS, cap)) return stored.q;
+	if (stored && age < Math.min(QUOTE_FRESH_OPEN_MS, cap)) return { ...stored.q, asOf: stored.at };
 	const today = !!stored && isTodaysQuote(stored.q);
 	if (stored && today && age < Math.min(QUOTE_STALE_OPEN_MS, cap)) {
 		refreshBehind(symbol);
-		return stored.q;
+		return { ...stored.q, asOf: stored.at };
 	}
 	let live: Record<string, number> | null = null;
 	if (waitMs > 0) live = await withDeadline(refreshQuote(symbol, waitMs), waitMs, null);
 	else refreshBehind(symbol);
-	if (live) return live;
-	return stored && today && age < Math.min(QUOTE_OUTAGE_OPEN_MS, cap) ? stored.q : null;
+	if (live) return { ...live, asOf: Date.now() };
+	return stored && today && age < Math.min(QUOTE_OUTAGE_OPEN_MS, cap) ? { ...stored.q, asOf: stored.at } : null;
 }
 
 // ── Batch quotes ─────────────────────────────────────────────────────────────
 // GET /api/stock/batch-quotes?tickers=AAPL,TSLA,...
-// Returns { quotes: Record<ticker, { price, change, changePercent }> } - a symbol with no quote is left out, and the
+// Returns { quotes: Record<ticker, { price, change, changePercent, asOf, ageMs }> } (asOf: when the price was fetched,
+// ms; ageMs: how long ago that was) -
+// a symbol with no quote is left out, and the
 // apps keep the price they had. Prices come from getQuote, like the stock page's.
 /** The whole batch answers within this, well inside the apps' 45s timeout: once it's spent, the rest get no wait. */
 const BATCH_BUDGET_MS = 8000;
@@ -627,10 +655,13 @@ stockRouter.get("/batch-quotes", async (req, res) => {
 					price: Math.round(raw.c * 100) / 100,
 					change: Math.round((raw.d ?? 0) * 100) / 100,
 					changePercent: Math.round((raw.dp ?? 0) * 100) / 100,
+					asOf: raw.asOf,
+					// How old the price is now: the apps count from this rather than compare their clock with ours.
+					ageMs: raw.asOf != null ? Math.max(0, Date.now() - raw.asOf) : undefined,
 				}] as const;
 			});
 
-		const quotes: Record<string, { price: number; change: number; changePercent: number }> = {};
+		const quotes: Record<string, { price: number; change: number; changePercent: number; asOf?: number; ageMs?: number }> = {};
 		for (const [ticker, quote] of results) {
 			if (quote) quotes[ticker] = quote;
 		}
@@ -1100,6 +1131,9 @@ export async function getStockSnapshot(rawSymbol: string) {
 				low: fb.l,
 				open: fb.o,
 				prevClose: fb.pc,
+				// When the regular-hours price was fetched (ms): the apps say "Delayed" when it's old while open.
+				asOf: fb.asOf ?? null,
+				ageMs: fb.asOf != null ? Math.max(0, Date.now() - fb.asOf) : null,
 				marketState: yahooExt?.marketState ?? (extended ? "CLOSED" as const : "REGULAR" as const),
 				extendedPrice: yahooExt?.extendedPrice ?? null,
 				extendedChange: yahooExt?.extendedChange ?? null,

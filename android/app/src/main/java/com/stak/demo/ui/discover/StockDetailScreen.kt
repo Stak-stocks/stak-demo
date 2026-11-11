@@ -161,6 +161,8 @@ fun StockDetailScreen(
 	val savedReferenceSettled by viewModel.savedReferenceSettled.collectAsStateWithLifecycle()
 	val detailSettled by viewModel.detailSettled.collectAsStateWithLifecycle()
 	val priceAt by viewModel.priceAt.collectAsStateWithLifecycle()
+	// Moves on with the 15s refresh, so the caption turns "Delayed" on its own when refreshes stop landing. iOS: the same.
+	var captionClock by remember { androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis()) }
 	val quotePending by viewModel.quotePending.collectAsStateWithLifecycle()
 	LaunchedEffect(symbol) {
 		viewModel.fetch(symbol)
@@ -207,7 +209,10 @@ fun StockDetailScreen(
 	var range by rememberSaveable { mutableStateOf(if (demo) "3M" else "1D") }
 	// The price keeps moving while the page is open, not only when it is opened.
 	if (!com.stak.demo.data.Session.demoAccount) {
-		RefreshWhileVisible(key = symbol) { viewModel.refreshQuote(symbol, range) }
+		RefreshWhileVisible(key = symbol) {
+			viewModel.refreshQuote(symbol, range)
+			captionClock = System.currentTimeMillis()
+		}
 	}
 	// Each pill draws that range's own closes; the demo keeps its authored line.
 	if (!com.stak.demo.data.Session.demoAccount) {
@@ -319,7 +324,7 @@ fun StockDetailScreen(
 					val asOf = when {
 						com.stak.demo.data.Session.demoAccount -> null
 						quotePending && liveDetail != null -> "Updating\u2026"
-						priceAt != null -> com.stak.demo.data.StakClock.pricesAsOf(priceAt!!).replaceFirstChar { it.uppercase() }
+						priceAt != null -> com.stak.demo.data.StakClock.pricesAsOf(priceAt!!, maxOf(captionClock, System.currentTimeMillis())).replaceFirstChar { it.uppercase() }
 						else -> null
 					}
 					Text(

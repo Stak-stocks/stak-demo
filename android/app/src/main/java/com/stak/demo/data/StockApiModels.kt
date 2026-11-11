@@ -32,7 +32,16 @@ data class StockQuote(
     val low: Double? = null,
     /** Yesterday's close - where today's move, and today's line, are measured from. */
     val prevClose: Double? = null,
-)
+    /** When the server fetched the price (ms), and how long before it answered that was; null from a server before 2026-11-11. */
+    val asOf: Long? = null,
+    val ageMs: Long? = null,
+) {
+    /**
+     * When the price was fetched, on this phone's clock: now less the age the server gave - not the server's own
+     * time, which a phone running a minute fast would read as a delayed price. Now when the server doesn't say.
+     */
+    val fetchedAt: Long get() = System.currentTimeMillis() - (ageMs ?: 0L).coerceAtLeast(0L)
+}
 data class StockMetrics(
     val peRatio: Double? = null,
     val revenueGrowth: String? = null,

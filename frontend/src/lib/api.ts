@@ -496,6 +496,9 @@ export interface LiveQuote {
 	open: number;
 	prevClose: number;
 	marketState?: "PRE" | "REGULAR" | "POST" | "POSTPOST" | "PREPRE" | "CLOSED";
+	/** When the server fetched the price (ms), and how long before it answered that was; absent from a server before 2026-11-11. */
+	asOf?: number | null;
+	ageMs?: number | null;
 	extendedPrice?: number | null;
 	extendedChange?: number | null;
 	extendedChangePercent?: number | null;
