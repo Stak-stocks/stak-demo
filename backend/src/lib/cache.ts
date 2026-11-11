@@ -21,6 +21,10 @@ if (process.env.REDIS_URL) {
 		// and every per-day cache became per-instance without saying so.
 		retryStrategy: (times) => Math.min(times * 200, 5000),
 		connectTimeout: 5000,
+		// A command Redis doesn't answer within a second is treated as a miss (a set: written to memory instead), rather
+		// than holding the request until Cloud Run's 300s cut-off (batch quotes did, 2026-11-11). For a send-once mark
+		// (cacheSetIfAbsent) that means this instance's memory decides, as on any Redis error.
+		commandTimeout: 1000,
 		lazyConnect: true,
 	});
 

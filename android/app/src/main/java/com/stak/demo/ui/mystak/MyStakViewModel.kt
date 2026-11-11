@@ -228,9 +228,12 @@ class MyStakViewModel @Inject constructor(
      */
     fun refreshQuotes() {
         if (StakClock.lastCloseRef() != "today") return
+        // One at a time (iOS's quoteTask): a slow answer overlapping the next tick doubled the requests, and the
+        // older one landing last put older prices back.
+        if (quoteJob?.isActive == true) return
         val shown = _ui.value.holdings
         val tickers = shown.map { it.ticker }.takeIf { it.isNotEmpty() } ?: return
-        viewModelScope.launch {
+        quoteJob = viewModelScope.launch {
             val fresh = fetchQuotes(tickers)
             if (fresh.isEmpty() || _ui.value.holdings.map { it.ticker } != tickers) return@launch
             // The snapshot keeps every price it had; only those that came back are replaced.
@@ -239,6 +242,9 @@ class MyStakViewModel @Inject constructor(
 
         }
     }
+
+    /** The price refresh in flight, if any (refreshQuotes). */
+    private var quoteJob: Job? = null
 
     /** Redraws [range]'s line for the same holdings without clearing the one on screen first. */
     private fun refreshLine(range: String) {

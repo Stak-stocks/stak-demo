@@ -223,7 +223,7 @@ server. Key facts:
   (Cloud-Scheduler-only, guarded by `x-warm-secret`).
 - **Concurrency rules:** every handler that touches both tables locks `playground_state` FIRST; `/buy` and
   `/fill-orders` read the position `FOR UPDATE`; `/reset`/`/setup` also clear `sandbox_trades` and cancel orders.
-- Live prices: `getLivePrice` shares the `quote:fb:{symbol}` Redis cache with `stock.ts` (15s open / 60s closed).
+- Live prices: `getLivePrice` shares the kept quote (`quote:v2:{symbol}`, `{ q, at }`, 3 days) with `stock.ts`'s `getQuote`, but only fills on one under 15s old while open (60s closed). Every other price goes through `getQuote` (2026-11-11 rewrite after batch-quotes hung on a slow Finnhub).
 - `shared/src/sandboxConfig.ts`: `SANDBOX_STARTING_BALANCES`, `SANDBOX_STRATEGIES`, `SANDBOX_MAX_OPEN_ORDERS=20`,
   `SANDBOX_NAME_MAX_LENGTH=40` (exported from `shared/src/index.ts`). `shared/src/stakCategories.ts`
   (`categoryName`, `categoryGroupId`, `CATEGORY_NAMES`) is also new/uncommitted.

@@ -38,6 +38,7 @@ import { cacheDelete, cacheGet, cacheSet, cacheSetIfAbsent } from "../lib/cache.
 import { pgQuery } from "../lib/postgres.js";
 import { sendPush, type WebKeys } from "../services/pushService.js";
 import { getYahooCrumb } from "../lib/yahooAuth.js";
+import { QUOTE_KEEP_MS, quoteKey } from "../lib/quoteStore.js";
 import { marketSessionBucket, getEasternDateKey, getPeerTickers, formatMarketCap, calcPercentChange, STAK_CAPACITY, DEFAULT_PRICE_THRESHOLD } from "@stak/shared";
 import { brands } from "@stak/shared/brands";
 
@@ -47,27 +48,90 @@ import { brands } from "@stak/shared/brands";
 // in sequence, burning through the key pool in parallel even for identical data.
 const finnhubInFlight = new Map<string, Promise<unknown | null>>();
 
-async function finnhubGet(path: string): Promise<unknown | null> {
+/** `work`'s answer, or `fallback` once `ms` have passed - so one stuck lookup can't hold a whole response. */
+function withDeadline<T>(work: Promise<T>, ms: number, fallback: T): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const late = new Promise<T>((resolve) => {
+		timer = setTimeout(() => resolve(fallback), ms);
+		timer.unref?.();
+	});
+	return Promise.race([work.catch(() => fallback), late]).finally(() => clearTimeout(timer));
+}
+
+// At most this many quote calls to Finnhub at once from this instance (refreshQuote): a route's own limit
+// (mapWithLimit) no longer holds once its lookups have deadlines, and a burst of quotes past Finnhub's limits is what
+// made prices hang (2026-11-11). Quotes only: the stock page's other calls (metrics, earnings, analysts) don't queue
+// behind a deck's worth of prices.
+const QUOTE_MAX_CONCURRENT = 6;
+let quoteActive = 0;
+const quoteWaiting: (() => void)[] = [];
+
+/** `fn` in a quote slot; null instead when the slot comes after `startBy` - nobody's waiting for it any more. */
+async function withQuoteSlot<T>(startBy: number, fn: () => Promise<T | null>): Promise<T | null> {
+	if (quoteActive < QUOTE_MAX_CONCURRENT) quoteActive++;
+	else await new Promise<void>((resolve) => quoteWaiting.push(resolve));
+	try {
+		return Date.now() > startBy ? null : await fn();
+	} finally {
+		// Handed straight to the next in line, so a newcomer can't slip in between.
+		const next = quoteWaiting.shift();
+		if (next) next();
+		else quoteActive--;
+	}
+}
+
+// Keys take turns, and one Finnhub has just refused (403/429) sits out a minute, instead of every call trying key 1
+// first and paying for its refusal.
+let finnhubTurn = 0;
+const finnhubCooling = new Map<string, number>();
+const FINNHUB_COOL_MS = 60_000;
+
+function finnhubKeyOrder(): string[] {
+	const keys = getFinnhubKeys();
+	if (keys.length === 0) return keys;
+	const start = finnhubTurn++ % keys.length;
+	const turned = [...keys.slice(start), ...keys.slice(0, start)];
+	const now = Date.now();
+	// None ready: no call at all. Each would only be refused again, and a quote has its kept copy to fall back on.
+	return turned.filter((k) => (finnhubCooling.get(k) ?? 0) <= now);
+}
+
+/**
+ * A Finnhub GET: the JSON, or null when there's none to be had - a refusal on every key, an error status, a timeout
+ * or a dropped connection. Never throws: thrown, a timeout failed every caller's whole request (a batch of 27 quotes
+ * lost all 27 to one slow symbol). Only a refusal moves on to the next key; a timeout isn't the key's fault, and
+ * trying again would only add to the wait.
+ */
+async function finnhubGet(path: string, timeoutMs = 8000): Promise<unknown | null> {
 	const existing = finnhubInFlight.get(path);
 	if (existing) return existing;
 
 	const promise = (async () => {
-		const keys = getFinnhubKeys();
-		for (const key of keys) {
-			const res = await fetch(`${FINNHUB_BASE}${path}&token=${key}`, { signal: AbortSignal.timeout(8000) });
-			if (res.status === 403 || res.status === 429) continue;
-			if (!res.ok) return null;
-			return res.json();
+		for (const key of finnhubKeyOrder()) {
+			try {
+				const res = await fetch(`${FINNHUB_BASE}${path}&token=${key}`, { signal: AbortSignal.timeout(timeoutMs) });
+				if (res.status === 403 || res.status === 429) {
+					finnhubCooling.set(key, Date.now() + FINNHUB_COOL_MS);
+					continue;
+				}
+				if (!res.ok) return null;
+				return await res.json();
+			} catch {
+				return null;
+			}
 		}
 		return null;
 	})();
 
-	finnhubInFlight.set(path, promise);
-	try {
-		return await promise;
-	} finally {
-		finnhubInFlight.delete(path);
-	}
+	// Bounded too: a fetch that never settled would hold every later caller for this path. Only refusals (answered at
+	// once) move to another key, so one timeout plus a margin covers it. The entry goes when the work itself does, so
+	// a caller arriving after the bound still joins it rather than starting a second.
+	const bounded = withDeadline(promise, timeoutMs + 3000, null);
+	finnhubInFlight.set(path, bounded);
+	void promise.finally(() => {
+		if (finnhubInFlight.get(path) === bounded) finnhubInFlight.delete(path);
+	});
+	return bounded;
 }
 
 // Fetch the stock's price % change on (or after) the earnings report date.
@@ -158,8 +222,8 @@ const QUOTE_TTL_MS = 60 * 1000;              // 1 minute
 const METRICS_TTL_MS = 6 * 60 * 60 * 1000;  // 6 hours
 
 /**
- * A quote's cache life. The apps refresh on-screen prices while the market is open;
- * a one-minute cache would hand them the same number several times running.
+ * The extended-hours (Yahoo) price's cache life - Finnhub quotes go through getQuote. The apps refresh on-screen
+ * prices while the market is open; a one-minute cache would hand them the same number several times running.
  * Outside the session prices barely move, so the minute stands.
  */
 function quoteTtlMs(): number {
@@ -449,11 +513,100 @@ async function fetchYahooExtended(symbol: string): Promise<YahooExtended | null>
 	}
 }
 
+// ── Quotes ───────────────────────────────────────────────────────────────────
+// One way to get a price, for every route (batch-quotes, trending, the stock page, the saved-stock and alert jobs):
+// each symbol's last Finnhub quote is kept for days with when it came, so a price a few minutes old is served at
+// once while a fresh one is fetched behind it, and a slow or unreachable Finnhub costs a wait of QUOTE_WAIT_MS at most.
+
+/** A kept quote: Finnhub's own ({ c, d, dp, t, ... }) and when it was fetched. */
+interface StoredQuote {
+	q: Record<string, number>;
+	at: number;
+}
+
+/** While the market's open: served as it is up to 15s old - the stock page and Simulate refresh every 15s. */
+const QUOTE_FRESH_OPEN_MS = 15 * 1000;
+/** While open, up to this old a price is served at once and refreshed behind it; older, Finnhub is waited for. */
+const QUOTE_STALE_OPEN_MS = 90 * 1000;
+/** While open and Finnhub can't be reached, the kept price stands in up to this old (and only today's). */
+const QUOTE_OUTAGE_OPEN_MS = 30 * 60 * 1000;
+/** While closed the price can't move: refreshed behind it only this often, and served at any age. */
+const QUOTE_FRESH_CLOSED_MS = 15 * 60 * 1000;
+/** How long a caller waits for Finnhub by default. */
+const QUOTE_WAIT_MS = 6000;
+/** A quote call's own timeout: one answers in well under a second. */
+const QUOTE_FETCH_TIMEOUT_MS = 3000;
+/** After a refresh came back empty, the symbol isn't tried again behind a served price for this long. */
+const QUOTE_RETRY_MS = 15 * 1000;
+const quoteFailedAt = new Map<string, number>();
+
+/** Whether a quote's last trade is today's (US Eastern) - so its move is today's move. */
+function isTodaysQuote(q: Record<string, number>): boolean {
+	return typeof q.t === "number" && getEasternDateKey(new Date(q.t * 1000)) === getEasternDateKey();
+}
+
+/** A fresh quote from Finnhub, kept; null when none came back. A zero price (an unknown symbol) isn't kept. */
+async function refreshQuote(symbol: string, waitMs: number): Promise<Record<string, number> | null> {
+	const q = await withQuoteSlot(Date.now() + waitMs, async () =>
+		(await finnhubGet(`/quote?symbol=${symbol}`, QUOTE_FETCH_TIMEOUT_MS)) as Record<string, number> | null);
+	if (!q || typeof q.c !== "number" || q.c <= 0) {
+		quoteFailedAt.set(symbol, Date.now());
+		return null;
+	}
+	quoteFailedAt.delete(symbol);
+	await cacheSet(quoteKey(symbol), { q, at: Date.now() } satisfies StoredQuote, QUOTE_KEEP_MS);
+	return q;
+}
+
+/** A refresh behind a price already served - skipped when quotes are queueing or this symbol just failed. */
+function refreshBehind(symbol: string): void {
+	if (quoteWaiting.length >= QUOTE_MAX_CONCURRENT) return;
+	if (Date.now() - (quoteFailedAt.get(symbol) ?? 0) < QUOTE_RETRY_MS) return;
+	// Can't reject today (finnhubGet and cacheSet catch everything); the catch keeps it that way if they change.
+	refreshQuote(symbol, QUOTE_WAIT_MS).catch(() => {});
+}
+
+/**
+ * A symbol's quote (Finnhub's shape), or null.
+ * - Market open: up to 15s old, served; up to 90s, served at once and refreshed behind it; older, Finnhub is waited for
+ *   up to `waitMs` (0: not at all), and failing that the kept price stands in if it's today's and under 30 min old.
+ *   An earlier day's quote is never served while open: its move would read as today's.
+ * - Market closed: the kept price is served at any age (it can't have moved), refreshed behind it every 15 min.
+ * `maxStaleMs` caps how old a served price may be (push alerts shouldn't act on a minutes-old move).
+ */
+export async function getQuote(
+	symbol: string,
+	waitMs = QUOTE_WAIT_MS,
+	opts: { maxStaleMs?: number } = {},
+): Promise<Record<string, number> | null> {
+	const stored = await withDeadline(cacheGet<StoredQuote>(quoteKey(symbol)), 1000, null);
+	const age = stored ? Date.now() - stored.at : Infinity;
+	const cap = opts.maxStaleMs ?? Infinity;
+	const open = marketSessionBucket() === "open";
+	if (stored && !open) {
+		if (age >= QUOTE_FRESH_CLOSED_MS) refreshBehind(symbol);
+		return stored.q;
+	}
+	if (stored && age < Math.min(QUOTE_FRESH_OPEN_MS, cap)) return stored.q;
+	const today = !!stored && isTodaysQuote(stored.q);
+	if (stored && today && age < Math.min(QUOTE_STALE_OPEN_MS, cap)) {
+		refreshBehind(symbol);
+		return stored.q;
+	}
+	let live: Record<string, number> | null = null;
+	if (waitMs > 0) live = await withDeadline(refreshQuote(symbol, waitMs), waitMs, null);
+	else refreshBehind(symbol);
+	if (live) return live;
+	return stored && today && age < Math.min(QUOTE_OUTAGE_OPEN_MS, cap) ? stored.q : null;
+}
+
 // ── Batch quotes ─────────────────────────────────────────────────────────────
 // GET /api/stock/batch-quotes?tickers=AAPL,TSLA,...
-// Returns { quotes: Record<ticker, { price, change, changePercent }> }
-// Reuses the same quote:fb:{symbol} Redis cache as the single-stock endpoint,
-// so requests from WatchRow and from individual stock views share one cache layer.
+// Returns { quotes: Record<ticker, { price, change, changePercent }> } - a symbol with no quote is left out, and the
+// apps keep the price they had. Prices come from getQuote, like the stock page's.
+/** The whole batch answers within this, well inside the apps' 45s timeout: once it's spent, the rest get no wait. */
+const BATCH_BUDGET_MS = 8000;
+
 stockRouter.get("/batch-quotes", async (req, res) => {
 	const raw = (req.query.tickers as string | undefined) ?? "";
 	const tickers = raw.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean).slice(0, 50);
@@ -464,15 +617,11 @@ stockRouter.get("/batch-quotes", async (req, res) => {
 	}
 
 	try {
-		// Eight at a time: prices now refresh every few seconds, and a cold batch of up
-		// to 50 fired together went past Finnhub's 30-calls-a-second limit.
+		// Eight at a time (quote calls are capped across the instance too: withQuoteSlot). Each symbol waits at most
+		// what's left of the budget, so a slow one costs only itself.
+		const deadline = Date.now() + BATCH_BUDGET_MS;
 		const results = await mapWithLimit(tickers, 8, async (symbol) => {
-				const fbKey = `quote:fb:${symbol}`;
-				let raw = await cacheGet<Record<string, number>>(fbKey);
-				if (!raw) {
-					raw = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
-					if (raw) await cacheSet(fbKey, raw, quoteTtlMs());
-				}
+				const raw = await getQuote(symbol, Math.max(0, Math.min(QUOTE_WAIT_MS, deadline - Date.now())));
 				if (!raw || typeof raw.c !== "number") return [symbol, null] as const;
 				return [symbol, {
 					price: Math.round(raw.c * 100) / 100,
@@ -495,11 +644,13 @@ stockRouter.get("/batch-quotes", async (req, res) => {
 
 // GET /api/stock/trending
 // Today's biggest movers (either direction) over the deck's watch universe -
-// Home's Trending strip. Same quote:fb:{symbol} cache as batch-quotes, so this
+// Home's Trending strip. Same quotes as batch-quotes (getQuote), so this
 // costs nothing beyond what the deck and saved-stock views already keep warm;
 // the ranked top-N itself is cached briefly so a burst of Home opens doesn't
 // re-sort the whole watchlist on every request.
 const TRENDING_TTL_MS = 3 * 60 * 1000;
+/** While the market's open the moves change by the minute: the ranked list is kept only this long. */
+const TRENDING_TTL_OPEN_MS = 60 * 1000;
 const TRENDING_LIMIT = 8;
 
 stockRouter.get("/trending", async (req, res) => {
@@ -508,13 +659,10 @@ stockRouter.get("/trending", async (req, res) => {
 	if (cached) { res.json(cached); return; }
 
 	try {
+		// The batch's budget: a slow Finnhub costs the strip a few prices, not a long wait.
+		const deadline = Date.now() + BATCH_BUDGET_MS;
 		const results = await mapWithLimit(WATCH_TICKERS, 8, async (symbol) => {
-			const fbKey = `quote:fb:${symbol}`;
-			let raw = await cacheGet<Record<string, number>>(fbKey);
-			if (!raw) {
-				raw = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
-				if (raw) await cacheSet(fbKey, raw, quoteTtlMs());
-			}
+			const raw = await getQuote(symbol, Math.max(0, Math.min(QUOTE_WAIT_MS, deadline - Date.now())));
 			if (!raw || typeof raw.c !== "number" || raw.c <= 0) return null;
 			const brand = brands.find((b) => b.ticker.toUpperCase() === symbol);
 			return {
@@ -534,7 +682,9 @@ stockRouter.get("/trending", async (req, res) => {
 		const payload = { trending };
 		// An incomplete pull (a bad batch of quotes) isn't worth caching over the
 		// next request's chance at a fuller list — only a decent yield is kept.
-		if (trending.length >= TRENDING_LIMIT / 2) await cacheSet(cacheKey, payload, TRENDING_TTL_MS);
+		if (trending.length >= TRENDING_LIMIT / 2) {
+			await cacheSet(cacheKey, payload, marketSessionBucket() === "open" ? TRENDING_TTL_OPEN_MS : TRENDING_TTL_MS);
+		}
 		res.json(payload);
 	} catch (e) {
 		console.error("[stock] trending error:", e);
@@ -616,12 +766,7 @@ stockRouter.get("/warm-saved", async (req, res) => {
 					continue;
 				}
 				const symbol = resolveSymbol(ticker);
-				const fbKey = `quote:fb:${symbol}`;
-				let quote = await cacheGet<Record<string, number>>(fbKey);
-				if (!quote) {
-					quote = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
-					if (quote) await cacheSet(fbKey, quote, quoteTtlMs());
-				}
+				const quote = await getQuote(symbol);
 				// No trade today (a holiday, a halt): there is no move to explain, so no
 				// grounded call. The job only runs well after the open, so a last trade from
 				// an earlier day means none is coming - mark it done, or every later run
@@ -745,12 +890,8 @@ stockRouter.get("/push-run", async (req, res) => {
 			const pct = new Map<string, number>();
 			await mapWithLimit(tickers, 6, async (ticker) => {
 				const symbol = resolveSymbol(ticker);
-				const fbKey = `quote:fb:${symbol}`;
-				let q = await cacheGet<Record<string, number>>(fbKey);
-				if (!q) {
-					q = (await finnhubGet(`/quote?symbol=${symbol}`).catch(() => null)) as Record<string, number> | null;
-					if (q) await cacheSet(fbKey, q, quoteTtlMs());
-				}
+				// A move at most a minute old: an alert mustn't fire on one that has since turned.
+				const q = await getQuote(symbol, QUOTE_WAIT_MS, { maxStaleMs: 60_000 });
 				// Only a move from today's session: a quote whose last trade is an earlier day
 				// is yesterday's move, already told.
 				if (q && typeof q.dp === "number" && typeof q.t === "number" && getEasternDateKey(new Date(q.t * 1000)) === today) {
@@ -912,7 +1053,7 @@ stockRouter.get("/portfolio-chart", async (req, res) => {
 // ── Stock quote & metrics ─────────────────────────────────────────────────────
 
 /**
- * A stock's quote and key metrics, as GET /api/stock/:symbol serves them (cached: quote per quoteTtlMs, metrics 6h).
+ * A stock's quote and key metrics, as GET /api/stock/:symbol serves them (quote from getQuote, metrics cached 6h).
  * STAK AI calls this directly rather than over HTTP, which would queue behind the public rate limiter.
  */
 /** A Finnhub percent metric as a number, or null when it's missing, not a number, or beyond [cap] either way. */
@@ -925,12 +1066,7 @@ export async function getStockSnapshot(rawSymbol: string) {
 	const extended = isExtendedHours();
 
 	// Finnhub for regular market price (fast, reliable)
-	const fbKey = `quote:fb:${symbol}`;
-	let finnhubQuoteRaw = await cacheGet<Record<string, number>>(fbKey);
-	if (!finnhubQuoteRaw) {
-		finnhubQuoteRaw = (await finnhubGet(`/quote?symbol=${symbol}`)) as Record<string, number> | null;
-		if (finnhubQuoteRaw) await cacheSet(fbKey, finnhubQuoteRaw, quoteTtlMs());
-	}
+	const finnhubQuoteRaw = await getQuote(symbol);
 
 	// Yahoo only during extended hours — gets pre/after-market prices
 	let yahooExt: YahooExtended | null = null;
