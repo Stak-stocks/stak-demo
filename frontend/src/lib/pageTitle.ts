@@ -32,6 +32,7 @@ const TITLES: Record<string, string> = {
 	"/profile/taste": "Taste & risk",
 	"/terms": "Terms of Service",
 	"/privacy": "Privacy Policy",
+	"/support": "Help & support",
 	"/onboarding": "Welcome",
 	"/onboarding/brand-picks": "Pick some brands",
 	"/onboarding/goal": "Your goal",
@@ -42,6 +43,30 @@ const TITLES: Record<string, string> = {
 	"/onboarding/permissions": "Notifications",
 	"/onboarding/profile-setup": "Your profile",
 };
+
+const PUBLIC_DESCRIPTIONS: Record<string, string> = {
+	"/support": "Get help with STAK: email support, report a problem, delete your account, and answers to common questions.",
+	"/terms": "STAK's Terms of Service.",
+	"/privacy": "How STAK collects, uses and protects your information.",
+};
+
+/**
+ * The public pages' own canonical link and description, so search engines don't fold /support, /terms and /privacy
+ * into the home page (index.html carries the landing page's). Every other page keeps index.html's.
+ */
+export function syncPageMeta(pathname: string): void {
+	const path = pathname.replace(/\/+$/, "").toLowerCase() || "/";
+	const own = PUBLIC_DESCRIPTIONS[path];
+	const url = own ? `https://thestak.org${path}` : "https://thestak.org/";
+	document.querySelector('link[rel="canonical"]')?.setAttribute("href", url);
+	document.querySelector('meta[property="og:url"]')?.setAttribute("content", url);
+	const description = document.querySelector('meta[name="description"]');
+	if (description) {
+		const landing = description.getAttribute("data-landing") ?? description.getAttribute("content") ?? "";
+		description.setAttribute("data-landing", landing);
+		description.setAttribute("content", own ?? landing);
+	}
+}
 
 export function pageTitle(pathname: string): string {
 	const path = pathname.replace(/\/+$/, "") || "/";

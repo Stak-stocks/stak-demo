@@ -540,11 +540,21 @@ private fun LinkedRow(name: String, linked: Boolean, onToggle: () -> Unit) {
 	}
 }
 
+/** shared/src/supportFaq.ts's SUPPORT_EMAIL and SUPPORT_URL (the web's single source); iOS: the same. */
+private const val SUPPORT_EMAIL = "support@thestak.org"
+private const val SUPPORT_URL = "https://thestak.org/support"
+
 @Composable
 private fun HelpSupportScreen(onBack: () -> Unit) {
 	val u = figmaUnit()
 	val context = LocalContext.current
+	val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
 	val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "1.0" }
+	// The phone, its Android and the app's version and build, at the foot of a support email - so a reply needn't ask.
+	val device = remember {
+		val build = runCatching { androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(context.packageManager.getPackageInfo(context.packageName, 0)) }.getOrNull()?.toString() ?: "?"
+		"Device info (you can delete this): ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}, Android ${android.os.Build.VERSION.RELEASE}, STAK $version ($build)"
+	}
 	// The document open in the sheet (LegalDocs.TERMS / PRIVACY), or null.
 	var reading by rememberSaveable { mutableStateOf<String?>(null) }
 	Box(modifier = Modifier.fillMaxSize()) {
@@ -557,19 +567,23 @@ private fun HelpSupportScreen(onBack: () -> Unit) {
 				FaqRow("Where do the prices come from?", "Real prices from the US stock market. They update on their own while the market is open (9:30am to 4pm ET, weekdays). When it's closed, you see the last closing price.")
 			}
 			if (Session.demoAccount) {
-				FaqRow("Is my data private?", "STAK never sells your data.")
+				FaqRow("Is my data private?", "STAK doesn’t sell your personal information.")
 			} else {
-				FaqRow("Is my data private?", "Your saved stocks, taste answers and paper portfolio are stored with your STAK account, so they follow you to a new phone. STAK never sells your data.")
+				FaqRow("Is my data private?", "Your saved stocks, taste answers and paper portfolio are stored with your STAK account, so they follow you to a new device. STAK doesn’t sell your personal information.")
 			}
+			// The rest of the questions, on the public support page (shared/src/supportFaq.ts). iOS: the same.
+			SettingsLinkRow(label = "More help") { runCatching { uriHandler.openUri(SUPPORT_URL) } }
 			SettingsLinkRow(label = "Email support") {
-				val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@thestak.org")).putExtra(Intent.EXTRA_SUBJECT, "STAK support")
+				val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$SUPPORT_EMAIL"))
+					.putExtra(Intent.EXTRA_SUBJECT, "STAK support")
+					.putExtra(Intent.EXTRA_TEXT, "\n\n\n$device")
 				runCatching { context.startActivity(intent) }
 			}
 			// Contact / report and the legal links (FigJam Profile board, 2026-09-14).
 			SettingsLinkRow(label = "Report a problem") {
-				val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@thestak.org"))
+				val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$SUPPORT_EMAIL"))
 					.putExtra(Intent.EXTRA_SUBJECT, "STAK problem report")
-					.putExtra(Intent.EXTRA_TEXT, "What happened:\n\nWhere in the app:\n\nApp version $version")
+					.putExtra(Intent.EXTRA_TEXT, "What happened:\n\nWhere in the app:\n\n$device")
 				runCatching { context.startActivity(intent) }
 			}
 			// In the app's own sheet, not the browser (the web shows the same text at /terms and /privacy).

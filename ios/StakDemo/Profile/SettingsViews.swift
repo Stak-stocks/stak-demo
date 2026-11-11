@@ -579,27 +579,51 @@ private struct HelpSupportView: View {
 	let onBack: () -> Void
 	/// The document open in the sheet, or nil.
 	@State private var reading: LegalDocKind? = nil
+	/// The public support page (the rest of the questions), open in the in-app browser.
+	@State private var moreHelp: WebLink? = nil
+
+	/// The phone, its iOS and the app's version and build, at the foot of a support email - so a reply needn't ask.
+	private static func deviceLine(version: String) -> String {
+		var info = utsname()
+		uname(&info)
+		let model = withUnsafeBytes(of: &info.machine) { String(decoding: $0.prefix(while: { $0 != 0 }), as: UTF8.self) }
+		let build = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "?"
+		return "Device info (you can delete this): \(model), iOS \(UIDevice.current.systemVersion), STAK \(version) (\(build))"
+	}
+
+	/// shared/src/supportFaq.ts's SUPPORT_EMAIL and SUPPORT_URL (the web's single source); Android: the same.
+	private static let supportEmail = "support@thestak.org"
+	private static let supportURL = "https://thestak.org/support"
+
+	private static func mail(subject: String, body: String) {
+		let q = CharacterSet.urlQueryAllowed.subtracting(CharacterSet(charactersIn: "&=?+"))
+		let s = subject.addingPercentEncoding(withAllowedCharacters: q) ?? ""
+		let b = body.addingPercentEncoding(withAllowedCharacters: q) ?? ""
+		if let url = URL(string: "mailto:\(supportEmail)?subject=\(s)&body=\(b)") { UIApplication.shared.open(url) }
+	}
 
 	var body: some View {
 		let u = figmaUnit
 		let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.0"
+		let device = Self.deviceLine(version: version)
 		SettingsPage(title: "Help & support", onBack: onBack) {
 			VStack(spacing: 0) {
 				FaqRow(question: "Is this real money?", answer: "No. In Simulate you practice with pretend money, starting with what you’d really invest. Nothing is bought or sold for real.")
 				if Session.shared.demoAccount {
 					FaqRow(question: "Where do the prices come from?", answer: "The demo account shows sample prices so you can look around. Create an account to see live market prices.")
-					FaqRow(question: "Is my data private?", answer: "STAK never sells your data.")
+					FaqRow(question: "Is my data private?", answer: "STAK doesn’t sell your personal information.")
 				} else {
 					FaqRow(question: "Where do the prices come from?", answer: "Real prices from the US stock market. They update on their own while the market is open (9:30am to 4pm ET, weekdays). When it's closed, you see the last closing price.")
-					FaqRow(question: "Is my data private?", answer: "Your saved stocks, taste answers and paper portfolio are stored with your STAK account, so they follow you to a new phone. STAK never sells your data.")
+					FaqRow(question: "Is my data private?", answer: "Your saved stocks, taste answers and paper portfolio are stored with your STAK account, so they follow you to a new device. STAK doesn’t sell your personal information.")
 				}
+				// The rest of the questions, on the public support page (shared/src/supportFaq.ts). Android: the same.
+				SettingsLinkRow(label: "More help") { moreHelp = WebLink(Self.supportURL) }
 				SettingsLinkRow(label: "Email support") {
-					if let url = URL(string: "mailto:support@thestak.org?subject=STAK%20support") { UIApplication.shared.open(url) }
+					Self.mail(subject: "STAK support", body: "\n\n\n\(device)")
 				}
 				// Contact / report and the legal links (FigJam Profile board, 2026-09-14).
 				SettingsLinkRow(label: "Report a problem") {
-					let body = "What happened:\n\nWhere in the app:\n\nApp version \(version)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-					if let url = URL(string: "mailto:support@thestak.org?subject=STAK%20problem%20report&body=\(body)") { UIApplication.shared.open(url) }
+					Self.mail(subject: "STAK problem report", body: "What happened:\n\nWhere in the app:\n\n\(device)")
 				}
 				// In the app's own sheet, not the browser (the web shows the same text at /terms and /privacy).
 				SettingsLinkRow(label: "Terms of service") { reading = .terms }
@@ -610,6 +634,7 @@ private struct HelpSupportView: View {
 			.background(cardBg, in: RoundedRectangle(cornerRadius: 16 * u))
 		}
 		.sheet(item: $reading) { kind in LegalSheetView(kind: kind) }
+		.safariSheet($moreHelp)
 	}
 }
 
