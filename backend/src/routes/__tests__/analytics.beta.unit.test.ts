@@ -5,9 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const pgQueryMock = vi.fn();
 vi.mock("../../lib/postgres.js", () => ({ pgQuery: pgQueryMock }));
 
-async function buildApp() {
+async function buildApp({ reportSecret }: { reportSecret?: string } = {}) {
 	vi.resetModules();
 	process.env.ADMIN_SECRET = "s3cret";
+	if (reportSecret) process.env.BETA_REPORT_SECRET = reportSecret;
+	else delete process.env.BETA_REPORT_SECRET;
 	process.env.ANALYTICS_EXCLUDED_EMAILS = "";
 	const { analyticsRouter } = await import("../analytics.js");
 	const app = express();
@@ -24,17 +26,48 @@ const row = (over: Record<string, unknown> = {}) => ({
 	...over,
 });
 
-describe("POST /beta (admin analytics)", () => {
+describe("POST /beta (admin secret or report secret)", () => {
 	beforeEach(() => {
 		pgQueryMock.mockReset();
 	});
 
-	it("needs the admin secret", async () => {
+	it("needs the admin secret or the report secret", async () => {
 		const app = await buildApp();
 		const res = await request(app).post("/beta").send({});
 		expect(res.status).toBe(403);
 		const wrong = await request(app).post("/beta").set("x-admin-secret", "s3crex").send({});
 		expect(wrong.status).toBe(403);
+		expect(pgQueryMock).not.toHaveBeenCalled();
+	});
+
+	it("takes the report secret for named testers, and it opens nothing else", async () => {
+		pgQueryMock.mockResolvedValue({ rows: [row()] });
+		const app = await buildApp({ reportSecret: "r3port" });
+		const ok = await request(app).post("/beta").set("x-report-secret", "r3port").send({ emails: ["ada@example.com"] });
+		expect(ok.status).toBe(200);
+		expect((await request(app).post("/beta").set("x-report-secret", "r3porx").send({ emails: ["ada@example.com"] })).status).toBe(403);
+		// The STAK AI report is admin-only.
+		expect((await request(app).get("/stak-ai").set("x-report-secret", "r3port")).status).toBe(403);
+	});
+
+	it("never gives the report secret every account", async () => {
+		const app = await buildApp({ reportSecret: "r3port" });
+		for (const body of [{}, { emails: [] }, { emails: ["  "] }]) {
+			expect((await request(app).post("/beta").set("x-report-secret", "r3port").send(body)).status).toBe(400);
+		}
+		expect(pgQueryMock).not.toHaveBeenCalled();
+	});
+
+	it("refuses an empty report secret when none is set", async () => {
+		const app = await buildApp();
+		expect((await request(app).post("/beta").set("x-report-secret", "").send({ emails: ["ada@example.com"] })).status).toBe(403);
+		expect(pgQueryMock).not.toHaveBeenCalled();
+	});
+
+	it("refuses too many emails rather than dropping some", async () => {
+		const app = await buildApp();
+		const emails = Array.from({ length: 2001 }, (_, i) => `t${i}@example.com`);
+		expect((await request(app).post("/beta").set("x-admin-secret", "s3cret").send({ emails })).status).toBe(400);
 		expect(pgQueryMock).not.toHaveBeenCalled();
 	});
 

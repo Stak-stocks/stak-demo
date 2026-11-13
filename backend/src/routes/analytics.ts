@@ -21,6 +21,20 @@ function checkAdminSecret(req: Request, res: Response): boolean {
 	return true;
 }
 
+/**
+ * Who may read the beta report: the admin secret, or BETA_REPORT_SECRET (header x-report-secret) - a key for the beta
+ * master sheet's Apps Script (scripts/beta-sheet/BetaSheetSync.gs) that opens nothing else, since a sheet's editors
+ * can read a script's stored keys. "report" callers must name the testers they ask about. Null: refused (403 sent).
+ */
+function betaReportCaller(req: Request, res: Response): "admin" | "report" | null {
+	const secret = process.env.BETA_REPORT_SECRET;
+	if (secret && secretMatches(req.headers["x-report-secret"], secret)) return "report";
+	return checkAdminSecret(req, res) ? "admin" : null;
+}
+
+/** Most emails the beta report takes at once - more is refused rather than cut, so nobody silently drops out. */
+const BETA_MAX_EMAILS = 2000;
+
 // Resolve excluded emails to UIDs once and cache in memory.
 // Reads directly from the users Postgres table — no Firebase Auth dependency.
 let excludedUidsPromise: Promise<Set<string>> | null = null;
@@ -419,15 +433,25 @@ export function csvCell(v: unknown): string {
 // relay). `emails` limits it to those accounts - team accounts included when named (with no visits: those aren't
 // recorded for them); without it, every account since `since` minus the excluded ones. News article opens and News /
 // Simulate tab views count from the app builds that log them (2026-11-10; the web logs neither); platform from the
-// 2026-11-10 backend. A POST, so the
-// testers' emails travel in the body rather than the URL, which request logs keep.
+// 2026-11-10 backend. A POST, so the testers' emails travel in the body rather than the URL, which request logs keep.
+// Who may call it: betaReportCaller (the report-only key always needs `emails`).
 analyticsRouter.post("/beta", async (req: Request, res: Response) => {
-	if (!checkAdminSecret(req, res)) return;
+	const caller = betaReportCaller(req, res);
+	if (!caller) return;
 	res.set("Cache-Control", "no-store");
 	const body = (req.body ?? {}) as { emails?: unknown; since?: unknown; format?: unknown };
 	const emails = Array.isArray(body.emails)
-		? body.emails.filter((e): e is string => typeof e === "string").map((e) => e.trim().toLowerCase()).filter(Boolean).slice(0, 2000)
+		? [...new Set(body.emails.filter((e): e is string => typeof e === "string").map((e) => e.trim().toLowerCase()).filter(Boolean))]
 		: [];
+	if (emails.length > BETA_MAX_EMAILS) {
+		res.status(400).json({ error: `At most ${BETA_MAX_EMAILS} emails at once` });
+		return;
+	}
+	// Without emails the report is every account - only the admin secret may ask for that.
+	if (caller === "report" && emails.length === 0) {
+		res.status(400).json({ error: "Name the testers' emails" });
+		return;
+	}
 	const since = typeof body.since === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.since) ? body.since : null;
 	try {
 		const excluded = emails.length ? [] : [...(await getExcludedUids())];
@@ -487,11 +511,12 @@ analyticsRouter.post("/beta", async (req: Request, res: Response) => {
 			res.type("text/csv").send(lines.join("\n"));
 			return;
 		}
+		const found = new Set(rows.map((r) => r.email?.toLowerCase()));
 		res.json({
 			people: rows.length,
 			activated: rows.filter((r) => r.activated).length,
 			// Emails asked for that have no STAK account (yet, or under a different email - e.g. Apple's private relay).
-			missing: emails.filter((e) => !rows.some((r) => r.email?.toLowerCase() === e)),
+			missing: emails.filter((e) => !found.has(e)),
 			rows,
 		});
 	} catch (e) {
