@@ -381,6 +381,7 @@ interface BetaRow {
 	created_at: string;
 	onboarding_completed: boolean;
 	platform: string | null;
+	app_version: string | null;
 	swipes: number;
 	companies_swiped: number;
 	right_swipes: number;
@@ -394,6 +395,10 @@ interface BetaRow {
 	simulate_tab_views: number;
 	sim_trades: number;
 	simulate_used: boolean;
+	my_stak_views: number;
+	taste_views: number;
+	stak_ai_opens: number;
+	stak_ai_questions: number;
 	active_days: number;
 	last_active: string | null;
 	day3: boolean | null;
@@ -409,9 +414,10 @@ export function isActivated(r: Pick<BetaRow, "onboarding_completed" | "companies
 }
 
 const BETA_COLUMNS: (keyof BetaRow | "activated")[] = [
-	"email", "display_name", "platform", "created_at", "onboarding_completed", "activated", "swipes", "companies_swiped",
-	"right_swipes", "staks", "saved_now", "quick_looks", "company_opens", "saved_company_opens", "news_opens", "news_tab_views",
-	"simulate_tab_views", "sim_trades", "simulate_used", "active_days", "last_active", "day3", "day7",
+	"email", "display_name", "platform", "app_version", "created_at", "onboarding_completed", "activated", "swipes",
+	"companies_swiped", "right_swipes", "staks", "saved_now", "quick_looks", "company_opens", "saved_company_opens",
+	"news_opens", "news_tab_views", "simulate_tab_views", "sim_trades", "simulate_used", "my_stak_views", "taste_views",
+	"stak_ai_opens", "stak_ai_questions", "active_days", "last_active", "day3", "day7",
 ];
 
 /**
@@ -425,11 +431,13 @@ export function csvCell(v: unknown): string {
 }
 
 // POST /api/admin/analytics/beta { emails: ["a@x.com", ...], since: "2026-11-01", format: "csv" } — one row per beta tester for
-// the master sheet: account created, onboarding, swipes, STAKs (companies ever saved, from a swipe or any Save button),
-// Quick Looks, company opens, News, Simulate, last active, whether they came back on Day 3 / Day 7 (active on the
-// signup day + 3 / + 7 in Eastern time, blank until that day is over), and activated (isActivated). A day counts as
-// active when the app recorded a visit (GET /api/me), a swipe, a save, a trade or an event: the visit alone misses an
-// app resumed from the background. display_name helps pair an account whose email isn't the tester's (Apple's private
+// the master sheet: account created, onboarding, swipes, STAKs (companies ever added to My STAK, by a swipe, a Save
+// button or a Simulate buy - stak_save_log), Quick Looks, company opens, News, Simulate, My STAK / Investing Taste
+// visits, STAK AI opens and questions (the server logs each question, every platform), the latest app build
+// (sessions.app_version), last active, whether they came back on Day 3 / Day 7 (active on the signup day + 3 / + 7 in
+// Eastern time, blank until that day is over), and activated (isActivated). A day counts as active when the app
+// recorded a visit (GET /api/me), a swipe, a save, a trade or an event: the visit alone misses an app resumed from the
+// background. display_name helps pair an account whose email isn't the tester's (Apple's private
 // relay). `emails` limits it to those accounts - team accounts included when named (with no visits: those aren't
 // recorded for them); without it, every account since `since` minus the excluded ones. News article opens and News /
 // Simulate tab views count from the app builds that log them (2026-11-10; the web logs neither); platform from the
@@ -455,7 +463,7 @@ analyticsRouter.post("/beta", async (req: Request, res: Response) => {
 	const since = typeof body.since === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.since) ? body.since : null;
 	try {
 		const excluded = emails.length ? [] : [...(await getExcludedUids())];
-		const result = await pgQuery<BetaRow>(
+		const report = (appVersion: string) => pgQuery<BetaRow>(
 			`with u as (
 			   select uid, email, display_name, created_at, onboarding_completed,
 			     (created_at at time zone 'America/New_York')::date as signup_day
@@ -467,6 +475,7 @@ analyticsRouter.post("/beta", async (req: Request, res: Response) => {
 			 today as (select (now() at time zone 'America/New_York')::date as d)
 			 select u.email, u.display_name, u.created_at, u.onboarding_completed,
 			   (select platform from sessions x where x.uid = u.uid and platform is not null order by date desc limit 1) as platform,
+			   ${appVersion} as app_version,
 			   (select count(*) from swipes s where s.uid = u.uid)::int as swipes,
 			   (select count(distinct s.brand_id) from swipes s where s.uid = u.uid)::int as companies_swiped,
 			   (select count(*) from swipes s where s.uid = u.uid and s.direction = 'right')::int as right_swipes,
@@ -485,6 +494,10 @@ analyticsRouter.post("/beta", async (req: Request, res: Response) => {
 			   (exists (select 1 from sandbox_portfolio p where p.uid = u.uid)
 			     or exists (select 1 from sandbox_trades t where t.uid = u.uid)
 			     or exists (select 1 from events e where e.uid = u.uid and e.type = 'tab_view' and e.params->>'tab' = 'simulate')) as simulate_used,
+			   (select count(*) from events e where e.uid = u.uid and e.type = 'tab_view' and e.params->>'tab' = 'mystak')::int as my_stak_views,
+			   (select count(*) from events e where e.uid = u.uid and e.type = 'taste_graph_open')::int as taste_views,
+			   (select count(*) from events e where e.uid = u.uid and e.type = 'stak_ai_open')::int as stak_ai_opens,
+			   (select count(*) from events e where e.uid = u.uid and e.type = 'stak_ai_ask')::int as stak_ai_questions,
 			   coalesce(cardinality(a.days), 0) as active_days,
 			   (select max(d) from unnest(a.days) d) as last_active,
 			   case when (select d from today) <= u.signup_day + 3 then null
@@ -504,6 +517,13 @@ analyticsRouter.post("/beta", async (req: Request, res: Response) => {
 			 order by u.created_at`,
 			[emails, since, excluded],
 		);
+		// Before migration 20261113000000 adds sessions.app_version the report still works, with that column blank.
+		const result = await report(
+			`(select app_version from sessions x where x.uid = u.uid and app_version is not null order by date desc limit 1)`,
+		).catch((e: { code?: string }) => {
+			if (e?.code !== "42703") throw e;
+			return report("null::text");
+		});
 		const rows = result.rows.map((r) => ({ ...r, created_at: toIsoString(r.created_at), activated: isActivated(r) }));
 		if (body.format === "csv") {
 			res.set("Content-Disposition", 'attachment; filename="stak-beta.csv"');

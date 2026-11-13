@@ -26,28 +26,33 @@ const COLUMNS = [
 	["has_account", "TRUE when STAK has an account under stak_email. FALSE: none yet, or under another address - fill in their STAK email."],
 	["display_name", "The name on their STAK account."],
 	["platform", "The app they used most recently: ios, android or web. For \"both devices\" use the tester sheet."],
+	["app_version", "The build they used most recently, e.g. \"1.0 (13)\". \"build 12\": an older iPhone build. Blank: the web, or an Android build from before 13 Nov 2026."],
 	["signed_up", "When they created their STAK account."],
 	["onboarding_completed", "Finished onboarding."],
-	["activated", "Finished onboarding, swiped 10+ different companies, STAKed 3+, and opened a Quick Look or a saved company."],
-	["swipes", "Cards swiped."],
-	["companies_swiped", "Different companies swiped."],
-	["right_swipes", "Swiped right (STAK)."],
-	["staks", "Different companies ever saved, from a swipe or any Save button."],
-	["saved_now", "Companies in their STAK now."],
-	["quick_looks", "Quick Looks opened."],
-	["company_opens", "Company pages opened."],
-	["saved_company_opens", "Pages of saved companies opened."],
+	["activated", "Finished onboarding, swiped 10+ different companies (companies_swiped), saved 3+ companies by any route (staks), and opened at least one Quick Look or saved company page."],
+	["swipes", "Every card swiped, left or right. A passed company can come back, so one company can be swiped more than once."],
+	["companies_swiped", "Different companies swiped: repeat swipes of the same company count once. Never more than swipes."],
+	["right_swipes", "Swipes to the right (STAK) on Discover cards. Saves made any other way aren't counted here - see staks."],
+	["staks", "Different companies they have ever added to My STAK, by any route: a right swipe, a Save button (company page, Quick Look, news) or buying it in Simulate. Each company counts once; removing it later doesn't lower this. Usually much higher than right_swipes, because most saves don't come from swiping."],
+	["saved_now", "Companies in their My STAK right now (it holds up to 30). Lower than staks only by the companies they removed and didn't save again."],
+	["quick_looks", "Times they tapped Learn more on a Discover card to open its Quick Look - the short pop-up summary, not the full page. On the web it also counts Search Quick Looks and desktop cards left on screen a few seconds."],
+	["company_opens", "Times they opened a company's full page (not the Quick Look pop-up), from anywhere: Discover, My STAK, search, news. Opening the same company twice counts twice."],
+	["saved_company_opens", "Full company pages opened for a company already in their My STAK at that moment, or opened from the My STAK tab. iPhone and Android only."],
 	["news_opens", "News articles opened."],
 	["news_tab_views", "Visits to the News tab."],
 	["simulate_tab_views", "Visits to the Simulate tab."],
 	["sim_trades", "Paper trades made."],
 	["simulate_used", "Opened or traded in Simulate."],
+	["my_stak_views", "Visits to the My STAK tab (counted from the 10 Nov 2026 builds)."],
+	["taste_views", "Times they opened Your Investing Taste."],
+	["stak_ai_opens", "Times they opened STAK AI."],
+	["stak_ai_questions", "Questions they asked STAK AI (counted on every platform)."],
 	["active_days", "Days they used the app."],
 	["last_active", "The last day they used the app (Eastern time)."],
 	["day3", "Used the app on signup day + 3 (Eastern time). Blank = not due yet, or no account. Retention: COUNTIF(col,TRUE) / (COUNTIF(col,TRUE) + COUNTIF(col,FALSE))."],
 	["day7", "Used the app on signup day + 7 (Eastern time). Blank = not due yet, or no account. Retention: COUNTIF(col,TRUE) / (COUNTIF(col,TRUE) + COUNTIF(col,FALSE))."],
 ];
-const TEXT_COLUMNS = ["email", "stak_email", "display_name", "platform"];
+const TEXT_COLUMNS = ["email", "stak_email", "display_name", "platform", "app_version"];
 
 function onOpen() {
 	SpreadsheetApp.getUi()
@@ -193,9 +198,15 @@ function readTesters_(book) {
 /** The status line, in a cell next to the data (named StakLastRefresh, so the Dashboard can show it); red on a failure. */
 function setStatus_(book, text, failed) {
 	const out = book.getSheetByName(OUTPUT_SHEET) || book.insertSheet(OUTPUT_SHEET);
-	let cell = book.getRangeByName(STATUS_RANGE_NAME);
-	if (!cell) {
-		cell = out.getRange(1, COLUMNS.length + 2);
+	// One empty column past the data. When columns are added the cell moves along, so it never sits on a header.
+	const cell = out.getRange(1, COLUMNS.length + 2);
+	const named = book.getRangeByName(STATUS_RANGE_NAME);
+	if (!named || named.getA1Notation() !== cell.getA1Notation() || named.getSheet().getName() !== OUTPUT_SHEET) {
+		if (named && named.getSheet().getName() === OUTPUT_SHEET) {
+			// Where it was: past the data, emptied; on what is now a header, only its red/green taken off.
+			if (named.getColumn() > COLUMNS.length) named.clearContent().clearFormat();
+			else named.setFontColor(null);
+		}
 		book.setNamedRange(STATUS_RANGE_NAME, cell);
 	}
 	cell.setValue(text).setFontColor(failed ? "#c5221f" : "#188038").setFontWeight("bold");

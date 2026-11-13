@@ -20,8 +20,9 @@ async function buildApp({ reportSecret }: { reportSecret?: string } = {}) {
 
 const row = (over: Record<string, unknown> = {}) => ({
 	email: "ada@example.com", display_name: "Ada", created_at: "2026-11-01T15:00:00.000Z", onboarding_completed: true, platform: "ios",
-	swipes: 14, companies_swiped: 10, right_swipes: 3, staks: 3, saved_now: 3, quick_looks: 0, company_opens: 2, saved_company_opens: 1,
-	news_opens: 0, news_tab_views: 1, simulate_tab_views: 0, sim_trades: 0, simulate_used: false, active_days: 4,
+	app_version: "1.0 (13)", swipes: 14, companies_swiped: 10, right_swipes: 3, staks: 3, saved_now: 3, quick_looks: 0, company_opens: 2, saved_company_opens: 1,
+	news_opens: 0, news_tab_views: 1, simulate_tab_views: 0, sim_trades: 0, simulate_used: false,
+	my_stak_views: 2, taste_views: 1, stak_ai_opens: 1, stak_ai_questions: 2, active_days: 4,
 	last_active: "2026-11-08", day3: true, day7: null,
 	...over,
 });
@@ -62,6 +63,16 @@ describe("POST /beta (admin secret or report secret)", () => {
 		const app = await buildApp();
 		expect((await request(app).post("/beta").set("x-report-secret", "").send({ emails: ["ada@example.com"] })).status).toBe(403);
 		expect(pgQueryMock).not.toHaveBeenCalled();
+	});
+
+	it("still answers, with app_version blank, before the migration that adds it", async () => {
+		pgQueryMock.mockRejectedValueOnce(Object.assign(new Error("column app_version does not exist"), { code: "42703" }));
+		pgQueryMock.mockResolvedValueOnce({ rows: [row({ app_version: null })] });
+		const app = await buildApp();
+		const res = await request(app).post("/beta").set("x-admin-secret", "s3cret").send({ emails: ["ada@example.com"] });
+		expect(res.status).toBe(200);
+		expect(pgQueryMock).toHaveBeenCalledTimes(2);
+		expect(pgQueryMock.mock.calls[1][0]).toContain("null::text as app_version");
 	});
 
 	it("refuses too many emails rather than dropping some", async () => {
@@ -114,7 +125,7 @@ describe("POST /beta (admin secret or report secret)", () => {
 		const [header, line] = res.text.split("\n");
 		expect(header.split(",")[0]).toBe("email");
 		expect(header.split(",")).toContain("activated");
-		expect(line.startsWith('"Ann, ""Jr""@example.com",Ada,ios,')).toBe(true);
+		expect(line.startsWith('"Ann, ""Jr""@example.com",Ada,ios,1.0 (13),')).toBe(true);
 		// day7 is null: the last cell is empty.
 		expect(line.endsWith(",true,")).toBe(true);
 	});
@@ -135,10 +146,26 @@ describe("platformOf", () => {
 		vi.resetModules();
 		vi.doMock("../../lib/postgres.js", () => ({ pgQuery: vi.fn(), pgPool: {}, ensureUserRow: vi.fn() }));
 		const { platformOf } = await import("../me.js");
-		expect(platformOf("STAK/12 CFNetwork/1568.100.1 Darwin/24.0.0")).toBe("ios");
+		expect(platformOf("StakDemo/12 CFNetwork/1568.100.1 Darwin/24.0.0")).toBe("ios");
 		expect(platformOf("okhttp/4.12.0")).toBe("android");
 		expect(platformOf("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15")).toBe("web");
 		expect(platformOf("Mozilla/5.0 (Linux; Android 15) Chrome/130.0")).toBe("web");
 		expect(platformOf(undefined)).toBe("web");
+	});
+});
+
+describe("appVersionOf", () => {
+	it("reads the apps' header, else an older iPhone build's User-Agent", async () => {
+		vi.resetModules();
+		vi.doMock("../../lib/postgres.js", () => ({ pgQuery: vi.fn(), pgPool: {}, ensureUserRow: vi.fn() }));
+		const { appVersionOf } = await import("../me.js");
+		expect(appVersionOf("1.0 (13)", "StakDemo/13 CFNetwork/1568 Darwin/24.0.0")).toBe("1.0 (13)");
+		expect(appVersionOf(undefined, "StakDemo/12 CFNetwork/1568.100.1 Darwin/24.0.0")).toBe("build 12");
+		expect(appVersionOf(undefined, "okhttp/4.12.0")).toBeNull();
+		expect(appVersionOf(undefined, "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)")).toBeNull();
+		// Anything that isn't a plain version is ignored, not stored.
+		expect(appVersionOf("<script>", undefined)).toBeNull();
+		expect(appVersionOf("+NOW()", undefined)).toBeNull();
+		expect(appVersionOf("x".repeat(41), undefined)).toBeNull();
 	});
 });
