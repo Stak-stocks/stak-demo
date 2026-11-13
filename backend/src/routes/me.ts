@@ -60,6 +60,18 @@ export function platformOf(userAgent: string | undefined): "ios" | "android" | "
 	return "web";
 }
 
+/**
+ * Which build a request came from: the apps' X-App-Version ("1.0 (13)", from the 2026-11-13 builds), else the build
+ * number in an older iPhone build's User-Agent ("StakDemo/12 CFNetwork/..." -> "build 12"). Null for the web and older
+ * Android builds.
+ */
+export function appVersionOf(header: unknown, userAgent: string | undefined): string | null {
+	// Starts with a digit: a version, never text a spreadsheet would run as a formula ("+NOW()").
+	if (typeof header === "string" && /^\d[\w .()+-]{0,39}$/.test(header.trim())) return header.trim();
+	const build = /^[^/\s]+\/(\d+) CFNetwork\//.exec(userAgent ?? "")?.[1];
+	return build ? `build ${build}` : null;
+}
+
 // GET /api/me — get user profile (requires auth)
 meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 	try {
@@ -74,12 +86,24 @@ meRouter.get("/", authMiddleware, async (req: AuthenticatedRequest, res) => {
 			const today = getEasternDateKey();
 			ensureUserRow(uid, req.user!.email)
 				.then(() => pgQuery(
-					`insert into sessions (uid, date, platform) values ($1, $2, $3)
-					 on conflict (uid, date) do update set platform = excluded.platform
-					 where sessions.platform is distinct from excluded.platform`,
-					[uid, today, platformOf(req.headers["user-agent"])],
+					// A visit with no build (the web, an older Android build) keeps the build the day already has.
+					`insert into sessions (uid, date, platform, app_version) values ($1, $2, $3, $4)
+					 on conflict (uid, date) do update
+					   set platform = excluded.platform, app_version = coalesce(excluded.app_version, sessions.app_version)
+					 where (sessions.platform, sessions.app_version)
+					   is distinct from (excluded.platform, coalesce(excluded.app_version, sessions.app_version))`,
+					[uid, today, platformOf(req.headers["user-agent"]), appVersionOf(req.headers["x-app-version"], req.headers["user-agent"])],
 				).catch((e: { code?: string }) => {
-					// Before migration 20261110000000 adds the column: the day is still recorded, without the app.
+					// Before migration 20261113000000 adds app_version: the day is still recorded, with the platform only.
+					if (e?.code !== "42703") throw e;
+					return pgQuery(
+						`insert into sessions (uid, date, platform) values ($1, $2, $3)
+						 on conflict (uid, date) do update set platform = excluded.platform
+						 where sessions.platform is distinct from excluded.platform`,
+						[uid, today, platformOf(req.headers["user-agent"])],
+					);
+				}).catch((e: { code?: string }) => {
+					// A database without 20261110000000 either: the day alone.
 					if (e?.code !== "42703") throw e;
 					return pgQuery(`insert into sessions (uid, date) values ($1, $2) on conflict (uid, date) do nothing`, [uid, today]);
 				}))

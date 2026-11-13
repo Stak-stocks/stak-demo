@@ -26,6 +26,7 @@ App users never need any of this: the app's values are built into it when it's b
 | `REDIS_URL`, `ADMIN_SECRET`, `WARM_SECRET`, `WAITLIST_TOKEN_SECRET`, `TALLY_SIGNING_SECRET`, `TALLY_FORM_URL` | Backend |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Backend (web push) |
 | `EARLY_ACCESS_RESEND_KEY`, `ANALYTICS_EXCLUDED_EMAILS` | Backend |
+| `BETA_REPORT_SECRET` | Backend, and the beta master sheet's Apps Script (below) |
 | `APPLE_SIGNIN_KEY_P8` (secret `apple-signin-key-p8`), `SUPABASE_MANAGEMENT_TOKEN` | Backend - the monthly renewal of the website's Sign in with Apple secret (below) |
 | `GEMINI_EVAL_API_KEY` | The STAK AI test script only (`backend/src/scripts/stakAiEval.ts`) - a billed key kept apart from the live ones |
 | `dev-backend-local` | Settings only a development machine has (`PORT`, the Supabase CLI token, and `GEMINI_DEV_API_KEY` - a Gemini key for local runs, used instead of the live ones whenever it's set) |
@@ -79,6 +80,24 @@ rm AuthKey.p8
 | Key | "STAK Sign in with Apple", Key ID `5NH9HT5BA3` (Apple Developer -> Keys); the `.p8` is `apple-signin-key-p8` |
 | Team ID | `P6442U4672` |
 | Current expiry | The latest `[apple-secret] renewed` log line (the first, made by hand 2026-10-31, expires 2027-04-29) |
+
+## The beta master sheet
+
+The team's beta sheet pulls STAK's per-tester numbers itself: `scripts/beta-sheet/BetaSheetSync.gs` (setup steps at its
+top) calls `POST /api/admin/analytics/beta` with `BETA_REPORT_SECRET`, kept in the script's properties under the same
+name. Anyone who can edit the sheet can read that, so it is not `ADMIN_SECRET`: it opens the beta report only, and only
+for emails the caller names (never "every account"). If the sheet's editors change, replace it (Changing a key, below)
+and paste the new value into the script. Server-only, so it isn't in `backend/.env.example`.
+
+One-time setup:
+
+```sh
+openssl rand -hex 32 | tr -d '\n' | gcloud secrets create BETA_REPORT_SECRET --project stak-c21a3 --replication-policy=automatic --data-file=-
+gcloud secrets add-iam-policy-binding BETA_REPORT_SECRET --project stak-c21a3 \
+  --member=serviceAccount:889057229494-compute@developer.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud run services update stak-backend --region us-central1 --project stak-c21a3 --update-secrets=BETA_REPORT_SECRET=BETA_REPORT_SECRET:latest
+gcloud secrets versions access latest --secret=BETA_REPORT_SECRET --project stak-c21a3 | clip   # paste into the script
+```
 
 ## Changing a key
 
