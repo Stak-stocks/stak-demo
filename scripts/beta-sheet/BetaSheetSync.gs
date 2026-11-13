@@ -153,6 +153,9 @@ function writeReport_(book) {
 	header.setNotes([COLUMNS.map(([, note]) => note)]);
 	if (rows.length) {
 		const col = (name) => COLUMNS.findIndex(([c]) => c === name) + 1;
+		// Every column gets its format set, never left to what the cell had: counts are plain numbers (a count once
+		// showed 7 as 1900-01-07), TRUE/FALSE columns are unaffected by it.
+		out.getRange(2, 1, rows.length, width).setNumberFormat("0");
 		// Text stays text: a name like "007" or "3/4" isn't turned into a number or a date.
 		TEXT_COLUMNS.forEach((name) => out.getRange(2, col(name), rows.length, 1).setNumberFormat("@"));
 		out.getRange(2, col("signed_up"), rows.length, 1).setNumberFormat("yyyy-mm-dd hh:mm");
