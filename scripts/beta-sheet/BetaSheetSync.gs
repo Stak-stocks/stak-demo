@@ -145,7 +145,9 @@ function writeReport_(book) {
 
 	const out = book.getSheetByName(OUTPUT_SHEET) || book.insertSheet(OUTPUT_SHEET);
 	const width = COLUMNS.length;
-	out.getRange(1, 1, out.getMaxRows(), width).clearContent();
+	// Formats go too: when a column is added the others shift, and a count must not keep the date format of the column
+	// that used to be there (7 showing as 1900-01-07).
+	out.getRange(1, 1, out.getMaxRows(), width).clearContent().clearFormat();
 	const header = out.getRange(1, 1, 1, width);
 	header.setValues([COLUMNS.map(([c]) => c)]).setFontWeight("bold");
 	header.setNotes([COLUMNS.map(([, note]) => note)]);
