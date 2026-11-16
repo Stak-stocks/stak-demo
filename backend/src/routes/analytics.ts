@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { timingSafeEqual } from "node:crypto";
 import { getEasternDateKey } from "@stak/shared";
 import { pgQuery } from "../lib/postgres.js";
+import { EMAIL_RE, firstNameOf, sendBetaSelectedEmail } from "../services/earlyAccessEmail.js";
 
 export const analyticsRouter = Router();
 
@@ -538,11 +539,143 @@ analyticsRouter.post("/beta", async (req: Request, res: Response) => {
 			// Emails asked for that have no STAK account (yet, or under a different email - e.g. Apple's private relay).
 			missing: emails.filter((e) => !found.has(e)),
 			rows,
+			// When each asked-for tester was sent the beta selection email - account or not (the sheet's invite_sent).
+			invites: await betaInvitesSent(emails),
 		});
 	} catch (e) {
 		console.error("[analytics] beta error:", e);
 		res.status(500).json({ error: "Failed to load the beta report" });
 	}
+});
+
+/**
+ * email -> when the beta selection email went to it, for those of `emails` it went to: only sends Resend accepted, not
+ * a claim still in flight (or one cut off mid-send, which the next call retries). Empty before migration 20261116000000.
+ */
+async function betaInvitesSent(emails: string[]): Promise<Record<string, string>> {
+	if (emails.length === 0) return {};
+	try {
+		const result = await pgQuery<{ email: string; sent_at: Date | string }>(
+			`select email, beta_invite_sent_at as sent_at from waitlist
+			 where email = any($1::text[]) and beta_invite_message_id is not null`,
+			[emails],
+		);
+		return Object.fromEntries(result.rows.map((r) => [r.email, toIsoString(r.sent_at)]));
+	} catch (e) {
+		if ((e as { code?: string })?.code === "42703") return {};
+		throw e;
+	}
+}
+
+/**
+ * Most selection emails one call takes (the sheet's INVITE_BATCH matches); it stops sending after BETA_INVITE_BUDGET_MS
+ * and hands the rest back.
+ */
+const BETA_INVITE_MAX = 40;
+const BETA_INVITE_GAP_MS = 600; // Resend's limit is 2 a second
+/** Well inside the sheet's 60s fetch limit, even with a slow send (each may take up to 10s). */
+const BETA_INVITE_BUDGET_MS = 35_000;
+/** Selection emails a day at most - a cap on what a leaked sheet key could do. */
+const BETA_INVITE_DAILY_CAP = 300;
+/** A claim that never got Resend's id this long after (the instance died mid-send) is taken again; the idempotency key stops a double send. */
+const BETA_INVITE_STALE = "10 minutes";
+type InviteResult = {
+	email: string;
+	status: "sent" | "already_sent" | "not_on_waitlist" | "unsubscribed" | "failed" | "not_attempted";
+	error?: string;
+};
+
+// POST /api/admin/analytics/beta/invite { testers: [{ email, name? }, ...] } — sends the beta selection email ("You've
+// been selected for the STAK beta", the TestFlight link) to each, once ever. Only to addresses on the waitlist (they
+// joined on the website or sent the Tally application), never one that unsubscribed, and at most
+// BETA_INVITE_DAILY_CAP a day - limits on what the sheet's key could do if it leaked. Each one is claimed before it's
+// sent, so two calls at once can't email anyone twice; a failed send is released for the next call, and Resend's
+// idempotency key covers a send it accepted that we couldn't record. Past BETA_INVITE_BUDGET_MS the rest come back
+// "not_attempted" for the caller to send again. Who may call it: betaReportCaller.
+analyticsRouter.post("/beta/invite", async (req: Request, res: Response) => {
+	if (!betaReportCaller(req, res)) return;
+	res.set("Cache-Control", "no-store");
+	if (!process.env.BETA_TESTFLIGHT_URL?.trim()) {
+		res.status(409).json({ error: "The TestFlight link isn't set up yet (BETA_TESTFLIGHT_URL), so nothing was sent" });
+		return;
+	}
+	const raw: unknown[] = Array.isArray(req.body?.testers) ? req.body.testers : [];
+	const seen = new Set<string>();
+	const testers: { email: string; firstName: string | null }[] = [];
+	for (const t of raw) {
+		const o = (t ?? {}) as { email?: unknown; name?: unknown };
+		const email = typeof o.email === "string" ? o.email.trim().toLowerCase() : "";
+		if (!EMAIL_RE.test(email) || seen.has(email)) continue;
+		seen.add(email);
+		testers.push({ email, firstName: firstNameOf(o.name) });
+	}
+	if (testers.length === 0) {
+		res.status(400).json({ error: "Name the testers' emails" });
+		return;
+	}
+	if (testers.length > BETA_INVITE_MAX) {
+		res.status(400).json({ error: `At most ${BETA_INVITE_MAX} at once` });
+		return;
+	}
+
+	const started = Date.now();
+	let sentToday: number;
+	try {
+		sentToday = (await pgQuery<{ n: number }>(
+			`select count(*)::int as n from waitlist where beta_invite_message_id is not null and beta_invite_sent_at > now() - interval '1 day'`,
+		)).rows[0]?.n ?? 0;
+	} catch (e) {
+		console.error("[analytics] beta invite count error:", e);
+		res.status(500).json({ error: "Failed to send the selection emails" });
+		return;
+	}
+
+	const results: InviteResult[] = [];
+	let sends = 0;
+	for (const t of testers) {
+		// Out of time, over the day's cap, or the caller gave up: the rest are handed back untouched.
+		if (Date.now() - started > BETA_INVITE_BUDGET_MS || req.socket.destroyed) {
+			results.push({ email: t.email, status: "not_attempted" });
+			continue;
+		}
+		if (sentToday >= BETA_INVITE_DAILY_CAP) {
+			results.push({ email: t.email, status: "not_attempted", error: `Over today's limit of ${BETA_INVITE_DAILY_CAP}` });
+			continue;
+		}
+		let delivered = false;
+		try {
+			const claimed = await pgQuery<{ email: string }>(
+				`update waitlist set beta_invite_sent_at = now(), beta_invite_error = null
+				 where email = $1 and unsubscribed_at is null and beta_invite_message_id is null
+				   and (beta_invite_sent_at is null or beta_invite_sent_at < now() - interval '${BETA_INVITE_STALE}')
+				 returning email`,
+				[t.email],
+			);
+			if (claimed.rows.length === 0) {
+				const row = (await pgQuery<{ unsubscribed_at: string | null }>(`select unsubscribed_at from waitlist where email = $1`, [t.email])).rows[0];
+				results.push({ email: t.email, status: !row ? "not_on_waitlist" : row.unsubscribed_at ? "unsubscribed" : "already_sent" });
+				continue;
+			}
+			if (sends++ > 0) await new Promise((r) => setTimeout(r, BETA_INVITE_GAP_MS));
+			const sent = await sendBetaSelectedEmail(t.email, t.firstName);
+			if (sent.sent) {
+				delivered = true;
+				sentToday++;
+				results.push({ email: t.email, status: "sent" });
+				await pgQuery(`update waitlist set beta_invite_message_id = $2 where email = $1`, [t.email, sent.id]);
+			} else {
+				await pgQuery(`update waitlist set beta_invite_sent_at = null, beta_invite_error = $2 where email = $1`, [t.email, sent.error]);
+				results.push({ email: t.email, status: "failed", error: sent.error });
+			}
+		} catch (e) {
+			console.error("[analytics] beta invite error:", e);
+			// Sent but not recorded: it stays claimed (counted as sent) - never released into a second email.
+			if (delivered) continue;
+			await pgQuery(`update waitlist set beta_invite_sent_at = null where email = $1 and beta_invite_message_id is null`, [t.email]).catch(() => {});
+			results.push({ email: t.email, status: "failed", error: "Server error" });
+		}
+	}
+	res.json({ sent: results.filter((r) => r.status === "sent").length, results });
 });
 
 // GET /api/admin/analytics/stak-ai?days=30 — how STAK AI is used: questions (and by whom), where they're asked from,

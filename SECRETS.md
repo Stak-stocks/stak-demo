@@ -27,6 +27,7 @@ App users never need any of this: the app's values are built into it when it's b
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Backend (web push) |
 | `EARLY_ACCESS_RESEND_KEY`, `ANALYTICS_EXCLUDED_EMAILS` | Backend |
 | `BETA_REPORT_SECRET` | Backend, and the beta master sheet's Apps Script (below) |
+| `BETA_TESTFLIGHT_URL` (a plain Cloud Run setting, not in Secret Manager) | Backend - the beta selection email's TestFlight link (below) |
 | `APPLE_SIGNIN_KEY_P8` (secret `apple-signin-key-p8`), `SUPABASE_MANAGEMENT_TOKEN` | Backend - the monthly renewal of the website's Sign in with Apple secret (below) |
 | `GEMINI_EVAL_API_KEY` | The STAK AI test script only (`backend/src/scripts/stakAiEval.ts`) - a billed key kept apart from the live ones |
 | `dev-backend-local` | Settings only a development machine has (`PORT`, the Supabase CLI token, and `GEMINI_DEV_API_KEY` - a Gemini key for local runs, used instead of the live ones whenever it's set) |
@@ -85,9 +86,16 @@ rm AuthKey.p8
 
 The team's beta sheet pulls STAK's per-tester numbers itself: `scripts/beta-sheet/BetaSheetSync.gs` (setup steps at its
 top) calls `POST /api/admin/analytics/beta` with `BETA_REPORT_SECRET`, kept in the script's properties under the same
-name. Anyone who can edit the sheet can read that, so it is not `ADMIN_SECRET`: it opens the beta report only, and only
-for emails the caller names (never "every account"). If the sheet's editors change, replace it (Changing a key, below)
-and paste the new value into the script. Server-only, so it isn't in `backend/.env.example`.
+name. Anyone who can edit the sheet can read that, so it is not `ADMIN_SECRET`. It opens two things only: the beta
+report, for emails the caller names (never "every account"), and the beta selection email (`POST .../beta/invite`) -
+once per person, only to addresses already on the waitlist, at most 300 a day. If the sheet's editors change, replace
+it (Changing a key, below) and paste the new value into the script. Server-only, so it isn't in `backend/.env.example`.
+
+The selection email's button is the TestFlight public link, a plain setting (not a secret) - nothing is sent until it's set:
+
+```sh
+gcloud run services update stak-backend --region us-central1 --project stak-c21a3 --update-env-vars=BETA_TESTFLIGHT_URL=https://testflight.apple.com/join/XXXXXXXX
+```
 
 One-time setup:
 

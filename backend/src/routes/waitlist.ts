@@ -1,7 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { pgQuery } from "../lib/postgres.js";
-import { emailFromTallySubmission, emailFromUnsubscribeToken, sendEarlyAccessEmail, verifyTallySignature } from "../services/earlyAccessEmail.js";
+import { EMAIL_RE, emailFromTallySubmission, emailFromUnsubscribeToken, sendEarlyAccessEmail, verifyTallySignature } from "../services/earlyAccessEmail.js";
 
 export const waitlistRouter = Router();
 
@@ -14,7 +14,6 @@ const joinLimiter = rateLimit({
 	message: { error: "Too many tries. Give it a minute and try again." },
 });
 
-const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
 const SOURCES = new Set(["landing"]);
 
 type JoinRow = { inserted: boolean; confirmation_sent_at: string | null; unsubscribed_at: string | null };
@@ -79,7 +78,7 @@ waitlistRouter.get("/unsubscribe", async (req, res) => {
 	try {
 		const result = await unsubscribe(req.query.token);
 		res.status(result === "ok" ? 200 : 400).type("html").send(result === "ok"
-			? page("You’re unsubscribed", "You won’t get any more early-access emails from STAK. You’re still on the list, so you won’t miss your invite.")
+			? page("You’re unsubscribed", "You won’t get any more emails from STAK. You’re still on the early-access list - if you’re picked for the beta, we’ll reach out to you personally.")
 			: page("That link didn’t work", "This unsubscribe link is invalid or incomplete. Reply to any STAK email and we’ll take you off the list."));
 	} catch (e) {
 		console.error("[waitlist] unsubscribe error:", e);

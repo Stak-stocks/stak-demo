@@ -1,16 +1,22 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { renderEarlyAccessConfirmation, type RenderedEmail } from "@stak/emails";
+import { renderBetaSelected, renderEarlyAccessConfirmation, type RenderedEmail } from "@stak/emails";
 
 /**
- * The early-access confirmation email: who it links to, what it looks like, and sending it through Resend.
+ * STAK's waitlist emails - the early-access confirmation and the beta selection email: who they link to, what they look
+ * like, and sending them through Resend.
  *
  * Settings (Cloud Run env):
  *   EARLY_ACCESS_RESEND_KEY - Resend API key (sending access; its own key, not the Supabase one) (secret). Without it nothing is sent and sign-ups still succeed.
  *   EARLY_ACCESS_FROM       - sender, default "Favour from STAK <favour@thestak.org>" (a real Zoho inbox, so replies land)
  *   TALLY_FORM_URL          - the beta profile form, e.g. https://tally.so/r/abc123
+ *   BETA_TESTFLIGHT_URL     - the TestFlight public link the beta selection email installs from (not a secret).
+ *                             Without it no selection email is sent.
  *   WAITLIST_TOKEN_SECRET   - signs unsubscribe links (secret)
  *   PUBLIC_API_URL          - where this backend is reachable, for the unsubscribe link
  */
+
+/** An email address, as the waitlist, the Tally webhook and the beta invite accept it. */
+export const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
 
 const API = () => (process.env.PUBLIC_API_URL ?? "https://stak-backend-889057229494.us-central1.run.app").replace(/\/+$/, "");
 const INSTAGRAM_URL = "https://www.instagram.com/just_stak";
@@ -62,14 +68,40 @@ export { EARLY_ACCESS_SUBJECT } from "@stak/emails";
 
 export type SendResult = { sent: true; id: string } | { sent: false; error: string };
 
-/** Sends the confirmation to one address through Resend. Never throws: the caller records what happened. */
-export async function sendEarlyAccessEmail(email: string): Promise<SendResult> {
+/** Sends the early-access confirmation to one address through Resend. Never throws: the caller records what happened. */
+export function sendEarlyAccessEmail(email: string): Promise<SendResult> {
+	return sendStakEmail(email, "early_access_confirmation", (unsubscribe) =>
+		renderEarlyAccessConfirmation({ betaProfileUrl: betaProfileUrl(email), unsubscribeUrl: unsubscribe }));
+}
+
+/**
+ * The beta selection email: install STAK through TestFlight (BETA_TESTFLIGHT_URL). Never throws. `firstName` is the
+ * application's name, first word only; without one the email says "Hi there,".
+ */
+export function sendBetaSelectedEmail(email: string, firstName: string | null): Promise<SendResult> {
+	const testflightUrl = process.env.BETA_TESTFLIGHT_URL?.trim();
+	if (!testflightUrl) return Promise.resolve({ sent: false, error: "BETA_TESTFLIGHT_URL not set" });
+	// Resend keeps the key a day: a retry after an accepted send we failed to record (or a reclaimed send) isn't sent again.
+	return sendStakEmail(email, "beta_selected", (unsubscribe) =>
+		renderBetaSelected({ firstName, testflightUrl, unsubscribeUrl: unsubscribe }), `beta_selected/${email}`);
+}
+
+/**
+ * Renders one of STAK's emails for an address and sends it through Resend, with one-click unsubscribe. Never throws.
+ * `idempotencyKey`: Resend sends at most one email per key in 24 hours.
+ */
+async function sendStakEmail(
+	email: string,
+	category: "early_access_confirmation" | "beta_selected",
+	render: (unsubscribeUrl: string | null) => Promise<RenderedEmail>,
+	idempotencyKey?: string,
+): Promise<SendResult> {
 	const key = process.env.EARLY_ACCESS_RESEND_KEY?.trim();
 	if (!key) return { sent: false, error: "EARLY_ACCESS_RESEND_KEY not set" };
 	const unsubscribe = unsubscribeUrl(email);
 	let rendered: RenderedEmail;
 	try {
-		rendered = await renderEarlyAccessConfirmation({ betaProfileUrl: betaProfileUrl(email), unsubscribeUrl: unsubscribe });
+		rendered = await render(unsubscribe);
 	} catch (e) {
 		return { sent: false, error: `Email render failed: ${(e as Error).message}`.slice(0, 300) };
 	}
@@ -77,7 +109,7 @@ export async function sendEarlyAccessEmail(email: string): Promise<SendResult> {
 	try {
 		const res = await fetch("https://api.resend.com/emails", {
 			method: "POST",
-			headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+			headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}) },
 			body: JSON.stringify({
 				from: process.env.EARLY_ACCESS_FROM?.trim() || "Favour from STAK <favour@thestak.org>",
 				to: [email],
@@ -86,7 +118,7 @@ export async function sendEarlyAccessEmail(email: string): Promise<SendResult> {
 				text,
 				// One-click unsubscribe (RFC 8058) - what Gmail and Yahoo expect from list mail.
 				...(unsubscribe ? { headers: { "List-Unsubscribe": `<${unsubscribe}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } } : {}),
-				tags: [{ name: "category", value: "early_access_confirmation" }],
+				tags: [{ name: "category", value: category }],
 			}),
 			signal: AbortSignal.timeout(10_000),
 		});
@@ -115,11 +147,24 @@ type TallyField = { key?: string; label?: string | null; type?: string; value?: 
 /** The submitter's email: the hidden "email" field our link pre-fills, else any email-type answer. */
 export function emailFromTallySubmission(fields: TallyField[] | undefined): string | null {
 	if (!Array.isArray(fields)) return null;
-	const asEmail = (v: unknown) => (typeof v === "string" && /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(v.trim()) ? v.trim().toLowerCase() : null);
+	const asEmail = (v: unknown) => (typeof v === "string" && EMAIL_RE.test(v.trim()) ? v.trim().toLowerCase() : null);
 	const hidden = fields.find((f) => f.type === "HIDDEN_FIELDS" && (f.label ?? "").trim().toLowerCase() === "email");
 	if (hidden && asEmail(hidden.value)) return asEmail(hidden.value);
 	for (const f of fields) {
 		if (f.type === "INPUT_EMAIL" && asEmail(f.value)) return asEmail(f.value);
 	}
 	return null;
+}
+
+const TITLES = new Set(["mr", "mrs", "ms", "miss", "mx", "dr", "prof", "sir"]);
+
+/**
+ * A greeting name from a beta application's name: its first word (after a title like "Dr."), letters, marks and
+ * ' - . only, at most 40. Null when none, or when what's there isn't a name (an email, digits, punctuation).
+ */
+export function firstNameOf(name: unknown): string | null {
+	if (typeof name !== "string" || name.includes("@")) return null;
+	const words = name.trim().split(/\s+/).map((w) => w.replace(/[^\p{L}\p{M}'.-]/gu, "")).filter((w) => /\p{L}/u.test(w));
+	const first = (words.length > 1 && TITLES.has(words[0].replace(/\.$/, "").toLowerCase()) ? words[1] : words[0])?.slice(0, 40);
+	return first ? first.charAt(0).toUpperCase() + first.slice(1) : null;
 }

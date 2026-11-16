@@ -42,7 +42,7 @@ describe("POST /beta (admin secret or report secret)", () => {
 	});
 
 	it("takes the report secret for named testers, and it opens nothing else", async () => {
-		pgQueryMock.mockResolvedValue({ rows: [row()] });
+		pgQueryMock.mockResolvedValueOnce({ rows: [row()] }).mockResolvedValueOnce({ rows: [] });
 		const app = await buildApp({ reportSecret: "r3port" });
 		const ok = await request(app).post("/beta").set("x-report-secret", "r3port").send({ emails: ["ada@example.com"] });
 		expect(ok.status).toBe(200);
@@ -68,11 +68,22 @@ describe("POST /beta (admin secret or report secret)", () => {
 	it("still answers, with app_version blank, before the migration that adds it", async () => {
 		pgQueryMock.mockRejectedValueOnce(Object.assign(new Error("column app_version does not exist"), { code: "42703" }));
 		pgQueryMock.mockResolvedValueOnce({ rows: [row({ app_version: null })] });
+		// Nor is the invites lookup's column there yet: no invites, not an error.
+		pgQueryMock.mockRejectedValueOnce(Object.assign(new Error("column beta_invite_sent_at does not exist"), { code: "42703" }));
 		const app = await buildApp();
 		const res = await request(app).post("/beta").set("x-admin-secret", "s3cret").send({ emails: ["ada@example.com"] });
 		expect(res.status).toBe(200);
-		expect(pgQueryMock).toHaveBeenCalledTimes(2);
+		expect(pgQueryMock).toHaveBeenCalledTimes(3);
 		expect(pgQueryMock.mock.calls[1][0]).toContain("null::text as app_version");
+		expect(res.body.invites).toEqual({});
+	});
+
+	it("says when each asked-for tester was sent the selection email", async () => {
+		pgQueryMock.mockResolvedValueOnce({ rows: [row()] });
+		pgQueryMock.mockResolvedValueOnce({ rows: [{ email: "bo@example.com", sent_at: "2026-11-16T14:00:00.000Z" }] });
+		const app = await buildApp();
+		const res = await request(app).post("/beta").set("x-admin-secret", "s3cret").send({ emails: ["ada@example.com", "bo@example.com"] });
+		expect(res.body.invites).toEqual({ "bo@example.com": "2026-11-16T14:00:00.000Z" });
 	});
 
 	it("refuses too many emails rather than dropping some", async () => {
