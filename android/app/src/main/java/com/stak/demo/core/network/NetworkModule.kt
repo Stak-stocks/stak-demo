@@ -1,5 +1,6 @@
 package com.stak.demo.core.network
 
+import com.stak.demo.BuildConfig
 import com.stak.demo.data.Session
 import com.stak.demo.data.StockApiService
 import dagger.Module
@@ -23,6 +24,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
     private const val BASE_URL = "https://stak-backend-889057229494.us-central1.run.app/"
+    private const val APP_VERSION = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
 
     @Provides
     @Singleton
@@ -33,12 +35,10 @@ object NetworkModule {
             // The Supabase SDK keeps the session current (it refreshes before expiry);
             // Session.token is only the copy taken at sign-in, used until the SDK has one.
             val token = supabase.auth.currentAccessTokenOrNull() ?: Session.token
-            val request = if (token != null) {
-                chain.request().newBuilder().header("Authorization", "Bearer $token").build()
-            } else {
-                chain.request()
-            }
-            chain.proceed(request)
+            // The version and build ("1.0 (13)"), so the beta report can tell which build a tester is on. iOS: the same.
+            val builder = chain.request().newBuilder().header("X-App-Version", APP_VERSION)
+            if (token != null) builder.header("Authorization", "Bearer $token")
+            chain.proceed(builder.build())
         }
         .authenticator(refreshOn401(supabase))
         .build()

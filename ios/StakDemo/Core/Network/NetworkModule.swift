@@ -13,6 +13,14 @@ import Supabase
 actor NetworkModule {
     static let shared = NetworkModule()
     static let baseURL = "https://stak-backend-889057229494.us-central1.run.app/"
+    /// The version and build ("1.0 (13)"), sent with every request so the beta report can tell which build a tester is
+    /// on (nil, and no header, if Info.plist lacks either). Android: the same.
+    static let appVersion: String? = {
+        let info = Bundle.main.infoDictionary
+        guard let version = info?["CFBundleShortVersionString"] as? String,
+              let build = info?["CFBundleVersion"] as? String else { return nil }
+        return "\(version) (\(build))"
+    }()
 
     private let urlSession: URLSession
     private let decoder: JSONDecoder
@@ -95,6 +103,7 @@ actor NetworkModule {
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let version = Self.appVersion { req.setValue(version, forHTTPHeaderField: "X-App-Version") }
         let token = await currentToken()
         if !token.isEmpty { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         return req

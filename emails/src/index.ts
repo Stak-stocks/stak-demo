@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { render } from "@react-email/components";
 import EarlyAccessConfirmation, { EARLY_ACCESS_SUBJECT, type EarlyAccessConfirmationProps } from "./templates/EarlyAccessConfirmation";
+import BetaSelected, { BETA_SELECTED_SUBJECT, type BetaSelectedProps } from "./templates/BetaSelected";
 
 /**
  * STAK's emails. Templates live in ./templates (preview them with `npm run email:dev`); the backend sends them
@@ -21,5 +22,9 @@ export async function renderEarlyAccessConfirmation(props: EarlyAccessConfirmati
 	return { subject: EARLY_ACCESS_SUBJECT, ...(await renderBoth(createElement(EarlyAccessConfirmation, props))) };
 }
 
-export { EARLY_ACCESS_SUBJECT };
-export type { EarlyAccessConfirmationProps };
+export async function renderBetaSelected(props: BetaSelectedProps): Promise<RenderedEmail> {
+	return { subject: BETA_SELECTED_SUBJECT, ...(await renderBoth(createElement(BetaSelected, props))) };
+}
+
+export { EARLY_ACCESS_SUBJECT, BETA_SELECTED_SUBJECT };
+export type { EarlyAccessConfirmationProps, BetaSelectedProps };

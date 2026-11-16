@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { timingSafeEqual } from "node:crypto";
 import { getEasternDateKey } from "@stak/shared";
 import { pgQuery } from "../lib/postgres.js";
+import { EMAIL_RE, firstNameOf, sendBetaSelectedEmail } from "../services/earlyAccessEmail.js";
 
 export const analyticsRouter = Router();
 
@@ -20,6 +21,20 @@ function checkAdminSecret(req: Request, res: Response): boolean {
 	}
 	return true;
 }
+
+/**
+ * Who may read the beta report: the admin secret, or BETA_REPORT_SECRET (header x-report-secret) - a key for the beta
+ * master sheet's Apps Script (scripts/beta-sheet/BetaSheetSync.gs) that opens nothing else, since a sheet's editors
+ * can read a script's stored keys. "report" callers must name the testers they ask about. Null: refused (403 sent).
+ */
+function betaReportCaller(req: Request, res: Response): "admin" | "report" | null {
+	const secret = process.env.BETA_REPORT_SECRET;
+	if (secret && secretMatches(req.headers["x-report-secret"], secret)) return "report";
+	return checkAdminSecret(req, res) ? "admin" : null;
+}
+
+/** Most emails the beta report takes at once - more is refused rather than cut, so nobody silently drops out. */
+const BETA_MAX_EMAILS = 2000;
 
 // Resolve excluded emails to UIDs once and cache in memory.
 // Reads directly from the users Postgres table — no Firebase Auth dependency.
@@ -367,6 +382,7 @@ interface BetaRow {
 	created_at: string;
 	onboarding_completed: boolean;
 	platform: string | null;
+	app_version: string | null;
 	swipes: number;
 	companies_swiped: number;
 	right_swipes: number;
@@ -380,6 +396,10 @@ interface BetaRow {
 	simulate_tab_views: number;
 	sim_trades: number;
 	simulate_used: boolean;
+	my_stak_views: number;
+	taste_views: number;
+	stak_ai_opens: number;
+	stak_ai_questions: number;
 	active_days: number;
 	last_active: string | null;
 	day3: boolean | null;
@@ -395,9 +415,10 @@ export function isActivated(r: Pick<BetaRow, "onboarding_completed" | "companies
 }
 
 const BETA_COLUMNS: (keyof BetaRow | "activated")[] = [
-	"email", "display_name", "platform", "created_at", "onboarding_completed", "activated", "swipes", "companies_swiped",
-	"right_swipes", "staks", "saved_now", "quick_looks", "company_opens", "saved_company_opens", "news_opens", "news_tab_views",
-	"simulate_tab_views", "sim_trades", "simulate_used", "active_days", "last_active", "day3", "day7",
+	"email", "display_name", "platform", "app_version", "created_at", "onboarding_completed", "activated", "swipes",
+	"companies_swiped", "right_swipes", "staks", "saved_now", "quick_looks", "company_opens", "saved_company_opens",
+	"news_opens", "news_tab_views", "simulate_tab_views", "sim_trades", "simulate_used", "my_stak_views", "taste_views",
+	"stak_ai_opens", "stak_ai_questions", "active_days", "last_active", "day3", "day7",
 ];
 
 /**
@@ -411,27 +432,39 @@ export function csvCell(v: unknown): string {
 }
 
 // POST /api/admin/analytics/beta { emails: ["a@x.com", ...], since: "2026-11-01", format: "csv" } — one row per beta tester for
-// the master sheet: account created, onboarding, swipes, STAKs (companies ever saved, from a swipe or any Save button),
-// Quick Looks, company opens, News, Simulate, last active, whether they came back on Day 3 / Day 7 (active on the
-// signup day + 3 / + 7 in Eastern time, blank until that day is over), and activated (isActivated). A day counts as
-// active when the app recorded a visit (GET /api/me), a swipe, a save, a trade or an event: the visit alone misses an
-// app resumed from the background. display_name helps pair an account whose email isn't the tester's (Apple's private
+// the master sheet: account created, onboarding, swipes, STAKs (companies ever added to My STAK, by a swipe, a Save
+// button or a Simulate buy - stak_save_log), Quick Looks, company opens, News, Simulate, My STAK / Investing Taste
+// visits, STAK AI opens and questions (the server logs each question, every platform), the latest app build
+// (sessions.app_version), last active, whether they came back on Day 3 / Day 7 (active on the signup day + 3 / + 7 in
+// Eastern time, blank until that day is over), and activated (isActivated). A day counts as active when the app
+// recorded a visit (GET /api/me), a swipe, a save, a trade or an event: the visit alone misses an app resumed from the
+// background. display_name helps pair an account whose email isn't the tester's (Apple's private
 // relay). `emails` limits it to those accounts - team accounts included when named (with no visits: those aren't
 // recorded for them); without it, every account since `since` minus the excluded ones. News article opens and News /
 // Simulate tab views count from the app builds that log them (2026-11-10; the web logs neither); platform from the
-// 2026-11-10 backend. A POST, so the
-// testers' emails travel in the body rather than the URL, which request logs keep.
+// 2026-11-10 backend. A POST, so the testers' emails travel in the body rather than the URL, which request logs keep.
+// Who may call it: betaReportCaller (the report-only key always needs `emails`).
 analyticsRouter.post("/beta", async (req: Request, res: Response) => {
-	if (!checkAdminSecret(req, res)) return;
+	const caller = betaReportCaller(req, res);
+	if (!caller) return;
 	res.set("Cache-Control", "no-store");
 	const body = (req.body ?? {}) as { emails?: unknown; since?: unknown; format?: unknown };
 	const emails = Array.isArray(body.emails)
-		? body.emails.filter((e): e is string => typeof e === "string").map((e) => e.trim().toLowerCase()).filter(Boolean).slice(0, 2000)
+		? [...new Set(body.emails.filter((e): e is string => typeof e === "string").map((e) => e.trim().toLowerCase()).filter(Boolean))]
 		: [];
+	if (emails.length > BETA_MAX_EMAILS) {
+		res.status(400).json({ error: `At most ${BETA_MAX_EMAILS} emails at once` });
+		return;
+	}
+	// Without emails the report is every account - only the admin secret may ask for that.
+	if (caller === "report" && emails.length === 0) {
+		res.status(400).json({ error: "Name the testers' emails" });
+		return;
+	}
 	const since = typeof body.since === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.since) ? body.since : null;
 	try {
 		const excluded = emails.length ? [] : [...(await getExcludedUids())];
-		const result = await pgQuery<BetaRow>(
+		const report = (appVersion: string) => pgQuery<BetaRow>(
 			`with u as (
 			   select uid, email, display_name, created_at, onboarding_completed,
 			     (created_at at time zone 'America/New_York')::date as signup_day
@@ -443,6 +476,7 @@ analyticsRouter.post("/beta", async (req: Request, res: Response) => {
 			 today as (select (now() at time zone 'America/New_York')::date as d)
 			 select u.email, u.display_name, u.created_at, u.onboarding_completed,
 			   (select platform from sessions x where x.uid = u.uid and platform is not null order by date desc limit 1) as platform,
+			   ${appVersion} as app_version,
 			   (select count(*) from swipes s where s.uid = u.uid)::int as swipes,
 			   (select count(distinct s.brand_id) from swipes s where s.uid = u.uid)::int as companies_swiped,
 			   (select count(*) from swipes s where s.uid = u.uid and s.direction = 'right')::int as right_swipes,
@@ -461,6 +495,10 @@ analyticsRouter.post("/beta", async (req: Request, res: Response) => {
 			   (exists (select 1 from sandbox_portfolio p where p.uid = u.uid)
 			     or exists (select 1 from sandbox_trades t where t.uid = u.uid)
 			     or exists (select 1 from events e where e.uid = u.uid and e.type = 'tab_view' and e.params->>'tab' = 'simulate')) as simulate_used,
+			   (select count(*) from events e where e.uid = u.uid and e.type = 'tab_view' and e.params->>'tab' = 'mystak')::int as my_stak_views,
+			   (select count(*) from events e where e.uid = u.uid and e.type = 'taste_graph_open')::int as taste_views,
+			   (select count(*) from events e where e.uid = u.uid and e.type = 'stak_ai_open')::int as stak_ai_opens,
+			   (select count(*) from events e where e.uid = u.uid and e.type = 'stak_ai_ask')::int as stak_ai_questions,
 			   coalesce(cardinality(a.days), 0) as active_days,
 			   (select max(d) from unnest(a.days) d) as last_active,
 			   case when (select d from today) <= u.signup_day + 3 then null
@@ -480,6 +518,13 @@ analyticsRouter.post("/beta", async (req: Request, res: Response) => {
 			 order by u.created_at`,
 			[emails, since, excluded],
 		);
+		// Before migration 20261113000000 adds sessions.app_version the report still works, with that column blank.
+		const result = await report(
+			`(select app_version from sessions x where x.uid = u.uid and app_version is not null order by date desc limit 1)`,
+		).catch((e: { code?: string }) => {
+			if (e?.code !== "42703") throw e;
+			return report("null::text");
+		});
 		const rows = result.rows.map((r) => ({ ...r, created_at: toIsoString(r.created_at), activated: isActivated(r) }));
 		if (body.format === "csv") {
 			res.set("Content-Disposition", 'attachment; filename="stak-beta.csv"');
@@ -487,17 +532,150 @@ analyticsRouter.post("/beta", async (req: Request, res: Response) => {
 			res.type("text/csv").send(lines.join("\n"));
 			return;
 		}
+		const found = new Set(rows.map((r) => r.email?.toLowerCase()));
 		res.json({
 			people: rows.length,
 			activated: rows.filter((r) => r.activated).length,
 			// Emails asked for that have no STAK account (yet, or under a different email - e.g. Apple's private relay).
-			missing: emails.filter((e) => !rows.some((r) => r.email?.toLowerCase() === e)),
+			missing: emails.filter((e) => !found.has(e)),
 			rows,
+			// When each asked-for tester was sent the beta selection email - account or not (the sheet's invite_sent).
+			invites: await betaInvitesSent(emails),
 		});
 	} catch (e) {
 		console.error("[analytics] beta error:", e);
 		res.status(500).json({ error: "Failed to load the beta report" });
 	}
+});
+
+/**
+ * email -> when the beta selection email went to it, for those of `emails` it went to: only sends Resend accepted, not
+ * a claim still in flight (or one cut off mid-send, which the next call retries). Empty before migration 20261116000000.
+ */
+async function betaInvitesSent(emails: string[]): Promise<Record<string, string>> {
+	if (emails.length === 0) return {};
+	try {
+		const result = await pgQuery<{ email: string; sent_at: Date | string }>(
+			`select email, beta_invite_sent_at as sent_at from waitlist
+			 where email = any($1::text[]) and beta_invite_message_id is not null`,
+			[emails],
+		);
+		return Object.fromEntries(result.rows.map((r) => [r.email, toIsoString(r.sent_at)]));
+	} catch (e) {
+		if ((e as { code?: string })?.code === "42703") return {};
+		throw e;
+	}
+}
+
+/**
+ * Most selection emails one call takes (the sheet's INVITE_BATCH matches); it stops sending after BETA_INVITE_BUDGET_MS
+ * and hands the rest back.
+ */
+const BETA_INVITE_MAX = 40;
+const BETA_INVITE_GAP_MS = 600; // Resend's limit is 2 a second
+/** Well inside the sheet's 60s fetch limit, even with a slow send (each may take up to 10s). */
+const BETA_INVITE_BUDGET_MS = 35_000;
+/** Selection emails a day at most - a cap on what a leaked sheet key could do. */
+const BETA_INVITE_DAILY_CAP = 300;
+/** A claim that never got Resend's id this long after (the instance died mid-send) is taken again; the idempotency key stops a double send. */
+const BETA_INVITE_STALE = "10 minutes";
+type InviteResult = {
+	email: string;
+	status: "sent" | "already_sent" | "not_on_waitlist" | "unsubscribed" | "failed" | "not_attempted";
+	error?: string;
+};
+
+// POST /api/admin/analytics/beta/invite { testers: [{ email, name? }, ...] } — sends the beta selection email ("You've
+// been selected for the STAK beta", the TestFlight link) to each, once ever. Only to addresses on the waitlist (they
+// joined on the website or sent the Tally application), never one that unsubscribed, and at most
+// BETA_INVITE_DAILY_CAP a day - limits on what the sheet's key could do if it leaked. Each one is claimed before it's
+// sent, so two calls at once can't email anyone twice; a failed send is released for the next call, and Resend's
+// idempotency key covers a send it accepted that we couldn't record. Past BETA_INVITE_BUDGET_MS the rest come back
+// "not_attempted" for the caller to send again. Who may call it: betaReportCaller.
+analyticsRouter.post("/beta/invite", async (req: Request, res: Response) => {
+	if (!betaReportCaller(req, res)) return;
+	res.set("Cache-Control", "no-store");
+	if (!process.env.BETA_TESTFLIGHT_URL?.trim()) {
+		res.status(409).json({ error: "The TestFlight link isn't set up yet (BETA_TESTFLIGHT_URL), so nothing was sent" });
+		return;
+	}
+	const raw: unknown[] = Array.isArray(req.body?.testers) ? req.body.testers : [];
+	const seen = new Set<string>();
+	const testers: { email: string; firstName: string | null }[] = [];
+	for (const t of raw) {
+		const o = (t ?? {}) as { email?: unknown; name?: unknown };
+		const email = typeof o.email === "string" ? o.email.trim().toLowerCase() : "";
+		if (!EMAIL_RE.test(email) || seen.has(email)) continue;
+		seen.add(email);
+		testers.push({ email, firstName: firstNameOf(o.name) });
+	}
+	if (testers.length === 0) {
+		res.status(400).json({ error: "Name the testers' emails" });
+		return;
+	}
+	if (testers.length > BETA_INVITE_MAX) {
+		res.status(400).json({ error: `At most ${BETA_INVITE_MAX} at once` });
+		return;
+	}
+
+	const started = Date.now();
+	let sentToday: number;
+	try {
+		sentToday = (await pgQuery<{ n: number }>(
+			`select count(*)::int as n from waitlist where beta_invite_message_id is not null and beta_invite_sent_at > now() - interval '1 day'`,
+		)).rows[0]?.n ?? 0;
+	} catch (e) {
+		console.error("[analytics] beta invite count error:", e);
+		res.status(500).json({ error: "Failed to send the selection emails" });
+		return;
+	}
+
+	const results: InviteResult[] = [];
+	let sends = 0;
+	for (const t of testers) {
+		// Out of time, over the day's cap, or the caller gave up: the rest are handed back untouched.
+		if (Date.now() - started > BETA_INVITE_BUDGET_MS || req.socket.destroyed) {
+			results.push({ email: t.email, status: "not_attempted" });
+			continue;
+		}
+		if (sentToday >= BETA_INVITE_DAILY_CAP) {
+			results.push({ email: t.email, status: "not_attempted", error: `Over today's limit of ${BETA_INVITE_DAILY_CAP}` });
+			continue;
+		}
+		let delivered = false;
+		try {
+			const claimed = await pgQuery<{ email: string }>(
+				`update waitlist set beta_invite_sent_at = now(), beta_invite_error = null
+				 where email = $1 and unsubscribed_at is null and beta_invite_message_id is null
+				   and (beta_invite_sent_at is null or beta_invite_sent_at < now() - interval '${BETA_INVITE_STALE}')
+				 returning email`,
+				[t.email],
+			);
+			if (claimed.rows.length === 0) {
+				const row = (await pgQuery<{ unsubscribed_at: string | null }>(`select unsubscribed_at from waitlist where email = $1`, [t.email])).rows[0];
+				results.push({ email: t.email, status: !row ? "not_on_waitlist" : row.unsubscribed_at ? "unsubscribed" : "already_sent" });
+				continue;
+			}
+			if (sends++ > 0) await new Promise((r) => setTimeout(r, BETA_INVITE_GAP_MS));
+			const sent = await sendBetaSelectedEmail(t.email, t.firstName);
+			if (sent.sent) {
+				delivered = true;
+				sentToday++;
+				results.push({ email: t.email, status: "sent" });
+				await pgQuery(`update waitlist set beta_invite_message_id = $2 where email = $1`, [t.email, sent.id]);
+			} else {
+				await pgQuery(`update waitlist set beta_invite_sent_at = null, beta_invite_error = $2 where email = $1`, [t.email, sent.error]);
+				results.push({ email: t.email, status: "failed", error: sent.error });
+			}
+		} catch (e) {
+			console.error("[analytics] beta invite error:", e);
+			// Sent but not recorded: it stays claimed (counted as sent) - never released into a second email.
+			if (delivered) continue;
+			await pgQuery(`update waitlist set beta_invite_sent_at = null where email = $1 and beta_invite_message_id is null`, [t.email]).catch(() => {});
+			results.push({ email: t.email, status: "failed", error: "Server error" });
+		}
+	}
+	res.json({ sent: results.filter((r) => r.status === "sent").length, results });
 });
 
 // GET /api/admin/analytics/stak-ai?days=30 — how STAK AI is used: questions (and by whom), where they're asked from,
