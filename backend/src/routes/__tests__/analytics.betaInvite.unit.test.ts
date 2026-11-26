@@ -61,19 +61,46 @@ describe("POST /beta/invite (the beta selection email)", () => {
 		expect(res.body).toEqual({ sent: 1, results: [{ email: "ada@example.com", status: "sent" }] });
 		expect(sendMock).toHaveBeenCalledWith("ada@example.com", "Ada");
 		// Claimed only while unsent (or a stale claim) and subscribed, so no one is emailed twice.
-		expect(pgQueryMock.mock.calls[1][0]).toMatch(/unsubscribed_at is null and beta_invite_message_id is null/);
-		expect(pgQueryMock.mock.calls[1][0]).toMatch(/beta_invite_sent_at < now\(\) - interval '10 minutes'/);
+		const claimSql = pgQueryMock.mock.calls[1][0];
+		expect(claimSql).toMatch(/unsubscribed_at is null and beta_invite_message_id is null/);
+		expect(claimSql).toMatch(/beta_invite_sent_at < now\(\) - interval '10 minutes'/);
+		// Taken again only within 23 hours of the FIRST try, while Resend's idempotency key (24h) still stops a second email.
+		expect(claimSql).toMatch(/beta_invite_first_try_at = coalesce\(beta_invite_first_try_at, now\(\)\)/);
+		expect(claimSql).toMatch(/not coalesce\(\(beta_invite_message_id is null[\s\S]*coalesce\(beta_invite_first_try_at, beta_invite_sent_at\) <= now\(\) - interval '23 hours'/);
 	});
 
 	it("never emails an address that isn't on the waitlist, has unsubscribed, or already got it", async () => {
 		sentToday(0);
 		claim(null); pgQueryMock.mockResolvedValueOnce({ rows: [] });
 		claim(null); pgQueryMock.mockResolvedValueOnce({ rows: [{ unsubscribed_at: "2026-11-01" }] });
-		claim(null); pgQueryMock.mockResolvedValueOnce({ rows: [{ unsubscribed_at: null }] });
+		claim(null); pgQueryMock.mockResolvedValueOnce({ rows: [{ unsubscribed_at: null, message_id: "re_0", unconfirmed: false }] });
 		const app = await buildApp();
 		const res = await invite(app, [{ email: "x@example.com" }, { email: "u@example.com" }, { email: "d@example.com" }]);
 		expect(res.body.results.map((r: { status: string }) => r.status)).toEqual(["not_on_waitlist", "unsubscribed", "already_sent"]);
 		expect(sendMock).not.toHaveBeenCalled();
+	});
+
+	it("never re-sends an unconfirmed send over a day old - a person checks it", async () => {
+		sentToday(0);
+		claim(null);
+		pgQueryMock.mockResolvedValueOnce({ rows: [{ unsubscribed_at: null, message_id: null, unconfirmed: true }] });
+		const app = await buildApp();
+		const res = await invite(app, [{ email: "old@example.com" }]);
+		expect(res.body.results).toEqual([{ email: "old@example.com", status: "unconfirmed" }]);
+		expect(pgQueryMock.mock.calls[2][0]).toMatch(/beta_invite_first_try_at, beta_invite_sent_at\) <= now\(\) - interval '23 hours'/);
+		expect(sendMock).not.toHaveBeenCalled();
+	});
+
+	it("keeps the claim when Resend's answer was unclear - it may have gone out", async () => {
+		sentToday(0);
+		claim("ty@example.com");
+		pgQueryMock.mockResolvedValueOnce({ rows: [] }); // marked maybe-sent
+		sendMock.mockResolvedValue({ sent: false, error: "Resend request failed: timeout", maybeSent: true });
+		const app = await buildApp();
+		const res = await invite(app, [{ email: "ty@example.com" }]);
+		expect(res.body.results).toEqual([{ email: "ty@example.com", status: "failed", error: "Not confirmed yet - send again in 15 minutes (no one gets it twice)" }]);
+		expect(pgQueryMock.mock.calls[2][0]).toMatch(/beta_invite_maybe_sent = true/);
+		expect(pgQueryMock.mock.calls[2][0]).not.toMatch(/beta_invite_sent_at = null/);
 	});
 
 	it("releases a failed send so the next try sends it", async () => {
@@ -85,6 +112,8 @@ describe("POST /beta/invite (the beta selection email)", () => {
 		const res = await invite(app, [{ email: "bo@example.com" }]);
 		expect(res.body.results).toEqual([{ email: "bo@example.com", status: "failed", error: "Resend 500: down" }]);
 		expect(pgQueryMock.mock.calls[2][0]).toMatch(/beta_invite_sent_at = null/);
+		// Its first try is forgotten only if no earlier attempt may have gone out.
+		expect(pgQueryMock.mock.calls[2][0]).toMatch(/beta_invite_first_try_at = case when beta_invite_maybe_sent then beta_invite_first_try_at end/);
 	});
 
 	it("keeps a sent email counted as sent when recording its id fails - never a second email", async () => {

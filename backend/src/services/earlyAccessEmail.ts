@@ -66,7 +66,11 @@ export function unsubscribeUrl(email: string): string | null {
 
 export { EARLY_ACCESS_SUBJECT } from "@stak/emails";
 
-export type SendResult = { sent: true; id: string } | { sent: false; error: string };
+/**
+ * maybeSent: Resend may have accepted it anyway - a timeout, a network error, a 5xx, a 409 (the idempotency key was
+ * already used) or a 200 without an id. Without it the email certainly wasn't sent (not set up, didn't render, a 4xx).
+ */
+export type SendResult = { sent: true; id: string } | { sent: false; error: string; maybeSent?: boolean };
 
 /** Sends the early-access confirmation to one address through Resend. Never throws: the caller records what happened. */
 export function sendEarlyAccessEmail(email: string): Promise<SendResult> {
@@ -123,10 +127,13 @@ async function sendStakEmail(
 			signal: AbortSignal.timeout(10_000),
 		});
 		const body = await res.json().catch(() => ({})) as { id?: string; message?: string; name?: string };
-		if (!res.ok || !body.id) return { sent: false, error: `Resend ${res.status}: ${body.message ?? body.name ?? "no id"}`.slice(0, 300) };
+		if (!res.ok || !body.id) {
+			const maybeSent = res.ok || res.status >= 500 || res.status === 409;
+			return { sent: false, error: `Resend ${res.status}: ${body.message ?? body.name ?? "no id"}`.slice(0, 300), maybeSent };
+		}
 		return { sent: true, id: body.id };
 	} catch (e) {
-		return { sent: false, error: `Resend request failed: ${(e as Error).message}`.slice(0, 300) };
+		return { sent: false, error: `Resend request failed: ${(e as Error).message}`.slice(0, 300), maybeSent: true };
 	}
 }
 

@@ -577,11 +577,23 @@ const BETA_INVITE_GAP_MS = 600; // Resend's limit is 2 a second
 const BETA_INVITE_BUDGET_MS = 35_000;
 /** Selection emails a day at most - a cap on what a leaked sheet key could do. */
 const BETA_INVITE_DAILY_CAP = 300;
-/** A claim that never got Resend's id this long after (the instance died mid-send) is taken again; the idempotency key stops a double send. */
+/**
+ * A claim that never got Resend's id (the instance died mid-send, the id couldn't be saved, or Resend's answer was
+ * unclear) is taken again after this...
+ */
 const BETA_INVITE_STALE = "10 minutes";
+/**
+ * ...but only until this long after the first attempt (beta_invite_first_try_at), inside Resend's 24h idempotency
+ * window; after that it comes back "unconfirmed", never sent again on its own.
+ */
+const BETA_INVITE_RECLAIM_UNTIL = "23 hours";
+/** Possibly sent and not confirmed, with no retry left: Resend's key may have expired, so only a person decides. */
+const BETA_INVITE_UNCONFIRMED = `beta_invite_message_id is null
+	and coalesce(beta_invite_first_try_at, beta_invite_sent_at) <= now() - interval '${BETA_INVITE_RECLAIM_UNTIL}'
+	and (beta_invite_sent_at is not null or beta_invite_maybe_sent)`;
 type InviteResult = {
 	email: string;
-	status: "sent" | "already_sent" | "not_on_waitlist" | "unsubscribed" | "failed" | "not_attempted";
+	status: "sent" | "already_sent" | "not_on_waitlist" | "unsubscribed" | "unconfirmed" | "failed" | "not_attempted";
 	error?: string;
 };
 
@@ -589,9 +601,11 @@ type InviteResult = {
 // been selected for the STAK beta", the TestFlight link) to each, once ever. Only to addresses on the waitlist (they
 // joined on the website or sent the Tally application), never one that unsubscribed, and at most
 // BETA_INVITE_DAILY_CAP a day - limits on what the sheet's key could do if it leaked. Each one is claimed before it's
-// sent, so two calls at once can't email anyone twice; a failed send is released for the next call, and Resend's
-// idempotency key covers a send it accepted that we couldn't record. Past BETA_INVITE_BUDGET_MS the rest come back
-// "not_attempted" for the caller to send again. Who may call it: betaReportCaller.
+// sent, so two calls at once can't email anyone twice; a failed send is released for the next call. A claim that never
+// got Resend's id is retried after BETA_INVITE_STALE while Resend's idempotency key still covers it
+// (BETA_INVITE_RECLAIM_UNTIL); after that it comes back "unconfirmed" for a person to check Resend - it may have gone
+// out. Past BETA_INVITE_BUDGET_MS the rest come back "not_attempted" for the caller to send again. Who may call it:
+// betaReportCaller.
 analyticsRouter.post("/beta/invite", async (req: Request, res: Response) => {
 	if (!betaReportCaller(req, res)) return;
 	res.set("Cache-Control", "no-store");
@@ -645,15 +659,26 @@ analyticsRouter.post("/beta/invite", async (req: Request, res: Response) => {
 		let delivered = false;
 		try {
 			const claimed = await pgQuery<{ email: string }>(
-				`update waitlist set beta_invite_sent_at = now(), beta_invite_error = null
+				`update waitlist set beta_invite_sent_at = now(), beta_invite_error = null,
+				   beta_invite_first_try_at = coalesce(beta_invite_first_try_at, now())
 				 where email = $1 and unsubscribed_at is null and beta_invite_message_id is null
 				   and (beta_invite_sent_at is null or beta_invite_sent_at < now() - interval '${BETA_INVITE_STALE}')
+				   and not coalesce((${BETA_INVITE_UNCONFIRMED}), false)
 				 returning email`,
 				[t.email],
 			);
 			if (claimed.rows.length === 0) {
-				const row = (await pgQuery<{ unsubscribed_at: string | null }>(`select unsubscribed_at from waitlist where email = $1`, [t.email])).rows[0];
-				results.push({ email: t.email, status: !row ? "not_on_waitlist" : row.unsubscribed_at ? "unsubscribed" : "already_sent" });
+				const row = (await pgQuery<{ unsubscribed_at: string | null; message_id: string | null; unconfirmed: boolean }>(
+					`select unsubscribed_at, beta_invite_message_id as message_id,
+					   coalesce((${BETA_INVITE_UNCONFIRMED}), false) as unconfirmed
+					 from waitlist where email = $1`,
+					[t.email],
+				)).rows[0];
+				// Unconfirmed: a send over a day old that never got Resend's id - it may have gone out, so a person checks.
+				results.push({
+					email: t.email,
+					status: !row ? "not_on_waitlist" : row.unsubscribed_at ? "unsubscribed" : !row.message_id && row.unconfirmed ? "unconfirmed" : "already_sent",
+				});
 				continue;
 			}
 			if (sends++ > 0) await new Promise((r) => setTimeout(r, BETA_INVITE_GAP_MS));
@@ -663,15 +688,30 @@ analyticsRouter.post("/beta/invite", async (req: Request, res: Response) => {
 				sentToday++;
 				results.push({ email: t.email, status: "sent" });
 				await pgQuery(`update waitlist set beta_invite_message_id = $2 where email = $1`, [t.email, sent.id]);
+			} else if (sent.maybeSent) {
+				// Resend may have it: the claim stays, so it's only taken again inside the idempotency window.
+				await pgQuery(`update waitlist set beta_invite_maybe_sent = true, beta_invite_error = $2 where email = $1`, [t.email, sent.error]);
+				results.push({ email: t.email, status: "failed", error: "Not confirmed yet - send again in 15 minutes (no one gets it twice)" });
 			} else {
-				await pgQuery(`update waitlist set beta_invite_sent_at = null, beta_invite_error = $2 where email = $1`, [t.email, sent.error]);
+				// Certainly not sent: released - and its first try forgotten, unless an earlier attempt may have gone out.
+				await pgQuery(
+					`update waitlist set beta_invite_sent_at = null, beta_invite_error = $2,
+					   beta_invite_first_try_at = case when beta_invite_maybe_sent then beta_invite_first_try_at end
+					 where email = $1`,
+					[t.email, sent.error],
+				);
 				results.push({ email: t.email, status: "failed", error: sent.error });
 			}
 		} catch (e) {
 			console.error("[analytics] beta invite error:", e);
 			// Sent but not recorded: it stays claimed (counted as sent) - never released into a second email.
 			if (delivered) continue;
-			await pgQuery(`update waitlist set beta_invite_sent_at = null where email = $1 and beta_invite_message_id is null`, [t.email]).catch(() => {});
+			await pgQuery(
+				`update waitlist set beta_invite_sent_at = null,
+				   beta_invite_first_try_at = case when beta_invite_maybe_sent then beta_invite_first_try_at end
+				 where email = $1 and beta_invite_message_id is null`,
+				[t.email],
+			).catch(() => {});
 			results.push({ email: t.email, status: "failed", error: "Server error" });
 		}
 	}

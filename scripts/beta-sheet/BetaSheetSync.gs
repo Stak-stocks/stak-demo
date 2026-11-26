@@ -9,8 +9,8 @@
  *   4. STAK -> Refresh every morning, to keep it up to date on its own.
  *   5. For the selection email's names: a tab named "Applications Raw" with, in A1,
  *      =IMPORTRANGE("<master sheet link>", "Applications Raw!A:Z"). Then, when testers are picked: STAK -> Send beta invite
- *      to ticked testers (those ticked in a "Send Email?" column of the master's Selected Testers - every new tester when
- *      there's no such column), or highlight rows and STAK -> Send beta invite to highlighted rows.
+ *      to ticked testers (those ticked in a "Send Email?" column of the master's Selected Testers - nothing is sent
+ *      without that column), or highlight rows and STAK -> Send beta invite to highlighted rows.
  *
  * The team's master sheet runs this same file to send the beta invites itself: paste it there too, with Script property
  * BETA_REPORT_SECRET. It knows it's the master (its Selected Testers is real data, not an IMPORTRANGE; Script property
@@ -37,7 +37,7 @@ const COLUMNS = [
 	["email", "The tester's email from " + TESTERS_SHEET + "."],
 	["stak_email", "The address looked up in STAK (the STAK email column when filled in, else email)."],
 	["has_account", "TRUE when STAK has an account under stak_email. FALSE: none yet, or under another address - fill in their STAK email."],
-	["invite_sent", "When STAK sent them the \"You've been selected\" email (STAK -> Send selection emails), to the address in email. Blank: not sent by STAK (testers invited by hand have Invite Sent Date instead)."],
+	["invite_sent", "When STAK sent them the \"You've been selected\" email (STAK -> Send beta invite to ticked testers / highlighted rows), to the address in email. Blank: not sent by STAK, or a send that wasn't confirmed (the send's result says so) (testers invited by hand have Invite Sent Date instead)."],
 	["display_name", "The name on their STAK account."],
 	["platform", "The app they used most recently: ios, android or web. For \"both devices\" use the tester sheet."],
 	["app_version", "The build they used most recently, e.g. \"1.0 (13)\". \"build 12\": an older iPhone build. Blank: the web, or an Android build from before 13 Nov 2026."],
@@ -276,8 +276,8 @@ function readTesters_(book) {
 
 /**
  * STAK -> Send beta invite to ticked testers: the "You've been selected for the STAK beta" email (with the TestFlight
- * link) to the testers ticked in TESTERS_SHEET's "Send Email?" column - to every new tester when there's no such column,
- * which the confirmation says plainly. Never to those with an Invite Sent Date (invited by hand), nor anyone STAK
+ * link) to the testers ticked in TESTERS_SHEET's "Send Email?" column - nothing at all when there's no such column (never
+ * everyone by default). Never to those with an Invite Sent Date (invited by hand), nor anyone STAK
  * already emailed. Sent to the address they applied with (the Email column). Asks first, then says what happened.
  * STAK itself sends each person at most one, ever, and only to people on its waitlist (who joined on the website or
  * sent the Tally application).
@@ -314,7 +314,7 @@ function sendSelectionEmailsToSelectedRows() {
 }
 
 /**
- * Sends the beta invite. `spans` null: the ticked testers (all new ones when there's no tick column); else only testers
+ * Sends the beta invite. `spans` null: the ticked testers (none without a tick column); else only testers
  * on a visible row inside one of those [first, last] row spans of `sheet` - a filtered or hidden row inside a highlighted
  * block is left out.
  */
@@ -346,9 +346,15 @@ function sendSelection_(spans, sheet) {
 			}
 			mode = all.length + " tester" + (all.length === 1 ? " is" : "s are") + " ticked in the \"" + header + "\" column.";
 		} else {
-			mode = "There's no \"Send Email?\" column in " + TESTERS_SHEET + ", so this goes to EVERY new tester. To choose who gets "
-				+ "it, tick them in a \"Send Email?\" column in the master sheet, or highlight rows and use STAK -> Send beta invite to "
-				+ "highlighted rows.";
+			// No tick column: stop, never email everyone by default.
+			const where = isMaster_() ? "this sheet's" : "the master sheet's";
+			ui.alert("No \"Send Email?\" column", "There's no \"Send Email?\" column in " + TESTERS_SHEET + ", so nothing was sent.\n\n"
+				+ "To choose who gets the invite: in " + where + " " + TESTERS_SHEET + ", type Send Email? in row 1 of an empty column, "
+				+ "select the cells below it, click Insert -> Checkbox, and tick the testers to invite. Then run this again."
+				+ (isMaster_() ? "" : " (If it still isn't found here, check this sheet's " + TESTERS_SHEET + " import includes that column.)")
+				+ "\n\nOr: click the row numbers of the people you want (Ctrl-click for several) and use STAK -> Send beta invite to "
+				+ "highlighted rows.", ui.ButtonSet.OK);
+			return;
 		}
 		const byHand = all.filter((t) => t.invitedByHand).length;
 		const testers = all.filter((t) => !t.invitedByHand);
@@ -421,7 +427,11 @@ function sendSelection_(spans, sheet) {
 		+ list(by("not_attempted", true)));
 	if (by("not_attempted", false).length) lines.push("Not sent yet - ran out of time. Click the same STAK menu item again to finish: "
 		+ list(by("not_attempted", false)));
-	if (by("failed").length) lines.push("Failed - try again later; tell Goodluck if it repeats: " + list(by("failed")));
+	if (by("unconfirmed").length) lines.push("Not sent - an earlier send to them may already have gone out, so STAK won't send "
+		+ "again on its own. Don't resend or invite them by hand yet - tell Goodluck these addresses so he can check: "
+		+ list(by("unconfirmed")));
+	if (by("failed").length) lines.push("Failed - tell Goodluck if it happens again: "
+		+ by("failed").map((r) => r.email + (r.error ? " (" + r.error + ")" : "")).join(", "));
 	if (isMaster_()) {
 		if (by("sent").length) lines.push("Those sent show in the invite_sent column of " + OUTPUT_SHEET + " tomorrow morning, after "
 			+ "Goodluck's sheet refreshes. Nothing else to do - sending again won't email anyone twice.");
@@ -436,27 +446,45 @@ function sendSelection_(spans, sheet) {
 }
 
 /**
- * email -> name, from APPLICATIONS_SHEET: its email column, and its name column ("Name", "Full name" or "First name",
- * else the first header with "name" in it), with that column's header. Empty when the tab isn't there - the emails
- * then say "Hi there,".
+ * email -> name, from APPLICATIONS_SHEET, with the header of the name column used. Each row's emails come from the
+ * form's own question ("What's your email?"), then the hidden "email" field the website's link fills (blank for anyone
+ * who opened the form directly, e.g. from Instagram), then one other column with email in its header; a name is
+ * matched under every address its row gives. The name is the first filled of: the form's name question ("What's your
+ * name?", "First name"), a plain "Name" (the hidden field), then another column with name in its header - never a last
+ * name. Empty when the tab isn't there - the emails then say "Hi there,".
  */
 function readNames_(book) {
 	const sheet = book.getSheetByName(APPLICATIONS_SHEET);
 	if (!sheet) return { names: {}, column: null };
 	const values = sheet.getDataRange().getValues();
 	const headers = values[0].map((h) => String(h).trim());
-	let emailCol = headers.findIndex((h) => /^e-?mail(\s*address)?$/i.test(h));
-	if (emailCol < 0) emailCol = headers.findIndex((h) => /e-?mail/i.test(h));
-	let nameCol = headers.findIndex((h) => /^(full\s*|first\s*)?name$/i.test(h));
-	if (nameCol < 0) nameCol = headers.findIndex((h) => /name/i.test(h) && !/user|company|display|referr/i.test(h));
-	if (emailCol < 0 || nameCol < 0) return { names: {}, column: null };
+	const firstOf = (tests) => {
+		const cols = [];
+		tests.forEach((test) => {
+			const c = headers.findIndex((h, i) => cols.indexOf(i) < 0 && test(h));
+			if (c >= 0) cols.push(c);
+		});
+		return cols;
+	};
+	const emailCols = firstOf([(h) => /your\s*e-?mail/i.test(h), (h) => /^e-?mail(\s*address)?$/i.test(h), (h) => /e-?mail/i.test(h)]);
+	const notName = /user|company|display|referr|e-?mail|last|sur/i;
+	const nameCols = firstOf([
+		(h) => /(your|first)\s*name/i.test(h) && !/last|sur/i.test(h),
+		(h) => /^(full\s*)?name$/i.test(h),
+		(h) => /name/i.test(h) && !notName.test(h),
+	]);
+	if (emailCols.length === 0 || nameCols.length === 0) return { names: {}, column: null };
 	const names = {};
 	values.slice(1).forEach((row) => {
-		const email = String(row[emailCol]).trim().toLowerCase();
+		const nameCol = nameCols.find((c) => String(row[c]).trim() !== "");
+		if (nameCol === undefined) return;
 		const name = String(row[nameCol]).trim();
-		if (email.indexOf("@") > 0 && name) names[email] = name;
+		emailCols.forEach((c) => {
+			const email = String(row[c]).trim().toLowerCase();
+			if (email.indexOf("@") > 0 && !names[email]) names[email] = name;
+		});
 	});
-	return { names: names, column: headers[nameCol] };
+	return { names: names, column: headers[nameCols[0]] };
 }
 
 /** The status line, in a cell next to the data (named StakLastRefresh, so the Dashboard can show it); red on a failure. */
@@ -520,7 +548,7 @@ function showSetup() {
 			"1. Set up once: Extensions -> Apps Script -> gear (Project Settings) -> Script properties -> Add script property: "
 			+ "BETA_REPORT_SECRET = the sheet key (ask Goodluck). Then close and reopen this sheet.\n\n"
 			+ "2. To invite people: tick them in the \"Send Email?\" column of " + TESTERS_SHEET + " and click STAK -> Send beta "
-			+ "invite to ticked testers (without that column it emails EVERY new tester). Or click the row numbers of the people "
+			+ "invite to ticked testers (without that column it sends nothing). Or click the row numbers of the people "
 			+ "you want (Ctrl-click for several) and click STAK -> Send beta invite to highlighted rows.\n\n"
 			+ "Both ask before sending. Anyone with an Invite Sent Date, or already emailed from here or Goodluck's sheet, is "
 			+ "skipped - no one gets it twice. First names come from " + APPLICATIONS_SHEET + " (otherwise the email says \"Hi there,\").\n\n"
@@ -538,8 +566,8 @@ function showSetup() {
 		+ "Testers come from the \"Email\" column of " + TESTERS_SHEET + ". If someone signed up to STAK with another "
 		+ "address, add a \"STAK email\" column there with it.\n\n"
 		+ "Beta invites: \"Send beta invite to ticked testers\" emails everyone ticked in a \"Send Email?\" column of "
-		+ TESTERS_SHEET + " - add that column in the master sheet, so ticks stay with their tester. Without the column it emails "
-		+ "EVERY new tester. \"Send beta invite to highlighted rows\" emails only the rows you highlight (click the row numbers; "
+		+ TESTERS_SHEET + " - add that column in the master sheet, so ticks stay with their tester. Without the column it sends "
+		+ "nothing. \"Send beta invite to highlighted rows\" emails only the rows you highlight (click the row numbers; "
 		+ "Ctrl-click for several). Both ask first, and both skip anyone with an Invite Sent Date or already emailed - no one gets "
 		+ "it twice. Names come from a tab named \"" + APPLICATIONS_SHEET + "\" (an IMPORTRANGE of the master's).\n\n"
 		+ "Other tabs: look testers up by email in " + OUTPUT_SHEET + ", and columns by their header name. Hover a header "
