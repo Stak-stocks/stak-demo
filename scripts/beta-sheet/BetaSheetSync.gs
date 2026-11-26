@@ -1,9 +1,9 @@
 /**
- * STAK beta master sheet <- STAK's beta report (POST /api/admin/analytics/beta). Setup (also under STAK -> How to set up):
+ * STAK beta sheets <- STAK's beta report (POST /api/admin/analytics/beta). Setup (also under STAK -> How to set up):
  *
  *   1. In the sheet: Extensions -> Apps Script. Replace everything in Code.gs with this file and save.
  *   2. In Apps Script: the gear (Project Settings) -> Script properties -> Add script property:
- *      BETA_REPORT_SECRET = the sheet key (ask Goodluck; SECRETS.md "The beta master sheet").
+ *      BETA_REPORT_SECRET = the sheet key (ask Goodluck; SECRETS.md "The beta sheets").
  *   3. Reload the sheet. A "STAK" menu appears: STAK -> Refresh STAK data. The first time, Google asks for permission
  *      ("Google hasn't verified this app" -> Advanced -> Go to ... -> Allow): the script reads this sheet and calls STAK.
  *   4. STAK -> Refresh every morning, to keep it up to date on its own.
@@ -11,6 +11,11 @@
  *      =IMPORTRANGE("<master sheet link>", "Applications Raw!A:Z"). Then, when testers are picked: STAK -> Send beta invite
  *      to ticked testers (those ticked in a "Send Email?" column of the master's Selected Testers - every new tester when
  *      there's no such column), or highlight rows and STAK -> Send beta invite to highlighted rows.
+ *
+ * The team's master sheet runs this same file to send the beta invites itself: paste it there too, with Script property
+ * BETA_REPORT_SECRET. It knows it's the master (its Selected Testers is real data, not an IMPORTRANGE; Script property
+ * SHEET_ROLE = master / data overrides that), so its STAK menu has only the two Send items and How to set up, and it
+ * never writes STAK Data (the master's is an IMPORTRANGE of this sheet's).
  *
  * It reads the testers from TESTERS_SHEET (the "Email" column, and a "STAK email" column when a tester signed up to STAK
  * with another address, e.g. Apple's Hide My Email), asks STAK about them, and rewrites OUTPUT_SHEET: one row per tester,
@@ -63,14 +68,34 @@ const COLUMNS = [
 ];
 const TEXT_COLUMNS = ["email", "stak_email", "display_name", "platform", "app_version"];
 
+let masterCache_ = null;
+
+/**
+ * Whether this is the team's master sheet, which only sends the beta invites (its STAK Data is an IMPORTRANGE of
+ * Goodluck's data sheet). Goodluck's sheet imports Selected Testers (an IMPORTRANGE in A1); the master's is real data -
+ * so it's told apart on its own. Script property SHEET_ROLE = master / data overrides that.
+ */
+function isMaster_() {
+	if (masterCache_ !== null) return masterCache_;
+	const role = (PropertiesService.getScriptProperties().getProperty("SHEET_ROLE") || "").trim().toLowerCase();
+	if (role === "master" || role === "data") return (masterCache_ = role === "master");
+	const testers = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TESTERS_SHEET);
+	return (masterCache_ = !!testers && !/IMPORTRANGE/i.test(testers.getRange(1, 1).getFormula()));
+}
+
+/** Why the master can't refresh (or schedule a refresh), in words for whoever clicked. */
+const MASTER_NO_REFRESH = "Nothing to refresh here: this is the master sheet, and its STAK Data comes from Goodluck's sheet, "
+	+ "which refreshes it every morning. Nothing was changed.";
+
 function onOpen() {
-	SpreadsheetApp.getUi()
-		.createMenu("STAK")
-		.addItem("Refresh STAK data", "menuRefresh")
-		.addItem("Refresh every morning", "turnOnDailyRefresh")
-		.addItem("Stop the morning refresh", "turnOffDailyRefresh")
-		.addSeparator()
-		.addItem("Send beta invite to ticked testers", "sendSelectionEmails")
+	const menu = SpreadsheetApp.getUi().createMenu("STAK");
+	if (!isMaster_()) {
+		menu.addItem("Refresh STAK data", "menuRefresh")
+			.addItem("Refresh every morning", "turnOnDailyRefresh")
+			.addItem("Stop the morning refresh", "turnOffDailyRefresh")
+			.addSeparator();
+	}
+	menu.addItem("Send beta invite to ticked testers", "sendSelectionEmails")
 		.addItem("Send beta invite to highlighted rows", "sendSelectionEmailsToSelectedRows")
 		.addSeparator()
 		.addItem("How to set up", "showSetup")
@@ -98,9 +123,16 @@ function refreshStakData() {
 }
 
 function refresh_() {
+	const book = SpreadsheetApp.getActiveSpreadsheet();
+	if (isMaster_()) throw new Error(MASTER_NO_REFRESH);
+	// Never over a STAK Data holding a formula anywhere (an IMPORTRANGE): it's a copy of another sheet's.
+	const existing = book.getSheetByName(OUTPUT_SHEET);
+	if (existing && existing.getDataRange().getFormulas().some((r) => r.some(Boolean))) {
+		throw new Error("This sheet's " + OUTPUT_SHEET + " is a copy of another sheet's (it holds a formula), so nothing was changed. "
+			+ "If this is the master sheet, add Script property SHEET_ROLE = master (Extensions -> Apps Script -> gear) and reopen it.");
+	}
 	const lock = LockService.getScriptLock();
 	if (!lock.tryLock(30000)) throw new Error("Another refresh is running - try again in a minute.");
-	const book = SpreadsheetApp.getActiveSpreadsheet();
 	try {
 		const done = writeReport_(book);
 		setStatus_(book, "Last refreshed " + now_(book) + " - " + done, false);
@@ -380,7 +412,7 @@ function sendSelection_(spans, sheet) {
 	const lines = [];
 	if (error) lines.push("Stopped by an error: " + error + (results.length ? " Everything below happened before it." : " Nothing was sent - try again."));
 	lines.push("Sent: " + by("sent").length);
-	if (by("already_sent").length) lines.push("Already had it: " + by("already_sent").length);
+	if (by("already_sent").length) lines.push("Already had it (sent earlier, from this sheet or the other one): " + by("already_sent").length);
 	if (by("not_on_waitlist").length) lines.push("Not sent - STAK doesn't know these addresses (check them for typos, or ask them to join "
 		+ "at thestak.org, then send again; or invite them by hand and fill in Invite Sent Date): " + list(by("not_on_waitlist")));
 	if (by("unsubscribed").length) lines.push("Not sent - they unsubscribed from STAK emails. Invite them personally, then fill in "
@@ -390,11 +422,16 @@ function sendSelection_(spans, sheet) {
 	if (by("not_attempted", false).length) lines.push("Not sent yet - ran out of time. Click the same STAK menu item again to finish: "
 		+ list(by("not_attempted", false)));
 	if (by("failed").length) lines.push("Failed - try again later; tell Goodluck if it repeats: " + list(by("failed")));
-	lines.push("STAK's sends show in the invite_sent column of " + OUTPUT_SHEET + ".");
-	// Near the 6-minute limit the summary matters more than the refresh (the morning one catches up).
-	if (Date.now() - t0 < 5 * 60 * 1000) {
-		try { refresh_(); } catch (e) { lines.push("(" + OUTPUT_SHEET + " wasn't refreshed: " + e.message + ")"); }
-	} else lines.push("(Click STAK -> Refresh STAK data to see them in " + OUTPUT_SHEET + ".)");
+	if (isMaster_()) {
+		if (by("sent").length) lines.push("Those sent show in the invite_sent column of " + OUTPUT_SHEET + " tomorrow morning, after "
+			+ "Goodluck's sheet refreshes. Nothing else to do - sending again won't email anyone twice.");
+	} else {
+		lines.push("STAK's sends show in the invite_sent column of " + OUTPUT_SHEET + ".");
+		// Near the 6-minute limit the summary matters more than the refresh (the morning one catches up).
+		if (Date.now() - t0 < 5 * 60 * 1000) {
+			try { refresh_(); } catch (e) { lines.push("(" + OUTPUT_SHEET + " wasn't refreshed: " + e.message + ")"); }
+		} else lines.push("(Click STAK -> Refresh STAK data to see them in " + OUTPUT_SHEET + ".)");
+	}
 	ui.alert("Beta invites", lines.join("\n\n"), ui.ButtonSet.OK);
 }
 
@@ -450,6 +487,11 @@ function dateOnly_(ymd) {
 }
 
 function turnOnDailyRefresh() {
+	// The master never refreshes: a trigger there would only fail, and email a failure, every morning.
+	if (isMaster_()) {
+		SpreadsheetApp.getUi().alert(MASTER_NO_REFRESH);
+		return;
+	}
 	removeTriggers_();
 	ScriptApp.newTrigger("refreshStakData").timeBased().everyDays(1).atHour(7).create();
 	SpreadsheetApp.getActiveSpreadsheet().toast(
@@ -473,6 +515,20 @@ function removeTriggers_() {
 
 function showSetup() {
 	const ui = SpreadsheetApp.getUi();
+	if (isMaster_()) {
+		ui.alert("Sending beta invites from the master sheet",
+			"1. Set up once: Extensions -> Apps Script -> gear (Project Settings) -> Script properties -> Add script property: "
+			+ "BETA_REPORT_SECRET = the sheet key (ask Goodluck). Then close and reopen this sheet.\n\n"
+			+ "2. To invite people: tick them in the \"Send Email?\" column of " + TESTERS_SHEET + " and click STAK -> Send beta "
+			+ "invite to ticked testers (without that column it emails EVERY new tester). Or click the row numbers of the people "
+			+ "you want (Ctrl-click for several) and click STAK -> Send beta invite to highlighted rows.\n\n"
+			+ "Both ask before sending. Anyone with an Invite Sent Date, or already emailed from here or Goodluck's sheet, is "
+			+ "skipped - no one gets it twice. First names come from " + APPLICATIONS_SHEET + " (otherwise the email says \"Hi there,\").\n\n"
+			+ "Who was sent it shows in STAK Data's invite_sent column the next morning.\n\n"
+			+ "The first time, Google asks for permission: \"Google hasn't verified this app\" -> Advanced -> Go to ... -> Allow.",
+			ui.ButtonSet.OK);
+		return;
+	}
 	ui.alert("Setting up STAK data",
 		"1. Extensions -> Apps Script -> gear (Project Settings) -> Script properties -> Add script property: "
 		+ "BETA_REPORT_SECRET = the sheet key (ask Goodluck).\n\n"

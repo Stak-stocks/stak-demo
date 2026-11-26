@@ -26,7 +26,7 @@ App users never need any of this: the app's values are built into it when it's b
 | `REDIS_URL`, `ADMIN_SECRET`, `WARM_SECRET`, `WAITLIST_TOKEN_SECRET`, `TALLY_SIGNING_SECRET`, `TALLY_FORM_URL` | Backend |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Backend (web push) |
 | `EARLY_ACCESS_RESEND_KEY`, `ANALYTICS_EXCLUDED_EMAILS` | Backend |
-| `BETA_REPORT_SECRET` | Backend, and the beta master sheet's Apps Script (below) |
+| `BETA_REPORT_SECRET` | Backend, and both beta sheets' Apps Script - Goodluck's data sheet and the team master (below) |
 | `BETA_TESTFLIGHT_URL` (a plain Cloud Run setting, not in Secret Manager) | Backend - the beta selection email's TestFlight link (below) |
 | `APPLE_SIGNIN_KEY_P8` (secret `apple-signin-key-p8`), `SUPABASE_MANAGEMENT_TOKEN` | Backend - the monthly renewal of the website's Sign in with Apple secret (below) |
 | `GEMINI_EVAL_API_KEY` | The STAK AI test script only (`backend/src/scripts/stakAiEval.ts`) - a billed key kept apart from the live ones |
@@ -82,14 +82,16 @@ rm AuthKey.p8
 | Team ID | `P6442U4672` |
 | Current expiry | The latest `[apple-secret] renewed` log line (the first, made by hand 2026-10-31, expires 2027-04-29) |
 
-## The beta master sheet
+## The beta sheets
 
-The team's beta sheet pulls STAK's per-tester numbers itself: `scripts/beta-sheet/BetaSheetSync.gs` (setup steps at its
-top) calls `POST /api/admin/analytics/beta` with `BETA_REPORT_SECRET`, kept in the script's properties under the same
-name. Anyone who can edit the sheet can read that, so it is not `ADMIN_SECRET`. It opens two things only: the beta
-report, for emails the caller names (never "every account"), and the beta selection email (`POST .../beta/invite`) -
-once per person, only to addresses already on the waitlist, at most 300 a day. If the sheet's editors change, replace
-it (Changing a key, below) and paste the new value into the script. Server-only, so it isn't in `backend/.env.example`.
+Goodluck's beta data sheet pulls STAK's per-tester numbers itself: `scripts/beta-sheet/BetaSheetSync.gs` (setup steps at
+its top) calls `POST /api/admin/analytics/beta` with `BETA_REPORT_SECRET`, kept in the script's properties under the
+same name. The team's master sheet runs the same file, with the same key in its Script properties, to send the beta
+invites (it never refreshes). Anyone who can edit either sheet can read that, so it is not `ADMIN_SECRET`. It opens two
+things only: the beta report, for emails the caller names (never "every account"), and the beta selection email
+(`POST .../beta/invite`) - once per person, only to addresses already on the waitlist, at most 300 a day. If either
+sheet's editors change, replace it (Changing a key, below) and paste the new value into **both** sheets' scripts - the
+one left out gets "STAK refused the sheet key". Server-only, so it isn't in `backend/.env.example`.
 
 The selection email's button is the TestFlight public link, a plain setting (not a secret) - nothing is sent until it's set:
 
