@@ -173,3 +173,30 @@ describe("firstNameOf", () => {
 		expect(firstNameOf("1234")).toBeNull();
 	});
 });
+
+describe("POST /beta/invite/preview (the email before it's sent)", () => {
+	beforeEach(() => {
+		pgQueryMock.mockReset();
+		sendMock.mockReset();
+	});
+
+	it("shows the email as that person would get it, sending nothing", async () => {
+		const app = await buildApp();
+		const res = await request(app).post("/beta/invite/preview").set("x-report-secret", "r3port").send({ name: "ada lovelace" });
+		expect(res.status).toBe(200);
+		expect(res.body.subject).toBe("You’ve been selected for the STAK beta");
+		// React leaves empty comments between text pieces ("Hi <!-- -->Ada"): read the text without them.
+		expect(res.body.html.replace(/<!--[\s\S]*?-->/g, "")).toContain("Hi Ada,");
+		expect(res.body.html).toContain("https://testflight.apple.com/join/ABC");
+		expect(sendMock).not.toHaveBeenCalled();
+		expect(pgQueryMock).not.toHaveBeenCalled();
+	});
+
+	it("needs a key and the TestFlight link", async () => {
+		const app = await buildApp({ testflight: null });
+		expect((await request(app).post("/beta/invite/preview").send({})).status).toBe(403);
+		expect((await request(app).post("/beta/invite/preview").set("x-report-secret", "r3port").send({})).status).toBe(409);
+		expect(pgQueryMock).not.toHaveBeenCalled();
+		expect(sendMock).not.toHaveBeenCalled();
+	});
+});

@@ -278,12 +278,13 @@ function readTesters_(book) {
  * STAK -> Send beta invite to ticked testers: the "You've been selected for the STAK beta" email (with the TestFlight
  * link) to the testers ticked in TESTERS_SHEET's "Send Email?" column - nothing at all when there's no such column (never
  * everyone by default). Never to those with an Invite Sent Date (invited by hand), nor anyone STAK
- * already emailed. Sent to the address they applied with (the Email column). Asks first, then says what happened.
+ * already emailed. Sent to the address they applied with (the Email column). Shows who gets it and the email itself,
+ * sends only on Send, then says what happened.
  * STAK itself sends each person at most one, ever, and only to people on its waitlist (who joined on the website or
  * sent the Tally application).
  */
 function sendSelectionEmails() {
-	sendSelection_(null, null);
+	openInviteWindow_(null, null);
 }
 
 /** STAK -> Send beta invite to highlighted rows: the same, but only to the rows highlighted in TESTERS_SHEET (ticks ignored). */
@@ -310,20 +311,17 @@ function sendSelectionEmailsToSelectedRows() {
 		return;
 	}
 	const spans = ranges.map((r) => [r.getRow(), r.getLastRow()]);
-	sendSelection_(spans, sheet);
+	openInviteWindow_(spans, sheet);
 }
 
 /**
- * Sends the beta invite. `spans` null: the ticked testers (none without a tick column); else only testers
- * on a visible row inside one of those [first, last] row spans of `sheet` - a filtered or hidden row inside a highlighted
- * block is left out.
+ * Picks who gets the beta invite and opens the window that shows it before sending (showInviteDialog_). `spans` null:
+ * the ticked testers (none without a tick column); else only testers on a visible row inside one of those [first, last]
+ * row spans of `sheet` - a filtered or hidden row inside a highlighted block is left out.
  */
-function sendSelection_(spans, sheet) {
+function openInviteWindow_(spans, sheet) {
 	const ui = SpreadsheetApp.getUi();
 	const book = SpreadsheetApp.getActiveSpreadsheet();
-	// Apps Script's 6 minutes count from here, the confirmation's open time included.
-	const t0 = Date.now();
-	let todo, names;
 	try {
 		let all = readTesters_(book);
 		let mode;
@@ -359,7 +357,7 @@ function sendSelection_(spans, sheet) {
 		const byHand = all.filter((t) => t.invitedByHand).length;
 		const testers = all.filter((t) => !t.invitedByHand);
 		const sentBefore = testers.length ? callStak_("", { emails: [...new Set(testers.map((t) => t.email.toLowerCase()))] }).invites || {} : {};
-		todo = testers.filter((t) => !sentBefore[t.email.toLowerCase()]);
+		const todo = testers.filter((t) => !sentBefore[t.email.toLowerCase()]);
 		const already = testers.length - todo.length;
 		const skipped = (byHand ? "\n" + byHand + " skipped: Invite Sent Date filled in." : "")
 			+ (already ? "\n" + already + " skipped: STAK already emailed them." : "");
@@ -368,34 +366,151 @@ function sendSelection_(spans, sheet) {
 			return;
 		}
 		const found = readNames_(book);
-		names = found.names;
-		const nameOf = (t) => names[t.email.toLowerCase()] || "";
+		const nameOf = (t) => found.names[t.email.toLowerCase()] || "";
 		const unnamed = todo.filter((t) => !nameOf(t)).length;
-		const shown = todo.slice(0, 15).map((t) => t.email + (nameOf(t) ? " (" + nameOf(t) + ")" : "")).join("\n");
-		const who = "\n\n" + shown + (todo.length > 15 ? "\n...and " + (todo.length - 15) + " more" : "");
 		const nameNote = !found.column
-			? "\n\nNo \"" + APPLICATIONS_SHEET + "\" tab with an email and a name column, so every email will say \"Hi there,\"."
-			: "\n\nNames come from the \"" + found.column + "\" column of " + APPLICATIONS_SHEET + "."
+			? "No \"" + APPLICATIONS_SHEET + "\" tab with an email and a name column, so every email will say \"Hi there,\"."
+			: "Names come from the \"" + found.column + "\" column of " + APPLICATIONS_SHEET + "."
 				+ (unnamed ? " " + unnamed + " have none there, so theirs will say \"Hi there,\"." : "");
-		const ok = ui.alert("Email " + todo.length + " " + (todo.length === 1 ? "person" : "people") + " the beta invite?",
-			mode + "\n\n" + todo.length + " will get \"You've been selected for the STAK beta\" with the iPhone TestFlight link - once, ever."
-			+ skipped + who + nameNote, ui.ButtonSet.OK_CANCEL);
-		if (ok !== ui.Button.OK) return;
+		const recipients = todo.map((t) => ({ email: t.email.toLowerCase(), name: nameOf(t) }));
+		const pending = JSON.stringify(recipients);
+		// CacheService holds 100KB a value, counted in bytes (a name with accents takes more than one).
+		if (Utilities.newBlob(pending).getBytes().length > 90000) {
+			ui.alert("Too many at once", "That's " + todo.length + " people - too many for one go. Tick or highlight fewer (a few hundred at most) "
+				+ "and send in groups.", ui.ButtonSet.OK);
+			return;
+		}
+		// The window's Send button picks these up (sendPendingInvites); a preview left open expires after 10 minutes.
+		const id = Utilities.getUuid();
+		CacheService.getUserCache().put("invite:" + id, pending, 600);
+		const notes = [mode, todo.length + " will get \"You've been selected for the STAK beta\" with the iPhone TestFlight link. "
+			+ "Each person only ever gets it once."].concat(skipped.split("\n").filter(Boolean), [nameNote]);
+		showInviteDialog_(id, recipients, notes);
 	} catch (e) {
 		ui.alert("The beta invite wasn't sent", e.message, ui.ButtonSet.OK);
-		return;
 	}
+}
 
-	// Locked only for the sends, so a dialog left open doesn't block the morning refresh.
+/**
+ * The window that shows the beta invite before it's sent: who gets it, and the email exactly as each of them will get
+ * it (click a name), then Send or Cancel. Names and emails reach the page as data and are shown as text, never HTML.
+ */
+function showInviteDialog_(id, recipients, notes) {
+	const data = JSON.stringify({ id: id, recipients: recipients, notes: notes }).replace(/</g, "\\u003c");
+	const html = HtmlService.createHtmlOutput(`<!doctype html><html><head><base target="_blank"><style>
+body{margin:0;font:14px/1.45 Arial,sans-serif;color:#1f2937;display:flex;flex-direction:column;height:100vh}
+#notes{padding:10px 14px;background:#f3f4f6;border-bottom:1px solid #e5e7eb}#notes p{margin:2px 0}#notes .lead{font-weight:bold}
+#main{flex:1;display:flex;min-height:0}#side{width:270px;display:flex;flex-direction:column;border-right:1px solid #e5e7eb}
+#head{padding:8px 12px;font-weight:bold;border-bottom:1px solid #e5e7eb}#list{flex:1;overflow:auto}
+#list button{display:block;width:100%;text-align:left;padding:8px 12px;border:0;border-bottom:1px solid #f3f4f6;background:#fff;cursor:pointer;font:inherit}
+#list button.on{background:#e0f2f7}#list small{color:#6b7280;display:block}#list .none{color:#6b7280;font-style:italic}
+#view{flex:1;display:flex;flex-direction:column;min-width:0}#subject{padding:8px 12px;border-bottom:1px solid #e5e7eb}
+iframe{flex:1;border:0;width:100%;background:#0A1020}
+#bar{padding:10px 14px;border-top:1px solid #e5e7eb;display:flex;gap:10px;align-items:center}
+#bar button{padding:8px 16px;font:inherit;border-radius:6px;cursor:pointer}#send{background:#2C7A93;color:#fff;border:0}
+#cancel{background:#fff;border:1px solid #d1d5db}#status{color:#6b7280}
+#result{display:none;padding:16px;white-space:pre-wrap;overflow:auto}#result.stopped{color:#92400e}
+</style></head><body>
+<div id="notes"><p class="lead">Nothing has been sent yet. This is a preview - click a name to see exactly what they'll get. Emails go out only when you click Send. This preview stays open for 10 minutes.</p></div>
+<div id="main"><div id="side"><div id="head"></div><div id="list"></div></div>
+<div id="view"><div id="subject">Loading the email...</div><iframe id="frame" title="The email" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe></div></div>
+<div id="result"></div>
+<div id="bar"><button id="send"></button><button id="cancel">Cancel - send nothing</button><span id="status"></span></div>
+<script>
+const DATA = ${data};
+const $ = (id) => document.getElementById(id);
+const n = DATA.recipients.length;
+DATA.notes.forEach((t) => { const p = document.createElement("p"); p.textContent = t; $("notes").appendChild(p); });
+$("head").textContent = "Who gets it (" + n + ") - click to preview";
+$("send").textContent = "Send now to " + n + (n === 1 ? " person" : " people");
+// One preview per name (the greeting is the only difference), and only the last click's answer is shown.
+const previews = {};
+let current = -1;
+function render(i, p) {
+  const r = DATA.recipients[i];
+  $("subject").textContent = "To: " + (r.name ? r.name + " <" + r.email + ">" : r.email + " - the greeting will be \\"Hi there,\\"") + "   |   Subject: " + p.subject;
+  // Links in the email open in a new tab, not inside this window.
+  $("frame").srcdoc = p.html.replace(/<head[^>]*>/i, (h) => h + '<base target="_blank">');
+}
+function show(i) {
+  current = i;
+  [...$("list").children].forEach((b, j) => b.classList.toggle("on", j === i));
+  const key = (DATA.recipients[i].name || "").trim().toLowerCase();
+  if (previews[key]) return render(i, previews[key]);
+  $("subject").textContent = "Loading " + DATA.recipients[i].email + "'s email...";
+  google.script.run.withSuccessHandler((p) => {
+    previews[key] = p;
+    if (current === i) render(i, p);
+  }).withFailureHandler((e) => {
+    if (current === i) $("subject").textContent = "Couldn't load this preview (" + e.message + "). Click the name to try again. If it keeps failing, don't send - tell Goodluck.";
+  }).previewInvite(DATA.recipients[i].name);
+}
+DATA.recipients.forEach((r, i) => {
+  const b = document.createElement("button");
+  const name = document.createElement("span");
+  name.textContent = r.name || "No name found";
+  if (!r.name) name.className = "none";
+  const s = document.createElement("small"); s.textContent = r.email;
+  b.appendChild(name); b.appendChild(s);
+  b.onclick = () => show(i);
+  $("list").appendChild(b);
+});
+show(0);
+$("cancel").onclick = () => google.script.host.close();
+$("send").onclick = () => {
+  $("send").disabled = $("cancel").disabled = true;
+  const started = Date.now();
+  const tick = () => { $("status").textContent = "Sending to " + n + (n === 1 ? " person" : " people") + "... " + Math.round((Date.now() - started) / 1000)
+    + "s. This can take up to 5 minutes - keep this window open (closing it won't stop the sending, but you won't see what happened)."; };
+  tick();
+  const timer = setInterval(tick, 1000);
+  google.script.run.withSuccessHandler((res) => {
+    clearInterval(timer);
+    $("main").style.display = "none"; $("notes").style.display = "none";
+    $("result").style.display = "block"; $("result").textContent = res.text;
+    $("result").classList.toggle("stopped", !res.done);
+    $("send").style.display = "none"; $("cancel").disabled = false; $("cancel").textContent = "Close"; $("status").textContent = "";
+  }).withFailureHandler((e) => {
+    clearInterval(timer);
+    $("status").textContent = "Something went wrong: " + e.message + ". Some invites may already have gone out. Close this window, wait a minute, "
+      + "then choose the same STAK menu item again - anyone already emailed is skipped.";
+    $("cancel").disabled = false; $("cancel").textContent = "Close";
+  }).sendPendingInvites(DATA.id);
+};
+</script></body></html>`).setWidth(1000).setHeight(720);
+	SpreadsheetApp.getUi().showModalDialog(html, "Check the beta invite before sending");
+}
+
+/** From the preview window: the beta invite as someone with this name will get it ({ subject, html }). Sends nothing. */
+function previewInvite(name) {
+	const p = callStak_("/invite/preview", { name: name || "" });
+	return { subject: p.subject, html: p.html };
+}
+
+/**
+ * From the preview window's Send button: sends to the people that window showed (kept under `id` for 10 minutes), once
+ * each, and returns { done, text } - what happened, for the window to show (done false: stopped early).
+ */
+function sendPendingInvites(id) {
+	// This google.script.run call has its own 6 minutes, counted from here.
+	const t0 = Date.now();
+	const again = " Close this window and choose the same STAK menu item again - anyone already emailed is skipped.";
+	// Locked only for the sends, so a preview left open doesn't block the morning refresh. Taken before the list is,
+	// so a busy lock leaves the list for another try.
 	const lock = LockService.getScriptLock();
-	if (!lock.tryLock(30000)) {
-		ui.alert("Another refresh or send is running - try again in a minute.");
-		return;
+	if (!lock.tryLock(30000)) return { done: false, text: "Not sent - another refresh or send is running." + again };
+	const cache = CacheService.getUserCache();
+	const pending = cache.get("invite:" + id);
+	if (!pending) {
+		lock.releaseLock();
+		return { done: false, text: "This preview has closed (previews last 10 minutes), so this Send did nothing." + again };
 	}
+	cache.remove("invite:" + id);
+	const total = JSON.parse(pending).length;
 	const results = [];
 	let error = null;
 	try {
-		let queue = todo.map((t) => ({ email: t.email.toLowerCase(), name: names[t.email.toLowerCase()] || "" }));
+		let queue = JSON.parse(pending);
 		// STAK hands back whoever it had no time for: send those again, until done or near Apps Script's 6-minute limit.
 		while (queue.length && Date.now() - t0 < 4.5 * 60 * 1000) {
 			const batch = queue.slice(0, INVITE_BATCH);
@@ -416,8 +531,10 @@ function sendSelection_(spans, sheet) {
 	const by = (status, withError) => results.filter((r) => r.status === status && (withError === undefined || !!r.error === withError));
 	const list = (rs) => rs.map((r) => r.email).join(", ");
 	const lines = [];
-	if (error) lines.push("Stopped by an error: " + error + (results.length ? " Everything below happened before it." : " Nothing was sent - try again."));
-	lines.push("Sent: " + by("sent").length);
+	const stopped = !!error || by("not_attempted", false).length > 0;
+	lines.push(stopped ? "Stopped early - here's what happened:" : "Done - here's what happened:");
+	if (error) lines.push("Stopped by an error: " + error + "." + (results.length ? " Everything below happened before it." : "") + again);
+	lines.push("Sent: " + by("sent").length + " of " + total);
 	if (by("already_sent").length) lines.push("Already had it (sent earlier, from this sheet or the other one): " + by("already_sent").length);
 	if (by("not_on_waitlist").length) lines.push("Not sent - STAK doesn't know these addresses (check them for typos, or ask them to join "
 		+ "at thestak.org, then send again; or invite them by hand and fill in Invite Sent Date): " + list(by("not_on_waitlist")));
@@ -425,7 +542,7 @@ function sendSelection_(spans, sheet) {
 		+ "Invite Sent Date: " + list(by("unsubscribed")));
 	if (by("not_attempted", true).length) lines.push("Not sent - " + by("not_attempted", true)[0].error + ". Send again tomorrow: "
 		+ list(by("not_attempted", true)));
-	if (by("not_attempted", false).length) lines.push("Not sent yet - ran out of time. Click the same STAK menu item again to finish: "
+	if (by("not_attempted", false).length) lines.push("Not sent yet - ran out of time. Choose the same STAK menu item again to finish: "
 		+ list(by("not_attempted", false)));
 	if (by("unconfirmed").length) lines.push("Not sent - an earlier send to them may already have gone out, so STAK won't send "
 		+ "again on its own. Don't resend or invite them by hand yet - tell Goodluck these addresses so he can check: "
@@ -440,9 +557,9 @@ function sendSelection_(spans, sheet) {
 		// Near the 6-minute limit the summary matters more than the refresh (the morning one catches up).
 		if (Date.now() - t0 < 5 * 60 * 1000) {
 			try { refresh_(); } catch (e) { lines.push("(" + OUTPUT_SHEET + " wasn't refreshed: " + e.message + ")"); }
-		} else lines.push("(Click STAK -> Refresh STAK data to see them in " + OUTPUT_SHEET + ".)");
+		} else lines.push("(Choose STAK -> Refresh STAK data to see them in " + OUTPUT_SHEET + ".)");
 	}
-	ui.alert("Beta invites", lines.join("\n\n"), ui.ButtonSet.OK);
+	return { done: !stopped, text: lines.join("\n\n") };
 }
 
 /**
@@ -547,10 +664,10 @@ function showSetup() {
 		ui.alert("Sending beta invites from the master sheet",
 			"1. Set up once: Extensions -> Apps Script -> gear (Project Settings) -> Script properties -> Add script property: "
 			+ "BETA_REPORT_SECRET = the sheet key (ask Goodluck). Then close and reopen this sheet.\n\n"
-			+ "2. To invite people: tick them in the \"Send Email?\" column of " + TESTERS_SHEET + " and click STAK -> Send beta "
+			+ "2. To invite people: tick them in the \"Send Email?\" column of " + TESTERS_SHEET + " and choose STAK -> Send beta "
 			+ "invite to ticked testers (without that column it sends nothing). Or click the row numbers of the people "
-			+ "you want (Ctrl-click for several) and click STAK -> Send beta invite to highlighted rows.\n\n"
-			+ "Both ask before sending. Anyone with an Invite Sent Date, or already emailed from here or Goodluck's sheet, is "
+			+ "you want (Ctrl-click for several) and choose STAK -> Send beta invite to highlighted rows.\n\n"
+			+ "Both show who gets it and the email itself before anything is sent. Anyone with an Invite Sent Date, or already emailed from here or Goodluck's sheet, is "
 			+ "skipped - no one gets it twice. First names come from " + APPLICATIONS_SHEET + " (otherwise the email says \"Hi there,\").\n\n"
 			+ "Who was sent it shows in STAK Data's invite_sent column the next morning.\n\n"
 			+ "The first time, Google asks for permission: \"Google hasn't verified this app\" -> Advanced -> Go to ... -> Allow.",
@@ -568,7 +685,7 @@ function showSetup() {
 		+ "Beta invites: \"Send beta invite to ticked testers\" emails everyone ticked in a \"Send Email?\" column of "
 		+ TESTERS_SHEET + " - add that column in the master sheet, so ticks stay with their tester. Without the column it sends "
 		+ "nothing. \"Send beta invite to highlighted rows\" emails only the rows you highlight (click the row numbers; "
-		+ "Ctrl-click for several). Both ask first, and both skip anyone with an Invite Sent Date or already emailed - no one gets "
+		+ "Ctrl-click for several). Both show who gets it and the email itself before anything is sent, and both skip anyone with an Invite Sent Date or already emailed - no one gets "
 		+ "it twice. Names come from a tab named \"" + APPLICATIONS_SHEET + "\" (an IMPORTRANGE of the master's).\n\n"
 		+ "Other tabs: look testers up by email in " + OUTPUT_SHEET + ", and columns by their header name. Hover a header "
 		+ "to see what it means. Don't edit " + OUTPUT_SHEET + ": each refresh rewrites it.",

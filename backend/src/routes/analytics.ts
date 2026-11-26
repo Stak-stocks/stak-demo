@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { timingSafeEqual } from "node:crypto";
 import { getEasternDateKey } from "@stak/shared";
 import { pgQuery } from "../lib/postgres.js";
-import { EMAIL_RE, firstNameOf, sendBetaSelectedEmail } from "../services/earlyAccessEmail.js";
+import { EMAIL_RE, firstNameOf, previewBetaSelectedEmail, sendBetaSelectedEmail } from "../services/earlyAccessEmail.js";
 
 export const analyticsRouter = Router();
 
@@ -716,6 +716,25 @@ analyticsRouter.post("/beta/invite", async (req: Request, res: Response) => {
 		}
 	}
 	res.json({ sent: results.filter((r) => r.status === "sent").length, results });
+});
+
+// POST /api/admin/analytics/beta/invite/preview { name? } — the beta selection email as someone with that name would
+// get it ({ subject, html }), for the sheet to show before anything is sent. Sends nothing. Who may call it:
+// betaReportCaller.
+analyticsRouter.post("/beta/invite/preview", async (req: Request, res: Response) => {
+	if (!betaReportCaller(req, res)) return;
+	res.set("Cache-Control", "no-store");
+	try {
+		const preview = await previewBetaSelectedEmail(firstNameOf(req.body?.name));
+		if (!preview) {
+			res.status(409).json({ error: "The TestFlight link isn't set up yet (BETA_TESTFLIGHT_URL), so there's no email to show" });
+			return;
+		}
+		res.json({ subject: preview.subject, html: preview.html });
+	} catch (e) {
+		console.error("[analytics] beta invite preview error:", e);
+		res.status(500).json({ error: "Failed to show the email" });
+	}
 });
 
 // GET /api/admin/analytics/stak-ai?days=30 — how STAK AI is used: questions (and by whom), where they're asked from,

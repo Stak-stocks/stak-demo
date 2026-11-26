@@ -91,6 +91,16 @@ export function sendBetaSelectedEmail(email: string, firstName: string | null): 
 }
 
 /**
+ * The beta selection email exactly as `firstName` would get it (subject and HTML), for the sheet to show before sending.
+ * The Unsubscribe link is a stand-in (each real email's is signed for its address). Null when BETA_TESTFLIGHT_URL isn't set.
+ */
+export function previewBetaSelectedEmail(firstName: string | null): Promise<RenderedEmail | null> {
+	const testflightUrl = process.env.BETA_TESTFLIGHT_URL?.trim();
+	if (!testflightUrl) return Promise.resolve(null);
+	return renderBetaSelected({ firstName, testflightUrl, unsubscribeUrl: `${API()}/api/waitlist/unsubscribe?token=preview` });
+}
+
+/**
  * Renders one of STAK's emails for an address and sends it through Resend, with one-click unsubscribe. Never throws.
  * `idempotencyKey`: Resend sends at most one email per key in 24 hours.
  */
